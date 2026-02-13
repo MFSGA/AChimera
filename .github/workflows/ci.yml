@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
 
     steps:
       - name: Checkout code
@@ -51,6 +51,12 @@ jobs:
       - name: Run quality checks
         run: ./gradlew testDebugUnitTest lintDebug
 
+      - name: Get version info
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        id: version
+        run: |
+          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
       - name: Build Debug APK
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: ./gradlew assembleDebug
@@ -59,12 +65,44 @@ jobs:
         if: ${{ startsWith(github.ref, 'refs/tags/v') }}
         run: ./gradlew assembleRelease
 
-      - name: Upload APK artifacts
+      - name: Upload Debug APK artifact
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
-          name: app-apk-${{ github.ref_name }}
+          name: app-debug-apk-${{ github.run_id }}
           path: |
             app/build/outputs/apk/debug/*.apk
-            app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Organize release artifacts
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          mkdir -p output
+          VERSION="${{ steps.version.outputs.version }}"
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ]; then
+            echo "No release APK found."
+            exit 1
+          fi
+          cp "$APK_PATH" "output/chimera-lite-${VERSION}.apk"
+          sha256sum output/*.apk > output/SHA256SUMS.txt
+          ls -lh output/
+
+      - name: Upload Release APK artifact
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk-${{ github.ref_name }}
+          path: output/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create and publish release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          gh release delete "$TAG_NAME" --yes || true
+          gh release create "$TAG_NAME" output/* --title "$TAG_NAME" --latest --generate-notes
