@@ -38,3 +38,7 @@ build
 local.properties
 signing.properties
 uniffi/target
+
+docs/
+
+clash-andriod/
