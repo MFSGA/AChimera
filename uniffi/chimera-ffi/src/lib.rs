@@ -1,6 +1,6 @@
 use jni::objects::{JObject, JString};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
-use jni::JNIEnv;
+use jni::{JNIEnv, JavaVM};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File, OpenOptions};
 use std::hash::{Hash, Hasher};
@@ -15,6 +15,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 static CORE_RUNNING: AtomicBool = AtomicBool::new(false);
 static CORE_STATE: OnceLock<Mutex<Option<CoreState>>> = OnceLock::new();
 static LAST_ERROR: OnceLock<Mutex<Option<String>>> = OnceLock::new();
+static JVM: OnceLock<JavaVM> = OnceLock::new();
 
 struct CoreState {
     worker: JoinHandle<()>,
@@ -244,6 +245,10 @@ fn start_core_internal(
 }
 
 fn build_hello_message() -> String {
+    if JVM.get().is_none() {
+        return "ffi: jni not setup".to_string();
+    }
+
     if CORE_RUNNING.load(Ordering::SeqCst) {
         let guard = core_state().lock();
         if let Ok(guard) = guard {
@@ -263,6 +268,28 @@ fn build_hello_message() -> String {
         return format!("ffi: core stopped ({last_error})");
     }
     "ffi: core stopped".to_string()
+}
+
+#[no_mangle]
+pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
+    env: JNIEnv<'_>,
+    _this: JObject<'_>,
+) -> jboolean {
+    match env.get_java_vm() {
+        Ok(vm) => {
+            if JVM.set(vm).is_ok() || JVM.get().is_some() {
+                clear_last_error();
+                JNI_TRUE
+            } else {
+                set_last_error("failed to persist JavaVM");
+                JNI_FALSE
+            }
+        }
+        Err(error) => {
+            set_last_error(format!("failed to get JavaVM: {error}"));
+            JNI_FALSE
+        }
+    }
 }
 
 #[no_mangle]

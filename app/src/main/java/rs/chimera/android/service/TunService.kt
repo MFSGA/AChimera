@@ -9,7 +9,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
-import rs.chimera.android.ffi.ChimeraFfi
+import rs.chimera.android.ffi.ProfileOverride
+import rs.chimera.android.ffi.initClash
+import rs.chimera.android.ffi.shutdownClash
 import java.io.File
 
 var tunService: TunService? = null
@@ -58,11 +60,13 @@ class TunService : VpnService() {
             return
         }
 
-        val startResult = ChimeraFfi.startCore(
-            profilePath = Global.profilePath,
-            cacheDir = Global.application.cacheDir.absolutePath,
-            tunFd = currentTunFd,
-            logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
+        val startResult = initClash(
+            configPath = Global.profilePath,
+            workDir = Global.application.cacheDir.absolutePath,
+            over = ProfileOverride(
+                tunFd = currentTunFd,
+                logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
+            ),
         )
         if (startResult.isFailure) {
             Log.e(TAG, "Failed to initialize Rust core", startResult.exceptionOrNull())
@@ -72,7 +76,7 @@ class TunService : VpnService() {
 
     private fun buildTunnel(): ParcelFileDescriptor? {
         val builder = Builder()
-        builder.setSession("Chimera VPNService")
+        builder.setSession("ClashRS VPNService")
         builder.addAddress("10.0.0.1", 30)
         builder.addRoute("0.0.0.0", 0)
         builder.addDnsServer("10.0.0.2")
@@ -100,7 +104,7 @@ class TunService : VpnService() {
     }
 
     fun stopVpn() {
-        ChimeraFfi.stopCore().exceptionOrNull()?.let { error ->
+        shutdownClash().exceptionOrNull()?.let { error ->
             Log.w(TAG, "Failed to stop Rust core cleanly", error)
         }
         vpnInterface?.close()
