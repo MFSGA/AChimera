@@ -3,4 +3,12 @@
     <string name="home_message">Chimera Lite is ready.</string>
     <string name="home_screen">Home</string>
     <string name="profile_screen">Profile</string>
+    <string name="native_bridge_title">Native Bridge</string>
+    <string name="native_bridge_subtitle">Rust FFI call result</string>
+    <string name="service_status_title">Service Status</string>
+    <string name="service_status_subtitle">Backed by Global.isServiceRunning</string>
+    <string name="service_running">Running</string>
+    <string name="service_stopped">Stopped</string>
+    <string name="profile_title">Imported Profile</string>
+    <string name="profile_missing">No profile selected</string>
 </resources>

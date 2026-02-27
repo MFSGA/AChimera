@@ -39,15 +39,13 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
             }
         },
     ) { innerPadding ->
-        ChimeraApp(
-            modifier = Modifier.padding(innerPadding),
-            sectionTitle = stringResource(id = selectedItem.label),
-        )
         when (selectedItem) {
             BottomBarItem.Home -> {
                 ChimeraApp(
                     modifier = Modifier.padding(innerPadding),
                     sectionTitle = stringResource(id = selectedItem.label),
+                    isServiceRunning = isServiceRunning,
+                    profilePath = Global.profilePath,
                 )
             }
 
