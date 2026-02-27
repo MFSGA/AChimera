@@ -16,7 +16,10 @@ import rs.chimera.android.R
 import rs.chimera.android.ffi.ChimeraFfi
 
 @Composable
-fun ChimeraApp(modifier: Modifier = Modifier) {
+fun ChimeraApp(
+    modifier: Modifier = Modifier,
+    sectionTitle: String = "",
+) {
     val ffiMessage = remember { ChimeraFfi.helloOrFallback() }
 
     Box(
@@ -29,6 +32,10 @@ fun ChimeraApp(modifier: Modifier = Modifier) {
         ) {
             Text(text = stringResource(id = R.string.home_message))
             Box(modifier = Modifier.size(8.dp))
+            if (sectionTitle.isNotEmpty()) {
+                Text(text = sectionTitle)
+                Box(modifier = Modifier.size(8.dp))
+            }
             Text(text = ffiMessage)
             Text(text = "所展现22222333333出")
         }
