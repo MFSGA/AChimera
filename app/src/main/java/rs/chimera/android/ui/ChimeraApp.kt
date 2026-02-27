@@ -11,15 +11,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Text
 import androidx.compose.material3.Card
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import rs.chimera.android.R
 import rs.chimera.android.ffi.ChimeraFfi
 
@@ -30,7 +38,11 @@ fun ChimeraApp(
     isServiceRunning: Boolean = false,
     profilePath: String = "",
 ) {
-    val ffiMessage = remember { ChimeraFfi.helloOrFallback() }
+    var refreshVersion by rememberSaveable { mutableIntStateOf(0) }
+    val ffiMessage = remember(refreshVersion) { ChimeraFfi.helloOrFallback() }
+    val refreshedAt = remember(refreshVersion) {
+        SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+    }
     val profileLabel = remember(profilePath) {
         if (profilePath.isBlank()) "" else File(profilePath).name
     }
@@ -42,11 +54,37 @@ fun ChimeraApp(
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.align(Alignment.CenterStart),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.home_dashboard_title),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = stringResource(
+                                id = R.string.home_last_refreshed,
+                                refreshedAt,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
+                    IconButton(
+                        onClick = { refreshVersion++ },
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) {
+                        Text(text = stringResource(id = R.string.home_refresh_short))
+                    }
+                }
                 if (sectionTitle.isNotEmpty()) {
                     Text(
                         text = sectionTitle,
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
                     )
                 }
                 Text(
@@ -59,7 +97,10 @@ fun ChimeraApp(
             StatsCard(
                 title = stringResource(id = R.string.native_bridge_title),
                 value = ffiMessage,
-                subtitle = stringResource(id = R.string.native_bridge_subtitle),
+                subtitle = stringResource(
+                    id = R.string.native_bridge_subtitle_with_time,
+                    refreshedAt,
+                ),
             )
         }
         item {

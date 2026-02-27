@@ -2,13 +2,27 @@
     <string name="app_name">Chimera Lite</string>
     <string name="home_message">Chimera Lite is ready.</string>
     <string name="home_screen">Home</string>
+    <string name="home_dashboard_title">Chimera Dashboard</string>
+    <string name="home_refresh">Refresh</string>
+    <string name="home_refresh_short">R</string>
+    <string name="home_last_refreshed">Last refreshed: %1$s</string>
     <string name="profile_screen">Profile</string>
     <string name="native_bridge_title">Native Bridge</string>
     <string name="native_bridge_subtitle">Rust FFI call result</string>
+    <string name="native_bridge_subtitle_with_time">Rust FFI call result at %1$s</string>
     <string name="service_status_title">Service Status</string>
     <string name="service_status_subtitle">Backed by Global.isServiceRunning</string>
     <string name="service_running">Running</string>
     <string name="service_stopped">Stopped</string>
     <string name="profile_title">Imported Profile</string>
     <string name="profile_missing">No profile selected</string>
+    <string name="profile_choose_file">Choose File</string>
+    <string name="profile_save_file">Save File</string>
+    <string name="profile_selected_path">Path: %1$s</string>
+    <string name="profile_saved_path">Saved file path: %1$s</string>
+    <string name="profile_no_saved_path">Saved file path: none</string>
+    <string name="profile_import_ready">Ready to import %1$s</string>
+    <string name="profile_import_success">Imported %1$s</string>
+    <string name="profile_import_error">Import failed: %1$s</string>
+    <string name="profile_unknown_error">Unknown error</string>
 </resources>

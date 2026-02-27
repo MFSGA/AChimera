@@ -18,6 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import rs.chimera.android.R
 import androidx.core.content.edit
 import java.io.File
 
@@ -32,9 +34,13 @@ fun ProfileScreen(modifier: Modifier = Modifier) {
         mutableStateOf(sharedPreferences.getString("profile_path", null) ?: "")
     }
     var selectedFile by remember { mutableStateOf<Uri?>(null) }
+    var statusMessage by remember { mutableStateOf("") }
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {
         selectedFile = it
+        statusMessage = it?.let { uri ->
+            context.getString(R.string.profile_import_ready, queryDisplayName(context, uri))
+        } ?: ""
     }
 
     Column(
@@ -43,31 +49,60 @@ fun ProfileScreen(modifier: Modifier = Modifier) {
         verticalArrangement = Arrangement.Center,
     ) {
         Button(onClick = { launcher.launch(arrayOf("*/*")) }) {
-            Text(text = "Choose File")
+            Text(text = stringResource(id = R.string.profile_choose_file))
         }
 
         selectedFile?.let { file ->
-            Text(text = "Path: $file")
+            Text(
+                text = stringResource(
+                    id = R.string.profile_selected_path,
+                    file.toString(),
+                ),
+            )
             Button(
                 onClick = {
-                    val filePath = saveFileToAppDirectory(context, file)
-                    sharedPreferences.edit { putString("profile_path", filePath) }
-                    rs.chimera.android.Global.profilePath = filePath
-                    savedFilePath = filePath
+                    runCatching {
+                        saveFileToAppDirectory(context, file)
+                    }.onSuccess { filePath ->
+                        sharedPreferences.edit { putString("profile_path", filePath) }
+                        rs.chimera.android.Global.profilePath = filePath
+                        savedFilePath = filePath
+                        statusMessage = context.getString(
+                            R.string.profile_import_success,
+                            queryDisplayName(context, file),
+                        )
+                    }.onFailure { error ->
+                        val detail = error.message ?: context.getString(R.string.profile_unknown_error)
+                        statusMessage = context.getString(
+                            R.string.profile_import_error,
+                            detail,
+                        )
+                    }
                 },
             ) {
-                Text(text = "Save File")
+                Text(text = stringResource(id = R.string.profile_save_file))
             }
         }
 
         if (savedFilePath.isNotEmpty()) {
-            Text(text = "Saved file path: $savedFilePath")
+            Text(
+                text = stringResource(
+                    id = R.string.profile_saved_path,
+                    savedFilePath,
+                ),
+            )
+        } else {
+            Text(text = stringResource(id = R.string.profile_no_saved_path))
+        }
+
+        if (statusMessage.isNotBlank()) {
+            Text(text = statusMessage)
         }
     }
 }
 
-private fun saveFileToAppDirectory(context: Context, uri: Uri): String {
-    val fileName = context.contentResolver.query(
+private fun queryDisplayName(context: Context, uri: Uri): String {
+    return context.contentResolver.query(
         uri,
         arrayOf(OpenableColumns.DISPLAY_NAME),
         null,
@@ -77,7 +112,10 @@ private fun saveFileToAppDirectory(context: Context, uri: Uri): String {
         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
         if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
     } ?: "profile.yaml"
+}
 
+private fun saveFileToAppDirectory(context: Context, uri: Uri): String {
+    val fileName = queryDisplayName(context, uri)
     val outputFile = File(context.filesDir, fileName)
     context.contentResolver.openInputStream(uri)?.use { input ->
         outputFile.outputStream().use { output ->
