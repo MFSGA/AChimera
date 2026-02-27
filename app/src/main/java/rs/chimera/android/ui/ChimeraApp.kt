@@ -4,10 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -19,27 +16,21 @@ import rs.chimera.android.R
 import rs.chimera.android.ffi.ChimeraFfi
 
 @Composable
-fun ChimeraApp() {
+fun ChimeraApp(modifier: Modifier = Modifier) {
     val ffiMessage = remember { ChimeraFfi.helloOrFallback() }
 
-    MaterialTheme {
-        Scaffold { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(text = stringResource(id = R.string.home_message))
-                    Box(modifier = Modifier.size(8.dp))
-                    Text(text = ffiMessage)
-                    Text(text = "sss")
-                }
-            }
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(text = stringResource(id = R.string.home_message))
+            Box(modifier = Modifier.size(8.dp))
+            Text(text = ffiMessage)
+            Text(text = "所展现22222333333出")
         }
     }
 }

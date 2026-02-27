@@ -6,7 +6,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import rs.chimera.android.theme.ChimeraTheme
-import rs.chimera.android.ui.ChimeraApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -15,7 +14,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             ChimeraTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    ChimeraApp()
+                    ChimeraAppRoot()
                 }
             }
         }
