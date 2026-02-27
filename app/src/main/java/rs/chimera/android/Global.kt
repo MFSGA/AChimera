@@ -1,6 +1,7 @@
 package rs.chimera.android
 
 import android.app.Application
+import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -18,6 +19,9 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
 
     fun init(application: Application) {
         this.application_ = application
+        profilePath = application.getSharedPreferences("file_prefs", Context.MODE_PRIVATE)
+            .getString("profile_path", null)
+            .orEmpty()
     }
 
     fun destroy() {

@@ -14,6 +14,12 @@
     <string name="service_status_subtitle">Backed by Global.isServiceRunning</string>
     <string name="service_running">Running</string>
     <string name="service_stopped">Stopped</string>
+    <string name="service_start_action">Start</string>
+    <string name="service_stop_action">Stop</string>
+    <string name="service_profile_required">Please import a profile before starting.</string>
+    <string name="service_notification_channel_name">Chimera Service</string>
+    <string name="service_notification_title">Chimera is running</string>
+    <string name="service_notification_text">The start pipeline is active.</string>
     <string name="profile_title">Imported Profile</string>
     <string name="profile_missing">No profile selected</string>
     <string name="profile_choose_file">Choose File</string>
