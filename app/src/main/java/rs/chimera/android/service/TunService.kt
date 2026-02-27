@@ -8,11 +8,13 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import rs.chimera.android.Global
 import rs.chimera.android.MainActivity
 import rs.chimera.android.R
+import rs.chimera.android.ffi.ChimeraFfi
 
 var tunService: TunService? = null
 
@@ -25,11 +27,24 @@ class TunService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startAsForegroundService()
+        val startResult = ChimeraFfi.startCore(
+            profilePath = Global.profilePath,
+            cacheDir = cacheDir.absolutePath,
+        )
+        if (startResult.isFailure) {
+            Log.e(TAG, "Failed to initialize Rust core", startResult.exceptionOrNull())
+            Global.isServiceRunning.value = false
+            stopSelf()
+            return START_NOT_STICKY
+        }
         Global.isServiceRunning.value = true
         return START_STICKY
     }
 
     override fun onDestroy() {
+        ChimeraFfi.stopCore().exceptionOrNull()?.let { error ->
+            Log.w(TAG, "Failed to stop Rust core cleanly", error)
+        }
         tunService = null
         Global.isServiceRunning.value = false
         super.onDestroy()
@@ -89,5 +104,6 @@ class TunService : Service() {
     private companion object {
         const val NOTIFICATION_CHANNEL_ID = "chimera_service"
         const val NOTIFICATION_ID = 1001
+        const val TAG = "ChimeraTunService"
     }
 }
