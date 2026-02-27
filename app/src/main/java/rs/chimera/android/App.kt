@@ -1,6 +1,10 @@
 package rs.chimera.android
 
+import android.app.Activity
+import android.net.VpnService
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Scaffold
@@ -13,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.core.content.ContextCompat
 import rs.chimera.android.service.TunService
 import rs.chimera.android.service.tunService
 import rs.chimera.android.ui.BottomBar
@@ -26,6 +29,19 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val isServiceRunning by Global.isServiceRunning.collectAsState()
     val (selectedItem, setSelectedItem) = rememberSaveable { mutableStateOf(BottomBarItem.Home) }
+    val vpnPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            context.startService(TunService::class.intent)
+        } else {
+            Toast.makeText(
+                context,
+                context.getString(R.string.service_vpn_permission_required),
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
 
     Scaffold(
         modifier = modifier,
@@ -47,7 +63,12 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
                             Toast.LENGTH_SHORT,
                         ).show()
                     } else {
-                        ContextCompat.startForegroundService(context, TunService::class.intent)
+                        val intent = VpnService.prepare(context)
+                        if (intent != null) {
+                            vpnPermissionLauncher.launch(intent)
+                        } else {
+                            context.startService(TunService::class.intent)
+                        }
                     }
                 },
             ) {

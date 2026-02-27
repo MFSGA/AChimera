@@ -17,6 +17,7 @@
     <string name="service_start_action">Start</string>
     <string name="service_stop_action">Stop</string>
     <string name="service_profile_required">Please import a profile before starting.</string>
+    <string name="service_vpn_permission_required">VPN permission is required to start.</string>
     <string name="service_notification_channel_name">Chimera Service</string>
     <string name="service_notification_title">Chimera is running</string>
     <string name="service_notification_text">The start pipeline is active.</string>

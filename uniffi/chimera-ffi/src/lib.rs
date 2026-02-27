@@ -1,5 +1,5 @@
 use jni::objects::{JObject, JString};
-use jni::sys::{jboolean, jstring, JNI_FALSE, JNI_TRUE};
+use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
 use jni::JNIEnv;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File, OpenOptions};
@@ -26,6 +26,7 @@ struct CoreState {
 struct CoreMetadata {
     profile_name: String,
     profile_checksum: u64,
+    tun_fd: i32,
     work_dir: PathBuf,
     log_path: PathBuf,
     socket_path: PathBuf,
@@ -107,12 +108,23 @@ fn stop_core_internal() -> Result<(), String> {
     Ok(())
 }
 
-fn start_core_internal(profile_path: String, cache_dir: String) -> Result<(), String> {
+fn start_core_internal(
+    profile_path: String,
+    cache_dir: String,
+    tun_fd: i32,
+    log_file_path: String,
+) -> Result<(), String> {
     if profile_path.trim().is_empty() {
         return Err("profile path is empty".to_string());
     }
     if cache_dir.trim().is_empty() {
         return Err("cache dir is empty".to_string());
+    }
+    if tun_fd <= 0 {
+        return Err(format!("invalid tun fd: {tun_fd}"));
+    }
+    if log_file_path.trim().is_empty() {
+        return Err("log file path is empty".to_string());
     }
 
     let profile_path = PathBuf::from(profile_path);
@@ -156,7 +168,16 @@ fn start_core_internal(profile_path: String, cache_dir: String) -> Result<(), St
         )
     })?;
 
-    let log_path = work_dir.join("chimera-core.log");
+    let mut log_path = PathBuf::from(log_file_path);
+    if !log_path.is_absolute() {
+        log_path = work_dir.join(log_path);
+    }
+    if let Some(parent) = log_path.parent() {
+        fs::create_dir_all(parent)
+            .map_err(|error| format!("failed to create log dir {}: {error}", parent.display()))?;
+    }
+    File::create(&log_path)
+        .map_err(|error| format!("failed to create log file {}: {error}", log_path.display()))?;
     let profile_name = profile_path
         .file_name()
         .and_then(|it| it.to_str())
@@ -165,6 +186,7 @@ fn start_core_internal(profile_path: String, cache_dir: String) -> Result<(), St
     let metadata = CoreMetadata {
         profile_name,
         profile_checksum: profile_checksum(&profile_content),
+        tun_fd,
         work_dir: work_dir.clone(),
         log_path: log_path.clone(),
         socket_path: socket_path.clone(),
@@ -181,9 +203,10 @@ fn start_core_internal(profile_path: String, cache_dir: String) -> Result<(), St
             log_line(
                 &worker_metadata.log_path,
                 &format!(
-                    "starting core with profile={}, checksum={}, work_dir={}",
+                    "starting core with profile={}, checksum={}, tun_fd={}, work_dir={}",
                     worker_metadata.profile_name,
                     worker_metadata.profile_checksum,
+                    worker_metadata.tun_fd,
                     worker_metadata.work_dir.display()
                 ),
             );
@@ -226,8 +249,9 @@ fn build_hello_message() -> String {
         if let Ok(guard) = guard {
             if let Some(state) = guard.as_ref() {
                 return format!(
-                    "ffi: core running {} ({})",
+                    "ffi: core running {} tun={} ({})",
                     state.metadata.profile_name,
+                    state.metadata.tun_fd,
                     state.metadata.work_dir.display()
                 );
             }
@@ -258,6 +282,8 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
     _this: JObject<'_>,
     profile_path: JString<'_>,
     cache_dir: JString<'_>,
+    tun_fd: jint,
+    log_file_path: JString<'_>,
 ) -> jboolean {
     let profile_path = match extract_jstring(&mut env, profile_path, "profile_path") {
         Ok(value) => value,
@@ -273,8 +299,15 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
             return JNI_FALSE;
         }
     };
+    let log_file_path = match extract_jstring(&mut env, log_file_path, "log_file_path") {
+        Ok(value) => value,
+        Err(error) => {
+            set_last_error(error);
+            return JNI_FALSE;
+        }
+    };
 
-    match start_core_internal(profile_path, cache_dir) {
+    match start_core_internal(profile_path, cache_dir, tun_fd, log_file_path) {
         Ok(()) => JNI_TRUE,
         Err(error) => {
             set_last_error(error);
