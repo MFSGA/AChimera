@@ -1,0 +1,3 @@
+[workspace]
+members = ["chimera-ffi"]
+resolver = "2"
