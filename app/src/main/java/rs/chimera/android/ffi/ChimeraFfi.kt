@@ -38,8 +38,7 @@ object ChimeraFfi {
             return Result.success(Unit)
         }
         return runCatching {
-            nativeStop()
-            Unit
+            check(nativeStop()) { "nativeStop returned false" }
         }
     }
 }
