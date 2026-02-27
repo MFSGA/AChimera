@@ -8,6 +8,7 @@ import rs.chimera.android.ui.ChimeraApp
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Global.init(application)
         setContent {
             ChimeraApp()
         }
