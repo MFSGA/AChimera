@@ -9,3 +9,20 @@ crate-type = ["cdylib"]
 
 [dependencies]
 jni = "0.21"
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+ipnet = "2"
+
+[dependencies.clash-lib]
+package = "clash-lib"
+branch = "master"
+git = "https://github.com/MFSGA/Chimera_Client.git"
+features = [
+    "tls",
+    # "tuic",
+    # "shadowquic",
+    # "shadowsocks",
+    "tun",
+    # "wireguard",
+    "aws-lc-rs"
+]
+default-features = false

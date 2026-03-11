@@ -1,3 +1,5 @@
+use clash_lib::{start, Config as ClashConfig};
+use ipnet::Ipv4Net;
 use jni::objects::{JObject, JString};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
 use jni::{JNIEnv, JavaVM};
@@ -5,21 +7,24 @@ use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File, OpenOptions};
 use std::hash::{Hash, Hasher};
 use std::io::Write;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError, Sender};
-use std::sync::{Mutex, OnceLock};
-use std::thread::{self, JoinHandle};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Mutex, Once, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tokio::runtime::Runtime;
+use tokio::sync::broadcast;
+use tokio::task::JoinHandle;
 
 static CORE_RUNNING: AtomicBool = AtomicBool::new(false);
 static CORE_STATE: OnceLock<Mutex<Option<CoreState>>> = OnceLock::new();
 static LAST_ERROR: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 static JVM: OnceLock<JavaVM> = OnceLock::new();
+static RT: OnceLock<Runtime> = OnceLock::new();
+static INIT: Once = Once::new();
 
 struct CoreState {
     worker: JoinHandle<()>,
-    shutdown_tx: Sender<()>,
     metadata: CoreMetadata,
 }
 
@@ -32,6 +37,21 @@ struct CoreMetadata {
     log_path: PathBuf,
     socket_path: PathBuf,
     started_at_epoch_secs: u64,
+}
+
+fn runtime() -> &'static Runtime {
+    RT.get_or_init(|| {
+        let mut builder = tokio::runtime::Builder::new_multi_thread();
+        builder.enable_all();
+        builder.on_thread_start(|| {
+            if let Some(vm) = JVM.get() {
+                let _ = vm.attach_current_thread_permanently();
+            }
+        });
+        builder
+            .build()
+            .expect("failed to create chimera tokio runtime")
+    })
 }
 
 fn core_state() -> &'static Mutex<Option<CoreState>> {
@@ -98,10 +118,9 @@ fn stop_core_internal() -> Result<(), String> {
     };
 
     if let Some(state) = running {
-        let _ = state.shutdown_tx.send(());
-        let _ = state.worker.join();
+        state.worker.abort();
         let _ = fs::remove_file(state.metadata.socket_path);
-        log_line(&state.metadata.log_path, "chimera core stopped");
+        log_line(&state.metadata.log_path, "chimera core stop requested");
     }
 
     CORE_RUNNING.store(false, Ordering::SeqCst);
@@ -148,26 +167,9 @@ fn start_core_internal(
         return Err("profile file is empty".to_string());
     }
 
-    let work_dir = PathBuf::from(cache_dir).join("chimera-core");
+    let work_dir = PathBuf::from(cache_dir);
     fs::create_dir_all(&work_dir)
         .map_err(|error| format!("failed to create work dir {}: {error}", work_dir.display()))?;
-
-    let mirrored_profile_path = work_dir.join("active-profile.yaml");
-    fs::write(&mirrored_profile_path, profile_content.as_bytes()).map_err(|error| {
-        format!(
-            "failed to mirror profile into {}: {error}",
-            mirrored_profile_path.display()
-        )
-    })?;
-
-    let socket_path = work_dir.join("chimera.sock");
-    let _ = fs::remove_file(&socket_path);
-    File::create(&socket_path).map_err(|error| {
-        format!(
-            "failed to initialize socket placeholder {}: {error}",
-            socket_path.display()
-        )
-    })?;
 
     let mut log_path = PathBuf::from(log_file_path);
     if !log_path.is_absolute() {
@@ -179,6 +181,60 @@ fn start_core_internal(
     }
     File::create(&log_path)
         .map_err(|error| format!("failed to create log file {}: {error}", log_path.display()))?;
+
+    let socket_path = work_dir.join("chimera.sock");
+    let _ = fs::remove_file(&socket_path);
+
+    stop_core_internal()?;
+    clear_last_error();
+
+    let work_dir_string = work_dir
+        .to_str()
+        .ok_or_else(|| "work dir contains invalid UTF-8".to_string())?
+        .to_string();
+
+    std::env::set_current_dir(&work_dir).map_err(|error| {
+        format!(
+            "failed to switch process cwd to {}: {error}",
+            work_dir.display()
+        )
+    })?;
+
+    let profile_path_string = profile_path
+        .to_str()
+        .ok_or_else(|| "profile path contains invalid UTF-8".to_string())?
+        .to_string();
+    let mut config = ClashConfig::File(profile_path_string.clone())
+        .try_parse()
+        .map_err(|error| {
+            format!(
+                "failed to parse profile {}: {error}",
+                profile_path.display()
+            )
+        })?;
+
+    config.tun.enable = true;
+    config.tun.device_id = format!("fd://{tun_fd}");
+    config.tun.route_all = false;
+    config.tun.routes = Vec::new();
+    config.tun.gateway = Ipv4Net::new(Ipv4Addr::new(10, 0, 0, 1), 30)
+        .map_err(|error| format!("failed to build tun gateway: {error}"))?;
+    config.tun.gateway_v6 = None;
+    config.tun.mtu = None;
+    config.tun.so_mark = None;
+    config.tun.route_table = 0;
+    config.tun.dns_hijack = true;
+
+    config.general.mmdb = Some("Country.mmdb".to_string());
+
+    config.dns.enable = true;
+    config.dns.listen.udp = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53));
+
+    INIT.call_once(|| unsafe {
+        std::env::set_var("RUST_BACKTRACE", "1");
+        std::env::set_var("NO_COLOR", "1");
+    });
+
     let profile_name = profile_path
         .file_name()
         .and_then(|it| it.to_str())
@@ -194,53 +250,33 @@ fn start_core_internal(
         started_at_epoch_secs: now_epoch_secs(),
     };
 
-    stop_core_internal()?;
-
-    let worker_metadata = metadata.clone();
-    let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>();
-    let worker = thread::Builder::new()
-        .name("chimera-core".to_string())
-        .spawn(move || {
-            log_line(
-                &worker_metadata.log_path,
-                &format!(
-                    "starting core with profile={}, checksum={}, tun_fd={}, work_dir={}",
-                    worker_metadata.profile_name,
-                    worker_metadata.profile_checksum,
-                    worker_metadata.tun_fd,
-                    worker_metadata.work_dir.display()
-                ),
-            );
-            loop {
-                match shutdown_rx.recv_timeout(Duration::from_secs(15)) {
-                    Ok(_) | Err(RecvTimeoutError::Disconnected) => break,
-                    Err(RecvTimeoutError::Timeout) => {
-                        log_line(
-                            &worker_metadata.log_path,
-                            &format!(
-                                "core heartbeat profile={} started_at={}",
-                                worker_metadata.profile_name, worker_metadata.started_at_epoch_secs
-                            ),
-                        );
-                    }
-                }
-            }
-            log_line(&worker_metadata.log_path, "shutdown signal received");
-        })
-        .map_err(|error| format!("failed to spawn core worker thread: {error}"))?;
+    let runtime_log_path = log_path.clone();
+    let worker = runtime().spawn(async move {
+        let (log_tx, _) = broadcast::channel(100);
+        log_line(
+            &runtime_log_path,
+            &format!(
+                "starting clash core: profile={} tun_fd={} work_dir={}",
+                profile_path_string, tun_fd, work_dir_string
+            ),
+        );
+        if let Err(error) = start(config, work_dir_string, log_tx).await {
+            let message = format!("clash core exited with error: {error}");
+            set_last_error(message.clone());
+            log_line(&runtime_log_path, &message);
+        } else {
+            log_line(&runtime_log_path, "clash core exited");
+        }
+        CORE_RUNNING.store(false, Ordering::SeqCst);
+    });
 
     {
         let mut guard = core_state()
             .lock()
             .map_err(|error| format!("core state lock poisoned: {error}"))?;
-        *guard = Some(CoreState {
-            worker,
-            shutdown_tx,
-            metadata,
-        });
+        *guard = Some(CoreState { worker, metadata });
     }
     CORE_RUNNING.store(true, Ordering::SeqCst);
-    clear_last_error();
     Ok(())
 }
 
@@ -278,6 +314,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
     match env.get_java_vm() {
         Ok(vm) => {
             if JVM.set(vm).is_ok() || JVM.get().is_some() {
+                let _ = runtime();
                 clear_last_error();
                 JNI_TRUE
             } else {
