@@ -2,6 +2,7 @@ package rs.chimera.android.service
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.content.res.AssetManager
 import android.net.VpnService
@@ -25,6 +26,18 @@ class TunService : VpnService() {
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isDestroying = false
+
+    private data class ServiceSettings(
+        val appFilterMode: String,
+        val allowedApps: Set<String>,
+        val disallowedApps: Set<String>,
+        val allowLan: Boolean,
+        val mixedPort: UShort,
+        val httpPort: UShort?,
+        val socksPort: UShort?,
+        val fakeIp: Boolean,
+        val ipv6: Boolean,
+    )
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand")
@@ -57,8 +70,9 @@ class TunService : VpnService() {
     }
 
     private suspend fun runVpn() {
-        val prefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val interfaceFd = buildTunnel()
+        val profilePath = resolveProfilePath()
+        val settings = loadServiceSettings()
+        val interfaceFd = buildTunnel(settings)
         if (interfaceFd == null) {
             error("Failed to establish VPN interface")
         }
@@ -73,33 +87,112 @@ class TunService : VpnService() {
         }
 
         val startResult = initClash(
-            configPath = Global.profilePath,
+            configPath = profilePath,
             workDir = Global.application.cacheDir.absolutePath,
-            over = ProfileOverride(
-                tunFd = currentTunFd,
-                logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
-                fakeIp = prefs.getBoolean("fake_ip", false),
-                ipv6 = prefs.getBoolean("ipv6", true),
-            ),
+            over = createProfileOverride(currentTunFd, settings),
         )
         if (startResult.isFailure) {
             throw startResult.exceptionOrNull()
                 ?: IllegalStateException("Failed to initialize Rust core")
         }
 
+        Global.proxyPort = settings.mixedPort
         NotificationHelper.notifyRunning(this)
         Global.isServiceRunning.value = true
     }
 
-    private fun buildTunnel(): ParcelFileDescriptor? {
+    private fun buildTunnel(settings: ServiceSettings): ParcelFileDescriptor? {
         val builder = Builder()
         builder.setSession("ClashRS VPNService")
         builder.addAddress("10.0.0.1", 30)
         builder.addRoute("0.0.0.0", 0)
         builder.addDnsServer("10.0.0.2")
-        builder.addDisallowedApplication(packageName)
+        applyAppFilter(builder, settings)
         builder.allowBypass()
         return builder.establish()
+    }
+
+    private fun resolveProfilePath(): String {
+        val path = if (Global.profilePath.isBlank()) {
+            Global.restoreProfilePath()
+        } else {
+            Global.profilePath
+        }.trim()
+
+        if (path.isEmpty()) {
+            throw IllegalStateException(getString(rs.chimera.android.R.string.service_profile_required))
+        }
+
+        val configFile = File(path)
+        if (!configFile.exists() || !configFile.isFile) {
+            throw IllegalStateException("Profile file not found: $path")
+        }
+
+        return path
+    }
+
+    private fun loadServiceSettings(): ServiceSettings {
+        val prefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+        return ServiceSettings(
+            appFilterMode = prefs.getString("app_filter_mode", "ALL") ?: "ALL",
+            allowedApps = prefs.getStringSet("allowed_apps", emptySet()) ?: emptySet(),
+            disallowedApps = prefs.getStringSet("disallowed_apps", emptySet()) ?: emptySet(),
+            allowLan = prefs.getBoolean("allow_lan", false),
+            mixedPort = prefs.getPort("mixed_port", 7890u),
+            httpPort = prefs.getOptionalPort("http_port"),
+            socksPort = prefs.getOptionalPort("socks_port"),
+            fakeIp = prefs.getBoolean("fake_ip", false),
+            ipv6 = prefs.getBoolean("ipv6", true),
+        )
+    }
+
+    private fun createProfileOverride(
+        currentTunFd: Int,
+        settings: ServiceSettings,
+    ): ProfileOverride {
+        return ProfileOverride(
+            tunFd = currentTunFd,
+            logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
+            allowLan = settings.allowLan,
+            mixedPort = settings.mixedPort,
+            httpPort = settings.httpPort,
+            socksPort = settings.socksPort,
+            fakeIp = settings.fakeIp,
+            ipv6 = settings.ipv6,
+        )
+    }
+
+    private fun applyAppFilter(
+        builder: Builder,
+        settings: ServiceSettings,
+    ) {
+        when (settings.appFilterMode) {
+            "ALLOWED" -> {
+                settings.allowedApps.forEach { appPackageName ->
+                    runCatching { builder.addAllowedApplication(appPackageName) }
+                        .onFailure { error ->
+                            Log.w(TAG, "Failed to add allowed app: $appPackageName", error)
+                        }
+                }
+            }
+            "DISALLOWED" -> {
+                addDisallowedApplicationSafely(builder, packageName)
+                settings.disallowedApps.forEach { appPackageName ->
+                    addDisallowedApplicationSafely(builder, appPackageName)
+                }
+            }
+            else -> addDisallowedApplicationSafely(builder, packageName)
+        }
+    }
+
+    private fun addDisallowedApplicationSafely(
+        builder: Builder,
+        appPackageName: String,
+    ) {
+        runCatching { builder.addDisallowedApplication(appPackageName) }
+            .onFailure { error ->
+                Log.w(TAG, "Failed to add disallowed app: $appPackageName", error)
+            }
     }
 
     private fun copyRuntimeAssetsIfAvailable(assets: AssetManager, cacheDir: File) {
@@ -161,6 +254,7 @@ class TunService : VpnService() {
         vpnInterface = null
         tunFd = null
         tunService = null
+        Global.proxyPort = null
         Global.isServiceRunning.value = false
     }
 
@@ -173,3 +267,20 @@ class TunService : VpnService() {
         const val TAG = "ChimeraTunService"
     }
 }
+
+private fun SharedPreferences.getOptionalPort(key: String): UShort? {
+    val value = all[key] ?: return null
+    val intValue = when (value) {
+        is Int -> value
+        is Long -> value.toInt()
+        is String -> value.toIntOrNull()
+        else -> null
+    } ?: return null
+
+    return intValue.toUShort()
+}
+
+private fun SharedPreferences.getPort(
+    key: String,
+    defaultValue: UShort,
+): UShort = getOptionalPort(key) ?: defaultValue

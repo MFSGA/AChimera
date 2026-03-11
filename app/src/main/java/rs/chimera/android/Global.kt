@@ -44,6 +44,14 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
             .apply()
     }
 
+    fun restoreProfilePath(): String {
+        profilePath = application
+            .getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
+            .getString(PROFILE_PATH_KEY, null)
+            .orEmpty()
+        return profilePath
+    }
+
     fun destroy() {
         cancel()
     }
