@@ -452,7 +452,9 @@ dependencies = [
  "clash-lib",
  "ipnet",
  "jni",
+ "thiserror 2.0.18",
  "tokio",
+ "uniffi",
 ]
 
 [[package]]

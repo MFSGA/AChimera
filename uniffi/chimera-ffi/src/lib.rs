@@ -39,6 +39,34 @@ struct CoreMetadata {
     started_at_epoch_secs: u64,
 }
 
+#[derive(Debug, thiserror::Error, uniffi::Error)]
+pub enum ChimeraError {
+    #[error("{details}")]
+    Runtime { details: String },
+}
+
+#[derive(uniffi::Record)]
+pub struct ProfileOverride {
+    pub tun_fd: i32,
+    pub log_file_path: String,
+
+    #[uniffi(default = false)]
+    pub allow_lan: bool,
+
+    #[uniffi(default = 7890)]
+    pub mixed_port: u16,
+    #[uniffi(default = None)]
+    pub http_port: Option<u16>,
+    #[uniffi(default = None)]
+    pub socks_port: Option<u16>,
+
+    #[uniffi(default = false)]
+    pub fake_ip: bool,
+
+    #[uniffi(default = true)]
+    pub ipv6: bool,
+}
+
 fn runtime() -> &'static Runtime {
     RT.get_or_init(|| {
         let mut builder = tokio::runtime::Builder::new_multi_thread();
@@ -89,6 +117,12 @@ fn clear_last_error() {
 
 fn read_last_error() -> Option<String> {
     last_error_state().lock().ok().and_then(|it| it.clone())
+}
+
+fn runtime_error(message: impl Into<String>) -> ChimeraError {
+    ChimeraError::Runtime {
+        details: message.into(),
+    }
 }
 
 fn log_line(log_path: &Path, message: &str) {
@@ -306,6 +340,26 @@ fn build_hello_message() -> String {
     "ffi: core stopped".to_string()
 }
 
+#[uniffi::export]
+fn hello() -> String {
+    build_hello_message()
+}
+
+#[uniffi::export]
+fn run_clash(
+    config_path: String,
+    work_dir: String,
+    over: ProfileOverride,
+) -> Result<(), ChimeraError> {
+    start_core_internal(config_path, work_dir, over.tun_fd, over.log_file_path)
+        .map_err(runtime_error)
+}
+
+#[uniffi::export]
+fn shutdown() -> Result<(), ChimeraError> {
+    stop_core_internal().map_err(runtime_error)
+}
+
 #[no_mangle]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
     env: JNIEnv<'_>,
@@ -394,3 +448,5 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStop(
         }
     }
 }
+
+uniffi::setup_scaffolding!("chimera_ffi");

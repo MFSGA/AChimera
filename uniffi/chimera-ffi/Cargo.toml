@@ -8,9 +8,11 @@ name = "chimera_ffi"
 crate-type = ["cdylib"]
 
 [dependencies]
+uniffi = { workspace = true }
 jni = "0.21"
 tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
 ipnet = "2"
+thiserror = "2"
 
 [dependencies.clash-lib]
 package = "clash-lib"

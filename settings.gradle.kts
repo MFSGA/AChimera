@@ -12,14 +12,6 @@ pluginManagement {
     }
 }
 
-dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
 rootProject.name = "AChimera"
 include(":app")
 include(":core")
