@@ -10,12 +10,18 @@ crate-type = ["cdylib"]
 [dependencies]
 uniffi = { workspace = true }
 jni = "0.21"
-tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "net"] }
 ipnet = "2"
 thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 tokio-stream = "0.1"
 serde_yaml = "0.9"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+hyper = { version = "1", features = ["client", "http1"] }
+hyper-util = { version = "0.1", features = ["client", "client-legacy", "tokio"] }
+http-body-util = "0.1"
+urlencoding = "2"
 
 [dependencies.clash-lib]
 package = "clash-lib"
@@ -31,3 +37,6 @@ features = [
     "tracing",
 ]
 default-features = true
+
+[target.'cfg(unix)'.dependencies]
+hyperlocal = "0.9"

@@ -23,6 +23,7 @@ import rs.chimera.android.R
 
 enum class BottomBarItem(val label: Int, val shortLabel: String) {
     Home(R.string.home_screen, "H"),
+    Panel(R.string.panel_screen, "N"),
     Profile(R.string.profile_screen, "P"),
 }
 

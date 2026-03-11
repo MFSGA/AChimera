@@ -22,6 +22,7 @@ import rs.chimera.android.service.tunService
 import rs.chimera.android.ui.BottomBar
 import rs.chimera.android.ui.BottomBarItem
 import rs.chimera.android.ui.ChimeraApp
+import rs.chimera.android.ui.PanelScreen
 import rs.chimera.android.ui.ProfileScreen
 
 @Composable
@@ -91,6 +92,12 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
                     sectionTitle = stringResource(id = selectedItem.label),
                     isServiceRunning = isServiceRunning,
                     profilePath = Global.profilePath,
+                )
+            }
+
+            BottomBarItem.Panel -> {
+                PanelScreen(
+                    modifier = Modifier.padding(innerPadding),
                 )
             }
 

@@ -1,3 +1,5 @@
+mod controller;
+
 use clash_lib::{start, Config as ClashConfig};
 use ipnet::Ipv4Net;
 use jni::objects::{JObject, JString};
@@ -240,7 +242,7 @@ fn start_core_internal(
     File::create(&log_path)
         .map_err(|error| format!("failed to create log file {}: {error}", log_path.display()))?;
 
-    let socket_path = work_dir.join("chimera.sock");
+    let socket_path = work_dir.join("clash.sock");
     let _ = fs::remove_file(&socket_path);
 
     stop_core_internal()?;
@@ -262,7 +264,13 @@ fn start_core_internal(
         .to_str()
         .ok_or_else(|| "profile path contains invalid UTF-8".to_string())?
         .to_string();
-    let mut config = ClashConfig::File(profile_path_string.clone())
+    let controller_config = format!(
+        "{}\nexternal-controller-unix: {}\n",
+        profile_content,
+        socket_path.to_string_lossy()
+    );
+
+    let mut config = ClashConfig::Str(controller_config)
         .try_parse()
         .map_err(|error| {
             format!(
@@ -282,7 +290,6 @@ fn start_core_internal(
     config.tun.so_mark = None;
     config.tun.route_table = 0;
     config.tun.dns_hijack = true;
-
     config.general.mmdb = Some("Country.mmdb".to_string());
 
     config.dns.enable = true;

@@ -30,6 +30,9 @@ import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.ConcurrentHashMap
+import android.os.Build
+import androidx.annotation.RequiresApi
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -676,6 +679,20 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_verify_config(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_mode(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxies(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_constructor_clashcontroller_new(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress(
     ): Short
     external fun ffi_chimera_ffi_uniffi_contract_version(
@@ -686,12 +703,35 @@ internal object IntegrityCheckingUniffiLib {
 
 internal object UniffiLib {
     
+    // The Cleaner for the whole library
+    internal val CLEANER: UniffiCleaner by lazy {
+        UniffiCleaner.create()
+    }
+    
 
     init {
         Native.register(UniffiLib::class.java, findLibraryName(componentName = "chimera_ffi"))
         uniffiCallbackInterfaceDownloadProgressCallback.register(this)
         
     }
+    external fun uniffi_chimera_ffi_fn_clone_clashcontroller(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_chimera_ffi_fn_free_clashcontroller(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_chimera_ffi_fn_constructor_clashcontroller_new(`socketPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_mode(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxies(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_delay(`ptr`: Long,`name`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`timeout`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_select_proxy(`ptr`: Long,`groupName`: RustBuffer.ByValue,`proxyName`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_set_mode(`ptr`: Long,`mode`: RustBuffer.ByValue,
+    ): Long
     external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
     ): Unit
     external fun uniffi_chimera_ffi_fn_func_download_file(`url`: RustBuffer.ByValue,`outputPath`: RustBuffer.ByValue,`userAgent`: RustBuffer.ByValue,`proxyUrl`: RustBuffer.ByValue,
@@ -841,6 +881,27 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_func_verify_config() != 32534.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 12014.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_mode() != 46336.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxies() != 49429.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay() != 13007.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy() != 46981.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode() != 63947.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_constructor_clashcontroller_new() != 63231.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress() != 55716.toShort()) {
@@ -1009,6 +1070,70 @@ public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: Ffi
         buf.putLong(lower(value))
     }
 }
+/**
+ * The cleaner interface for Object finalization code to run.
+ * This is the entry point to any implementation that we're using.
+ *
+ * The cleaner registers objects and returns cleanables, so now we are
+ * defining a `UniffiCleaner` with a `UniffiClenaer.Cleanable` to abstract the
+ * different implmentations available at compile time.
+ *
+ * @suppress
+ */
+interface UniffiCleaner {
+    interface Cleanable {
+        fun clean()
+    }
+
+    fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable
+
+    companion object
+}
+
+// The fallback Jna cleaner, which is available for both Android, and the JVM.
+private class UniffiJnaCleaner : UniffiCleaner {
+    private val cleaner = com.sun.jna.internal.Cleaner.getCleaner()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        UniffiJnaCleanable(cleaner.register(value, cleanUpTask))
+}
+
+private class UniffiJnaCleanable(
+    private val cleanable: com.sun.jna.internal.Cleaner.Cleanable,
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
+
+
+// We decide at uniffi binding generation time whether we were
+// using Android or not.
+// There are further runtime checks to chose the correct implementation
+// of the cleaner.
+
+
+private fun UniffiCleaner.Companion.create(): UniffiCleaner =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        AndroidSystemCleaner()
+    } else {
+        UniffiJnaCleaner()
+    }
+
+// The SystemCleaner, available from API Level 33.
+// Some API Level 33 OSes do not support using it, so we require API Level 34.
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+private class AndroidSystemCleaner : UniffiCleaner {
+    val cleaner = android.system.SystemCleaner.cleaner()
+
+    override fun register(value: Any, cleanUpTask: Runnable): UniffiCleaner.Cleanable =
+        AndroidSystemCleanable(cleaner.register(value, cleanUpTask))
+}
+
+@RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+private class AndroidSystemCleanable(
+    private val cleanable: java.lang.ref.Cleaner.Cleanable,
+) : UniffiCleaner.Cleanable {
+    override fun clean() = cleanable.clean()
+}
 
 /**
  * @suppress
@@ -1156,6 +1281,503 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
         val byteBuf = toUtf8(value)
         buf.putInt(byteBuf.limit())
         buf.put(byteBuf)
+    }
+}
+
+
+// This template implements a class for working with a Rust struct via a handle
+// to the live Rust struct on the other side of the FFI.
+//
+// There's some subtlety here, because we have to be careful not to operate on a Rust
+// struct after it has been dropped, and because we must expose a public API for freeing
+// theq Kotlin wrapper object in lieu of reliable finalizers. The core requirements are:
+//
+//   * Each instance holds an opaque handle to the underlying Rust struct.
+//     Method calls need to read this handle from the object's state and pass it in to
+//     the Rust FFI.
+//
+//   * When an instance is no longer needed, its handle should be passed to a
+//     special destructor function provided by the Rust FFI, which will drop the
+//     underlying Rust struct.
+//
+//   * Given an instance, calling code is expected to call the special
+//     `destroy` method in order to free it after use, either by calling it explicitly
+//     or by using a higher-level helper like the `use` method. Failing to do so risks
+//     leaking the underlying Rust struct.
+//
+//   * We can't assume that calling code will do the right thing, and must be prepared
+//     to handle Kotlin method calls executing concurrently with or even after a call to
+//     `destroy`, and to handle multiple (possibly concurrent!) calls to `destroy`.
+//
+//   * We must never allow Rust code to operate on the underlying Rust struct after
+//     the destructor has been called, and must never call the destructor more than once.
+//     Doing so may trigger memory unsafety.
+//
+//   * To mitigate many of the risks of leaking memory and use-after-free unsafety, a `Cleaner`
+//     is implemented to call the destructor when the Kotlin object becomes unreachable.
+//     This is done in a background thread. This is not a panacea, and client code should be aware that
+//      1. the thread may starve if some there are objects that have poorly performing
+//     `drop` methods or do significant work in their `drop` methods.
+//      2. the thread is shared across the whole library. This can be tuned by using `android_cleaner = true`,
+//         or `android = true` in the [`kotlin` section of the `uniffi.toml` file](https://mozilla.github.io/uniffi-rs/kotlin/configuration.html).
+//
+// If we try to implement this with mutual exclusion on access to the handle, there is the
+// possibility of a race between a method call and a concurrent call to `destroy`:
+//
+//    * Thread A starts a method call, reads the value of the handle, but is interrupted
+//      before it can pass the handle over the FFI to Rust.
+//    * Thread B calls `destroy` and frees the underlying Rust struct.
+//    * Thread A resumes, passing the already-read handle value to Rust and triggering
+//      a use-after-free.
+//
+// One possible solution would be to use a `ReadWriteLock`, with each method call taking
+// a read lock (and thus allowed to run concurrently) and the special `destroy` method
+// taking a write lock (and thus blocking on live method calls). However, we aim not to
+// generate methods with any hidden blocking semantics, and a `destroy` method that might
+// block if called incorrectly seems to meet that bar.
+//
+// So, we achieve our goals by giving each instance an associated `AtomicLong` counter to track
+// the number of in-flight method calls, and an `AtomicBoolean` flag to indicate whether `destroy`
+// has been called. These are updated according to the following rules:
+//
+//    * The initial value of the counter is 1, indicating a live object with no in-flight calls.
+//      The initial value for the flag is false.
+//
+//    * At the start of each method call, we atomically check the counter.
+//      If it is 0 then the underlying Rust struct has already been destroyed and the call is aborted.
+//      If it is nonzero them we atomically increment it by 1 and proceed with the method call.
+//
+//    * At the end of each method call, we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+//    * When `destroy` is called, we atomically flip the flag from false to true.
+//      If the flag was already true we silently fail.
+//      Otherwise we atomically decrement and check the counter.
+//      If it has reached zero then we destroy the underlying Rust struct.
+//
+// Astute readers may observe that this all sounds very similar to the way that Rust's `Arc<T>` works,
+// and indeed it is, with the addition of a flag to guard against multiple calls to `destroy`.
+//
+// The overall effect is that the underlying Rust struct is destroyed only when `destroy` has been
+// called *and* all in-flight method calls have completed, avoiding violating any of the expectations
+// of the underlying Rust code.
+//
+// This makes a cleaner a better alternative to _not_ calling `destroy()` as
+// and when the object is finished with, but the abstraction is not perfect: if the Rust object's `drop`
+// method is slow, and/or there are many objects to cleanup, and it's on a low end Android device, then the cleaner
+// thread may be starved, and the app will leak memory.
+//
+// In this case, `destroy`ing manually may be a better solution.
+//
+// The cleaner can live side by side with the manual calling of `destroy`. In the order of responsiveness, uniffi objects
+// with Rust peers are reclaimed:
+//
+// 1. By calling the `destroy` method of the object, which calls `rustObject.free()`. If that doesn't happen:
+// 2. When the object becomes unreachable, AND the Cleaner thread gets to call `rustObject.free()`. If the thread is starved then:
+// 3. The memory is reclaimed when the process terminates.
+//
+// [1] https://stackoverflow.com/questions/24376768/can-java-finalize-an-object-when-it-is-still-in-scope/24380219
+//
+
+
+public interface ClashControllerInterface {
+    
+    suspend fun `getConfigs`(): ConfigResponse
+    
+    suspend fun `getMode`(): Mode?
+    
+    suspend fun `getProxies`(): List<Proxy>
+    
+    suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?): DelayResponse
+    
+    suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String)
+    
+    suspend fun `setMode`(`mode`: Mode)
+    
+    companion object
+}
+
+open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
+{
+
+    @Suppress("UNUSED_PARAMETER")
+    /**
+     * @suppress
+     */
+    constructor(withHandle: UniffiWithHandle, handle: Long) {
+        this.handle = handle
+        this.cleanable = UniffiLib.CLEANER.register(this, UniffiCleanAction(handle))
+    }
+
+    /**
+     * @suppress
+     *
+     * This constructor can be used to instantiate a fake object. Only used for tests. Any
+     * attempt to actually use an object constructed this way will fail as there is no
+     * connected Rust object.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    constructor(noHandle: NoHandle) {
+        this.handle = 0
+        this.cleanable = null
+    }
+    constructor(`socketPath`: kotlin.String) :
+        this(UniffiWithHandle, 
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_constructor_clashcontroller_new(
+    
+        FfiConverterString.lower(`socketPath`),_status)
+}
+    )
+
+    protected val handle: Long
+    protected val cleanable: UniffiCleaner.Cleanable?
+
+    private val wasDestroyed = AtomicBoolean(false)
+    private val callCounter = AtomicLong(1)
+
+    override fun destroy() {
+        // Only allow a single call to this method.
+        // TODO: maybe we should log a warning if called more than once?
+        if (this.wasDestroyed.compareAndSet(false, true)) {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    @Synchronized
+    override fun close() {
+        this.destroy()
+    }
+
+    internal inline fun <R> callWithHandle(block: (handle: Long) -> R): R {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        do {
+            val c = this.callCounter.get()
+            if (c == 0L) {
+                throw IllegalStateException("${this.javaClass.simpleName} object has already been destroyed")
+            }
+            if (c == Long.MAX_VALUE) {
+                throw IllegalStateException("${this.javaClass.simpleName} call counter would overflow")
+            }
+        } while (! this.callCounter.compareAndSet(c, c + 1L))
+        // Now we can safely do the method call without the handle being freed concurrently.
+        try {
+            return block(this.uniffiCloneHandle())
+        } finally {
+            // This decrement always matches the increment we performed above.
+            if (this.callCounter.decrementAndGet() == 0L) {
+                cleanable?.clean()
+            }
+        }
+    }
+
+    // Use a static inner class instead of a closure so as not to accidentally
+    // capture `this` as part of the cleanable's action.
+    private class UniffiCleanAction(private val handle: Long) : Runnable {
+        override fun run() {
+            if (handle == 0.toLong()) {
+                // Fake object created with `NoHandle`, don't try to free.
+                return;
+            }
+            uniffiRustCall { status ->
+                UniffiLib.uniffi_chimera_ffi_fn_free_clashcontroller(handle, status)
+            }
+        }
+    }
+
+    /**
+     * @suppress
+     */
+    fun uniffiCloneHandle(): Long {
+        if (handle == 0.toLong()) {
+            throw InternalException("uniffiCloneHandle() called on NoHandle object");
+        }
+        return uniffiRustCall() { status ->
+            UniffiLib.uniffi_chimera_ffi_fn_clone_clashcontroller(handle, status)
+        }
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getConfigs`() : ConfigResponse {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeConfigResponse.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getMode`() : Mode? {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_mode(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterOptionalTypeMode.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getProxies`() : List<Proxy> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_proxies(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeProxy.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?) : DelayResponse {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_delay(
+                uniffiHandle,
+                FfiConverterString.lower(`name`),FfiConverterOptionalString.lower(`url`),FfiConverterOptionalInt.lower(`timeout`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeDelayResponse.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_select_proxy(
+                uniffiHandle,
+                FfiConverterString.lower(`groupName`),FfiConverterString.lower(`proxyName`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `setMode`(`mode`: Mode) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_set_mode(
+                uniffiHandle,
+                FfiConverterTypeMode.lower(`mode`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+
+    
+
+
+    
+    
+    /**
+     * @suppress
+     */
+    companion object
+    
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeClashController: FfiConverter<ClashController, Long> {
+    override fun lower(value: ClashController): Long {
+        return value.uniffiCloneHandle()
+    }
+
+    override fun lift(value: Long): ClashController {
+        return ClashController(UniffiWithHandle, value)
+    }
+
+    override fun read(buf: ByteBuffer): ClashController {
+        return lift(buf.getLong())
+    }
+
+    override fun allocationSize(value: ClashController) = 8UL
+
+    override fun write(value: ClashController, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
+
+
+
+data class ConfigResponse (
+    var `externalController`: kotlin.String?
+    , 
+    var `secret`: kotlin.String?
+    , 
+    var `mode`: Mode?
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeConfigResponse: FfiConverterRustBuffer<ConfigResponse> {
+    override fun read(buf: ByteBuffer): ConfigResponse {
+        return ConfigResponse(
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeMode.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ConfigResponse) = (
+            FfiConverterOptionalString.allocationSize(value.`externalController`) +
+            FfiConverterOptionalString.allocationSize(value.`secret`) +
+            FfiConverterOptionalTypeMode.allocationSize(value.`mode`)
+    )
+
+    override fun write(value: ConfigResponse, buf: ByteBuffer) {
+            FfiConverterOptionalString.write(value.`externalController`, buf)
+            FfiConverterOptionalString.write(value.`secret`, buf)
+            FfiConverterOptionalTypeMode.write(value.`mode`, buf)
+    }
+}
+
+
+
+data class DelayHistory (
+    var `time`: kotlin.String
+    , 
+    var `delay`: kotlin.Int
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeDelayHistory: FfiConverterRustBuffer<DelayHistory> {
+    override fun read(buf: ByteBuffer): DelayHistory {
+        return DelayHistory(
+            FfiConverterString.read(buf),
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: DelayHistory) = (
+            FfiConverterString.allocationSize(value.`time`) +
+            FfiConverterInt.allocationSize(value.`delay`)
+    )
+
+    override fun write(value: DelayHistory, buf: ByteBuffer) {
+            FfiConverterString.write(value.`time`, buf)
+            FfiConverterInt.write(value.`delay`, buf)
+    }
+}
+
+
+
+data class DelayResponse (
+    var `delay`: kotlin.Int
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeDelayResponse: FfiConverterRustBuffer<DelayResponse> {
+    override fun read(buf: ByteBuffer): DelayResponse {
+        return DelayResponse(
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: DelayResponse) = (
+            FfiConverterInt.allocationSize(value.`delay`)
+    )
+
+    override fun write(value: DelayResponse, buf: ByteBuffer) {
+            FfiConverterInt.write(value.`delay`, buf)
     }
 }
 
@@ -1310,6 +1932,59 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
 
 
 
+data class Proxy (
+    var `name`: kotlin.String
+    , 
+    var `proxyType`: kotlin.String
+    , 
+    var `all`: List<kotlin.String>
+    , 
+    var `now`: kotlin.String?
+    , 
+    var `history`: List<DelayHistory>
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeProxy: FfiConverterRustBuffer<Proxy> {
+    override fun read(buf: ByteBuffer): Proxy {
+        return Proxy(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterSequenceTypeDelayHistory.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Proxy) = (
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterString.allocationSize(value.`proxyType`) +
+            FfiConverterSequenceString.allocationSize(value.`all`) +
+            FfiConverterOptionalString.allocationSize(value.`now`) +
+            FfiConverterSequenceTypeDelayHistory.allocationSize(value.`history`)
+    )
+
+    override fun write(value: Proxy, buf: ByteBuffer) {
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterString.write(value.`proxyType`, buf)
+            FfiConverterSequenceString.write(value.`all`, buf)
+            FfiConverterOptionalString.write(value.`now`, buf)
+            FfiConverterSequenceTypeDelayHistory.write(value.`history`, buf)
+    }
+}
+
+
+
 
 
 sealed class ChimeraException: kotlin.Exception() {
@@ -1369,6 +2044,41 @@ public object FfiConverterTypeChimeraError : FfiConverterRustBuffer<ChimeraExcep
     }
 
 }
+
+
+
+
+enum class Mode {
+    
+    RULE,
+    GLOBAL,
+    DIRECT;
+
+    
+
+
+    companion object
+}
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMode: FfiConverterRustBuffer<Mode> {
+    override fun read(buf: ByteBuffer) = try {
+        Mode.values()[buf.getInt() - 1]
+    } catch (e: IndexOutOfBoundsException) {
+        throw RuntimeException("invalid enum value, something is very wrong!!", e)
+    }
+
+    override fun allocationSize(value: Mode) = 4UL
+
+    override fun write(value: Mode, buf: ByteBuffer) {
+        buf.putInt(value.ordinal + 1)
+    }
+}
+
+
 
 
 
@@ -1468,6 +2178,38 @@ public object FfiConverterOptionalUShort: FfiConverterRustBuffer<kotlin.UShort?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalInt: FfiConverterRustBuffer<kotlin.Int?> {
+    override fun read(buf: ByteBuffer): kotlin.Int? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterInt.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Int?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterInt.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Int?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterInt.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?> {
     override fun read(buf: ByteBuffer): kotlin.String? {
         if (buf.get().toInt() == 0) {
@@ -1500,6 +2242,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeMode: FfiConverterRustBuffer<Mode?> {
+    override fun read(buf: ByteBuffer): Mode? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeMode.read(buf)
+    }
+
+    override fun allocationSize(value: Mode?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeMode.allocationSize(value)
+        }
+    }
+
+    override fun write(value: Mode?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeMode.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeDownloadProgressCallback: FfiConverterRustBuffer<DownloadProgressCallback?> {
     override fun read(buf: ByteBuffer): DownloadProgressCallback? {
         if (buf.get().toInt() == 0) {
@@ -1522,6 +2296,90 @@ public object FfiConverterOptionalTypeDownloadProgressCallback: FfiConverterRust
         } else {
             buf.put(1)
             FfiConverterTypeDownloadProgressCallback.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.String>> {
+    override fun read(buf: ByteBuffer): List<kotlin.String> {
+        val len = buf.getInt()
+        return List<kotlin.String>(len) {
+            FfiConverterString.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<kotlin.String>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterString.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<kotlin.String>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterString.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeDelayHistory: FfiConverterRustBuffer<List<DelayHistory>> {
+    override fun read(buf: ByteBuffer): List<DelayHistory> {
+        val len = buf.getInt()
+        return List<DelayHistory>(len) {
+            FfiConverterTypeDelayHistory.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<DelayHistory>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeDelayHistory.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<DelayHistory>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeDelayHistory.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeProxy: FfiConverterRustBuffer<List<Proxy>> {
+    override fun read(buf: ByteBuffer): List<Proxy> {
+        val len = buf.getInt()
+        return List<Proxy>(len) {
+            FfiConverterTypeProxy.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<Proxy>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeProxy.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<Proxy>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeProxy.write(it, buf)
         }
     }
 }
