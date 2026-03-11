@@ -18,6 +18,9 @@ import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 var tunService: TunService? = null
 
@@ -41,6 +44,7 @@ class TunService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand")
+        appendRuntimeLog("service onStartCommand")
         ensureForegroundService()
         tunService = this
 
@@ -49,6 +53,7 @@ class TunService : VpnService() {
                 runVpn()
             } catch (error: Exception) {
                 Log.e(TAG, "Error in runVpn", error)
+                appendRuntimeLog("service runVpn failed", error)
                 Global.isServiceRunning.value = false
                 cleanup()
                 NotificationHelper.notifyFailed(this@TunService, error.message)
@@ -72,6 +77,7 @@ class TunService : VpnService() {
     private suspend fun runVpn() {
         val profilePath = resolveProfilePath()
         val settings = loadServiceSettings()
+        appendRuntimeLog("service preparing vpn for profile: $profilePath")
         val interfaceFd = buildTunnel(settings)
         if (interfaceFd == null) {
             error("Failed to establish VPN interface")
@@ -97,6 +103,7 @@ class TunService : VpnService() {
         }
 
         Global.proxyPort = settings.mixedPort
+        appendRuntimeLog("service rust core started on mixed-port=${settings.mixedPort}")
         NotificationHelper.notifyRunning(this)
         Global.isServiceRunning.value = true
     }
@@ -192,6 +199,7 @@ class TunService : VpnService() {
         runCatching { builder.addDisallowedApplication(appPackageName) }
             .onFailure { error ->
                 Log.w(TAG, "Failed to add disallowed app: $appPackageName", error)
+                appendRuntimeLog("failed to add disallowed app: $appPackageName", error)
             }
     }
 
@@ -210,6 +218,7 @@ class TunService : VpnService() {
                 }
             }.onFailure { error ->
                 Log.w(TAG, "Runtime asset unavailable: $name", error)
+                appendRuntimeLog("runtime asset unavailable: $name", error)
             }
         }
     }
@@ -238,6 +247,7 @@ class TunService : VpnService() {
 
         shutdownClash().exceptionOrNull()?.let { error ->
             Log.w(TAG, "Failed to stop Rust core cleanly", error)
+            appendRuntimeLog("failed to stop rust core cleanly", error)
         }
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -248,14 +258,19 @@ class TunService : VpnService() {
             }
         }.onFailure { error ->
             Log.w(TAG, "Failed to stop foreground service", error)
+            appendRuntimeLog("failed to stop foreground service", error)
         }
         runCatching { vpnInterface?.close() }
-            .onFailure { error -> Log.w(TAG, "Failed to close VPN interface", error) }
+            .onFailure { error ->
+                Log.w(TAG, "Failed to close VPN interface", error)
+                appendRuntimeLog("failed to close vpn interface", error)
+            }
         vpnInterface = null
         tunFd = null
         tunService = null
         Global.proxyPort = null
         Global.isServiceRunning.value = false
+        appendRuntimeLog("service cleanup complete")
     }
 
     fun stopVpn() {
@@ -265,6 +280,29 @@ class TunService : VpnService() {
 
     private companion object {
         const val TAG = "ChimeraTunService"
+    }
+
+    private fun appendRuntimeLog(
+        message: String,
+        error: Throwable? = null,
+    ) {
+        val file = Global.runtimeLogFile()
+        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
+        val line = buildString {
+            append('[')
+            append(timestamp)
+            append("] ")
+            append(message)
+            if (error != null) {
+                append(": ")
+                append(error.message ?: error.javaClass.simpleName)
+            }
+        }
+
+        runCatching {
+            file.parentFile?.mkdirs()
+            file.appendText("$line\n")
+        }
     }
 }
 

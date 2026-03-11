@@ -1,5 +1,6 @@
 package rs.chimera.android.ui
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,9 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -24,7 +29,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -32,6 +41,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import rs.chimera.android.Global
 import rs.chimera.android.R
 import rs.chimera.android.ffi.ChimeraFfi
 
@@ -43,9 +53,13 @@ fun ChimeraApp(
     profilePath: String = "",
 ) {
     var refreshVersion by rememberSaveable { mutableIntStateOf(0) }
+    val clipboardManager = LocalClipboardManager.current
     val ffiMessage = remember(refreshVersion) { ChimeraFfi.helloOrFallback() }
     val refreshedAt = remember(refreshVersion) {
         SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
+    }
+    val runtimeLog = remember(refreshVersion, isServiceRunning) {
+        Global.readRuntimeLogTail()
     }
     val profileLabel = remember(profilePath) {
         if (profilePath.isBlank()) {
@@ -102,6 +116,24 @@ fun ChimeraApp(
                     stringResource(id = R.string.profile_no_saved_path)
                 },
                 accent = MaterialTheme.colorScheme.secondary,
+            )
+        }
+
+        item {
+            LogPreviewCard(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                title = stringResource(id = R.string.home_logs_title),
+                subtitle = Global.runtimeLogFile().absolutePath,
+                content = runtimeLog.ifBlank {
+                    stringResource(id = R.string.home_logs_empty)
+                },
+                onCopy = {
+                    clipboardManager.setText(AnnotatedString(runtimeLog))
+                },
+                onClear = {
+                    Global.clearRuntimeLog()
+                    refreshVersion++
+                },
             )
         }
     }
@@ -286,6 +318,73 @@ private fun DashboardCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogPreviewCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String,
+    content: String,
+    onCopy: () -> Unit,
+    onClear: () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FilledTonalButton(onClick = onCopy) {
+                    Text(text = stringResource(id = R.string.home_logs_copy))
+                }
+                FilledTonalButton(onClick = onClear) {
+                    Text(text = stringResource(id = R.string.home_logs_clear))
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(220.dp)
+                    .background(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
+                    )
+                    .padding(14.dp),
+            ) {
+                SelectionContainer {
+                    Text(
+                        text = content,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.Unspecified,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .horizontalScroll(rememberScrollState()),
+                    )
+                }
             }
         }
     }

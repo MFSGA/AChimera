@@ -6,6 +6,10 @@
     <string name="home_refresh">Refresh</string>
     <string name="home_refresh_short">R</string>
     <string name="home_last_refreshed">Last refreshed: %1$s</string>
+    <string name="home_logs_title">Connection Logs</string>
+    <string name="home_logs_empty">No runtime logs yet.</string>
+    <string name="home_logs_copy">Copy Logs</string>
+    <string name="home_logs_clear">Clear Logs</string>
     <string name="profile_screen">Profile</string>
     <string name="native_bridge_title">Native Bridge</string>
     <string name="native_bridge_subtitle">Rust FFI call result</string>

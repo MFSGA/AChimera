@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import uniffi.chimera_ffi.ChimeraException
+import java.io.File
 
 class ChimeraApplication : android.app.Application() {
     override fun onCreate() {
@@ -26,6 +27,32 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
     var proxyPort: UShort? = null
 
     val isServiceRunning = MutableStateFlow(false)
+
+    fun runtimeLogFile(): File = File(application.cacheDir, RUNTIME_LOG_FILE_NAME)
+
+    fun readRuntimeLogTail(maxLines: Int = 160): String {
+        val file = runtimeLogFile()
+        if (!file.exists() || !file.isFile) {
+            return ""
+        }
+
+        return runCatching {
+            file.readLines()
+                .takeLast(maxLines)
+                .joinToString(separator = "\n")
+        }.getOrElse { error ->
+            "failed to read runtime log: ${error.message ?: "unknown error"}"
+        }
+    }
+
+    fun clearRuntimeLog() {
+        val file = runtimeLogFile()
+        runCatching {
+            if (file.exists()) {
+                file.writeText("")
+            }
+        }
+    }
 
     fun init(application: ChimeraApplication) {
         this.application = application
@@ -58,6 +85,7 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
 
     private const val FILE_PREFS = "file_prefs"
     private const val PROFILE_PATH_KEY = "profile_path"
+    private const val RUNTIME_LOG_FILE_NAME = "chimera-rs.log"
 }
 
 private fun setupUncaughtExceptionHandler() {
