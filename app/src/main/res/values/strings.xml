@@ -19,8 +19,12 @@
     <string name="service_profile_required">Please import a profile before starting.</string>
     <string name="service_vpn_permission_required">VPN permission is required to start.</string>
     <string name="service_notification_channel_name">Chimera Service</string>
-    <string name="service_notification_title">Chimera is running</string>
+    <string name="service_notification_title">Chimera</string>
+    <string name="service_notification_title_failed">Chimera failed</string>
     <string name="service_notification_text">The start pipeline is active.</string>
+    <string name="service_notification_text_starting">VPN service is starting.</string>
+    <string name="service_notification_text_running">VPN service is active.</string>
+    <string name="service_notification_text_failed">VPN service stopped unexpectedly.</string>
     <string name="profile_title">Imported Profile</string>
     <string name="profile_missing">No profile selected</string>
     <string name="profile_choose_file">Choose File</string>

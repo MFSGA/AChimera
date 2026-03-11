@@ -1,15 +1,17 @@
 package rs.chimera.android.service
 
+import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.content.res.AssetManager
 import android.net.VpnService
+import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import android.content.Context
 import rs.chimera.android.Global
 import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
@@ -26,17 +28,21 @@ class TunService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand")
+        ensureForegroundService()
+        tunService = this
+
         serviceScope.launch {
             try {
                 runVpn()
             } catch (error: Exception) {
                 Log.e(TAG, "Error in runVpn", error)
-                stopVpn()
+                Global.isServiceRunning.value = false
+                cleanup()
+                NotificationHelper.notifyFailed(this@TunService, error.message)
+                stopSelf()
             }
         }
 
-        tunService = this
-        Global.isServiceRunning.value = true
         return START_STICKY
     }
 
@@ -54,9 +60,7 @@ class TunService : VpnService() {
         val prefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val interfaceFd = buildTunnel()
         if (interfaceFd == null) {
-            Log.e(TAG, "Failed to establish VPN interface")
-            stopVpn()
-            return
+            error("Failed to establish VPN interface")
         }
         vpnInterface = interfaceFd
         tunFd = interfaceFd.fd
@@ -65,9 +69,7 @@ class TunService : VpnService() {
 
         val currentTunFd = tunFd
         if (currentTunFd == null || currentTunFd <= 0) {
-            Log.e(TAG, "Invalid tun fd: $currentTunFd")
-            stopVpn()
-            return
+            error("Invalid tun fd: $currentTunFd")
         }
 
         val startResult = initClash(
@@ -81,9 +83,12 @@ class TunService : VpnService() {
             ),
         )
         if (startResult.isFailure) {
-            Log.e(TAG, "Failed to initialize Rust core", startResult.exceptionOrNull())
-            stopVpn()
+            throw startResult.exceptionOrNull()
+                ?: IllegalStateException("Failed to initialize Rust core")
         }
+
+        NotificationHelper.notifyRunning(this)
+        Global.isServiceRunning.value = true
     }
 
     private fun buildTunnel(): ParcelFileDescriptor? {
@@ -116,6 +121,20 @@ class TunService : VpnService() {
         }
     }
 
+    private fun ensureForegroundService() {
+        NotificationHelper.ensureChannel(this)
+        val notification = NotificationHelper.buildStartingNotification(this)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NotificationHelper.NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+            )
+        } else {
+            startForeground(NotificationHelper.NOTIFICATION_ID, notification)
+        }
+    }
+
     private fun cleanup() {
         synchronized(this) {
             if (isDestroying) {
@@ -127,13 +146,22 @@ class TunService : VpnService() {
         shutdownClash().exceptionOrNull()?.let { error ->
             Log.w(TAG, "Failed to stop Rust core cleanly", error)
         }
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                stopForeground(STOP_FOREGROUND_REMOVE)
+            } else {
+                @Suppress("DEPRECATION")
+                stopForeground(true)
+            }
+        }.onFailure { error ->
+            Log.w(TAG, "Failed to stop foreground service", error)
+        }
         runCatching { vpnInterface?.close() }
             .onFailure { error -> Log.w(TAG, "Failed to close VPN interface", error) }
         vpnInterface = null
         tunFd = null
         tunService = null
         Global.isServiceRunning.value = false
-        isDestroying = false
     }
 
     fun stopVpn() {

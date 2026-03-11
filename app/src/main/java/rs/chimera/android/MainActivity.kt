@@ -2,6 +2,7 @@ package rs.chimera.android
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
@@ -16,6 +17,10 @@ import rs.chimera.android.theme.ChimeraTheme
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
+    companion object {
+        fun intent(context: Context) = Intent(context, MainActivity::class.java)
+    }
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { isGranted ->
