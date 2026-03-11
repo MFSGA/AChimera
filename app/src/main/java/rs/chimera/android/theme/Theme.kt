@@ -8,24 +8,37 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
+    primary = Blue80,
+    secondary = Slate80,
+    tertiary = Teal80,
+    background = SurfaceDark,
+    surface = SurfaceDark,
+    surfaceContainer = SurfaceVariantDark,
+    surfaceContainerHigh = SurfaceVariantDark,
+    surfaceContainerHighest = Color(0xFF232A39),
+    outline = OutlineDark,
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
+    primary = Blue40,
+    secondary = Slate40,
+    tertiary = Teal40,
+    background = SurfaceLight,
+    surface = SurfaceLight,
+    surfaceContainer = SurfaceVariantLight,
+    surfaceContainerHigh = Color(0xFFF0F3FA),
+    surfaceContainerHighest = Color(0xFFE3E8F4),
+    outline = OutlineLight,
 )
 
 @Composable
 fun ChimeraTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
