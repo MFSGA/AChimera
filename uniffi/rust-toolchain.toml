@@ -1,0 +1,9 @@
+[toolchain]
+channel = "nightly"
+targets = [
+    "armv7-linux-androideabi",
+    "i686-linux-android",
+    "aarch64-linux-android",
+    "x86_64-linux-android",
+]
+components = ["clippy", "rustfmt"]
