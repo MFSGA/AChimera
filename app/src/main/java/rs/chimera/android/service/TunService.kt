@@ -102,8 +102,9 @@ class TunService : VpnService() {
                 ?: IllegalStateException("Failed to initialize Rust core")
         }
 
-        Global.proxyPort = settings.mixedPort
-        appendRuntimeLog("service rust core started on mixed-port=${settings.mixedPort}")
+        val finalProfile = startResult.getOrThrow()
+        Global.proxyPort = finalProfile.mixedPort
+        appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
         Global.isServiceRunning.value = true
     }

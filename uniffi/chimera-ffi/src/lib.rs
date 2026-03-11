@@ -6,6 +6,7 @@ use jni::objects::{JObject, JString};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
 use jni::{JNIEnv, JavaVM};
 use reqwest::redirect::Policy;
+use serde_yaml::{Mapping, Number, Value};
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File, OpenOptions};
 use std::hash::{Hash, Hasher};
@@ -67,8 +68,17 @@ pub struct ProfileOverride {
     #[uniffi(default = false)]
     pub fake_ip: bool,
 
+    #[uniffi(default = "198.18.0.2/16")]
+    pub fake_ip_range: String,
+
     #[uniffi(default = true)]
     pub ipv6: bool,
+}
+
+#[derive(uniffi::Record, Default)]
+pub struct FinalProfile {
+    #[uniffi(default = 7890)]
+    pub mixed_port: u16,
 }
 
 #[derive(uniffi::Record)]
@@ -159,6 +169,143 @@ fn log_line(log_path: &Path, message: &str) {
     let _ = writeln!(file, "[{}] {}", now_epoch_secs(), message);
 }
 
+fn yaml_key(key: &str) -> Value {
+    Value::String(key.to_string())
+}
+
+fn yaml_string(value: impl Into<String>) -> Value {
+    Value::String(value.into())
+}
+
+fn yaml_bool(value: bool) -> Value {
+    Value::Bool(value)
+}
+
+fn yaml_u16(value: u16) -> Value {
+    Value::Number(Number::from(value))
+}
+
+fn mapping_mut(value: &mut Value) -> Result<&mut Mapping, String> {
+    value
+        .as_mapping_mut()
+        .ok_or_else(|| "config root is not a mapping".to_string())
+}
+
+fn ensure_mapping<'a>(parent: &'a mut Mapping, key: &str) -> &'a mut Mapping {
+    let key_value = yaml_key(key);
+    let needs_replace = !matches!(parent.get(&key_value), Some(Value::Mapping(_)));
+    if needs_replace {
+        parent.insert(key_value.clone(), Value::Mapping(Mapping::new()));
+    }
+
+    parent
+        .get_mut(&key_value)
+        .and_then(Value::as_mapping_mut)
+        .expect("mapping entry should exist")
+}
+
+fn set_or_insert(parent: &mut Mapping, key: &str, value: Value) {
+    parent.insert(yaml_key(key), value);
+}
+
+fn insert_if_missing(parent: &mut Mapping, key: &str, value: Value) {
+    parent.entry(yaml_key(key)).or_insert(value);
+}
+
+fn insert_sequence_if_missing(parent: &mut Mapping, key: &str, values: &[Value]) {
+    if parent.contains_key(yaml_key(key)) {
+        return;
+    }
+    parent.insert(yaml_key(key), Value::Sequence(values.to_vec()));
+}
+
+fn current_mixed_port(root: &Mapping, default_port: u16) -> u16 {
+    root.get(yaml_key("mixed-port"))
+        .and_then(Value::as_u64)
+        .and_then(|value| u16::try_from(value).ok())
+        .unwrap_or(default_port)
+}
+
+fn build_runtime_config(
+    profile_content: &str,
+    socket_path: &Path,
+    over: &ProfileOverride,
+) -> Result<(String, FinalProfile), String> {
+    let mut value: Value = serde_yaml::from_str(profile_content)
+        .map_err(|error| format!("failed to parse profile yaml: {error}"))?;
+    value
+        .apply_merge()
+        .map_err(|error| format!("failed to resolve yaml anchors: {error}"))?;
+
+    let root = mapping_mut(&mut value)?;
+    insert_if_missing(root, "mixed-port", yaml_u16(over.mixed_port));
+    if let Some(http_port) = over.http_port {
+        insert_if_missing(root, "port", yaml_u16(http_port));
+    }
+    if let Some(socks_port) = over.socks_port {
+        insert_if_missing(root, "socks-port", yaml_u16(socks_port));
+    }
+
+    set_or_insert(
+        root,
+        "external-controller-unix",
+        yaml_string(socket_path.to_string_lossy().to_string()),
+    );
+    set_or_insert(root, "mmdb", yaml_string("Country.mmdb"));
+    set_or_insert(root, "geosite", yaml_string("geosite.dat"));
+    set_or_insert(root, "asn-mmdb", Value::Null);
+    set_or_insert(root, "ipv6", yaml_bool(over.ipv6));
+
+    let tun = ensure_mapping(root, "tun");
+    set_or_insert(tun, "enable", yaml_bool(true));
+    set_or_insert(tun, "device", yaml_string(format!("fd://{}", over.tun_fd)));
+    set_or_insert(tun, "route-all", yaml_bool(false));
+    set_or_insert(tun, "routes", Value::Sequence(Vec::new()));
+    set_or_insert(tun, "gateway", yaml_string("10.0.0.1/30"));
+    set_or_insert(tun, "gateway-v6", Value::Null);
+    set_or_insert(tun, "mtu", Value::Null);
+    set_or_insert(tun, "so-mark", Value::Null);
+    set_or_insert(tun, "route-table", Value::Number(Number::from(0)));
+    set_or_insert(tun, "dns-hijack", yaml_bool(true));
+
+    let dns = ensure_mapping(root, "dns");
+    set_or_insert(dns, "enable", yaml_bool(true));
+    set_or_insert(dns, "ipv6", yaml_bool(over.ipv6));
+
+    let listen = ensure_mapping(dns, "listen");
+    set_or_insert(listen, "udp", yaml_string("127.0.0.1:53553"));
+
+    insert_sequence_if_missing(
+        dns,
+        "nameserver",
+        &[
+            yaml_string("https://223.5.5.5:443"),
+            yaml_string("https://223.6.6.6:443"),
+            yaml_string("https://120.53.53.53:443"),
+            yaml_string("https://1.12.12.12:443"),
+        ],
+    );
+    insert_sequence_if_missing(
+        dns,
+        "default-nameserver",
+        &[yaml_string("223.6.6.6"), yaml_string("8.8.8.8")],
+    );
+
+    if over.fake_ip {
+        set_or_insert(dns, "enhanced-mode", yaml_string("fake-ip"));
+        set_or_insert(dns, "fake-ip-range", yaml_string(over.fake_ip_range.clone()));
+    } else {
+        set_or_insert(dns, "enhanced-mode", yaml_string("normal"));
+    }
+
+    let final_profile = FinalProfile {
+        mixed_port: current_mixed_port(root, over.mixed_port),
+    };
+    let rendered = serde_yaml::to_string(&value)
+        .map_err(|error| format!("failed to render runtime config: {error}"))?;
+    Ok((rendered, final_profile))
+}
+
 fn extract_jstring(
     env: &mut JNIEnv<'_>,
     value: JString<'_>,
@@ -192,8 +339,8 @@ fn start_core_internal(
     profile_path: String,
     cache_dir: String,
     tun_fd: i32,
-    log_file_path: String,
-) -> Result<(), String> {
+    over: ProfileOverride,
+) -> Result<FinalProfile, String> {
     if profile_path.trim().is_empty() {
         return Err("profile path is empty".to_string());
     }
@@ -203,7 +350,7 @@ fn start_core_internal(
     if tun_fd <= 0 {
         return Err(format!("invalid tun fd: {tun_fd}"));
     }
-    if log_file_path.trim().is_empty() {
+    if over.log_file_path.trim().is_empty() {
         return Err("log file path is empty".to_string());
     }
 
@@ -231,7 +378,7 @@ fn start_core_internal(
     fs::create_dir_all(&work_dir)
         .map_err(|error| format!("failed to create work dir {}: {error}", work_dir.display()))?;
 
-    let mut log_path = PathBuf::from(log_file_path);
+    let mut log_path = PathBuf::from(&over.log_file_path);
     if !log_path.is_absolute() {
         log_path = work_dir.join(log_path);
     }
@@ -264,13 +411,10 @@ fn start_core_internal(
         .to_str()
         .ok_or_else(|| "profile path contains invalid UTF-8".to_string())?
         .to_string();
-    let controller_config = format!(
-        "{}\nexternal-controller-unix: {}\n",
-        profile_content,
-        socket_path.to_string_lossy()
-    );
+    let (runtime_config, final_profile) =
+        build_runtime_config(&profile_content, &socket_path, &over)?;
 
-    let mut config = ClashConfig::Str(controller_config)
+    let mut config = ClashConfig::Str(runtime_config)
         .try_parse()
         .map_err(|error| {
             format!(
@@ -342,7 +486,7 @@ fn start_core_internal(
         *guard = Some(CoreState { worker, metadata });
     }
     CORE_RUNNING.store(true, Ordering::SeqCst);
-    Ok(())
+    Ok(final_profile)
 }
 
 fn build_hello_message() -> String {
@@ -381,8 +525,9 @@ fn run_clash(
     config_path: String,
     work_dir: String,
     over: ProfileOverride,
-) -> Result<(), ChimeraError> {
-    start_core_internal(config_path, work_dir, over.tun_fd, over.log_file_path)
+) -> Result<FinalProfile, ChimeraError> {
+    let tun_fd = over.tun_fd;
+    start_core_internal(config_path, work_dir, tun_fd, over)
         .map_err(runtime_error)
 }
 
@@ -569,8 +714,20 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
         }
     };
 
-    match start_core_internal(profile_path, cache_dir, tun_fd, log_file_path) {
-        Ok(()) => JNI_TRUE,
+    let over = ProfileOverride {
+        tun_fd,
+        log_file_path,
+        allow_lan: false,
+        mixed_port: 7890,
+        http_port: None,
+        socks_port: None,
+        fake_ip: false,
+        fake_ip_range: "198.18.0.2/16".to_string(),
+        ipv6: true,
+    };
+
+    match start_core_internal(profile_path, cache_dir, tun_fd, over) {
+        Ok(_) => JNI_TRUE,
         Err(error) => {
             set_last_error(error);
             CORE_RUNNING.store(false, Ordering::SeqCst);

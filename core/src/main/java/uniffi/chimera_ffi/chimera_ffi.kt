@@ -741,7 +741,7 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_func_hello(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_run_clash(`configPath`: RustBuffer.ByValue,`workDir`: RustBuffer.ByValue,`over`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
+    ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_shutdown(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun uniffi_chimera_ffi_fn_func_verify_config(`configPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -874,7 +874,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_func_hello() != 60002.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_func_run_clash() != 25303.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_func_run_clash() != 8198.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_func_shutdown() != 31048.toShort()) {
@@ -1864,6 +1864,39 @@ public object FfiConverterTypeDownloadResult: FfiConverterRustBuffer<DownloadRes
 
 
 
+data class FinalProfile (
+    var `mixedPort`: kotlin.UShort = 7890u 
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeFinalProfile: FfiConverterRustBuffer<FinalProfile> {
+    override fun read(buf: ByteBuffer): FinalProfile {
+        return FinalProfile(
+            FfiConverterUShort.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: FinalProfile) = (
+            FfiConverterUShort.allocationSize(value.`mixedPort`)
+    )
+
+    override fun write(value: FinalProfile, buf: ByteBuffer) {
+            FfiConverterUShort.write(value.`mixedPort`, buf)
+    }
+}
+
+
+
 data class ProfileOverride (
     var `tunFd`: kotlin.Int
     , 
@@ -1878,6 +1911,8 @@ data class ProfileOverride (
     var `socksPort`: kotlin.UShort? = null 
     , 
     var `fakeIp`: kotlin.Boolean = false 
+    , 
+    var `fakeIpRange`: kotlin.String = "198.18.0.2/16" 
     , 
     var `ipv6`: kotlin.Boolean = true 
     
@@ -1903,6 +1938,7 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
             FfiConverterOptionalUShort.read(buf),
             FfiConverterOptionalUShort.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
         )
     }
@@ -1915,6 +1951,7 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
             FfiConverterOptionalUShort.allocationSize(value.`httpPort`) +
             FfiConverterOptionalUShort.allocationSize(value.`socksPort`) +
             FfiConverterBoolean.allocationSize(value.`fakeIp`) +
+            FfiConverterString.allocationSize(value.`fakeIpRange`) +
             FfiConverterBoolean.allocationSize(value.`ipv6`)
     )
 
@@ -1926,6 +1963,7 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
             FfiConverterOptionalUShort.write(value.`httpPort`, buf)
             FfiConverterOptionalUShort.write(value.`socksPort`, buf)
             FfiConverterBoolean.write(value.`fakeIp`, buf)
+            FfiConverterString.write(value.`fakeIpRange`, buf)
             FfiConverterBoolean.write(value.`ipv6`, buf)
     }
 }
@@ -2431,14 +2469,15 @@ public object FfiConverterSequenceTypeProxy: FfiConverterRustBuffer<List<Proxy>>
     }
     
 
-    @Throws(ChimeraException::class) fun `runClash`(`configPath`: kotlin.String, `workDir`: kotlin.String, `over`: ProfileOverride)
-        = 
+    @Throws(ChimeraException::class) fun `runClash`(`configPath`: kotlin.String, `workDir`: kotlin.String, `over`: ProfileOverride): FinalProfile {
+            return FfiConverterTypeFinalProfile.lift(
     uniffiRustCallWithError(ChimeraException) { _status ->
     UniffiLib.uniffi_chimera_ffi_fn_func_run_clash(
     
         FfiConverterString.lower(`configPath`),FfiConverterString.lower(`workDir`),FfiConverterTypeProfileOverride.lower(`over`),_status)
 }
-    
+    )
+    }
     
 
     @Throws(ChimeraException::class) fun `shutdown`()

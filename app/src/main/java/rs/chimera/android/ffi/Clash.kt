@@ -3,13 +3,14 @@ package rs.chimera.android.ffi
 import uniffi.chimera_ffi.runClash
 import uniffi.chimera_ffi.uniffiEnsureInitialized
 
+typealias FinalProfile = uniffi.chimera_ffi.FinalProfile
 typealias ProfileOverride = uniffi.chimera_ffi.ProfileOverride
 
 fun initClash(
     configPath: String,
     workDir: String,
     over: ProfileOverride,
-): Result<Unit> {
+): Result<FinalProfile> {
     return runCatching {
         uniffiEnsureInitialized()
         runClash(
