@@ -43,8 +43,10 @@
     <string name="profile_missing">No profile selected</string>
     <string name="profile_import_url">Import From URL</string>
     <string name="profile_url_hint">https://example.com/config.yaml</string>
+    <string name="profile_default_test_url">http://10.0.2.2:5500/scripts/rVqZHZQSFdSN.yaml</string>
     <string name="profile_download_file">Download</string>
     <string name="profile_downloading">Downloading profile...</string>
+    <string name="profile_download_progress">%1$s / %2$s bytes</string>
     <string name="profile_url_required">Please enter a profile URL.</string>
     <string name="profile_url_invalid">Please enter a valid http(s) URL.</string>
     <string name="profile_choose_file">Choose File</string>

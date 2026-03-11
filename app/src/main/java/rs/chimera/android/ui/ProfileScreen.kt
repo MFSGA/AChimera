@@ -15,6 +15,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -43,9 +44,11 @@ fun ProfileScreen(
     vm: ProfileViewModel = viewModel(),
 ) {
     val context = LocalContext.current
+    // todo: delete the dev defaultRemoteUrl
+    val defaultRemoteUrl = stringResource(id = R.string.profile_default_test_url)
     var localProfileName by remember { mutableStateOf("") }
     var remoteProfileName by remember { mutableStateOf("") }
-    var remoteProfileUrl by remember { mutableStateOf("") }
+    var remoteProfileUrl by remember { mutableStateOf(defaultRemoteUrl) }
     var showLocalDialog by remember { mutableStateOf(false) }
     var showRemoteDialog by remember { mutableStateOf(false) }
     var wasDownloading by remember { mutableStateOf(false) }
@@ -60,7 +63,7 @@ fun ProfileScreen(
         } else if (wasDownloading && showRemoteDialog) {
             showRemoteDialog = false
             remoteProfileName = ""
-            remoteProfileUrl = ""
+            remoteProfileUrl = defaultRemoteUrl
             wasDownloading = false
         }
     }
@@ -125,12 +128,35 @@ fun ProfileScreen(
                 if (!vm.isDownloading) {
                     showRemoteDialog = false
                     remoteProfileName = ""
-                    remoteProfileUrl = ""
+                    remoteProfileUrl = defaultRemoteUrl
                 }
             },
             title = { Text(text = stringResource(id = R.string.profile_remote_dialog_title)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (vm.isDownloading) {
+                        Text(text = stringResource(id = R.string.profile_downloading))
+                        vm.downloadProgress?.let { progress ->
+                            if (progress.total > 0uL) {
+                                val ratio = progress.downloaded.toFloat() / progress.total.toFloat()
+                                LinearProgressIndicator(
+                                    progress = { ratio.coerceIn(0f, 1f) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                                Text(
+                                    text = stringResource(
+                                        id = R.string.profile_download_progress,
+                                        progress.downloaded.toString(),
+                                        progress.total.toString(),
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                )
+                            } else {
+                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                            }
+                        } ?: LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+
                     OutlinedTextField(
                         value = remoteProfileName,
                         onValueChange = { remoteProfileName = it },
@@ -169,7 +195,7 @@ fun ProfileScreen(
                     onClick = {
                         showRemoteDialog = false
                         remoteProfileName = ""
-                        remoteProfileUrl = ""
+                        remoteProfileUrl = defaultRemoteUrl
                     },
                 ) {
                     Text(text = stringResource(id = android.R.string.cancel))

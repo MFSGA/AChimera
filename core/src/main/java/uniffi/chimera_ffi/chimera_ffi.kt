@@ -30,6 +30,13 @@ import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.coroutines.resume
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 // This is a helper for safely working with byte buffers returned from the Rust code.
 // A rust-owned buffer is represented by its capacity, its current length, and a
@@ -612,6 +619,28 @@ internal open class UniffiForeignFutureResultVoid(
 internal interface UniffiForeignFutureCompleteVoid : com.sun.jna.Callback {
     fun callback(`callbackData`: Long,`result`: UniffiForeignFutureResultVoid.UniffiByValue,)
 }
+internal interface UniffiCallbackInterfaceDownloadProgressCallbackMethod0 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`progress`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "onProgress")
+internal open class UniffiVTableCallbackInterfaceDownloadProgressCallback(
+    @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+    @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+    @JvmField internal var `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0? = null,
+) : Structure() {
+    class UniffiByValue(
+        `uniffiFree`: UniffiCallbackInterfaceFree? = null,
+        `uniffiClone`: UniffiCallbackInterfaceClone? = null,
+        `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0? = null,
+    ): UniffiVTableCallbackInterfaceDownloadProgressCallback(`uniffiFree`,`uniffiClone`,`onProgress`,), Structure.ByValue
+
+   internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceDownloadProgressCallback) {
+        `uniffiFree` = other.`uniffiFree`
+        `uniffiClone` = other.`uniffiClone`
+        `onProgress` = other.`onProgress`
+    }
+
+}
 
 // A JNA Library to expose the extern-C FFI definitions.
 // This is an implementation detail which will be called internally by the public API.
@@ -635,11 +664,17 @@ internal object IntegrityCheckingUniffiLib {
         uniffiCheckContractApiVersion(this)
         uniffiCheckApiChecksums(this)
     }
+    external fun uniffi_chimera_ffi_checksum_func_download_file(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_func_download_file_with_progress(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_func_hello(
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_run_clash(
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_shutdown(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress(
     ): Short
     external fun ffi_chimera_ffi_uniffi_contract_version(
     ): Int
@@ -652,8 +687,15 @@ internal object UniffiLib {
 
     init {
         Native.register(UniffiLib::class.java, findLibraryName(componentName = "chimera_ffi"))
+        uniffiCallbackInterfaceDownloadProgressCallback.register(this)
         
     }
+    external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
+    ): Unit
+    external fun uniffi_chimera_ffi_fn_func_download_file(`url`: RustBuffer.ByValue,`outputPath`: RustBuffer.ByValue,`userAgent`: RustBuffer.ByValue,`proxyUrl`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_func_download_file_with_progress(`url`: RustBuffer.ByValue,`outputPath`: RustBuffer.ByValue,`userAgent`: RustBuffer.ByValue,`proxyUrl`: RustBuffer.ByValue,`progressCallback`: RustBuffer.ByValue,
+    ): Long
     external fun uniffi_chimera_ffi_fn_func_hello(uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_run_clash(`configPath`: RustBuffer.ByValue,`workDir`: RustBuffer.ByValue,`over`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -779,6 +821,12 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
+    if (lib.uniffi_chimera_ffi_checksum_func_download_file() != 23863.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_func_download_file_with_progress() != 8745.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_chimera_ffi_checksum_func_hello() != 60002.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -786,6 +834,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_func_shutdown() != 31048.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress() != 55716.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -801,6 +852,46 @@ public fun uniffiEnsureInitialized() {
 }
 
 // Async support
+// Async return type handlers
+
+internal const val UNIFFI_RUST_FUTURE_POLL_READY = 0.toByte()
+internal const val UNIFFI_RUST_FUTURE_POLL_WAKE = 1.toByte()
+
+internal val uniffiContinuationHandleMap = UniffiHandleMap<CancellableContinuation<Byte>>()
+
+// FFI type for Rust future continuations
+internal object uniffiRustFutureContinuationCallbackImpl: UniffiRustFutureContinuationCallback {
+    override fun callback(data: Long, pollResult: Byte) {
+        uniffiContinuationHandleMap.remove(data).resume(pollResult)
+    }
+}
+
+internal suspend fun<T, F, E: kotlin.Exception> uniffiRustCallAsync(
+    rustFuture: Long,
+    pollFunc: (Long, UniffiRustFutureContinuationCallback, Long) -> Unit,
+    completeFunc: (Long, UniffiRustCallStatus) -> F,
+    freeFunc: (Long) -> Unit,
+    liftFunc: (F) -> T,
+    errorHandler: UniffiRustCallStatusErrorHandler<E>
+): T {
+    try {
+        do {
+            val pollResult = suspendCancellableCoroutine<Byte> { continuation ->
+                pollFunc(
+                    rustFuture,
+                    uniffiRustFutureContinuationCallbackImpl,
+                    uniffiContinuationHandleMap.insert(continuation)
+                )
+            }
+        } while (pollResult != UNIFFI_RUST_FUTURE_POLL_READY);
+
+        return liftFunc(
+            uniffiRustCallWithError(errorHandler, { status -> completeFunc(rustFuture, status) })
+        )
+    } finally {
+        freeFunc(rustFuture)
+    }
+}
 
 // Public interface members begin here.
 
@@ -879,7 +970,38 @@ object UniffiWithHandle
  *
  * @suppress
  * */
-object NoHandle
+object NoHandle// Magic number for the Rust proxy to call using the same mechanism as every other method,
+// to free the callback once it's dropped by Rust.
+internal const val IDX_CALLBACK_FREE = 0
+// Callback return codes
+internal const val UNIFFI_CALLBACK_SUCCESS = 0
+internal const val UNIFFI_CALLBACK_ERROR = 1
+internal const val UNIFFI_CALLBACK_UNEXPECTED_ERROR = 2
+
+/**
+ * @suppress
+ */
+public abstract class FfiConverterCallbackInterface<CallbackInterface: Any>: FfiConverter<CallbackInterface, Long> {
+    internal val handleMap = UniffiHandleMap<CallbackInterface>()
+
+    internal fun drop(handle: Long) {
+        handleMap.remove(handle)
+    }
+
+    override fun lift(value: Long): CallbackInterface {
+        return handleMap.get(value)
+    }
+
+    override fun read(buf: ByteBuffer) = lift(buf.getLong())
+
+    override fun lower(value: CallbackInterface) = handleMap.insert(value)
+
+    override fun allocationSize(value: CallbackInterface) = 8UL
+
+    override fun write(value: CallbackInterface, buf: ByteBuffer) {
+        buf.putLong(lower(value))
+    }
+}
 
 /**
  * @suppress
@@ -924,6 +1046,29 @@ public object FfiConverterInt: FfiConverter<Int, Int> {
 
     override fun write(value: Int, buf: ByteBuffer) {
         buf.putInt(value)
+    }
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterULong: FfiConverter<ULong, Long> {
+    override fun lift(value: Long): ULong {
+        return value.toULong()
+    }
+
+    override fun read(buf: ByteBuffer): ULong {
+        return lift(buf.getLong())
+    }
+
+    override fun lower(value: ULong): Long {
+        return value.toLong()
+    }
+
+    override fun allocationSize(value: ULong) = 8UL
+
+    override fun write(value: ULong, buf: ByteBuffer) {
+        buf.putLong(value.toLong())
     }
 }
 
@@ -1004,6 +1149,87 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
         val byteBuf = toUtf8(value)
         buf.putInt(byteBuf.limit())
         buf.put(byteBuf)
+    }
+}
+
+
+
+data class DownloadProgress (
+    var `downloaded`: kotlin.ULong
+    , 
+    var `total`: kotlin.ULong
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeDownloadProgress: FfiConverterRustBuffer<DownloadProgress> {
+    override fun read(buf: ByteBuffer): DownloadProgress {
+        return DownloadProgress(
+            FfiConverterULong.read(buf),
+            FfiConverterULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: DownloadProgress) = (
+            FfiConverterULong.allocationSize(value.`downloaded`) +
+            FfiConverterULong.allocationSize(value.`total`)
+    )
+
+    override fun write(value: DownloadProgress, buf: ByteBuffer) {
+            FfiConverterULong.write(value.`downloaded`, buf)
+            FfiConverterULong.write(value.`total`, buf)
+    }
+}
+
+
+
+data class DownloadResult (
+    var `success`: kotlin.Boolean
+    , 
+    var `fileSize`: kotlin.ULong
+    , 
+    var `errorMessage`: kotlin.String?
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeDownloadResult: FfiConverterRustBuffer<DownloadResult> {
+    override fun read(buf: ByteBuffer): DownloadResult {
+        return DownloadResult(
+            FfiConverterBoolean.read(buf),
+            FfiConverterULong.read(buf),
+            FfiConverterOptionalString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: DownloadResult) = (
+            FfiConverterBoolean.allocationSize(value.`success`) +
+            FfiConverterULong.allocationSize(value.`fileSize`) +
+            FfiConverterOptionalString.allocationSize(value.`errorMessage`)
+    )
+
+    override fun write(value: DownloadResult, buf: ByteBuffer) {
+            FfiConverterBoolean.write(value.`success`, buf)
+            FfiConverterULong.write(value.`fileSize`, buf)
+            FfiConverterOptionalString.write(value.`errorMessage`, buf)
     }
 }
 
@@ -1140,6 +1366,66 @@ public object FfiConverterTypeChimeraError : FfiConverterRustBuffer<ChimeraExcep
 
 
 
+
+public interface DownloadProgressCallback {
+    
+    fun `onProgress`(`progress`: DownloadProgress)
+    
+    companion object
+}
+
+
+
+// Put the implementation in an object so we don't pollute the top-level namespace
+internal object uniffiCallbackInterfaceDownloadProgressCallback {
+    internal object `onProgress`: UniffiCallbackInterfaceDownloadProgressCallbackMethod0 {
+        override fun callback(`uniffiHandle`: Long,`progress`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeDownloadProgressCallback.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`onProgress`(
+                    FfiConverterTypeDownloadProgress.lift(`progress`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
+
+    internal object uniffiFree: UniffiCallbackInterfaceFree {
+        override fun callback(handle: Long) {
+            FfiConverterTypeDownloadProgressCallback.handleMap.remove(handle)
+        }
+    }
+
+    internal object uniffiClone: UniffiCallbackInterfaceClone {
+        override fun callback(handle: Long): Long {
+            return FfiConverterTypeDownloadProgressCallback.handleMap.clone(handle)
+        }
+    }
+
+    internal var vtable = UniffiVTableCallbackInterfaceDownloadProgressCallback.UniffiByValue(
+        uniffiFree,
+        uniffiClone,
+        `onProgress`,
+    )
+
+    // Registers the foreign callback with the Rust side.
+    // This method is generated for each callback interface.
+    internal fun register(lib: UniffiLib) {
+        lib.uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(vtable)
+    }
+}
+
+/**
+ * The ffiConverter which transforms the Callbacks in to handles to pass to Rust.
+ *
+ * @suppress
+ */
+public object FfiConverterTypeDownloadProgressCallback: FfiConverterCallbackInterface<DownloadProgressCallback>()
+
+
+
+
 /**
  * @suppress
  */
@@ -1167,7 +1453,109 @@ public object FfiConverterOptionalUShort: FfiConverterRustBuffer<kotlin.UShort?>
             FfiConverterUShort.write(value, buf)
         }
     }
-} fun `hello`(): kotlin.String {
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?> {
+    override fun read(buf: ByteBuffer): kotlin.String? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterString.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.String?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterString.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.String?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeDownloadProgressCallback: FfiConverterRustBuffer<DownloadProgressCallback?> {
+    override fun read(buf: ByteBuffer): DownloadProgressCallback? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeDownloadProgressCallback.read(buf)
+    }
+
+    override fun allocationSize(value: DownloadProgressCallback?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeDownloadProgressCallback.allocationSize(value)
+        }
+    }
+
+    override fun write(value: DownloadProgressCallback?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeDownloadProgressCallback.write(value, buf)
+        }
+    }
+}
+
+
+
+
+
+
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `downloadFile`(`url`: kotlin.String, `outputPath`: kotlin.String, `userAgent`: kotlin.String?, `proxyUrl`: kotlin.String?) : DownloadResult {
+        return uniffiRustCallAsync(
+        UniffiLib.uniffi_chimera_ffi_fn_func_download_file(FfiConverterString.lower(`url`),FfiConverterString.lower(`outputPath`),FfiConverterOptionalString.lower(`userAgent`),FfiConverterOptionalString.lower(`proxyUrl`),),
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeDownloadResult.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+     suspend fun `downloadFileWithProgress`(`url`: kotlin.String, `outputPath`: kotlin.String, `userAgent`: kotlin.String?, `proxyUrl`: kotlin.String?, `progressCallback`: DownloadProgressCallback?) : DownloadResult {
+        return uniffiRustCallAsync(
+        UniffiLib.uniffi_chimera_ffi_fn_func_download_file_with_progress(FfiConverterString.lower(`url`),FfiConverterString.lower(`outputPath`),FfiConverterOptionalString.lower(`userAgent`),FfiConverterOptionalString.lower(`proxyUrl`),FfiConverterOptionalTypeDownloadProgressCallback.lower(`progressCallback`),),
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeDownloadResult.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+ fun `hello`(): kotlin.String {
             return FfiConverterString.lift(
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_chimera_ffi_fn_func_hello(

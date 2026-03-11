@@ -18,12 +18,13 @@ import rs.chimera.android.Global
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.Proxy
-import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import uniffi.chimera_ffi.DownloadProgress
+import uniffi.chimera_ffi.DownloadProgressCallback
+import uniffi.chimera_ffi.downloadFileWithProgress
+import uniffi.chimera_ffi.uniffiEnsureInitialized
 
 data class FileInfo(
     val name: String,
@@ -41,6 +42,9 @@ class ProfileViewModel : ViewModel() {
         private set
 
     var isDownloading by mutableStateOf(false)
+        private set
+
+    var downloadProgress by mutableStateOf<DownloadProgress?>(null)
         private set
 
     var savedFilePath by mutableStateOf<String?>(null)
@@ -133,6 +137,7 @@ class ProfileViewModel : ViewModel() {
 
         viewModelScope.launch {
             isDownloading = true
+            downloadProgress = null
             try {
                 val resolvedName = profileName
                     ?.trim()
@@ -171,6 +176,7 @@ class ProfileViewModel : ViewModel() {
                 )
             } finally {
                 isDownloading = false
+                downloadProgress = null
             }
         }
     }
@@ -305,46 +311,33 @@ class ProfileViewModel : ViewModel() {
         return formatter.format(Date())
     }
 
-    private fun downloadProfileToAppDirectory(
+    private suspend fun downloadProfileToAppDirectory(
         context: Context,
         profileName: String,
         urlText: String,
         userAgent: String?,
         proxyUrl: String?,
     ): File {
-        val url = runCatching { URL(urlText) }
-            .getOrElse { throw IllegalArgumentException(context.getString(rs.chimera.android.R.string.profile_url_invalid)) }
+        val fileName = buildRemoteFileName(urlText, profileName)
+        val file = File(context.filesDir, fileName)
+        uniffiEnsureInitialized()
 
-        if (url.protocol != "http" && url.protocol != "https") {
-            throw IllegalArgumentException(context.getString(rs.chimera.android.R.string.profile_url_invalid))
-        }
-
-        val remoteName = url.path.substringAfterLast('/').substringBefore('?').ifBlank { DEFAULT_REMOTE_FILE_NAME }
-        val extension = remoteName.substringAfterLast('.', "yaml")
-        val file = File(context.filesDir, sanitizeFileName("$profileName.$extension"))
-        val proxy = proxyUrl?.takeIf { it.isNotBlank() }?.let { Proxy(Proxy.Type.HTTP, URL(it).let { proxyAddress -> java.net.InetSocketAddress(proxyAddress.host, proxyAddress.port) }) }
-        val connection = ((if (proxy != null) url.openConnection(proxy) else url.openConnection()) as? HttpURLConnection)
-            ?: throw IllegalStateException("Unsupported connection type")
-
-        try {
-            connection.instanceFollowRedirects = true
-            connection.connectTimeout = 15_000
-            connection.readTimeout = 30_000
-            connection.requestMethod = "GET"
-            userAgent?.takeIf { it.isNotBlank() }?.let { connection.setRequestProperty("User-Agent", it) }
-            connection.connect()
-
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("HTTP ${connection.responseCode}")
-            }
-
-            connection.inputStream.use { input ->
-                file.outputStream().use { output ->
-                    input.copyTo(output)
+        val result = downloadFileWithProgress(
+            url = urlText,
+            outputPath = file.absolutePath,
+            userAgent = userAgent,
+            proxyUrl = proxyUrl,
+            progressCallback = object : DownloadProgressCallback {
+                override fun onProgress(progress: DownloadProgress) {
+                    viewModelScope.launch(Dispatchers.Main) {
+                        downloadProgress = progress
+                    }
                 }
-            }
-        } finally {
-            connection.disconnect()
+            },
+        )
+
+        if (!result.success) {
+            throw IllegalStateException(result.errorMessage ?: context.getString(rs.chimera.android.R.string.profile_unknown_error))
         }
 
         return file
@@ -354,6 +347,17 @@ class ProfileViewModel : ViewModel() {
         return fileName
             .replace(Regex("[^A-Za-z0-9._-]"), "_")
             .ifBlank { DEFAULT_REMOTE_FILE_NAME }
+    }
+
+    private fun buildRemoteFileName(
+        urlText: String,
+        profileName: String,
+    ): String {
+        val remoteName = runCatching {
+            java.net.URL(urlText).path.substringAfterLast('/').substringBefore('?')
+        }.getOrNull().orEmpty()
+        val extension = remoteName.substringAfterLast('.', "yaml")
+        return sanitizeFileName("$profileName.$extension")
     }
 
     private companion object {
