@@ -20,18 +20,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import rs.chimera.android.R
-import androidx.core.content.edit
+import rs.chimera.android.Global
 import java.io.File
 
 @Composable
 fun ProfileScreen(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val sharedPreferences = remember(context) {
-        context.getSharedPreferences("file_prefs", Context.MODE_PRIVATE)
-    }
 
     var savedFilePath by remember {
-        mutableStateOf(sharedPreferences.getString("profile_path", null) ?: "")
+        mutableStateOf(Global.profilePath)
     }
     var selectedFile by remember { mutableStateOf<Uri?>(null) }
     var statusMessage by remember { mutableStateOf("") }
@@ -64,8 +61,7 @@ fun ProfileScreen(modifier: Modifier = Modifier) {
                     runCatching {
                         saveFileToAppDirectory(context, file)
                     }.onSuccess { filePath ->
-                        sharedPreferences.edit { putString("profile_path", filePath) }
-                        rs.chimera.android.Global.profilePath = filePath
+                        Global.updateProfilePath(filePath)
                         savedFilePath = filePath
                         statusMessage = context.getString(
                             R.string.profile_import_success,

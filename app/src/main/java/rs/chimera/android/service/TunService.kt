@@ -5,9 +5,11 @@ import android.content.res.AssetManager
 import android.net.VpnService
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import android.content.Context
 import rs.chimera.android.Global
 import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
@@ -19,11 +21,18 @@ var tunService: TunService? = null
 class TunService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunFd: Int? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private var isDestroying = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.i(TAG, "onStartCommand")
-        CoroutineScope(Dispatchers.Default).launch {
-            runVpn()
+        serviceScope.launch {
+            try {
+                runVpn()
+            } catch (error: Exception) {
+                Log.e(TAG, "Error in runVpn", error)
+                stopVpn()
+            }
         }
 
         tunService = this
@@ -32,16 +41,17 @@ class TunService : VpnService() {
     }
 
     override fun onRevoke() {
-        stopVpn()
+        cleanup()
         super.onRevoke()
     }
 
     override fun onDestroy() {
-        stopVpn()
+        cleanup()
         super.onDestroy()
     }
 
     private suspend fun runVpn() {
+        val prefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
         val interfaceFd = buildTunnel()
         if (interfaceFd == null) {
             Log.e(TAG, "Failed to establish VPN interface")
@@ -66,6 +76,8 @@ class TunService : VpnService() {
             over = ProfileOverride(
                 tunFd = currentTunFd,
                 logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
+                fakeIp = prefs.getBoolean("fake_ip", false),
+                ipv6 = prefs.getBoolean("ipv6", true),
             ),
         )
         if (startResult.isFailure) {
@@ -81,6 +93,7 @@ class TunService : VpnService() {
         builder.addRoute("0.0.0.0", 0)
         builder.addDnsServer("10.0.0.2")
         builder.addDisallowedApplication(packageName)
+        builder.allowBypass()
         return builder.establish()
     }
 
@@ -103,16 +116,29 @@ class TunService : VpnService() {
         }
     }
 
-    fun stopVpn() {
+    private fun cleanup() {
+        synchronized(this) {
+            if (isDestroying) {
+                return
+            }
+            isDestroying = true
+        }
+
         shutdownClash().exceptionOrNull()?.let { error ->
             Log.w(TAG, "Failed to stop Rust core cleanly", error)
         }
-        vpnInterface?.close()
+        runCatching { vpnInterface?.close() }
+            .onFailure { error -> Log.w(TAG, "Failed to close VPN interface", error) }
         vpnInterface = null
         tunFd = null
-        stopSelf()
         tunService = null
         Global.isServiceRunning.value = false
+        isDestroying = false
+    }
+
+    fun stopVpn() {
+        cleanup()
+        stopSelf()
     }
 
     private companion object {

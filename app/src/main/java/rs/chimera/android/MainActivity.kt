@@ -10,7 +10,6 @@ import rs.chimera.android.theme.ChimeraTheme
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Global.init(application)
         setContent {
             ChimeraTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {

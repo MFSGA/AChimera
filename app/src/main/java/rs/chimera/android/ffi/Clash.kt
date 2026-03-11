@@ -1,26 +1,23 @@
 package rs.chimera.android.ffi
 
-data class ProfileOverride(
-    val tunFd: Int,
-    val logFilePath: String,
-    val allowLan: Boolean = false,
-    val mixedPort: Int = 7890,
-    val httpPort: Int = 7891,
-    val socksPort: Int = 7892,
-    val someFlag: Boolean = true,
-)
+import uniffi.chimera_ffi.runClash
+import uniffi.chimera_ffi.uniffiEnsureInitialized
+
+typealias ProfileOverride = uniffi.chimera_ffi.ProfileOverride
 
 fun initClash(
     configPath: String,
     workDir: String,
     over: ProfileOverride,
 ): Result<Unit> {
-    return ChimeraFfi.startCore(
-        profilePath = configPath,
-        cacheDir = workDir,
-        tunFd = over.tunFd,
-        logFilePath = over.logFilePath,
-    )
+    return runCatching {
+        uniffiEnsureInitialized()
+        runClash(
+            configPath = configPath,
+            workDir = workDir,
+            over = over,
+        )
+    }
 }
 
 fun shutdownClash(): Result<Unit> {
