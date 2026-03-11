@@ -1,18 +1,21 @@
 package rs.chimera.android.ui
 
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Text
 import androidx.compose.material3.Card
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -23,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.io.File
 import java.text.SimpleDateFormat
@@ -44,107 +48,232 @@ fun ChimeraApp(
         SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
     }
     val profileLabel = remember(profilePath) {
-        if (profilePath.isBlank()) "" else File(profilePath).name
+        if (profilePath.isBlank()) {
+            ""
+        } else {
+            File(profilePath).name
+        }
     }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            text = stringResource(id = R.string.home_dashboard_title),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                        )
-                        Text(
-                            text = stringResource(
-                                id = R.string.home_last_refreshed,
-                                refreshedAt,
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                    }
-                    IconButton(
-                        onClick = { refreshVersion++ },
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                    ) {
-                        Text(text = stringResource(id = R.string.home_refresh_short))
-                    }
-                }
-                if (sectionTitle.isNotEmpty()) {
-                    Text(
-                        text = sectionTitle,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-                Text(
-                    text = stringResource(id = R.string.home_message),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
+            DashboardHero(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                refreshedAt = refreshedAt,
+                sectionTitle = sectionTitle,
+                onRefresh = { refreshVersion++ },
+            )
         }
+
         item {
-            StatsCard(
+            SummaryRow(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                isServiceRunning = isServiceRunning,
+                profileLabel = profileLabel,
+            )
+        }
+
+        item {
+            DashboardCard(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 title = stringResource(id = R.string.native_bridge_title),
                 value = ffiMessage,
                 subtitle = stringResource(
                     id = R.string.native_bridge_subtitle_with_time,
                     refreshedAt,
                 ),
+                accent = MaterialTheme.colorScheme.tertiary,
             )
         }
+
         item {
-            StatsCard(
-                title = stringResource(id = R.string.service_status_title),
-                value = stringResource(
-                    id = if (isServiceRunning) {
-                        R.string.service_running
-                    } else {
-                        R.string.service_stopped
-                    },
-                ),
-                subtitle = stringResource(id = R.string.service_status_subtitle),
-            )
-        }
-        item {
-            StatsCard(
+            DashboardCard(
+                modifier = Modifier.padding(horizontal = 16.dp),
                 title = stringResource(id = R.string.profile_title),
                 value = if (profileLabel.isBlank()) {
                     stringResource(id = R.string.profile_missing)
                 } else {
                     profileLabel
                 },
-                subtitle = if (profilePath.isBlank()) profilePath else profilePath,
+                subtitle = profilePath.ifBlank {
+                    stringResource(id = R.string.profile_no_saved_path)
+                },
+                accent = MaterialTheme.colorScheme.secondary,
             )
         }
     }
 }
 
 @Composable
-private fun StatsCard(
+private fun DashboardHero(
+    modifier: Modifier = Modifier,
+    refreshedAt: String,
+    sectionTitle: String,
+    onRefresh: () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top,
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.home_dashboard_title),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        text = stringResource(id = R.string.home_message),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+                FilledTonalButton(onClick = onRefresh) {
+                    Text(text = stringResource(id = R.string.home_refresh))
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                StatusBadge(
+                    label = stringResource(id = R.string.home_screen),
+                    active = true,
+                )
+                Text(
+                    text = stringResource(
+                        id = R.string.home_last_refreshed,
+                        refreshedAt,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+            }
+
+            if (sectionTitle.isNotBlank()) {
+                Text(
+                    text = sectionTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SummaryRow(
+    modifier: Modifier = Modifier,
+    isServiceRunning: Boolean,
+    profileLabel: String,
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        MiniSummaryCard(
+            modifier = Modifier.weight(1f),
+            title = stringResource(id = R.string.service_status_title),
+            value = stringResource(
+                id = if (isServiceRunning) {
+                    R.string.service_running
+                } else {
+                    R.string.service_stopped
+                },
+            ),
+            active = isServiceRunning,
+        )
+        MiniSummaryCard(
+            modifier = Modifier.weight(1f),
+            title = stringResource(id = R.string.profile_screen),
+            value = if (profileLabel.isBlank()) {
+                stringResource(id = R.string.profile_missing)
+            } else {
+                profileLabel
+            },
+            active = profileLabel.isNotBlank(),
+        )
+    }
+}
+
+@Composable
+private fun MiniSummaryCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    active: Boolean,
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = if (active) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatusBadge(
+                label = title,
+                active = active,
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DashboardCard(
+    modifier: Modifier = Modifier,
     title: String,
     value: String,
     subtitle: String,
+    accent: androidx.compose.ui.graphics.Color,
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+    ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary,
+                color = accent,
             )
             Text(
                 text = value,
@@ -158,6 +287,49 @@ private fun StatsCard(
                     color = MaterialTheme.colorScheme.outline,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(
+    label: String,
+    active: Boolean,
+) {
+    Surface(
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+        color = if (active) {
+            MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+        } else {
+            MaterialTheme.colorScheme.secondaryContainer
+        },
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(
+                        color = if (active) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.outline
+                        },
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
+                    ),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (active) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSecondaryContainer
+                },
+            )
         }
     }
 }
