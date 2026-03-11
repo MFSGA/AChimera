@@ -22,4 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AChimera"
 include(":app")
-// include(":core")
+include(":core")
