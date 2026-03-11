@@ -25,6 +25,7 @@ import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.uniffiEnsureInitialized
+import uniffi.chimera_ffi.verifyConfig
 
 data class FileInfo(
     val name: String,
@@ -48,6 +49,12 @@ class ProfileViewModel : ViewModel() {
         private set
 
     var savedFilePath by mutableStateOf<String?>(null)
+        private set
+
+    var isVerifying by mutableStateOf(false)
+        private set
+
+    var verificationResult by mutableStateOf<String?>(null)
         private set
 
     var statusMessage by mutableStateOf<String?>(null)
@@ -81,6 +88,10 @@ class ProfileViewModel : ViewModel() {
 
     fun clearStatusMessage() {
         statusMessage = null
+    }
+
+    fun clearVerificationResult() {
+        verificationResult = null
     }
 
     fun saveFileToAppDirectory(
@@ -210,6 +221,39 @@ class ProfileViewModel : ViewModel() {
         savedFilePath = activeProfile?.filePath
         Global.updateProfilePath(savedFilePath.orEmpty())
         saveProfiles()
+    }
+
+    fun verifyActiveProfile(context: Context) {
+        if (isVerifying) return
+
+        val targetPath = activeProfile?.filePath ?: savedFilePath
+        if (targetPath.isNullOrBlank()) {
+            verificationResult = context.getString(rs.chimera.android.R.string.profile_verify_missing)
+            return
+        }
+
+        isVerifying = true
+        verificationResult = null
+
+        viewModelScope.launch {
+            try {
+                uniffiEnsureInitialized()
+                val content = withContext(Dispatchers.IO) {
+                    verifyConfig(targetPath)
+                }
+                verificationResult = context.getString(
+                    rs.chimera.android.R.string.profile_verify_success,
+                    content,
+                )
+            } catch (error: Exception) {
+                verificationResult = context.getString(
+                    rs.chimera.android.R.string.profile_verify_failure,
+                    error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
+                )
+            } finally {
+                isVerifying = false
+            }
+        }
     }
 
     private fun addProfile(profile: Profile) {

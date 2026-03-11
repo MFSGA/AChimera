@@ -674,6 +674,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_shutdown(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_func_verify_config(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress(
     ): Short
     external fun ffi_chimera_ffi_uniffi_contract_version(
@@ -702,6 +704,8 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_chimera_ffi_fn_func_shutdown(uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_chimera_ffi_fn_func_verify_config(`configPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun ffi_chimera_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun ffi_chimera_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
@@ -834,6 +838,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_func_shutdown() != 31048.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_func_verify_config() != 32534.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress() != 55716.toShort()) {
@@ -1584,6 +1591,17 @@ public object FfiConverterOptionalTypeDownloadProgressCallback: FfiConverterRust
         _status)
 }
     
+    
+
+    @Throws(ChimeraException::class) fun `verifyConfig`(`configPath`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(ChimeraException) { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_verify_config(
+    
+        FfiConverterString.lower(`configPath`),_status)
+}
+    )
+    }
     
 
 

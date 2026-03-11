@@ -1,4 +1,4 @@
-use clash_lib::{start, Config as ClashConfig};
+use clash_lib::{config::def::Config as ClashConfigDef, start, Config as ClashConfig};
 use ipnet::Ipv4Net;
 use jni::objects::{JObject, JString};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
@@ -377,6 +377,15 @@ fn run_clash(
 ) -> Result<(), ChimeraError> {
     start_core_internal(config_path, work_dir, over.tun_fd, over.log_file_path)
         .map_err(runtime_error)
+}
+
+#[uniffi::export]
+fn verify_config(config_path: String) -> Result<String, ChimeraError> {
+    let config = ClashConfigDef::try_from(PathBuf::from(config_path))
+        .map_err(|error| runtime_error(format!("failed to verify config: {error}")))?;
+
+    serde_yaml::to_string(&config)
+        .map_err(|error| runtime_error(format!("failed to serialize verified config: {error}")))
 }
 
 #[uniffi::export]

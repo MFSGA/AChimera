@@ -228,6 +228,16 @@ fun ProfileScreen(
                     text = vm.savedFilePath ?: stringResource(id = R.string.profile_no_saved_path),
                     style = MaterialTheme.typography.bodySmall,
                 )
+                OutlinedButton(
+                    enabled = vm.activeProfile != null && !vm.isVerifying,
+                    onClick = { vm.verifyActiveProfile(context) },
+                ) {
+                    Text(
+                        text = stringResource(
+                            id = if (vm.isVerifying) R.string.profile_verifying else R.string.profile_verify,
+                        ),
+                    )
+                }
             }
         }
 
@@ -262,6 +272,27 @@ fun ProfileScreen(
                 text = message,
                 color = MaterialTheme.colorScheme.primary,
             )
+        }
+
+        vm.verificationResult?.takeIf { it.isNotBlank() }?.let { result ->
+            OutlinedCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.profile_verification_title),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        text = result,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedButton(onClick = { vm.clearVerificationResult() }) {
+                        Text(text = stringResource(id = android.R.string.ok))
+                    }
+                }
+            }
         }
 
         if (vm.profiles.isNotEmpty()) {

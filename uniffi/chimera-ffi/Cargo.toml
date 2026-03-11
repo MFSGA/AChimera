@@ -15,6 +15,7 @@ ipnet = "2"
 thiserror = "2"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 tokio-stream = "0.1"
+serde_yaml = "0.9"
 
 [dependencies.clash-lib]
 package = "clash-lib"
