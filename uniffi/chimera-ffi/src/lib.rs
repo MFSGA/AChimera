@@ -1,4 +1,4 @@
-use clash_lib::{config::def::Config as ClashConfigDef, start, Config as ClashConfig};
+use clash_lib::{start, Config as ClashConfig};
 use ipnet::Ipv4Net;
 use jni::objects::{JObject, JString};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
@@ -381,10 +381,20 @@ fn run_clash(
 
 #[uniffi::export]
 fn verify_config(config_path: String) -> Result<String, ChimeraError> {
-    let config = ClashConfigDef::try_from(PathBuf::from(config_path))
+    let path = PathBuf::from(&config_path);
+    ClashConfig::File(config_path)
+        .try_parse()
         .map_err(|error| runtime_error(format!("failed to verify config: {error}")))?;
 
-    serde_yaml::to_string(&config)
+    let content = fs::read_to_string(&path)
+        .map_err(|error| runtime_error(format!("failed to read config file: {error}")))?;
+    let mut value: serde_yaml::Value = serde_yaml::from_str(&content)
+        .map_err(|error| runtime_error(format!("failed to parse config yaml: {error}")))?;
+    value
+        .apply_merge()
+        .map_err(|error| runtime_error(format!("failed to resolve yaml anchors: {error}")))?;
+
+    serde_yaml::to_string(&value)
         .map_err(|error| runtime_error(format!("failed to serialize verified config: {error}")))
 }
 

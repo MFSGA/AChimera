@@ -19,15 +19,15 @@ serde_yaml = "0.9"
 
 [dependencies.clash-lib]
 package = "clash-lib"
-branch = "master"
-git = "https://github.com/MFSGA/Chimera_Client.git"
+path = "../../../Chimera_Client/clash-lib"
 features = [
-    "tls",
-    # "tuic",
-    # "shadowquic",
-    # "shadowsocks",
-    "tun",
-    # "wireguard",
-    "aws-lc-rs"
+    "ws",
+    "trojan",
+    "hysteria",
+    "tproxy",
+    "redir",
+    "http_port",
+    "mixed_port",
+    "tracing",
 ]
-default-features = false
+default-features = true

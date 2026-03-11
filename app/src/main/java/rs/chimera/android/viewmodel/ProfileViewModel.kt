@@ -57,6 +57,9 @@ class ProfileViewModel : ViewModel() {
     var verificationResult by mutableStateOf<String?>(null)
         private set
 
+    var verificationSucceeded by mutableStateOf<Boolean?>(null)
+        private set
+
     var statusMessage by mutableStateOf<String?>(null)
         private set
 
@@ -92,6 +95,7 @@ class ProfileViewModel : ViewModel() {
 
     fun clearVerificationResult() {
         verificationResult = null
+        verificationSucceeded = null
     }
 
     fun saveFileToAppDirectory(
@@ -228,12 +232,14 @@ class ProfileViewModel : ViewModel() {
 
         val targetPath = activeProfile?.filePath ?: savedFilePath
         if (targetPath.isNullOrBlank()) {
+            verificationSucceeded = false
             verificationResult = context.getString(rs.chimera.android.R.string.profile_verify_missing)
             return
         }
 
         isVerifying = true
         verificationResult = null
+        verificationSucceeded = null
 
         viewModelScope.launch {
             try {
@@ -241,11 +247,10 @@ class ProfileViewModel : ViewModel() {
                 val content = withContext(Dispatchers.IO) {
                     verifyConfig(targetPath)
                 }
-                verificationResult = context.getString(
-                    rs.chimera.android.R.string.profile_verify_success,
-                    content,
-                )
+                verificationSucceeded = true
+                verificationResult = content
             } catch (error: Exception) {
+                verificationSucceeded = false
                 verificationResult = context.getString(
                     rs.chimera.android.R.string.profile_verify_failure,
                     error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),

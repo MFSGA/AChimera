@@ -36,9 +36,9 @@
     <string name="profile_importing">Importing profile...</string>
     <string name="profile_verify">Verify Config</string>
     <string name="profile_verifying">Verifying...</string>
-    <string name="profile_verification_title">Verification Result</string>
+    <string name="profile_verification_title_success">Verified Config</string>
+    <string name="profile_verification_title_failure">Verification Failed</string>
     <string name="profile_verify_missing">No profile available to verify.</string>
-    <string name="profile_verify_success">Config is valid.\n\n%1$s</string>
     <string name="profile_verify_failure">Config verification failed: %1$s</string>
     <string name="profile_list_title">Profiles (%1$d)</string>
     <string name="profile_type_local">Local</string>

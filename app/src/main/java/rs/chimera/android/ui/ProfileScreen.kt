@@ -2,6 +2,7 @@ package rs.chimera.android.ui
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -28,7 +30,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -281,13 +285,37 @@ fun ProfileScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = stringResource(id = R.string.profile_verification_title),
+                        text = stringResource(
+                            id = if (vm.verificationSucceeded == true) {
+                                R.string.profile_verification_title_success
+                            } else {
+                                R.string.profile_verification_title_failure
+                            },
+                        ),
                         style = MaterialTheme.typography.titleSmall,
+                        color = if (vm.verificationSucceeded == true) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.error
+                        },
                     )
-                    Text(
-                        text = result,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
+                    SelectionContainer {
+                        Text(
+                            text = result,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(200.dp)
+                                .horizontalScroll(rememberScrollState())
+                                .verticalScroll(rememberScrollState()),
+                            color = if (vm.verificationSucceeded == true) {
+                                Color.Unspecified
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            },
+                        )
+                    }
                     OutlinedButton(onClick = { vm.clearVerificationResult() }) {
                         Text(text = stringResource(id = android.R.string.ok))
                     }
