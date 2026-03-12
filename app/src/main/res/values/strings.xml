@@ -12,6 +12,7 @@
     <string name="home_logs_empty">No runtime logs yet.</string>
     <string name="home_logs_copy">Copy Logs</string>
     <string name="home_logs_clear">Clear Logs</string>
+    <string name="home_error_title">Home Error</string>
     <string name="action_about">About</string>
     <string name="action_restart">Restart</string>
     <string name="about_title">About</string>

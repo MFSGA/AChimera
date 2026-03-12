@@ -12,6 +12,7 @@
     <string name="home_logs_empty">暂无运行日志。</string>
     <string name="home_logs_copy">复制日志</string>
     <string name="home_logs_clear">清空日志</string>
+    <string name="home_error_title">首页错误</string>
     <string name="action_about">关于</string>
     <string name="action_restart">重启</string>
     <string name="about_title">关于</string>

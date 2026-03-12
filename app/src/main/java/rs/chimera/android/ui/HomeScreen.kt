@@ -120,6 +120,7 @@ fun HomeScreen(
         val download by remember { derivedStateOf { viewModel.totalDownload } }
         val upload by remember { derivedStateOf { viewModel.totalUpload } }
         val isVpnRunning by remember { derivedStateOf { viewModel.isVpnRunning } }
+        val errorMessage by remember { derivedStateOf { viewModel.errorMessage } }
 
         OverviewTab(
             memory = memory,
@@ -127,6 +128,8 @@ fun HomeScreen(
             download = download,
             upload = upload,
             isVpnRunning = isVpnRunning,
+            errorMessage = errorMessage,
+            onDismissError = viewModel::clearError,
             onConnectionsClick = onConnectionsClick,
             onVpnToggle = {
                 if (isVpnRunning) {
@@ -154,7 +157,9 @@ private fun OverviewTab(
     download: Long,
     upload: Long,
     isVpnRunning: Boolean,
+    errorMessage: String?,
     onVpnToggle: () -> Unit,
+    onDismissError: () -> Unit,
     onConnectionsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -186,6 +191,40 @@ private fun OverviewTab(
                 },
                 onClick = onVpnToggle,
             )
+        }
+
+        if (errorMessage != null) {
+            item(key = "error") {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_error_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        TextButton(onClick = onDismissError) {
+                            Text(
+                                text = stringResource(R.string.panel_dismiss),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         item(key = "memory") {
