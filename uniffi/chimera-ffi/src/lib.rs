@@ -1,6 +1,8 @@
 mod controller;
 
-use clash_lib::{set_socket_protector, start, Config as ClashConfig, SocketProtector};
+use clash_lib::{
+    initialize_logging, set_socket_protector, start, Config as ClashConfig, SocketProtector,
+};
 use ipnet::Ipv4Net;
 use jni::objects::{GlobalRef, JObject, JString, JValue};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
@@ -517,6 +519,12 @@ fn start_core_internal(
     let runtime_log_path = log_path.clone();
     let worker = runtime().spawn(async move {
         let (log_tx, _) = broadcast::channel(100);
+        initialize_logging(
+            config.general.log_level,
+            &work_dir_string,
+            Some(runtime_log_path.to_string_lossy().into_owned()),
+            log_tx.clone(),
+        );
         log_line(
             &runtime_log_path,
             &format!(
