@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import rs.chimera.android.Global
+import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
 import java.io.File
@@ -24,7 +25,6 @@ import java.util.Locale
 import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
-import uniffi.chimera_ffi.uniffiEnsureInitialized
 import uniffi.chimera_ffi.verifyConfig
 
 data class FileInfo(
@@ -243,7 +243,7 @@ class ProfileViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                uniffiEnsureInitialized()
+                ChimeraFfi.ensureInitialized()
                 val content = withContext(Dispatchers.IO) {
                     verifyConfig(targetPath)
                 }
@@ -369,7 +369,7 @@ class ProfileViewModel : ViewModel() {
     ): File {
         val fileName = buildRemoteFileName(urlText, profileName)
         val file = File(context.filesDir, fileName)
-        uniffiEnsureInitialized()
+        ChimeraFfi.ensureInitialized()
 
         val result = downloadFileWithProgress(
             url = urlText,

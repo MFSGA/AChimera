@@ -1,4 +1,6 @@
+import org.gradle.api.GradleException
 import org.gradle.api.tasks.Exec
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.library)
@@ -7,6 +9,31 @@ plugins {
 }
 
 val jniLibsDir = layout.buildDirectory.dir("generated/rust/jniLibs")
+val cargoTargetDir = layout.buildDirectory.dir("generated/rust/cargoTarget")
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use(::load)
+    }
+}
+val configuredNdkVersion = rootProject.extra["ndkVersion"] as String
+val androidSdkDir =
+    localProperties.getProperty("sdk.dir")
+        ?.takeIf(String::isNotBlank)
+        ?.let(::file)
+        ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf(String::isNotBlank)?.let(::file)
+        ?: System.getenv("ANDROID_HOME")?.takeIf(String::isNotBlank)?.let(::file)
+val androidNdkDir =
+    sequenceOf(
+        localProperties.getProperty("ndk.dir"),
+        System.getenv("ANDROID_NDK_HOME"),
+        System.getenv("ANDROID_NDK_ROOT"),
+        androidSdkDir?.resolve("ndk/$configuredNdkVersion")?.absolutePath,
+        androidSdkDir?.resolve("ndk-bundle")?.absolutePath,
+    )
+        .filterNotNull()
+        .map(::file)
+        .firstOrNull(File::exists)
 
 fun configureCargoNdkTask(task: Exec, release: Boolean) {
     task.workingDir = file("../uniffi")
@@ -28,6 +55,22 @@ fun configureCargoNdkTask(task: Exec, release: Boolean) {
     if (release) {
         task.args("--release")
     }
+    task.doFirst {
+        val sdkDir = androidSdkDir
+            ?: throw GradleException(
+                "Android SDK path is not configured. Set sdk.dir in local.properties or ANDROID_SDK_ROOT."
+            )
+        val ndkDir = androidNdkDir
+            ?: throw GradleException(
+                "Android NDK $configuredNdkVersion is missing. Set ndk.dir in local.properties or install it under ${sdkDir.resolve("ndk").absolutePath}."
+            )
+
+        task.environment("ANDROID_HOME", sdkDir.absolutePath)
+        task.environment("ANDROID_SDK_ROOT", sdkDir.absolutePath)
+        task.environment("ANDROID_NDK_HOME", ndkDir.absolutePath)
+        task.environment("ANDROID_NDK_ROOT", ndkDir.absolutePath)
+        task.environment("CARGO_TARGET_DIR", cargoTargetDir.get().asFile.absolutePath)
+    }
 }
 
 val buildCargoNdkDebug by tasks.registering(Exec::class) {
@@ -41,7 +84,7 @@ val buildCargoNdkRelease by tasks.registering(Exec::class) {
 android {
     namespace = "rs.chimera.android.ffi"
     compileSdk = 36
-    ndkVersion = rootProject.extra["ndkVersion"] as String
+    ndkVersion = configuredNdkVersion
 
     defaultConfig {
         minSdk = 23
@@ -103,6 +146,8 @@ android {
                 "--out-dir",
                 bindingsDir.asFile.absolutePath,
             )
+            // TO DELETE
+            environment("CARGO_TARGET_DIR", cargoTargetDir.get().asFile.absolutePath)
             dependsOn(if (variantName == "Release") buildCargoNdkRelease else buildCargoNdkDebug)
         }
 

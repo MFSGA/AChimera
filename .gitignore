@@ -27,7 +27,7 @@ replay_pid*
 .kotlin/
 
 *.iml
-.gradle
+.gradle*
 .idea
 .DS_Store
 build
@@ -42,3 +42,8 @@ uniffi/target
 docs/
 
 clash-andriod/
+
+scripts/
+
+gradlew
+
