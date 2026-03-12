@@ -681,6 +681,10 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_memory(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_mode(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxies(
@@ -690,6 +694,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_config(
     ): Short
     external fun uniffi_chimera_ffi_checksum_constructor_clashcontroller_new(
     ): Short
@@ -722,6 +728,10 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(`ptr`: Long,
     ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_connections(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_memory(`ptr`: Long,
+    ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_mode(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxies(`ptr`: Long,
@@ -731,6 +741,8 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_select_proxy(`ptr`: Long,`groupName`: RustBuffer.ByValue,`proxyName`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_set_mode(`ptr`: Long,`mode`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_config(`ptr`: Long,`config`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
     ): Unit
@@ -886,6 +898,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 12014.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections() != 34026.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_memory() != 19857.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_mode() != 46336.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -899,6 +917,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode() != 63947.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_config() != 62337.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_constructor_clashcontroller_new() != 63231.toShort()) {
@@ -1207,6 +1228,29 @@ public object FfiConverterULong: FfiConverter<ULong, Long> {
 /**
  * @suppress
  */
+public object FfiConverterLong: FfiConverter<Long, Long> {
+    override fun lift(value: Long): Long {
+        return value
+    }
+
+    override fun read(buf: ByteBuffer): Long {
+        return buf.getLong()
+    }
+
+    override fun lower(value: Long): Long {
+        return value
+    }
+
+    override fun allocationSize(value: Long) = 8UL
+
+    override fun write(value: Long, buf: ByteBuffer) {
+        buf.putLong(value)
+    }
+}
+
+/**
+ * @suppress
+ */
 public object FfiConverterBoolean: FfiConverter<Boolean, Byte> {
     override fun lift(value: Byte): Boolean {
         return value.toInt() != 0
@@ -1384,6 +1428,10 @@ public interface ClashControllerInterface {
     
     suspend fun `getConfigs`(): ConfigResponse
     
+    suspend fun `getConnections`(): ConnectionsResponse
+    
+    suspend fun `getMemory`(): MemoryResponse
+    
     suspend fun `getMode`(): Mode?
     
     suspend fun `getProxies`(): List<Proxy>
@@ -1393,6 +1441,8 @@ public interface ClashControllerInterface {
     suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String)
     
     suspend fun `setMode`(`mode`: Mode)
+    
+    suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>)
     
     companion object
 }
@@ -1525,6 +1575,48 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getConnections`() : ConnectionsResponse {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_connections(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeConnectionsResponse.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getMemory`() : MemoryResponse {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_memory(
+                uniffiHandle,
+                
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeMemoryResponse.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getMode`() : Mode? {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
@@ -1630,6 +1722,28 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     }
 
     
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_update_config(
+                uniffiHandle,
+                FfiConverterMapStringString.lower(`config`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+        
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+    
 
     
 
@@ -1707,6 +1821,117 @@ public object FfiConverterTypeConfigResponse: FfiConverterRustBuffer<ConfigRespo
             FfiConverterOptionalString.write(value.`externalController`, buf)
             FfiConverterOptionalString.write(value.`secret`, buf)
             FfiConverterOptionalTypeMode.write(value.`mode`, buf)
+    }
+}
+
+
+
+data class Connection (
+    var `id`: kotlin.String
+    , 
+    var `metadata`: Metadata
+    , 
+    var `upload`: kotlin.Long
+    , 
+    var `download`: kotlin.Long
+    , 
+    var `start`: kotlin.String
+    , 
+    var `chains`: List<kotlin.String>
+    , 
+    var `rule`: kotlin.String?
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeConnection: FfiConverterRustBuffer<Connection> {
+    override fun read(buf: ByteBuffer): Connection {
+        return Connection(
+            FfiConverterString.read(buf),
+            FfiConverterTypeMetadata.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterSequenceString.read(buf),
+            FfiConverterOptionalString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Connection) = (
+            FfiConverterString.allocationSize(value.`id`) +
+            FfiConverterTypeMetadata.allocationSize(value.`metadata`) +
+            FfiConverterLong.allocationSize(value.`upload`) +
+            FfiConverterLong.allocationSize(value.`download`) +
+            FfiConverterString.allocationSize(value.`start`) +
+            FfiConverterSequenceString.allocationSize(value.`chains`) +
+            FfiConverterOptionalString.allocationSize(value.`rule`)
+    )
+
+    override fun write(value: Connection, buf: ByteBuffer) {
+            FfiConverterString.write(value.`id`, buf)
+            FfiConverterTypeMetadata.write(value.`metadata`, buf)
+            FfiConverterLong.write(value.`upload`, buf)
+            FfiConverterLong.write(value.`download`, buf)
+            FfiConverterString.write(value.`start`, buf)
+            FfiConverterSequenceString.write(value.`chains`, buf)
+            FfiConverterOptionalString.write(value.`rule`, buf)
+    }
+}
+
+
+
+data class ConnectionsResponse (
+    var `downloadTotal`: kotlin.Long
+    , 
+    var `uploadTotal`: kotlin.Long
+    , 
+    var `memory`: kotlin.Long?
+    , 
+    var `connections`: List<Connection>
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeConnectionsResponse: FfiConverterRustBuffer<ConnectionsResponse> {
+    override fun read(buf: ByteBuffer): ConnectionsResponse {
+        return ConnectionsResponse(
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterOptionalLong.read(buf),
+            FfiConverterSequenceTypeConnection.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ConnectionsResponse) = (
+            FfiConverterLong.allocationSize(value.`downloadTotal`) +
+            FfiConverterLong.allocationSize(value.`uploadTotal`) +
+            FfiConverterOptionalLong.allocationSize(value.`memory`) +
+            FfiConverterSequenceTypeConnection.allocationSize(value.`connections`)
+    )
+
+    override fun write(value: ConnectionsResponse, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`downloadTotal`, buf)
+            FfiConverterLong.write(value.`uploadTotal`, buf)
+            FfiConverterOptionalLong.write(value.`memory`, buf)
+            FfiConverterSequenceTypeConnection.write(value.`connections`, buf)
     }
 }
 
@@ -1892,6 +2117,107 @@ public object FfiConverterTypeFinalProfile: FfiConverterRustBuffer<FinalProfile>
 
     override fun write(value: FinalProfile, buf: ByteBuffer) {
             FfiConverterUShort.write(value.`mixedPort`, buf)
+    }
+}
+
+
+
+data class MemoryResponse (
+    var `inuse`: kotlin.Long
+    , 
+    var `oslimit`: kotlin.Long
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMemoryResponse: FfiConverterRustBuffer<MemoryResponse> {
+    override fun read(buf: ByteBuffer): MemoryResponse {
+        return MemoryResponse(
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: MemoryResponse) = (
+            FfiConverterLong.allocationSize(value.`inuse`) +
+            FfiConverterLong.allocationSize(value.`oslimit`)
+    )
+
+    override fun write(value: MemoryResponse, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`inuse`, buf)
+            FfiConverterLong.write(value.`oslimit`, buf)
+    }
+}
+
+
+
+data class Metadata (
+    var `network`: kotlin.String
+    , 
+    var `metadataType`: kotlin.String
+    , 
+    var `sourceIp`: kotlin.String
+    , 
+    var `destinationIp`: kotlin.String?
+    , 
+    var `sourcePort`: kotlin.UShort?
+    , 
+    var `destinationPort`: kotlin.UShort
+    , 
+    var `host`: kotlin.String
+    
+){
+    
+
+    
+
+    
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeMetadata: FfiConverterRustBuffer<Metadata> {
+    override fun read(buf: ByteBuffer): Metadata {
+        return Metadata(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalUShort.read(buf),
+            FfiConverterUShort.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: Metadata) = (
+            FfiConverterString.allocationSize(value.`network`) +
+            FfiConverterString.allocationSize(value.`metadataType`) +
+            FfiConverterString.allocationSize(value.`sourceIp`) +
+            FfiConverterOptionalString.allocationSize(value.`destinationIp`) +
+            FfiConverterOptionalUShort.allocationSize(value.`sourcePort`) +
+            FfiConverterUShort.allocationSize(value.`destinationPort`) +
+            FfiConverterString.allocationSize(value.`host`)
+    )
+
+    override fun write(value: Metadata, buf: ByteBuffer) {
+            FfiConverterString.write(value.`network`, buf)
+            FfiConverterString.write(value.`metadataType`, buf)
+            FfiConverterString.write(value.`sourceIp`, buf)
+            FfiConverterOptionalString.write(value.`destinationIp`, buf)
+            FfiConverterOptionalUShort.write(value.`sourcePort`, buf)
+            FfiConverterUShort.write(value.`destinationPort`, buf)
+            FfiConverterString.write(value.`host`, buf)
     }
 }
 
@@ -2248,6 +2574,38 @@ public object FfiConverterOptionalInt: FfiConverterRustBuffer<kotlin.Int?> {
 /**
  * @suppress
  */
+public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
+    override fun read(buf: ByteBuffer): kotlin.Long? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterLong.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.Long?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterLong.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.Long?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterLong.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?> {
     override fun read(buf: ByteBuffer): kotlin.String? {
         if (buf.get().toInt() == 0) {
@@ -2372,6 +2730,34 @@ public object FfiConverterSequenceString: FfiConverterRustBuffer<List<kotlin.Str
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeConnection: FfiConverterRustBuffer<List<Connection>> {
+    override fun read(buf: ByteBuffer): List<Connection> {
+        val len = buf.getInt()
+        return List<Connection>(len) {
+            FfiConverterTypeConnection.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<Connection>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeConnection.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<Connection>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeConnection.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterSequenceTypeDelayHistory: FfiConverterRustBuffer<List<DelayHistory>> {
     override fun read(buf: ByteBuffer): List<DelayHistory> {
         val len = buf.getInt()
@@ -2418,6 +2804,45 @@ public object FfiConverterSequenceTypeProxy: FfiConverterRustBuffer<List<Proxy>>
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeProxy.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.String, kotlin.String>> {
+    override fun read(buf: ByteBuffer): Map<kotlin.String, kotlin.String> {
+        val len = buf.getInt()
+        return buildMap<kotlin.String, kotlin.String>(len) {
+            repeat(len) {
+                val k = FfiConverterString.read(buf)
+                val v = FfiConverterString.read(buf)
+                this[k] = v
+            }
+        }
+    }
+
+    override fun allocationSize(value: Map<kotlin.String, kotlin.String>): ULong {
+        val spaceForMapSize = 4UL
+        val spaceForChildren = value.map { (k, v) ->
+            FfiConverterString.allocationSize(k) +
+            FfiConverterString.allocationSize(v)
+        }.sum()
+        return spaceForMapSize + spaceForChildren
+    }
+
+    override fun write(value: Map<kotlin.String, kotlin.String>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        // The parens on `(k, v)` here ensure we're calling the right method,
+        // which is important for compatibility with older android devices.
+        // Ref https://blog.danlew.net/2017/03/16/kotlin-puzzler-whose-line-is-it-anyways/
+        value.forEach { (k, v) ->
+            FfiConverterString.write(k, buf)
+            FfiConverterString.write(v, buf)
         }
     }
 }
