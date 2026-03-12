@@ -12,6 +12,7 @@ import rs.chimera.android.ui.BottomBar
 import rs.chimera.android.ui.BottomBarItem
 import rs.chimera.android.ui.ConnectionsScreen
 import rs.chimera.android.ui.HomeScreen
+import rs.chimera.android.ui.LogsScreen
 import rs.chimera.android.ui.PanelScreen
 import rs.chimera.android.ui.ProfileScreen
 
@@ -59,6 +60,12 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
 
             BottomBarItem.Profile -> {
                 ProfileScreen(
+                    modifier = Modifier.padding(innerPadding),
+                )
+            }
+
+            BottomBarItem.Logs -> {
+                LogsScreen(
                     modifier = Modifier.padding(innerPadding),
                 )
             }

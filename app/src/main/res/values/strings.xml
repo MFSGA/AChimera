@@ -12,6 +12,11 @@
     <string name="home_logs_empty">No runtime logs yet.</string>
     <string name="home_logs_copy">Copy Logs</string>
     <string name="home_logs_clear">Clear Logs</string>
+    <string name="logs_screen">Logs</string>
+    <string name="logs_autoscroll_title">Auto Scroll</string>
+    <string name="logs_autoscroll_hint">Keep the log view pinned to the latest line.</string>
+    <string name="logs_pause_title">Pause Refresh</string>
+    <string name="logs_pause_hint">Refresh the log view every 5 seconds when enabled.</string>
     <string name="home_error_title">Home Error</string>
     <string name="action_about">About</string>
     <string name="action_restart">Restart</string>
