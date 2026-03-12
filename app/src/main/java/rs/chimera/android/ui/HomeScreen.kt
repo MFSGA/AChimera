@@ -48,6 +48,7 @@ import uniffi.chimera_ffi.MemoryResponse
 fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
+    onConnectionsClick: () -> Unit = {},
 ) {
     val context = LocalContext.current
     var showRestartDialog by remember { mutableStateOf(false) }
@@ -126,6 +127,7 @@ fun HomeScreen(
             download = download,
             upload = upload,
             isVpnRunning = isVpnRunning,
+            onConnectionsClick = onConnectionsClick,
             onVpnToggle = {
                 if (isVpnRunning) {
                     viewModel.stopVpn()
@@ -153,6 +155,7 @@ private fun OverviewTab(
     upload: Long,
     isVpnRunning: Boolean,
     onVpnToggle: () -> Unit,
+    onConnectionsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -204,6 +207,7 @@ private fun OverviewTab(
                 } else {
                     stringResource(R.string.stat_connections_none)
                 },
+                onClick = onConnectionsClick,
             )
         }
 
