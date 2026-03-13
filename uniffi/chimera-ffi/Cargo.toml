@@ -23,6 +23,16 @@ hyper-util = { version = "0.1", features = ["client", "client-legacy", "tokio"] 
 http-body-util = "0.1"
 urlencoding = "2"
 
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "std",
+    "fmt",
+] }
+tracing-error = "0.2"
+paranoid-android = "0.2"
+color-eyre = "0.6"
+
 [dependencies.clash-lib]
 package = "clash-lib"
 path = "../../../Chimera_Client/clash-lib"

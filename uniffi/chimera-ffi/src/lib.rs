@@ -1,4 +1,5 @@
 mod controller;
+pub mod log;
 
 use clash_lib::{set_socket_protector, start, Config as ClashConfig, SocketProtector};
 use ipnet::Ipv4Net;
@@ -20,6 +21,8 @@ use tokio::runtime::Runtime;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
 use tokio_stream::StreamExt;
+use tracing::{error, info};
+use tracing_subscriber::filter::LevelFilter;
 
 static CORE_RUNNING: AtomicBool = AtomicBool::new(false);
 static CORE_STATE: OnceLock<Mutex<Option<CoreState>>> = OnceLock::new();
@@ -29,6 +32,8 @@ static CHIMERA_FFI: OnceLock<GlobalRef> = OnceLock::new();
 static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
 static RT: OnceLock<Runtime> = OnceLock::new();
 static INIT: Once = Once::new();
+
+use log::init_logger;
 
 struct CoreState {
     worker: JoinHandle<()>,
@@ -184,8 +189,10 @@ fn profile_checksum(content: &str) -> u64 {
 }
 
 fn set_last_error(message: impl Into<String>) {
+    let message = message.into();
+    error!("{message}");
     if let Ok(mut guard) = last_error_state().lock() {
-        *guard = Some(message.into());
+        *guard = Some(message);
     }
 }
 
@@ -210,6 +217,7 @@ fn reqwest_error(prefix: &str, error: impl std::fmt::Display) -> ChimeraError {
 }
 
 fn log_line(log_path: &Path, message: &str) {
+    info!("{message}");
     let file = OpenOptions::new().append(true).create(true).open(log_path);
     let Ok(mut file) = file else {
         return;
@@ -493,12 +501,6 @@ fn start_core_internal(
         IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
         53553,
     ));
-
-    INIT.call_once(|| unsafe {
-        std::env::set_var("RUST_BACKTRACE", "1");
-        std::env::set_var("NO_COLOR", "1");
-    });
-
     let profile_name = profile_path
         .file_name()
         .and_then(|it| it.to_str())
@@ -728,9 +730,22 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
                 return JNI_FALSE;
             }
 
+            INIT.call_once(|| unsafe {
+                let level = if cfg!(debug_assertions) {
+                    LevelFilter::DEBUG
+                } else {
+                    LevelFilter::INFO
+                };
+                std::env::set_var("RUST_BACKTRACE", "1");
+                init_logger(level);
+                let _ = color_eyre::install();
+                info!("native logger initialized");
+            });
+
             install_socket_protector();
             let _ = runtime();
             clear_last_error();
+            info!("native setup complete");
             JNI_TRUE
         }
         Err(error) => {

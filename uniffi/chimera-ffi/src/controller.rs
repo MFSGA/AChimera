@@ -1,16 +1,22 @@
 use crate::ChimeraError;
-use http_body_util::{BodyExt, Full};
-use hyper::body::Bytes;
-use hyper::Request;
-use hyper_util::client::legacy::Client;
-use hyper_util::rt::TokioExecutor;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use tracing::debug;
 use urlencoding::encode;
 
 #[cfg(unix)]
+use http_body_util::{BodyExt, Full};
+#[cfg(unix)]
+use hyper::Request;
+#[cfg(unix)]
+use hyper::body::Bytes;
+#[cfg(unix)]
 use hyperlocal::{UnixConnector, Uri as UnixUri};
+#[cfg(unix)]
+use hyper_util::client::legacy::Client;
+#[cfg(unix)]
+use hyper_util::rt::TokioExecutor;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, uniffi::Enum)]
 #[serde(rename_all = "lowercase")]
@@ -116,6 +122,7 @@ impl ClashController {
     }
 
     pub async fn get_proxies(&self) -> Result<Vec<Proxy>, ChimeraError> {
+        debug!("controller get_proxies");
         let mode = self.get_mode().await?.unwrap_or(Mode::Rule);
 
         if matches!(mode, Mode::Direct) {
@@ -160,6 +167,7 @@ impl ClashController {
         group_name: String,
         proxy_name: String,
     ) -> Result<(), ChimeraError> {
+        debug!("controller select_proxy group={} proxy={}", group_name, proxy_name);
         let body = serde_json::json!({ "name": proxy_name });
         let path = format!("/proxies/{}", encode(&group_name));
         self.request_no_response(
@@ -180,6 +188,7 @@ impl ClashController {
         url: Option<String>,
         timeout: Option<i32>,
     ) -> Result<DelayResponse, ChimeraError> {
+        debug!("controller get_proxy_delay proxy={}", name);
         let test_url = url.unwrap_or_else(|| "http://www.gstatic.com/generate_204".to_string());
         let timeout_ms = timeout.unwrap_or(5000);
         let path = format!(
@@ -217,6 +226,7 @@ impl ClashController {
     }
 
     pub async fn set_mode(&self, mode: Mode) -> Result<(), ChimeraError> {
+        debug!("controller set_mode {:?}", mode);
         let mode_str = match mode {
             Mode::Rule => "rule",
             Mode::Global => "global",
@@ -270,9 +280,11 @@ impl ClashController {
                     .await
                     .map_err(|error| ChimeraError::Runtime {
                         details: format!("controller request failed: {error}"),
-                    })?;
+                    })
+                    .inspect_err(|error| tracing::error!("{error}"))?;
 
             if !response.status().is_success() {
+                tracing::error!("controller http status error: {}", response.status());
                 return Err(ChimeraError::Runtime {
                     details: format!("controller http status error: {}", response.status()),
                 });
@@ -329,9 +341,11 @@ impl ClashController {
                     .await
                     .map_err(|error| ChimeraError::Runtime {
                         details: format!("controller request failed: {error}"),
-                    })?;
+                    })
+                    .inspect_err(|error| tracing::error!("{error}"))?;
 
             if !response.status().is_success() {
+                tracing::error!("controller http status error: {}", response.status());
                 return Err(ChimeraError::Runtime {
                     details: format!("controller http status error: {}", response.status()),
                 });
