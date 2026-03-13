@@ -44,6 +44,53 @@ pub struct DelayResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct MemoryResponse {
+    pub inuse: i64,
+    pub oslimit: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct Connection {
+    pub id: String,
+    pub metadata: Metadata,
+    pub upload: i64,
+    pub download: i64,
+    pub start: String,
+    #[serde(default)]
+    pub chains: Vec<String>,
+    #[serde(default)]
+    pub rule: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct Metadata {
+    pub network: String,
+    #[serde(rename = "type")]
+    pub metadata_type: String,
+    #[serde(rename = "sourceIP")]
+    pub source_ip: String,
+    #[serde(rename = "destinationIP")]
+    pub destination_ip: Option<String>,
+    #[serde(rename = "sourcePort")]
+    pub source_port: Option<u16>,
+    #[serde(rename = "destinationPort")]
+    pub destination_port: u16,
+    #[serde(default)]
+    pub host: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct ConnectionsResponse {
+    #[serde(rename = "downloadTotal")]
+    pub download_total: i64,
+    #[serde(rename = "uploadTotal")]
+    pub upload_total: i64,
+    #[serde(default)]
+    pub memory: Option<i64>,
+    pub connections: Vec<Connection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct ConfigResponse {
     #[serde(rename = "external-controller")]
     pub external_controller: Option<String>,
@@ -144,8 +191,29 @@ impl ClashController {
         self.request("GET", &path, None).await
     }
 
+    pub async fn get_memory(&self) -> Result<MemoryResponse, ChimeraError> {
+        self.request("GET", "/memory", None).await
+    }
+
+    pub async fn get_connections(&self) -> Result<ConnectionsResponse, ChimeraError> {
+        self.request("GET", "/connections", None).await
+    }
+
     pub async fn get_configs(&self) -> Result<ConfigResponse, ChimeraError> {
         self.request("GET", "/configs", None).await
+    }
+
+    pub async fn update_config(&self, config: HashMap<String, String>) -> Result<(), ChimeraError> {
+        self.request_no_response(
+            "PATCH",
+            "/configs",
+            Some(
+                serde_json::to_vec(&config).map_err(|error| ChimeraError::Runtime {
+                    details: format!("failed to serialize config update: {error}"),
+                })?,
+            ),
+        )
+        .await
     }
 
     pub async fn set_mode(&self, mode: Mode) -> Result<(), ChimeraError> {
@@ -154,17 +222,9 @@ impl ClashController {
             Mode::Global => "global",
             Mode::Direct => "direct",
         };
-        let body = serde_json::json!({ "mode": mode_str });
-        self.request_no_response(
-            "PATCH",
-            "/configs",
-            Some(
-                serde_json::to_vec(&body).map_err(|error| ChimeraError::Runtime {
-                    details: format!("failed to serialize mode update: {error}"),
-                })?,
-            ),
-        )
-        .await
+        let mut config = HashMap::new();
+        config.insert("mode".to_string(), mode_str.to_string());
+        self.update_config(config).await
     }
 
     pub async fn get_mode(&self) -> Result<Option<Mode>, ChimeraError> {
