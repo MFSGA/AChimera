@@ -49,6 +49,11 @@
     <string name="stat_download">下载</string>
     <string name="stat_upload">上传</string>
     <string name="panel_screen">节点</string>
+    <string name="settings_screen">设置</string>
+    <string name="settings_general">通用</string>
+    <string name="settings_about">关于</string>
+    <string name="settings_logs_summary">查看运行日志文件及实时刷新内容。</string>
+    <string name="settings_about_summary">查看当前应用信息与已知运行限制。</string>
     <string name="panel_description">手动查看代理组并选择当前生效节点。</string>
     <string name="panel_error_title">节点选择错误</string>
     <string name="panel_dismiss">关闭</string>

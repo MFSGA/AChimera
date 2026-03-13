@@ -15,15 +15,17 @@ import rs.chimera.android.ui.HomeScreen
 import rs.chimera.android.ui.LogsScreen
 import rs.chimera.android.ui.PanelScreen
 import rs.chimera.android.ui.ProfileScreen
+import rs.chimera.android.ui.SettingsScreen
 
 @Composable
 fun ChimeraAppRoot(modifier: Modifier = Modifier) {
     var selectedItem by rememberSaveable { mutableStateOf(BottomBarItem.Home) }
     var showConnectionsScreen by rememberSaveable { mutableStateOf(false) }
+    var showLogsScreen by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier,
-        bottomBar = if (showConnectionsScreen) {
+        bottomBar = if (showConnectionsScreen || showLogsScreen) {
             {}
         } else {
             {
@@ -32,6 +34,7 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
                     onItemSelected = {
                         selectedItem = it
                         showConnectionsScreen = false
+                        showLogsScreen = false
                     },
                 )
             }
@@ -64,10 +67,18 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
                 )
             }
 
-            BottomBarItem.Logs -> {
-                LogsScreen(
-                    modifier = Modifier.padding(innerPadding),
-                )
+            BottomBarItem.Settings -> {
+                if (showLogsScreen) {
+                    LogsScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        onBack = { showLogsScreen = false },
+                    )
+                } else {
+                    SettingsScreen(
+                        modifier = Modifier.padding(innerPadding),
+                        onLogsClick = { showLogsScreen = true },
+                    )
+                }
             }
         }
     }
