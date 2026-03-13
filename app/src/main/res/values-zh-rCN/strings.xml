@@ -61,6 +61,9 @@
     <string name="panel_not_running_message">请先启动核心，再刷新代理组并手动选择节点。</string>
     <string name="panel_refresh_hint">控制器套接字可用后再执行刷新。</string>
     <string name="refresh">刷新</string>
+    <string name="expand">展开</string>
+    <string name="collapse">收起</string>
+    <string name="selected">已选中</string>
     <string name="no_proxy_groups">未找到代理组。</string>
     <string name="test_latency">测试延迟</string>
     <string name="testing">测试中...</string>
