@@ -1,8 +1,8 @@
 mod controller;
 
-use clash_lib::{start, Config as ClashConfig};
+use clash_lib::{set_socket_protector, start, Config as ClashConfig, SocketProtector};
 use ipnet::Ipv4Net;
-use jni::objects::{JObject, JString};
+use jni::objects::{GlobalRef, JObject, JString, JValue};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
 use jni::{JNIEnv, JavaVM};
 use reqwest::redirect::Policy;
@@ -14,7 +14,7 @@ use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, Once, OnceLock};
+use std::sync::{Arc, Mutex, Once, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 use tokio::sync::broadcast;
@@ -25,6 +25,8 @@ static CORE_RUNNING: AtomicBool = AtomicBool::new(false);
 static CORE_STATE: OnceLock<Mutex<Option<CoreState>>> = OnceLock::new();
 static LAST_ERROR: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 static JVM: OnceLock<JavaVM> = OnceLock::new();
+static CHIMERA_FFI: OnceLock<GlobalRef> = OnceLock::new();
+static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
 static RT: OnceLock<Runtime> = OnceLock::new();
 static INIT: Once = Once::new();
 
@@ -97,6 +99,52 @@ pub struct DownloadProgress {
 #[uniffi::export(callback_interface)]
 pub trait DownloadProgressCallback: Send + Sync {
     fn on_progress(&self, progress: DownloadProgress);
+}
+
+struct AndroidSocketProtector;
+
+impl SocketProtector for AndroidSocketProtector {
+    fn protect_socket_fd(&self, fd: i32) -> std::io::Result<()> {
+        let vm = JVM
+            .get()
+            .ok_or_else(|| std::io::Error::other("JavaVM not initialized"))?;
+        let chimera_ffi = CHIMERA_FFI
+            .get()
+            .ok_or_else(|| std::io::Error::other("ChimeraFfi object not initialized"))?;
+        let mut env = vm.attach_current_thread_permanently().map_err(|error| {
+            std::io::Error::other(format!("failed to attach current thread: {error}"))
+        })?;
+        let protected = env
+            .call_method(
+                chimera_ffi.as_obj(),
+                "protectSocket",
+                "(I)Z",
+                &[JValue::Int(fd)],
+            )
+            .and_then(|value| value.z())
+            .map_err(|error| {
+                std::io::Error::other(format!(
+                    "failed to call ChimeraFfi.protectSocket({fd}): {error}"
+                ))
+            })?;
+
+        if protected {
+            Ok(())
+        } else {
+            Err(std::io::Error::other(format!(
+                "VpnService.protect({fd}) returned false"
+            )))
+        }
+    }
+}
+
+fn install_socket_protector() {
+    if SOCKET_PROTECTOR_INSTALLED.get().is_some() {
+        return;
+    }
+
+    set_socket_protector(Arc::new(AndroidSocketProtector));
+    let _ = SOCKET_PROTECTOR_INSTALLED.set(());
 }
 
 fn runtime() -> &'static Runtime {
@@ -293,7 +341,11 @@ fn build_runtime_config(
 
     if over.fake_ip {
         set_or_insert(dns, "enhanced-mode", yaml_string("fake-ip"));
-        set_or_insert(dns, "fake-ip-range", yaml_string(over.fake_ip_range.clone()));
+        set_or_insert(
+            dns,
+            "fake-ip-range",
+            yaml_string(over.fake_ip_range.clone()),
+        );
     } else {
         set_or_insert(dns, "enhanced-mode", yaml_string("normal"));
     }
@@ -437,7 +489,10 @@ fn start_core_internal(
     config.general.mmdb = Some("Country.mmdb".to_string());
 
     config.dns.enable = true;
-    config.dns.listen.udp = Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 53));
+    config.dns.listen.udp = Some(SocketAddr::new(
+        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+        53553,
+    ));
 
     INIT.call_once(|| unsafe {
         std::env::set_var("RUST_BACKTRACE", "1");
@@ -527,8 +582,7 @@ fn run_clash(
     over: ProfileOverride,
 ) -> Result<FinalProfile, ChimeraError> {
     let tun_fd = over.tun_fd;
-    start_core_internal(config_path, work_dir, tun_fd, over)
-        .map_err(runtime_error)
+    start_core_internal(config_path, work_dir, tun_fd, over).map_err(runtime_error)
 }
 
 #[uniffi::export]
@@ -656,14 +710,28 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
 ) -> jboolean {
     match env.get_java_vm() {
         Ok(vm) => {
-            if JVM.set(vm).is_ok() || JVM.get().is_some() {
-                let _ = runtime();
-                clear_last_error();
-                JNI_TRUE
-            } else {
+            if !(JVM.set(vm).is_ok() || JVM.get().is_some()) {
                 set_last_error("failed to persist JavaVM");
-                JNI_FALSE
+                return JNI_FALSE;
             }
+
+            let chimera_ffi = match env.new_global_ref(&_this) {
+                Ok(reference) => reference,
+                Err(error) => {
+                    set_last_error(format!("failed to create ChimeraFfi global ref: {error}"));
+                    return JNI_FALSE;
+                }
+            };
+
+            if !(CHIMERA_FFI.set(chimera_ffi).is_ok() || CHIMERA_FFI.get().is_some()) {
+                set_last_error("failed to persist ChimeraFfi global ref");
+                return JNI_FALSE;
+            }
+
+            install_socket_protector();
+            let _ = runtime();
+            clear_last_error();
+            JNI_TRUE
         }
         Err(error) => {
             set_last_error(format!("failed to get JavaVM: {error}"));

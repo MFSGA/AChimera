@@ -1,7 +1,7 @@
 use crate::ChimeraError;
 use http_body_util::{BodyExt, Full};
-use hyper::Request;
 use hyper::body::Bytes;
+use hyper::Request;
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
 use serde::{Deserialize, Serialize};
@@ -115,11 +115,15 @@ impl ClashController {
     ) -> Result<(), ChimeraError> {
         let body = serde_json::json!({ "name": proxy_name });
         let path = format!("/proxies/{}", encode(&group_name));
-        self.request_no_response("PUT", &path, Some(serde_json::to_vec(&body).map_err(|error| {
-            ChimeraError::Runtime {
-                details: format!("failed to serialize proxy selection: {error}"),
-            }
-        })?))
+        self.request_no_response(
+            "PUT",
+            &path,
+            Some(
+                serde_json::to_vec(&body).map_err(|error| ChimeraError::Runtime {
+                    details: format!("failed to serialize proxy selection: {error}"),
+                })?,
+            ),
+        )
         .await
     }
 
@@ -151,11 +155,15 @@ impl ClashController {
             Mode::Direct => "direct",
         };
         let body = serde_json::json!({ "mode": mode_str });
-        self.request_no_response("PATCH", "/configs", Some(serde_json::to_vec(&body).map_err(|error| {
-            ChimeraError::Runtime {
-                details: format!("failed to serialize mode update: {error}"),
-            }
-        })?))
+        self.request_no_response(
+            "PATCH",
+            "/configs",
+            Some(
+                serde_json::to_vec(&body).map_err(|error| ChimeraError::Runtime {
+                    details: format!("failed to serialize mode update: {error}"),
+                })?,
+            ),
+        )
         .await
     }
 
@@ -196,12 +204,13 @@ impl ClashController {
                     })?
             };
 
-            let response = client
-                .request(request)
-                .await
-                .map_err(|error| ChimeraError::Runtime {
-                    details: format!("controller request failed: {error}"),
-                })?;
+            let response =
+                client
+                    .request(request)
+                    .await
+                    .map_err(|error| ChimeraError::Runtime {
+                        details: format!("controller request failed: {error}"),
+                    })?;
 
             if !response.status().is_success() {
                 return Err(ChimeraError::Runtime {
@@ -254,12 +263,13 @@ impl ClashController {
                     })?
             };
 
-            let response = client
-                .request(request)
-                .await
-                .map_err(|error| ChimeraError::Runtime {
-                    details: format!("controller request failed: {error}"),
-                })?;
+            let response =
+                client
+                    .request(request)
+                    .await
+                    .map_err(|error| ChimeraError::Runtime {
+                        details: format!("controller request failed: {error}"),
+                    })?;
 
             if !response.status().is_success() {
                 return Err(ChimeraError::Runtime {
