@@ -52,8 +52,12 @@
     <string name="settings_screen">设置</string>
     <string name="settings_general">通用</string>
     <string name="settings_about">关于</string>
+    <string name="settings_language">语言</string>
     <string name="settings_logs_summary">查看运行日志文件及实时刷新内容。</string>
     <string name="settings_about_summary">查看当前应用信息与已知运行限制。</string>
+    <string name="language_system">跟随系统</string>
+    <string name="language_simplified_chinese">简体中文</string>
+    <string name="language_english">English</string>
     <string name="panel_description">手动查看代理组并选择当前生效节点。</string>
     <string name="panel_error_title">节点选择错误</string>
     <string name="panel_dismiss">关闭</string>
