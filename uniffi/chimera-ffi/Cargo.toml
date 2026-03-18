@@ -35,7 +35,8 @@ color-eyre = "0.6"
 
 [dependencies.clash-lib]
 package = "clash-lib"
-path = "../../../Chimera_Client/clash-lib"
+branch = "master"
+git = "https://github.com/MFSGA/Chimera_Client.git"
 features = [
     "ws",
     "trojan",
