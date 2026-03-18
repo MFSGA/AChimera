@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -34,12 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
+import rs.chimera.android.formatSize
+import rs.chimera.android.ui.components.StatsCard
+import rs.chimera.android.ui.components.TextInfoDialog
 import rs.chimera.android.viewmodel.HomeViewModel
 import uniffi.chimera_ffi.MemoryResponse
 
@@ -270,104 +269,4 @@ private fun OverviewTab(
 
         item { Spacer(modifier = Modifier.height(16.dp)) }
     }
-}
-
-@Composable
-private fun StatsCard(
-    title: String,
-    value: String,
-    modifier: Modifier = Modifier,
-    subtitle: String = "",
-    containerColor: androidx.compose.ui.graphics.Color? = null,
-    onClick: (() -> Unit)? = null,
-) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics {
-                contentDescription = "$title: $value${if (subtitle.isNotEmpty()) ", $subtitle" else ""}"
-            },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = if (containerColor != null) {
-            CardDefaults.cardColors(containerColor = containerColor)
-        } else {
-            CardDefaults.cardColors()
-        },
-        onClick = onClick ?: {},
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary,
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-            )
-            if (subtitle.isNotEmpty()) {
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TextInfoDialog(
-    title: String,
-    content: String,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                Text(
-                    text = content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.confirm))
-            }
-        },
-    )
-}
-
-private fun formatSize(bytes: Long): String {
-    if (bytes < 1024) {
-        return "${bytes} B"
-    }
-
-    val units = listOf("KB", "MB", "GB", "TB")
-    var value = bytes.toDouble()
-    var index = -1
-    while (value >= 1024 && index < units.lastIndex) {
-        value /= 1024
-        index += 1
-    }
-    return String.format("%.1f %s", value, units[index])
 }
