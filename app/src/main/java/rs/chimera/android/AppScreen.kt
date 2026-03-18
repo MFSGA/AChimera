@@ -23,12 +23,12 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
     var showConnectionsScreen by rememberSaveable { mutableStateOf(false) }
     var showLogsScreen by rememberSaveable { mutableStateOf(false) }
 
+    val showBottomBar = !showConnectionsScreen && !showLogsScreen
+
     Scaffold(
         modifier = modifier,
-        bottomBar = if (showConnectionsScreen || showLogsScreen) {
-            {}
-        } else {
-            {
+        bottomBar = {
+            if (showBottomBar) {
                 BottomBar(
                     selectedItem = selectedItem,
                     onItemSelected = {
@@ -40,16 +40,18 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
             }
         },
     ) { innerPadding ->
+        val contentModifier = Modifier.padding(innerPadding)
+
         when (selectedItem) {
             BottomBarItem.Home -> {
                 if (showConnectionsScreen) {
                     ConnectionsScreen(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = contentModifier,
                         onBack = { showConnectionsScreen = false },
                     )
                 } else {
                     HomeScreen(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = contentModifier,
                         onConnectionsClick = { showConnectionsScreen = true },
                     )
                 }
@@ -57,25 +59,25 @@ fun ChimeraAppRoot(modifier: Modifier = Modifier) {
 
             BottomBarItem.Panel -> {
                 PanelScreen(
-                    modifier = Modifier.padding(innerPadding),
+                    modifier = contentModifier,
                 )
             }
 
             BottomBarItem.Profile -> {
                 ProfileScreen(
-                    modifier = Modifier.padding(innerPadding),
+                    modifier = contentModifier,
                 )
             }
 
             BottomBarItem.Settings -> {
                 if (showLogsScreen) {
                     LogsScreen(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = contentModifier,
                         onBack = { showLogsScreen = false },
                     )
                 } else {
                     SettingsScreen(
-                        modifier = Modifier.padding(innerPadding),
+                        modifier = contentModifier,
                         onLogsClick = { showLogsScreen = true },
                     )
                 }
