@@ -10,13 +10,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +31,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
+import rs.chimera.android.formatSize
 import rs.chimera.android.viewmodel.ConnectionsViewModel
 import uniffi.chimera_ffi.Connection
 
@@ -48,12 +52,15 @@ fun ConnectionsScreen(
         topBar = {
             TopAppBar(
                 navigationIcon = {
-                    TextButton(onClick = onBack) {
-                        Text(stringResource(R.string.back))
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                        )
                     }
                 },
                 title = { Text(stringResource(R.string.connections_title)) },
-                windowInsets = WindowInsets(),
+                windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
     ) { padding ->
@@ -107,12 +114,12 @@ private fun ConnectionsContent(
                         )
                         SummaryMetric(
                             title = stringResource(R.string.stat_download),
-                            value = formatTraffic(downloadTotal),
+                            value = formatSize(downloadTotal),
                             alignEnd = true,
                         )
                         SummaryMetric(
                             title = stringResource(R.string.stat_upload),
-                            value = formatTraffic(uploadTotal),
+                            value = formatSize(uploadTotal),
                             alignEnd = true,
                         )
                     }
@@ -267,7 +274,7 @@ private fun ConnectionCard(
                 Text(
                     text = stringResource(
                         R.string.connections_download,
-                        formatTraffic(connection.download),
+                        formatSize(connection.download),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -275,7 +282,7 @@ private fun ConnectionCard(
                 Text(
                     text = stringResource(
                         R.string.connections_upload,
-                        formatTraffic(connection.upload),
+                        formatSize(connection.upload),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,
@@ -283,19 +290,4 @@ private fun ConnectionCard(
             }
         }
     }
-}
-
-private fun formatTraffic(bytes: Long): String {
-    if (bytes < 1024) {
-        return "${bytes} B"
-    }
-
-    val units = listOf("KB", "MB", "GB", "TB")
-    var value = bytes.toDouble()
-    var index = -1
-    while (value >= 1024 && index < units.lastIndex) {
-        value /= 1024.0
-        index += 1
-    }
-    return String.format("%.1f %s", value, units[index])
 }
