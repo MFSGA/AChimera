@@ -55,6 +55,7 @@
     <string name="settings_language">语言</string>
     <string name="settings_logs_summary">查看运行日志文件及实时刷新内容。</string>
     <string name="settings_about_summary">查看当前应用信息与已知运行限制。</string>
+    <string name="settings_known_issues">已知问题：\n- 部分设置项需要重启 VPN 后才会生效。</string>
     <string name="language_system">跟随系统</string>
     <string name="language_simplified_chinese">简体中文</string>
     <string name="language_english">English</string>

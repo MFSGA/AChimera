@@ -55,6 +55,7 @@
     <string name="settings_language">Language</string>
     <string name="settings_logs_summary">Inspect the runtime log file and live updates.</string>
     <string name="settings_about_summary">Current app information and known runtime constraints.</string>
+    <string name="settings_known_issues">Known issues:\n- Some settings only take effect after restarting VPN.</string>
     <string name="language_system">System Default</string>
     <string name="language_simplified_chinese">简体中文</string>
     <string name="language_english">English</string>
