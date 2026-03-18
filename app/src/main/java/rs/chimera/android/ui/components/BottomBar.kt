@@ -1,4 +1,4 @@
-package rs.chimera.android.ui
+package rs.chimera.android.ui.components
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons

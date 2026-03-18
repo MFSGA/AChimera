@@ -8,14 +8,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import rs.chimera.android.ui.BottomBar
-import rs.chimera.android.ui.BottomBarItem
 import rs.chimera.android.ui.ConnectionsScreen
 import rs.chimera.android.ui.HomeScreen
 import rs.chimera.android.ui.LogsScreen
 import rs.chimera.android.ui.PanelScreen
 import rs.chimera.android.ui.ProfileScreen
 import rs.chimera.android.ui.SettingsScreen
+import rs.chimera.android.ui.components.BottomBar
+import rs.chimera.android.ui.components.BottomBarItem
 
 @Composable
 fun ChimeraAppRoot(modifier: Modifier = Modifier) {
