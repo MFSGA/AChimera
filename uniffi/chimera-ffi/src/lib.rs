@@ -8,6 +8,7 @@ use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
 use jni::{JNIEnv, JavaVM};
 use reqwest::redirect::Policy;
 use serde_yaml::{Mapping, Number, Value};
+use std::convert::TryFrom;
 use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File, OpenOptions};
 use std::hash::{Hash, Hasher};
@@ -109,7 +110,10 @@ pub trait DownloadProgressCallback: Send + Sync {
 struct AndroidSocketProtector;
 
 impl SocketProtector for AndroidSocketProtector {
-    fn protect_socket_fd(&self, fd: i32) -> std::io::Result<()> {
+    fn protect_socket_handle(&self, handle: usize) -> std::io::Result<()> {
+        let fd = i32::try_from(handle).map_err(|_| {
+            std::io::Error::other(format!("socket handle out of i32 range: {handle}"))
+        })?;
         let vm = JVM
             .get()
             .ok_or_else(|| std::io::Error::other("JavaVM not initialized"))?;
