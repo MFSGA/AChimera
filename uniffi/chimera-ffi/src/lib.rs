@@ -572,6 +572,20 @@ fn build_hello_message() -> String {
     "ffi: core stopped".to_string()
 }
 
+fn default_profile_override() -> ProfileOverride {
+    ProfileOverride {
+        tun_fd: 1,
+        log_file_path: "chimera-rs.log".to_string(),
+        allow_lan: false,
+        mixed_port: 7890,
+        http_port: None,
+        socks_port: None,
+        fake_ip: false,
+        fake_ip_range: "198.18.0.2/16".to_string(),
+        ipv6: true,
+    }
+}
+
 #[uniffi::export]
 fn hello() -> String {
     build_hello_message()
@@ -590,20 +604,41 @@ fn run_clash(
 #[uniffi::export]
 fn verify_config(config_path: String) -> Result<String, ChimeraError> {
     let path = PathBuf::from(&config_path);
+    let profile_content = fs::read_to_string(&path)
+        .map_err(|error| runtime_error(format!("failed to read config file: {error}")))?;
+
     ClashConfig::File(config_path)
         .try_parse()
         .map_err(|error| runtime_error(format!("failed to verify config: {error}")))?;
 
-    let content = fs::read_to_string(&path)
-        .map_err(|error| runtime_error(format!("failed to read config file: {error}")))?;
-    let mut value: serde_yaml::Value = serde_yaml::from_str(&content)
+    let mut value: serde_yaml::Value = serde_yaml::from_str(&profile_content)
         .map_err(|error| runtime_error(format!("failed to parse config yaml: {error}")))?;
     value
         .apply_merge()
         .map_err(|error| runtime_error(format!("failed to resolve yaml anchors: {error}")))?;
 
-    serde_yaml::to_string(&value)
-        .map_err(|error| runtime_error(format!("failed to serialize verified config: {error}")))
+    let socket_path = path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join("clash.sock");
+    let (runtime_config, final_profile) = build_runtime_config(
+        &profile_content,
+        &socket_path,
+        &default_profile_override(),
+    )
+    .map_err(|error| runtime_error(format!("failed to build runtime config: {error}")))?;
+
+    ClashConfig::Str(runtime_config.clone())
+        .try_parse()
+        .map_err(|error| runtime_error(format!("failed to verify runtime config: {error}")))?;
+
+    let merged_config = serde_yaml::to_string(&value)
+        .map_err(|error| runtime_error(format!("failed to serialize verified config: {error}")))?;
+
+    Ok(format!(
+        "Raw config: valid\nRuntime config: valid\nMixed port: {}\n\n# Merged Config\n{}\n# Runtime Config\n{}",
+        final_profile.mixed_port, merged_config, runtime_config
+    ))
 }
 
 #[uniffi::export]

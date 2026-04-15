@@ -10,8 +10,6 @@ pub(crate) fn init_logger(level: LevelFilter) {
         .add_directive(format!("clash_android_ffi={}", level).parse().unwrap())
         .add_directive("warn".parse().unwrap());
 
-    let mut layers = Vec::new();
-
     #[cfg(target_os = "android")]
     {
         let android_layer = paranoid_android::layer("clash-rs")
@@ -22,12 +20,18 @@ pub(crate) fn init_logger(level: LevelFilter) {
             .with_filter(LevelFilter::TRACE)
             .boxed();
 
-        layers.push(android_layer);
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(android_layer)
+            .with(ErrorLayer::default())
+            .init();
     }
 
-    tracing_subscriber::registry()
-        .with(filter)
-        .with(layers)
-        .with(ErrorLayer::default())
-        .init();
+    #[cfg(not(target_os = "android"))]
+    {
+        tracing_subscriber::registry()
+            .with(filter)
+            .with(ErrorLayer::default())
+            .init();
+    }
 }
