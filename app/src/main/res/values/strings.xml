@@ -22,6 +22,7 @@
     <string name="action_restart">Restart</string>
     <string name="about_title">About</string>
     <string name="about_known_issues">Known issues:\n- VPN stop currently restarts the app to avoid an unsafe runtime state.</string>
+    <string name="profile_known_issues">Known issues:\n- clash-rs is not fully compatible with all mihomo configs yet.\n- After switching profiles, some settings may require restarting the VPN.</string>
     <string name="back">Back</string>
     <string name="restart_confirm_title">Restart app?</string>
     <string name="restart_confirm_message">This will restart the Android process immediately.</string>
@@ -120,6 +121,11 @@
     <string name="profile_delete">Delete</string>
     <string name="profile_missing">No profile selected</string>
     <string name="profile_import_url">Import From URL</string>
+    <string name="profile_user_agent_label">User-Agent</string>
+    <string name="profile_user_agent_hint">Optional custom client header</string>
+    <string name="profile_proxy_label">HTTP Proxy</string>
+    <string name="profile_proxy_hint">Optional http://host:port</string>
+    <string name="profile_auto_update">Enable auto update</string>
     <string name="profile_url_hint">https://example.com/config.yaml</string>
     <string name="profile_default_test_url">http://10.0.2.2:5500/scripts/rVqZHZQSFdSN.yaml</string>
     <string name="profile_download_file">Download</string>
@@ -135,5 +141,11 @@
     <string name="profile_import_ready">Ready to import %1$s</string>
     <string name="profile_import_success">Imported %1$s</string>
     <string name="profile_import_error">Import failed: %1$s</string>
+    <string name="profile_update">Update</string>
+    <string name="profile_update_success">Updated %1$s</string>
+    <string name="profile_update_error">Update failed: %1$s</string>
+    <string name="profile_rename">Rename</string>
+    <string name="profile_rename_title">Rename Profile</string>
+    <string name="profile_last_updated">Updated: %1$s</string>
     <string name="profile_unknown_error">Unknown error</string>
 </resources>

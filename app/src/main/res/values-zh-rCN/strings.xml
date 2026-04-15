@@ -22,6 +22,7 @@
     <string name="action_restart">重启</string>
     <string name="about_title">关于</string>
     <string name="about_known_issues">已知问题：\n- 当前停止 VPN 时会重启应用，以避免运行时进入不安全状态。</string>
+    <string name="profile_known_issues">已知问题：\n- 当前 clash-rs 仍未完全兼容所有 mihomo 配置。\n- 切换配置后，部分设置需要重启 VPN 才会生效。</string>
     <string name="back">返回</string>
     <string name="restart_confirm_title">确认重启</string>
     <string name="restart_confirm_message">这将立即重启 Android 进程。</string>
@@ -120,6 +121,11 @@
     <string name="profile_delete">删除</string>
     <string name="profile_missing">未选择配置</string>
     <string name="profile_import_url">从 URL 导入</string>
+    <string name="profile_user_agent_label">User-Agent</string>
+    <string name="profile_user_agent_hint">可选的自定义客户端标识</string>
+    <string name="profile_proxy_label">HTTP 代理</string>
+    <string name="profile_proxy_hint">可选，例如 http://host:port</string>
+    <string name="profile_auto_update">启用自动更新</string>
     <string name="profile_url_hint">https://example.com/config.yaml</string>
     <string name="profile_default_test_url">http://10.0.2.2:5500/scripts/rVqZHZQSFdSN.yaml</string>
     <string name="profile_download_file">下载</string>
@@ -135,5 +141,11 @@
     <string name="profile_import_ready">准备导入 %1$s</string>
     <string name="profile_import_success">已导入 %1$s</string>
     <string name="profile_import_error">导入失败：%1$s</string>
+    <string name="profile_update">更新配置</string>
+    <string name="profile_update_success">已更新 %1$s</string>
+    <string name="profile_update_error">更新失败：%1$s</string>
+    <string name="profile_rename">重命名</string>
+    <string name="profile_rename_title">重命名配置</string>
+    <string name="profile_last_updated">更新时间：%1$s</string>
     <string name="profile_unknown_error">未知错误</string>
 </resources>

@@ -19,11 +19,22 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -51,6 +62,9 @@ import rs.chimera.android.R
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
 import rs.chimera.android.viewmodel.ProfileViewModel
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun ProfileScreen(
@@ -62,8 +76,12 @@ fun ProfileScreen(
     var localProfileName by remember { mutableStateOf("") }
     var remoteProfileName by remember { mutableStateOf("") }
     var remoteProfileUrl by remember { mutableStateOf(defaultRemoteUrl) }
+    var remoteAutoUpdate by remember { mutableStateOf(false) }
+    var remoteUserAgent by remember { mutableStateOf("") }
+    var remoteProxyUrl by remember { mutableStateOf("") }
     var showLocalDialog by remember { mutableStateOf(false) }
     var showRemoteDialog by remember { mutableStateOf(false) }
+    var showInfoDialog by remember { mutableStateOf(false) }
     var wasDownloading by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -77,6 +95,9 @@ fun ProfileScreen(
             showRemoteDialog = false
             remoteProfileName = ""
             remoteProfileUrl = defaultRemoteUrl
+            remoteAutoUpdate = false
+            remoteUserAgent = ""
+            remoteProxyUrl = ""
             wasDownloading = false
         }
     }
@@ -140,6 +161,19 @@ fun ProfileScreen(
         )
     }
 
+    if (showInfoDialog) {
+        AlertDialog(
+            onDismissRequest = { showInfoDialog = false },
+            title = { Text(text = stringResource(id = R.string.about_title)) },
+            text = { Text(text = stringResource(id = R.string.profile_known_issues)) },
+            confirmButton = {
+                TextButton(onClick = { showInfoDialog = false }) {
+                    Text(text = stringResource(id = android.R.string.ok))
+                }
+            },
+        )
+    }
+
     if (showRemoteDialog) {
         AlertDialog(
             onDismissRequest = {
@@ -147,6 +181,9 @@ fun ProfileScreen(
                     showRemoteDialog = false
                     remoteProfileName = ""
                     remoteProfileUrl = defaultRemoteUrl
+                    remoteAutoUpdate = false
+                    remoteUserAgent = ""
+                    remoteProxyUrl = ""
                 }
             },
             title = { Text(text = stringResource(id = R.string.profile_remote_dialog_title)) },
@@ -197,6 +234,38 @@ fun ProfileScreen(
                         enabled = !vm.isDownloading,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    OutlinedTextField(
+                        value = remoteUserAgent,
+                        onValueChange = { remoteUserAgent = it },
+                        label = { Text(text = stringResource(id = R.string.profile_user_agent_label)) },
+                        placeholder = { Text(text = stringResource(id = R.string.profile_user_agent_hint)) },
+                        singleLine = true,
+                        enabled = !vm.isDownloading,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = remoteProxyUrl,
+                        onValueChange = { remoteProxyUrl = it },
+                        label = { Text(text = stringResource(id = R.string.profile_proxy_label)) },
+                        placeholder = { Text(text = stringResource(id = R.string.profile_proxy_hint)) },
+                        singleLine = true,
+                        enabled = !vm.isDownloading,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Checkbox(
+                            checked = remoteAutoUpdate,
+                            onCheckedChange = { remoteAutoUpdate = it },
+                            enabled = !vm.isDownloading,
+                        )
+                        Text(
+                            text = stringResource(id = R.string.profile_auto_update),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    }
                 }
             },
             confirmButton = {
@@ -207,6 +276,9 @@ fun ProfileScreen(
                             context = context,
                             profileName = remoteProfileName.ifBlank { null },
                             url = remoteProfileUrl.trim(),
+                            autoUpdate = remoteAutoUpdate,
+                            userAgent = remoteUserAgent.ifBlank { null },
+                            proxyUrl = remoteProxyUrl.ifBlank { null },
                         )
                     },
                 ) {
@@ -220,6 +292,9 @@ fun ProfileScreen(
                         showRemoteDialog = false
                         remoteProfileName = ""
                         remoteProfileUrl = defaultRemoteUrl
+                        remoteAutoUpdate = false
+                        remoteUserAgent = ""
+                        remoteProxyUrl = ""
                     },
                 ) {
                     Text(text = stringResource(id = android.R.string.cancel))
@@ -242,11 +317,23 @@ fun ProfileScreen(
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
                 )
-                Text(
-                    text = stringResource(id = R.string.profile_title),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.profile_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                    IconButton(onClick = { showInfoDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = stringResource(id = R.string.action_about),
+                        )
+                    }
+                }
             }
         }
 
@@ -344,6 +431,12 @@ fun ProfileScreen(
                 profile = profile,
                 onActivate = { vm.activateProfile(profile) },
                 onDelete = { vm.deleteProfile(profile) },
+                onRename = { vm.renameProfile(profile, it) },
+                onUpdate = if (profile.type == ProfileType.REMOTE) {
+                    { vm.updateRemoteProfile(context, profile) }
+                } else {
+                    null
+                },
             )
         }
     }
@@ -513,7 +606,53 @@ private fun ProfileItem(
     profile: Profile,
     onActivate: () -> Unit,
     onDelete: () -> Unit,
+    onRename: (String) -> Unit,
+    onUpdate: (() -> Unit)?,
 ) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    var showRenameDialog by remember { mutableStateOf(false) }
+    var renameValue by remember(profile.id, profile.name) { mutableStateOf(profile.name) }
+    val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+
+    if (showRenameDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showRenameDialog = false
+                renameValue = profile.name
+            },
+            title = { Text(text = stringResource(id = R.string.profile_rename_title)) },
+            text = {
+                OutlinedTextField(
+                    value = renameValue,
+                    onValueChange = { renameValue = it },
+                    label = { Text(text = stringResource(id = R.string.profile_name_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onRename(renameValue)
+                        showRenameDialog = false
+                    },
+                ) {
+                    Text(text = stringResource(id = R.string.confirm))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showRenameDialog = false
+                        renameValue = profile.name
+                    },
+                ) {
+                    Text(text = stringResource(id = R.string.cancel))
+                }
+            },
+        )
+    }
+
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -538,10 +677,28 @@ private fun ProfileItem(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = profile.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        if (profile.type == ProfileType.REMOTE) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        }
+                    }
                     Text(
-                        text = profile.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
+                        text = dateFormatter.format(Date(profile.createdAt)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
                     )
                     Text(
                         text = profile.filePath,
@@ -550,17 +707,80 @@ private fun ProfileItem(
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (profile.type == ProfileType.REMOTE && profile.lastUpdated != null) {
+                        Text(
+                            text = stringResource(
+                                id = R.string.profile_last_updated,
+                                dateFormatter.format(Date(profile.lastUpdated)),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-                ProfileKindBadge(
-                    label = stringResource(
-                        id = if (profile.type == ProfileType.REMOTE) {
-                            R.string.profile_type_remote
-                        } else {
-                            R.string.profile_type_local
-                        },
-                    ),
-                    active = profile.isActive,
-                )
+                Box {
+                    IconButton(onClick = { menuExpanded = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = null,
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false },
+                    ) {
+                        if (!profile.isActive) {
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(id = R.string.profile_activate)) },
+                                onClick = {
+                                    onActivate()
+                                    menuExpanded = false
+                                },
+                            )
+                        }
+                        if (profile.type == ProfileType.REMOTE && onUpdate != null) {
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(id = R.string.profile_update)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    onUpdate()
+                                    menuExpanded = false
+                                },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(id = R.string.profile_rename)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                showRenameDialog = true
+                                menuExpanded = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(id = R.string.profile_delete)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                onDelete()
+                                menuExpanded = false
+                            },
+                        )
+                    }
+                }
             }
 
             Row(
@@ -580,9 +800,16 @@ private fun ProfileItem(
                     }
                 }
 
-                OutlinedButton(onClick = onDelete) {
-                    Text(text = stringResource(id = R.string.profile_delete))
-                }
+                ProfileKindBadge(
+                    label = stringResource(
+                        id = if (profile.type == ProfileType.REMOTE) {
+                            R.string.profile_type_remote
+                        } else {
+                            R.string.profile_type_local
+                        },
+                    ),
+                    active = profile.isActive,
+                )
             }
         }
     }

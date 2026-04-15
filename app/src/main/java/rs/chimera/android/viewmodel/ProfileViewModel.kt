@@ -227,6 +227,76 @@ class ProfileViewModel : ViewModel() {
         saveProfiles()
     }
 
+    fun renameProfile(profile: Profile, newName: String) {
+        val trimmedName = newName.trim()
+        if (trimmedName.isEmpty()) return
+
+        val index = profiles.indexOfFirst { it.id == profile.id }
+        if (index < 0) return
+
+        val updated = profiles[index].copy(name = trimmedName)
+        profiles[index] = updated
+        if (updated.isActive) {
+            activeProfile = updated
+            savedFilePath = updated.filePath
+        }
+        saveProfiles()
+    }
+
+    fun updateRemoteProfile(
+        context: Context,
+        profile: Profile,
+    ) {
+        if (isDownloading || profile.type != ProfileType.REMOTE || profile.url.isNullOrBlank()) {
+            return
+        }
+
+        viewModelScope.launch {
+            isDownloading = true
+            downloadProgress = null
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    downloadProfileToAppDirectory(
+                        context = context,
+                        profileName = profile.name,
+                        urlText = profile.url,
+                        userAgent = profile.userAgent,
+                        proxyUrl = profile.proxyUrl ?: Global.proxyPort?.let { "http://127.0.0.1:$it" },
+                    )
+                }
+
+                val index = profiles.indexOfFirst { it.id == profile.id }
+                if (index >= 0) {
+                    val updated = profiles[index].copy(
+                        filePath = file.absolutePath,
+                        fileSize = file.length(),
+                        lastUpdated = System.currentTimeMillis(),
+                    )
+                    profiles[index] = updated
+                    if (updated.isActive) {
+                        activeProfile = updated
+                        savedFilePath = updated.filePath
+                        Global.updateProfilePath(updated.filePath)
+                    }
+                    saveProfiles()
+                }
+
+                statusMessage = context.getString(
+                    rs.chimera.android.R.string.profile_update_success,
+                    profile.name,
+                )
+            } catch (error: Exception) {
+                statusMessage = context.getString(
+                    rs.chimera.android.R.string.profile_update_error,
+                    error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
+                )
+            } finally {
+                isDownloading = false
+                downloadProgress = null
+            }
+        }
+    }
+
     fun verifyActiveProfile(context: Context) {
         if (isVerifying) return
 
