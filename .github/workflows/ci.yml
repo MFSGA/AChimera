@@ -32,11 +32,32 @@ jobs:
           distribution: "temurin"
           java-version: "21"
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
       - name: Make gradlew executable
         run: chmod +x gradlew
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Ensure Android NDK
+        env:
+          ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+        run: |
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ANDROID_HOME is not set on runner."
+            exit 1
+          fi
+
+          if [ ! -d "${ANDROID_HOME}/ndk/29.0.14206865" ]; then
+            "${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" --install "ndk;29.0.14206865"
+          fi
 
       - name: Ensure Android SDK path
         run: |
