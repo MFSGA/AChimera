@@ -54,26 +54,41 @@ object NotificationHelper {
             .build()
 
     fun notifyRunning(context: Context) {
-        if (!canPostNotifications(context)) return
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
 
-        NotificationManagerCompat.from(context)
-            .notify(NOTIFICATION_ID, buildRunningNotification(context))
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify(NOTIFICATION_ID, buildRunningNotification(context))
+        }.getOrElse { error ->
+            if (error !is SecurityException) throw error
+        }
     }
 
     fun notifyFailed(context: Context, message: String?) {
-        if (!canPostNotifications(context)) return
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
 
-        NotificationManagerCompat.from(context)
-            .notify(NOTIFICATION_ID, buildFailedNotification(context, message))
-    }
-
-    private fun canPostNotifications(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true
-
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
+        runCatching {
+            NotificationManagerCompat.from(context)
+                .notify(NOTIFICATION_ID, buildFailedNotification(context, message))
+        }.getOrElse { error ->
+            if (error !is SecurityException) throw error
+        }
     }
 
     private fun baseBuilder(context: Context): NotificationCompat.Builder {
