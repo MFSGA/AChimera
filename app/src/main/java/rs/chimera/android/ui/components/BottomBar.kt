@@ -1,19 +1,27 @@
 package rs.chimera.android.ui.components
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.TextSnippet
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import rs.chimera.android.R
 
 enum class BottomBarItem(
@@ -32,19 +40,36 @@ fun BottomBar(
     onItemSelected: (BottomBarItem) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    NavigationBar(modifier = modifier) {
-        BottomBarItem.entries.forEach { item ->
-            NavigationBarItem(
-                selected = selectedItem == item,
-                onClick = { onItemSelected(item) },
-                icon = {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = stringResource(item.label),
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
+            tonalElevation = 8.dp,
+            shadowElevation = 10.dp,
+        ) {
+            NavigationBar(
+                containerColor = Color.Transparent,
+                tonalElevation = 0.dp,
+            ) {
+                BottomBarItem.entries.forEach { item ->
+                    NavigationBarItem(
+                        selected = selectedItem == item,
+                        onClick = { onItemSelected(item) },
+                        icon = {
+                            Icon(
+                                imageVector = item.icon,
+                                contentDescription = stringResource(item.label),
+                            )
+                        },
+                        label = { Text(stringResource(item.label)) },
                     )
-                },
-                label = { Text(stringResource(item.label)) },
-            )
+                }
+            }
         }
     }
 }

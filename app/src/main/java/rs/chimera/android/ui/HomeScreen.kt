@@ -4,16 +4,21 @@ import android.app.Activity.RESULT_OK
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
@@ -21,23 +26,30 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
@@ -104,6 +116,7 @@ fun HomeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.home_title)) },
@@ -122,6 +135,10 @@ fun HomeScreen(
                     }
                 },
                 windowInsets = WindowInsets(),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    scrolledContainerColor = Color.Transparent,
+                ),
             )
         },
     ) { padding ->
@@ -161,6 +178,147 @@ fun HomeScreen(
 }
 
 @Composable
+private fun HomeHeroCard(
+    isVpnRunning: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val shape = RoundedCornerShape(32.dp)
+    val gradient = if (isVpnRunning) {
+        Brush.linearGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.primary,
+                MaterialTheme.colorScheme.tertiary,
+            ),
+        )
+    } else {
+        Brush.linearGradient(
+            colors = listOf(
+                MaterialTheme.colorScheme.error.copy(alpha = 0.92f),
+                MaterialTheme.colorScheme.secondary,
+            ),
+        )
+    }
+    val foreground = Color.White
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = shape,
+        color = Color.Transparent,
+        border = BorderStroke(1.dp, foreground.copy(alpha = 0.22f)),
+        shadowElevation = 8.dp,
+    ) {
+        Box(
+            modifier = Modifier
+                .background(gradient, shape)
+                .padding(20.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 4.dp, end = 10.dp)
+                    .size(96.dp)
+                    .background(foreground.copy(alpha = 0.10f), CircleShape),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .size(42.dp)
+                    .background(foreground.copy(alpha = 0.12f), CircleShape),
+            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                StatusPill(
+                    label = stringResource(R.string.stat_vpn),
+                    active = isVpnRunning,
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = foreground,
+                    )
+                    Text(
+                        text = if (isVpnRunning) {
+                            stringResource(R.string.stat_vpn_hint_stop)
+                        } else {
+                            stringResource(R.string.stat_vpn_hint_start)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = foreground.copy(alpha = 0.82f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = if (isVpnRunning) {
+                            stringResource(R.string.stat_vpn_running)
+                        } else {
+                            stringResource(R.string.stat_vpn_stopped)
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = foreground,
+                    )
+                    FilledTonalButton(
+                        onClick = onClick,
+                        shape = RoundedCornerShape(999.dp),
+                    ) {
+                        Text(
+                            text = if (isVpnRunning) {
+                                stringResource(R.string.service_stop_action)
+                            } else {
+                                stringResource(R.string.service_start_action)
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusPill(
+    label: String,
+    active: Boolean,
+) {
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = Color.White.copy(alpha = 0.16f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(
+                        color = if (active) Color(0xFFB9FFDA) else Color(0xFFFFD4C7),
+                        shape = CircleShape,
+                    ),
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
 private fun OverviewTab(
     memory: MemoryResponse?,
     connections: Int,
@@ -174,31 +332,13 @@ private fun OverviewTab(
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = modifier
-            .padding(horizontal = 16.dp)
-            .fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { Spacer(modifier = Modifier.height(16.dp)) }
-
-        item(key = "vpn") {
-            StatsCard(
-                title = stringResource(R.string.stat_vpn),
-                value = if (isVpnRunning) {
-                    stringResource(R.string.stat_vpn_running)
-                } else {
-                    stringResource(R.string.stat_vpn_stopped)
-                },
-                subtitle = if (isVpnRunning) {
-                    stringResource(R.string.stat_vpn_hint_stop)
-                } else {
-                    stringResource(R.string.stat_vpn_hint_start)
-                },
-                containerColor = if (isVpnRunning) {
-                    MaterialTheme.colorScheme.primaryContainer
-                } else {
-                    MaterialTheme.colorScheme.errorContainer
-                },
+        item(key = "hero") {
+            HomeHeroCard(
+                isVpnRunning = isVpnRunning,
                 onClick = onVpnToggle,
             )
         }
@@ -207,6 +347,8 @@ private fun OverviewTab(
             item(key = "error") {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.16f)),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
@@ -237,27 +379,31 @@ private fun OverviewTab(
             }
         }
 
-        item(key = "memory") {
-            StatsCard(
-                title = stringResource(R.string.stat_memory),
-                value = memory?.let { formatSize(it.inuse) } ?: stringResource(R.string.not_available),
-                subtitle = memory?.let {
-                    stringResource(R.string.stat_memory_limit, formatSize(it.oslimit))
-                } ?: stringResource(R.string.refreshing),
-            )
-        }
-
-        item(key = "connections") {
-            StatsCard(
-                title = stringResource(R.string.stat_connections),
-                value = connections.toString(),
-                subtitle = if (connections > 0) {
-                    stringResource(R.string.stat_connections_ongoing)
-                } else {
-                    stringResource(R.string.stat_connections_none)
-                },
-                onClick = onConnectionsClick,
-            )
+        item(key = "quick-stats") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StatsCard(
+                    title = stringResource(R.string.stat_memory),
+                    value = memory?.let { formatSize(it.inuse) } ?: stringResource(R.string.not_available),
+                    subtitle = memory?.let {
+                        stringResource(R.string.stat_memory_limit, formatSize(it.oslimit))
+                    } ?: stringResource(R.string.refreshing),
+                    modifier = Modifier.weight(1f),
+                )
+                StatsCard(
+                    title = stringResource(R.string.stat_connections),
+                    value = connections.toString(),
+                    subtitle = if (connections > 0) {
+                        stringResource(R.string.stat_connections_ongoing)
+                    } else {
+                        stringResource(R.string.stat_connections_none)
+                    },
+                    modifier = Modifier.weight(1f),
+                    onClick = onConnectionsClick,
+                )
+            }
         }
 
         item(key = "bandwidth") {
@@ -277,7 +423,5 @@ private fun OverviewTab(
                 )
             }
         }
-
-        item { Spacer(modifier = Modifier.height(16.dp)) }
     }
 }

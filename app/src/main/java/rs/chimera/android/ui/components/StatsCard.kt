@@ -1,5 +1,6 @@
 package rs.chimera.android.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -25,34 +27,35 @@ fun StatsCard(
     containerColor: Color? = null,
     onClick: (() -> Unit)? = null,
 ) {
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .semantics {
-                contentDescription = "$title: $value${if (subtitle.isNotEmpty()) ", $subtitle" else ""}"
-            },
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = if (containerColor != null) {
-            CardDefaults.cardColors(containerColor = containerColor)
-        } else {
-            CardDefaults.cardColors()
-        },
-        onClick = onClick ?: {},
-    ) {
+    val cardModifier = modifier
+        .fillMaxWidth()
+        .semantics {
+            contentDescription = "$title: $value${if (subtitle.isNotEmpty()) ", $subtitle" else ""}"
+        }
+    val cardColors = CardDefaults.cardColors(
+        containerColor = containerColor ?: MaterialTheme.colorScheme.surfaceContainerHigh,
+    )
+    val cardShape = RoundedCornerShape(26.dp)
+    val cardBorder = BorderStroke(
+        width = 1.dp,
+        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.14f),
+    )
+
+    val content: @Composable () -> Unit = {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.secondary,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.88f),
             )
             Text(
                 text = value,
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             if (subtitle.isNotEmpty()) {
                 Text(
@@ -61,6 +64,29 @@ fun StatsCard(
                     color = MaterialTheme.colorScheme.outline,
                 )
             }
+        }
+    }
+
+    if (onClick != null) {
+        Card(
+            modifier = cardModifier,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 1.dp),
+            colors = cardColors,
+            border = cardBorder,
+            shape = cardShape,
+            onClick = onClick,
+        ) {
+            content()
+        }
+    } else {
+        Card(
+            modifier = cardModifier,
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            colors = cardColors,
+            border = cardBorder,
+            shape = cardShape,
+        ) {
+            content()
         }
     }
 }
