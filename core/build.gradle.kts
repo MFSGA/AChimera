@@ -1,4 +1,6 @@
+import org.gradle.api.file.Directory
 import org.gradle.api.GradleException
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.Exec
 import java.util.Properties
 
@@ -8,7 +10,8 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-val jniLibsDir = layout.buildDirectory.dir("generated/rust/jniLibs")
+val debugJniLibsDir = layout.buildDirectory.dir("generated/rust/jniLibs/debug")
+val releaseJniLibsDir = layout.buildDirectory.dir("generated/rust/jniLibs/release")
 
 // note: to refactor the build process
 val cargoTargetDir = layout.buildDirectory.dir("generated/rust/cargoTarget")
@@ -37,8 +40,9 @@ val androidNdkDir =
         .map(::file)
         .firstOrNull(File::exists)
 
-fun configureCargoNdkTask(task: Exec, release: Boolean) {
+fun configureCargoNdkTask(task: Exec, release: Boolean, outputDir: Provider<Directory>) {
     task.workingDir = file("../uniffi")
+    task.outputs.dir(outputDir)
     task.commandLine(
         "cargo",
         "ndk",
@@ -49,7 +53,7 @@ fun configureCargoNdkTask(task: Exec, release: Boolean) {
         "-t",
         "x86_64",
         "-o",
-        jniLibsDir.get().asFile.absolutePath,
+        outputDir.get().asFile.absolutePath,
         "build",
         "-p",
         "chimera-ffi",
@@ -66,6 +70,11 @@ fun configureCargoNdkTask(task: Exec, release: Boolean) {
             ?: throw GradleException(
                 "Android NDK $configuredNdkVersion is missing. Set ndk.dir in local.properties or install it under ${sdkDir.resolve("ndk").absolutePath}."
             )
+        val rustOutputDir = outputDir.get().asFile
+        if (rustOutputDir.exists()) {
+            rustOutputDir.deleteRecursively()
+        }
+        rustOutputDir.mkdirs()
 
         task.environment("ANDROID_HOME", sdkDir.absolutePath)
         task.environment("ANDROID_SDK_ROOT", sdkDir.absolutePath)
@@ -76,11 +85,11 @@ fun configureCargoNdkTask(task: Exec, release: Boolean) {
 }
 
 val buildCargoNdkDebug by tasks.registering(Exec::class) {
-    configureCargoNdkTask(this, release = false)
+    configureCargoNdkTask(this, release = false, outputDir = debugJniLibsDir)
 }
 
 val buildCargoNdkRelease by tasks.registering(Exec::class) {
-    configureCargoNdkTask(this, release = true)
+    configureCargoNdkTask(this, release = true, outputDir = releaseJniLibsDir)
 }
 
 android {
@@ -105,16 +114,13 @@ android {
     buildToolsVersion = rootProject.extra["buildToolsVersion"] as String
 
     sourceSets {
-        getByName("main").jniLibs.srcDir(jniLibsDir)
+        getByName("debug").jniLibs.srcDir(debugJniLibsDir)
+        getByName("release").jniLibs.srcDir(releaseJniLibsDir)
     }
 }
 
 kotlin {
     jvmToolchain(21)
-}
-
-tasks.named("preBuild").configure {
-    dependsOn(buildCargoNdkDebug)
 }
 
 dependencies {
@@ -132,6 +138,8 @@ android {
     libraryVariants.all {
         val variant = this
         val variantName = variant.name.replaceFirstChar(Char::titlecase)
+        val cargoNdkTask = if (variant.buildType.name == "release") buildCargoNdkRelease else buildCargoNdkDebug
+        val variantJniLibsDir = if (variant.buildType.name == "release") releaseJniLibsDir else debugJniLibsDir
         val bindingsDir = layout.projectDirectory.dir("src/main/java")
         val generateBindings = tasks.register("generate${variantName}UniFFIBindings", Exec::class) {
             workingDir = file("../uniffi")
@@ -142,7 +150,7 @@ android {
                 "uniffi-bindgen",
                 "generate",
                 "--library",
-                layout.buildDirectory.file("generated/rust/jniLibs/arm64-v8a/libchimera_ffi.so").get().asFile.absolutePath,
+                variantJniLibsDir.map { it.file("arm64-v8a/libchimera_ffi.so") }.get().asFile.absolutePath,
                 "--language",
                 "kotlin",
                 "--out-dir",
@@ -150,7 +158,11 @@ android {
             )
             // TO DELETE
             environment("CARGO_TARGET_DIR", cargoTargetDir.get().asFile.absolutePath)
-            dependsOn(if (variantName == "Release") buildCargoNdkRelease else buildCargoNdkDebug)
+            dependsOn(cargoNdkTask)
+        }
+
+        tasks.named("merge${variantName}JniLibFolders").configure {
+            dependsOn(cargoNdkTask)
         }
 
         variant.javaCompileProvider.get().dependsOn(generateBindings)

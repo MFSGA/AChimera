@@ -90,7 +90,7 @@ jobs:
         if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk-${{ github.run_id }}
+          name: app-debug-apks-${{ github.run_id }}
           path: |
             app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
@@ -101,12 +101,17 @@ jobs:
         run: |
           mkdir -p output
           VERSION="${{ steps.version.outputs.version }}"
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
-          if [ -z "$APK_PATH" ]; then
+          mapfile -t APK_PATHS < <(find app/build/outputs/apk/release -name "*.apk" | sort)
+          if [ "${#APK_PATHS[@]}" -eq 0 ]; then
             echo "No release APK found."
             exit 1
           fi
-          cp "$APK_PATH" "output/chimera-lite-${VERSION}.apk"
+
+          for APK_PATH in "${APK_PATHS[@]}"; do
+            APK_NAME=$(basename "$APK_PATH")
+            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_NAME#app-}"
+          done
+
           sha256sum output/*.apk > output/SHA256SUMS.txt
           ls -lh output/
 
