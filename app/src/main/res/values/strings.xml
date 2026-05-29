@@ -148,4 +148,21 @@
     <string name="profile_rename_title">Rename Profile</string>
     <string name="profile_last_updated">Updated: %1$s</string>
     <string name="profile_unknown_error">Unknown error</string>
+    <string name="profile_active_config">Active Config</string>
+    <string name="verifying">Verifying…</string>
+    <string name="profile_verify_btn">Verify</string>
+    <string name="profile_config_name">Config Name</string>
+    <string name="profile_update_config">Updated</string>
+    <string name="profile_set_active">Set as Active</string>
+    <string name="validation_result">Validation Result</string>
+    <string name="app_selector_title">App Selector</string>
+    <string name="app_selector_mode_all">All Apps</string>
+    <string name="app_selector_mode_allowed">Allowed</string>
+    <string name="app_selector_mode_disallowed">Disallowed</string>
+    <string name="save">Save</string>
+    <string name="app_selector_mode">Filter Mode</string>
+    <string name="app_selector_selected">%1$d selected</string>
+    <string name="app_selector_search">Search apps</string>
+    <string name="app_selector_system_apps">Show system apps</string>
+    <string name="app_selector_loading">Loading apps…</string>
 </resources>

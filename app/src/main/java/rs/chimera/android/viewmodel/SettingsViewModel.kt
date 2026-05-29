@@ -47,4 +47,27 @@ class SettingsViewModel(
             LanguagePreference.ENGLISH -> context.getString(R.string.language_english)
         }
     }
+
+    var appFilterMode: AppFilterMode by mutableStateOf(AppFilterMode.ALL)
+    var allowedApps: Set<String> by mutableStateOf(loadAppSet("allowed_apps"))
+    var disallowedApps: Set<String> by mutableStateOf(loadAppSet("disallowed_apps"))
+
+    fun updateAppFilterMode(mode: AppFilterMode) {
+        appFilterMode = mode
+        prefs.edit { putString("app_filter_mode", mode.name) }
+    }
+
+    fun updateAllowedApps(apps: Set<String>) {
+        allowedApps = apps
+        prefs.edit { putStringSet("allowed_apps", apps) }
+    }
+
+    fun updateDisallowedApps(apps: Set<String>) {
+        disallowedApps = apps
+        prefs.edit { putStringSet("disallowed_apps", apps) }
+    }
+
+    private fun loadAppSet(key: String): Set<String> {
+        return prefs.getStringSet(key, emptySet()) ?: emptySet()
+    }
 }
