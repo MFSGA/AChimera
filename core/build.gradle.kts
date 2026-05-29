@@ -6,7 +6,6 @@ import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.library)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
@@ -134,13 +133,14 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-android {
-    libraryVariants.all {
-        val variant = this
+androidComponents {
+    onVariants { variant ->
         val variantName = variant.name.replaceFirstChar(Char::titlecase)
-        val cargoNdkTask = if (variant.buildType.name == "release") buildCargoNdkRelease else buildCargoNdkDebug
-        val variantJniLibsDir = if (variant.buildType.name == "release") releaseJniLibsDir else debugJniLibsDir
+        val isRelease = variant.name.contains("release", ignoreCase = true)
+        val cargoNdkTask = if (isRelease) buildCargoNdkRelease else buildCargoNdkDebug
+        val variantJniLibsDir = if (isRelease) releaseJniLibsDir else debugJniLibsDir
         val bindingsDir = layout.projectDirectory.dir("src/main/java")
+
         val generateBindings = tasks.register("generate${variantName}UniFFIBindings", Exec::class) {
             workingDir = file("../uniffi")
             commandLine(
@@ -156,17 +156,15 @@ android {
                 "--out-dir",
                 bindingsDir.asFile.absolutePath,
             )
-            // TO DELETE
             environment("CARGO_TARGET_DIR", cargoTargetDir.get().asFile.absolutePath)
             dependsOn(cargoNdkTask)
         }
 
-        tasks.named("merge${variantName}JniLibFolders").configure {
+        tasks.matching { it.name == "merge${variantName}JniLibFolders" }.configureEach {
             dependsOn(cargoNdkTask)
         }
 
-        variant.javaCompileProvider.get().dependsOn(generateBindings)
-        tasks.named("compile${variantName}Kotlin").configure {
+        tasks.matching { it.name == "compile${variantName}Kotlin" }.configureEach {
             dependsOn(generateBindings)
         }
     }
