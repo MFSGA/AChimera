@@ -1,6 +1,9 @@
 mod controller;
 pub mod log;
 
+#[global_allocator]
+static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
+
 use clash_lib::{set_socket_protector, start, Config as ClashConfig, SocketProtector};
 use ipnet::Ipv4Net;
 use jni::objects::{GlobalRef, JObject, JString, JValue};
@@ -778,6 +781,8 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
                 std::env::set_var("RUST_BACKTRACE", "1");
                 init_logger(level);
                 let _ = color_eyre::install();
+                // Install aws-lc-rs as the default crypto provider
+                let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
                 info!("native logger initialized");
             });
 

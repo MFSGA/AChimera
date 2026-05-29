@@ -5,4 +5,5 @@ indent_style = tab
 
 [*.{kt,kts}]
 ktlint_function_naming_ignore_when_annotated_with = Composable
+ktlint_standard_function-naming = disabled
 compose_allowed_composition_locals = LocalSnackbarController

@@ -22,6 +22,7 @@ hyper = { version = "1", features = ["client", "http1"] }
 hyper-util = { version = "0.1", features = ["client", "client-legacy", "tokio"] }
 http-body-util = "0.1"
 urlencoding = "2"
+rustls = { version = "0.23", default-features = false, features = ["std", "aws-lc-rs"] }
 
 # Logging
 tracing = "0.1"
@@ -32,6 +33,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 tracing-error = "0.2"
 paranoid-android = "0.2"
 color-eyre = "0.6"
+mimalloc = { version = "0.1", default-features = false }
 
 [dependencies.clash-lib]
 package = "clash-lib"

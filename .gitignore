@@ -29,15 +29,19 @@ replay_pid*
 *.iml
 .gradle*
 .idea
+/.idea/*
 .DS_Store
 build
+/build
 /captures
 .externalNativeBuild
 .cxx
 
 local.properties
+/local.properties
 signing.properties
 uniffi/target
+uniffi/.vscode/settings.json
 
 docs/
 
@@ -46,4 +50,7 @@ clash-andriod/
 scripts/
 
 gradlew
+
+.claude/
+.claude/settings.local.json
 
