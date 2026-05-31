@@ -7,8 +7,6 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
 
 defaults:
   run:
@@ -25,8 +23,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
       - uses: actions/checkout@v6
@@ -81,38 +77,10 @@ jobs:
       - name: Run quality checks
         run: ./gradlew testDebugUnitTest lintDebug
 
-      - name: Get version info
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: version
-        run: |
-          echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
       - name: Build Debug APK
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         run: ./gradlew assembleDebug
 
-      - name: Decode Keystore
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
-
-      - name: Build Release APK
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        env:
-          KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          ANDROID_SPLIT_ABI_ENABLE: true
-          ANDROID_SPLIT_ABI_UNIVERSAL_APK: true
-        run: |
-          rm -rf app/build/outputs/apk
-          ./gradlew assembleRelease
-
       - name: Upload Debug APK artifact
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
         uses: actions/upload-artifact@v4
         with:
           name: app-debug-apks-${{ github.run_id }}
@@ -120,69 +88,3 @@ jobs:
             app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
-
-      - name: Organize release artifacts
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        run: |
-          mkdir -p output
-          VERSION="${{ steps.version.outputs.version }}"
-          mapfile -t APK_PATHS < <(find app/build/outputs/apk/release -name "*.apk" | sort)
-          if [ "${#APK_PATHS[@]}" -eq 0 ]; then
-            echo "No release APK found."
-            exit 1
-          fi
-          for APK_PATH in "${APK_PATHS[@]}"; do
-            APK_NAME=$(basename "$APK_PATH")
-            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_NAME#app-}"
-          done
-          sha256sum output/*.apk > output/SHA256SUMS.txt
-          ls -lh output/
-
-      - name: Upload Release APK artifact
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-apk-${{ github.ref_name }}
-          path: output/*
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Create draft release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          gh release delete "$TAG_NAME" --yes || true
-          gh release create "$TAG_NAME" output/* --draft --title "$TAG_NAME" --latest
-
-      - name: Determine commit range for changelog
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        id: commit-range
-        run: |
-          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
-          PREVIOUS_TAG=$(git tag -l "v*" --sort=-version:refname | grep -F -x -v "${CURRENT_TAG}" | head -n 1)
-          if [ -z "$PREVIOUS_TAG" ]; then
-            echo "args=${CURRENT_TAG}" >> $GITHUB_OUTPUT
-          else
-            echo "args=${PREVIOUS_TAG}..${CURRENT_TAG}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Generate a changelog
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        uses: orhun/git-cliff-action@main
-        id: git-cliff
-        with:
-          config: .github/cliff.toml
-          args: ${{ steps.commit-range.outputs.args }} --strip header
-        env:
-          GITHUB_REPO: ${{ github.repository }}
-          OUTPUT: CHANGELOG.md
-
-      - name: Publish release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          gh release edit "$TAG_NAME" --draft=false --notes-file CHANGELOG.md --latest

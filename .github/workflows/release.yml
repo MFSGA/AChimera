@@ -1,0 +1,191 @@
+name: Release Package
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to publish, for example v0.1.0"
+        required: true
+        type: string
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  RUST_TOOLCHAIN: "stable"
+  RUSTC_BOOTSTRAP: "1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.tag_name || github.ref }}
+
+      - name: Resolve release tag
+        id: version
+        run: |
+          set -euo pipefail
+          TAG_NAME="${{ inputs.tag_name || github.ref_name }}"
+          if [[ ! "$TAG_NAME" =~ ^v.+ ]]; then
+            echo "Release tag must start with v, got: $TAG_NAME"
+            exit 1
+          fi
+          if ! git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
+            echo "Release tag does not exist: $TAG_NAME"
+            exit 1
+          fi
+          echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Setup Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r29
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.10
+
+      - name: Install cargo-ndk and just
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-ndk,just
+
+      - name: Configure SCCache & AWS-LC-RS
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
+
+      - name: Ensure Android SDK path
+        run: |
+          set -euo pipefail
+          if [ ! -f local.properties ]; then
+            if [ -z "${ANDROID_HOME:-}" ]; then
+              echo "ANDROID_HOME is not set on runner."
+              exit 1
+            fi
+            echo "sdk.dir=${ANDROID_HOME}" > local.properties
+          fi
+
+      - name: Validate signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              echo "Missing required secret: $name"
+              exit 1
+            fi
+          done
+
+      - name: Run quality checks
+        run: ./gradlew testDebugUnitTest lintDebug
+
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+
+      - name: Build release APKs
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          ANDROID_SPLIT_ABI_ENABLE: true
+          ANDROID_SPLIT_ABI_UNIVERSAL_APK: true
+        run: |
+          set -euo pipefail
+          rm -rf app/build/outputs/apk
+          ./gradlew assembleRelease
+
+      - name: Organize release artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          VERSION="${{ steps.version.outputs.tag }}"
+          mapfile -t APK_PATHS < <(find app/build/outputs/apk/release -name "*.apk" | sort)
+          if [ "${#APK_PATHS[@]}" -eq 0 ]; then
+            echo "No release APK found."
+            exit 1
+          fi
+          for APK_PATH in "${APK_PATHS[@]}"; do
+            APK_NAME=$(basename "$APK_PATH")
+            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_NAME#app-}"
+          done
+          sha256sum output/*.apk > output/SHA256SUMS.txt
+          ls -lh output/
+
+      - name: Upload release package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-package-${{ steps.version.outputs.tag }}
+          path: output/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Determine commit range for changelog
+        id: commit-range
+        run: |
+          set -euo pipefail
+          CURRENT_TAG="${{ steps.version.outputs.tag }}"
+          CURRENT_COMMIT=$(git rev-list -n 1 "$CURRENT_TAG")
+          PREVIOUS_TAG=$(git describe --tags --match "v*" --abbrev=0 "${CURRENT_COMMIT}^" 2>/dev/null || true)
+          if [ -z "$PREVIOUS_TAG" ]; then
+            echo "args=$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=$PREVIOUS_TAG..$CURRENT_TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@main
+        with:
+          config: .github/cliff.toml
+          args: ${{ steps.commit-range.outputs.args }} --strip header
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+          OUTPUT: CHANGELOG.md
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release delete "$TAG_NAME" --yes || true
+          gh release create "$TAG_NAME" output/* --title "$TAG_NAME" --notes-file CHANGELOG.md --latest
