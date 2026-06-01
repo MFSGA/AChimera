@@ -533,7 +533,14 @@ fn start_core_internal(
                 profile_path_string, tun_fd, work_dir_string
             ),
         );
-        if let Err(error) = start(config, work_dir_string, log_tx).await {
+        if let Err(error) = start(
+            config,
+            work_dir_string,
+            Some(profile_path_string.clone()),
+            log_tx,
+        )
+        .await
+        {
             let message = format!("clash core exited with error: {error}");
             set_last_error(message.clone());
             log_line(&runtime_log_path, &message);
