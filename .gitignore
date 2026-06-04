@@ -54,3 +54,5 @@ gradlew
 .claude/
 .claude/settings.local.json
 
+.omo/
+

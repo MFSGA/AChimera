@@ -17,7 +17,6 @@ import rs.chimera.android.Global
 import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
-import rs.chimera.android.util.NotificationHelper
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date

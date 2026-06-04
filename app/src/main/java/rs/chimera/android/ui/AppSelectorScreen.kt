@@ -326,9 +326,9 @@ fun AppSelectorScreen(
 												tempFilterMode = mode
 												// Clear selections when switching modes
 												if (mode == AppFilterMode.ALL) {
-												selectedApps = emptySet<String>()
-											} else if (oldMode != mode) {
-												selectedApps = emptySet<String>()
+													selectedApps = emptySet()
+												} else if (oldMode != mode) {
+													selectedApps = emptySet()
 												}
 												showModeDialog = false
 											},
