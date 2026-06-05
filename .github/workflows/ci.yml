@@ -7,6 +7,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
 
 defaults:
   run:
@@ -25,14 +27,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - uses: actions/setup-java@v5
         with:
-          distribution: "temurin"
-          java-version: "21"
+        distribution: "temurin"
+        java-version: "25"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
