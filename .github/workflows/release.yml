@@ -338,7 +338,7 @@ jobs:
           echo "Artifacts filename suffix: '${SIGNED_SUFFIX}' (empty=signed, -unsigned=unsigned)"
 
       - name: Upload release package artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: app-release-package-${{ steps.version.outputs.tag }}
           path: output/*
