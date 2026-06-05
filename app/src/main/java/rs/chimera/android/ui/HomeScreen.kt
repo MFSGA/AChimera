@@ -52,12 +52,29 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.annotation.RootGraph
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
 import rs.chimera.android.R
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.components.StatsCard
 import rs.chimera.android.ui.components.TextInfoDialog
 import rs.chimera.android.viewmodel.HomeViewModel
 import uniffi.chimera_ffi.MemoryResponse
+
+@Destination<RootGraph>(start = true)
+@Composable
+fun HomeScreen(
+    navigator: DestinationsNavigator,
+    modifier: Modifier = Modifier,
+    viewModel: HomeViewModel = viewModel(),
+) {
+    HomeScreen(
+        modifier = modifier,
+        viewModel = viewModel,
+        onConnectionsClick = {},
+    )
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
