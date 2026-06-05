@@ -1,44 +1,40 @@
 [package]
-name = "chimera-ffi"
-version = "0.1.0"
-edition = "2021"
+name.workspace = true
+version.workspace = true
+edition.workspace = true
 
 [lib]
 name = "chimera_ffi"
 crate-type = ["cdylib"]
 
-[dependencies]
-uniffi = { workspace = true }
-jni = "0.21"
-tokio = { version = "1", features = ["rt-multi-thread", "sync", "net"] }
-ipnet = "2"
-thiserror = "2"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
-tokio-stream = "0.1"
-serde_yaml = "0.9"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-hyper = { version = "1", features = ["client", "http1"] }
-hyper-util = { version = "0.1", features = ["client", "client-legacy", "tokio"] }
-http-body-util = "0.1"
-urlencoding = "2"
-rustls = { version = "0.23", default-features = false, features = ["std", "aws-lc-rs"] }
+[features]
+default = ["mimalloc"]
+ffi-trace = ["uniffi/ffi-trace"]
+jemallocator = ["dep:tikv-jemallocator"]
+mimalloc = ["dep:mimalloc"]
 
+[dependencies]
+uniffi.workspace = true
+jni = "0.22"
+tokio = "1"
+async-compat.workspace = true
+once_cell = "1"
+ipnet = "2"
+eyre = "0.6"
+bytes = "1"
 # Logging
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = false, features = [
-    "std",
-    "fmt",
-] }
 tracing-error = "0.2"
+time = { version = "0.3", features = ["macros", "local-offset"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["std", "fmt"]}
 paranoid-android = "0.2"
 color-eyre = "0.6"
-mimalloc = { version = "0.1", default-features = false }
 
 [dependencies.clash-lib]
 package = "clash-lib"
 branch = "master"
 git = "https://github.com/MFSGA/Chimera_Client.git"
+# TODO: Align features with upstream when ready
 features = [
     "ws",
     "trojan",
@@ -53,3 +49,6 @@ default-features = true
 
 [target.'cfg(unix)'.dependencies]
 hyperlocal = "0.9"
+
+[build-dependencies]
+uniffi = { workspace = true, features = ["build"] }
