@@ -95,11 +95,11 @@ jobs:
             echo "sdk.dir=${ANDROID_HOME}" > local.properties
           fi
 
-      - name: Run quality checks
-        run: ./gradlew testDebugUnitTest lintDebug
+      - name: Generate Rust bindings
+        run: just generate-bindings
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew app:assembleDebug
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4

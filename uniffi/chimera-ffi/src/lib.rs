@@ -754,7 +754,7 @@ async fn download_file_with_progress(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
     env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -806,7 +806,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeHello(
     env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -817,7 +817,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeHello(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
     mut env: JNIEnv<'_>,
     _this: JObject<'_>,
@@ -870,7 +870,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStop(
     _env: JNIEnv<'_>,
     _this: JObject<'_>,
