@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
+import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
