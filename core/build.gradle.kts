@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "rs.chimera.android.ffi"
-    compileSdk = 36
+    compileSdk = 37
 
     ndkVersion = rootProject.extra["ndkVersion"] as String
     buildToolsVersion = rootProject.extra["buildToolsVersion"] as String
@@ -17,8 +17,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
     }
 
     buildFeatures {
@@ -27,7 +27,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 dependencies {

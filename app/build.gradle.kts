@@ -23,19 +23,24 @@ fun env(key: String): String? = System.getenv(key).let { if (it.isNullOrEmpty())
 
 android {
     namespace = "rs.chimera.android"
-    compileSdk = 36
+    compileSdk = 37
     ndkVersion = rootProject.extra["ndkVersion"] as String
     val keystore = env("KEYSTORE_FILE")
 
     defaultConfig {
-        applicationId = "rs.chimera.android.dev"
+        applicationId = "rs.chimera.android"
         minSdk = 23
-        targetSdk = 36
+        targetSdk = 37
         versionCode = verCode
         versionName = verName
 
         resValue("string", "app_name", if (keystore == null) "chimera dev" else "Chimera Lite")
         resValue("string", "app_ver", verName)
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
+        }
     }
 
     signingConfigs {
@@ -64,6 +69,9 @@ android {
         }
         debug {
             isMinifyEnabled = false
+            if (keystore == null) {
+                applicationIdSuffix = ".dev"
+            }
         }
     }
 
@@ -77,8 +85,8 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
     }
 
     buildFeatures {
@@ -88,7 +96,7 @@ android {
 }
 
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(25)
 }
 
 dependencies {
@@ -100,6 +108,7 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material3)
@@ -108,7 +117,14 @@ dependencies {
     implementation(libs.androidx.runtime.livedata)
 
     ksp(libs.compose.destinations.ksp)
-    ktlintRuleset(libs.ktlint.compose.rules)
 
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+
+    ktlintRuleset(libs.ktlint.compose.rules)
 }
