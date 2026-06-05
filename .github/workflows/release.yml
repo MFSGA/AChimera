@@ -6,9 +6,18 @@ on:
       - "v*"
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: "Release tag to publish, for example v0.1.0"
+      bump_type:
+        description: "Version bump type (major/minor/patch)"
         required: true
+        type: choice
+        default: "patch"
+        options:
+          - major
+          - minor
+          - patch
+      tag_name:
+        description: "Optional explicit tag name (e.g. v0.2.0). Overrides bump_type if provided."
+        required: false
         type: string
 
 defaults:
@@ -24,31 +33,176 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  bump:
+    name: Bump version and push tag
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      tag: ${{ steps.resolve.outputs.tag }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve next version
+        id: resolve
+        run: |
+          set -euo pipefail
+
+          EXPLICIT_TAG="${{ inputs.tag_name }}"
+          BUMP_TYPE="${{ inputs.bump_type }}"
+
+          # Read current version from app/build.gradle.kts
+          CURRENT=$(grep -oE 'baseVersionName = "[0-9]+\.[0-9]+\.[0-9]+"' app/build.gradle.kts \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n 1)
+          if [ -z "$CURRENT" ]; then
+            echo "ERROR: Could not parse current version from app/build.gradle.kts" >&2
+            exit 1
+          fi
+          echo "Current version: $CURRENT"
+
+          if [ -n "$EXPLICIT_TAG" ]; then
+            # Validate explicit tag format
+            if [[ ! "$EXPLICIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "ERROR: explicit tag must match vX.Y.Z, got: $EXPLICIT_TAG" >&2
+              exit 1
+            fi
+            NEW_VERSION="${EXPLICIT_TAG#v}"
+            echo "Using explicit tag: $EXPLICIT_TAG"
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+            case "$BUMP_TYPE" in
+              major)
+                MAJOR=$((MAJOR + 1))
+                MINOR=0
+                PATCH=0
+                ;;
+              minor)
+                MINOR=$((MINOR + 1))
+                PATCH=0
+                ;;
+              patch)
+                PATCH=$((PATCH + 1))
+                ;;
+              *)
+                echo "ERROR: Unknown bump_type: $BUMP_TYPE" >&2
+                exit 1
+                ;;
+            esac
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          fi
+
+          TAG="v$NEW_VERSION"
+
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "ERROR: tag $TAG already exists locally" >&2
+            exit 1
+          fi
+
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "Resolved next version: $NEW_VERSION (tag: $TAG)"
+
+      - name: Update version in source files
+        env:
+          NEW_VERSION: ${{ steps.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          NEW_VERSION="$NEW_VERSION"
+
+          # Update app/build.gradle.kts
+          if [ -f app/build.gradle.kts ]; then
+            sed -i -E "s/(baseVersionName = \")[0-9]+\.[0-9]+\.[0-9]+(\")/\1${NEW_VERSION}\2/" app/build.gradle.kts
+            echo "Updated app/build.gradle.kts:"
+            grep -E 'baseVersionName' app/build.gradle.kts
+          fi
+
+          # Update uniffi/Cargo.toml workspace version
+          if [ -f uniffi/Cargo.toml ]; then
+            sed -i -E "0,/^(version = \")[0-9]+\.[0-9]+\.[0-9]+(\")/{s//\1${NEW_VERSION}\2/}" uniffi/Cargo.toml
+            echo "Updated uniffi/Cargo.toml:"
+            grep -E '^version' uniffi/Cargo.toml | head -n 3
+          fi
+
+          echo "----- diff -----"
+          git --no-pager diff -- app/build.gradle.kts uniffi/Cargo.toml || true
+
+      - name: Create commit and tag
+        env:
+          NEW_TAG: ${{ steps.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet -- app/build.gradle.kts uniffi/Cargo.toml; then
+            echo "Version files already match ${NEW_TAG}; skipping commit"
+          else
+            git add app/build.gradle.kts uniffi/Cargo.toml
+            git commit -m "chore(release): bump version to ${NEW_TAG}"
+          fi
+
+          git tag -a "${NEW_TAG}" -m "Release ${NEW_TAG}"
+
+          echo "Pushing commit and tag ${NEW_TAG}..."
+          git push origin HEAD:main
+          git push origin "${NEW_TAG}"
+
+      - name: Summary
+        run: |
+          echo "### Version bumped ✅" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Bump type: \`${{ inputs.bump_type }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- New version: \`${{ steps.resolve.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- New tag: \`${{ steps.resolve.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Release job will build and publish artifacts for the created tag in this workflow." >> "$GITHUB_STEP_SUMMARY"
+
   release:
+    name: Build and publish release
+    needs: [bump]
+    if: |
+      always() &&
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && needs.bump.result == 'success')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          ref: ${{ inputs.tag_name || github.ref }}
-
       - name: Resolve release tag
         id: version
         run: |
           set -euo pipefail
-          TAG_NAME="${{ inputs.tag_name || github.ref_name }}"
-          if [[ ! "$TAG_NAME" =~ ^v.+ ]]; then
-            echo "Release tag must start with v, got: $TAG_NAME"
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_NAME="${{ github.ref_name }}"
+          else
+            # workflow_dispatch: use the tag created by the bump job
+            TAG_NAME="${{ needs.bump.outputs.tag }}"
+          fi
+
+          if [[ -z "$TAG_NAME" ]]; then
+            echo "ERROR: could not resolve release tag" >&2
             exit 1
           fi
-          if ! git rev-parse -q --verify "refs/tags/$TAG_NAME" >/dev/null; then
-            echo "Release tag does not exist: $TAG_NAME"
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "ERROR: release tag must match vX.Y.Z, got: $TAG_NAME" >&2
             exit 1
           fi
           echo "tag=$TAG_NAME" >> "$GITHUB_OUTPUT"
+          echo "Resolved release tag: $TAG_NAME"
+
+      - name: Checkout code at tag
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: refs/tags/${{ steps.version.outputs.tag }}
 
       - uses: actions/setup-java@v5
         with:
@@ -116,6 +270,7 @@ jobs:
           fi
 
       - name: Validate signing secrets
+        id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -123,17 +278,29 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          MISSING=()
           for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!name:-}" ]; then
-              echo "Missing required secret: $name"
-              exit 1
+              MISSING+=("$name")
             fi
           done
+          if [ "${#MISSING[@]}" -eq 0 ]; then
+            echo "✅ All signing secrets present — APKs will be signed"
+            echo "signing_enabled=true" >> "$GITHUB_OUTPUT"
+            echo "signed_suffix=" >> "$GITHUB_OUTPUT"
+          else
+            echo "⚠️ Missing signing secrets: ${MISSING[*]}"
+            echo "  → Building UNSIGNED APKs (still useful for verifying the release pipeline)"
+            echo "  → To enable signing, configure these secrets in Settings → Secrets and variables → Actions"
+            echo "signing_enabled=false" >> "$GITHUB_OUTPUT"
+            echo "signed_suffix=-unsigned" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run quality checks
         run: ./gradlew testDebugUnitTest lintDebug
 
       - name: Decode keystore
+        if: steps.signing.outputs.signing_enabled == 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
@@ -142,22 +309,29 @@ jobs:
 
       - name: Build release APKs
         env:
-          KEYSTORE_FILE: ${{ github.workspace }}/keystore.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          ANDROID_SPLIT_ABI_ENABLE: true
-          ANDROID_SPLIT_ABI_UNIVERSAL_APK: true
+          KEYSTORE_FILE: ${{ steps.signing.outputs.signing_enabled == 'true' && format('{0}/keystore.jks', github.workspace) || '' }}
+          KEYSTORE_PASSWORD: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEYSTORE_PASSWORD || '' }}
+          KEY_ALIAS: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEY_ALIAS || '' }}
+          KEY_PASSWORD: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEY_PASSWORD || '' }}
+          ANDROID_SPLIT_ABI_ENABLE: "true"
+          ANDROID_SPLIT_ABI_UNIVERSAL_APK: "true"
         run: |
           set -euo pipefail
           rm -rf app/build/outputs/apk
+          if [ "${{ steps.signing.outputs.signing_enabled }}" = "true" ]; then
+            echo "Building SIGNED release APKs..."
+          else
+            echo "Building UNSIGNED release APKs (signing secrets not configured)..."
+          fi
           ./gradlew assembleRelease
 
       - name: Organize release artifacts
+        env:
+          VERSION: ${{ steps.version.outputs.tag }}
+          SIGNED_SUFFIX: ${{ steps.signing.outputs.signed_suffix }}
         run: |
           set -euo pipefail
           mkdir -p output
-          VERSION="${{ steps.version.outputs.tag }}"
           mapfile -t APK_PATHS < <(find app/build/outputs/apk/release -name "*.apk" | sort)
           if [ "${#APK_PATHS[@]}" -eq 0 ]; then
             echo "No release APK found."
@@ -165,10 +339,15 @@ jobs:
           fi
           for APK_PATH in "${APK_PATHS[@]}"; do
             APK_NAME=$(basename "$APK_PATH")
-            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_NAME#app-}"
+            APK_BASE="${APK_NAME#app-}"
+            APK_BASE="${APK_BASE%.apk}"
+            APK_BASE="${APK_BASE%-unsigned}"
+            APK_BASE="${APK_BASE%-release}"
+            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_BASE}${SIGNED_SUFFIX}.apk"
           done
           sha256sum output/*.apk > output/SHA256SUMS.txt
           ls -lh output/
+          echo "Artifacts filename suffix: '${SIGNED_SUFFIX}' (empty=signed, -unsigned=unsigned)"
 
       - name: Upload release package artifact
         uses: actions/upload-artifact@v4
@@ -180,9 +359,10 @@ jobs:
 
       - name: Determine commit range for changelog
         id: commit-range
+        env:
+          CURRENT_TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          CURRENT_TAG="${{ steps.version.outputs.tag }}"
           CURRENT_COMMIT=$(git rev-list -n 1 "$CURRENT_TAG")
           PREVIOUS_TAG=$(git describe --tags --match "v*" --abbrev=0 "${CURRENT_COMMIT}^" 2>/dev/null || true)
           if [ -z "$PREVIOUS_TAG" ]; then
