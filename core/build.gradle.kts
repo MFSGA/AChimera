@@ -1,100 +1,15 @@
-import org.gradle.api.file.Directory
-import org.gradle.api.GradleException
-import org.gradle.api.provider.Provider
-import org.gradle.api.tasks.Exec
-import java.util.Properties
-
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
-}
-
-val debugJniLibsDir = layout.buildDirectory.dir("generated/rust/jniLibs/debug")
-val releaseJniLibsDir = layout.buildDirectory.dir("generated/rust/jniLibs/release")
-
-// note: to refactor the build process
-val cargoTargetDir = layout.buildDirectory.dir("generated/rust/cargoTarget")
-val localProperties = Properties().apply {
-    val file = rootProject.file("local.properties")
-    if (file.exists()) {
-        file.inputStream().use(::load)
-    }
-}
-val configuredNdkVersion = rootProject.extra["ndkVersion"] as String
-val androidSdkDir =
-    localProperties.getProperty("sdk.dir")
-        ?.takeIf(String::isNotBlank)
-        ?.let(::file)
-        ?: System.getenv("ANDROID_SDK_ROOT")?.takeIf(String::isNotBlank)?.let(::file)
-        ?: System.getenv("ANDROID_HOME")?.takeIf(String::isNotBlank)?.let(::file)
-val androidNdkDir =
-    sequenceOf(
-        localProperties.getProperty("ndk.dir"),
-        System.getenv("ANDROID_NDK_HOME"),
-        System.getenv("ANDROID_NDK_ROOT"),
-        androidSdkDir?.resolve("ndk/$configuredNdkVersion")?.absolutePath,
-        androidSdkDir?.resolve("ndk-bundle")?.absolutePath,
-    )
-        .filterNotNull()
-        .map(::file)
-        .firstOrNull(File::exists)
-
-fun configureCargoNdkTask(task: Exec, release: Boolean, outputDir: Provider<Directory>) {
-    task.workingDir = file("../uniffi")
-    task.outputs.dir(outputDir)
-    task.commandLine(
-        "cargo",
-        "ndk",
-        "-t",
-        "armeabi-v7a",
-        "-t",
-        "arm64-v8a",
-        "-t",
-        "x86_64",
-        "-o",
-        outputDir.get().asFile.absolutePath,
-        "build",
-        "-p",
-        "chimera-ffi",
-    )
-    if (release) {
-        task.args("--release")
-    }
-    task.doFirst {
-        val sdkDir = androidSdkDir
-            ?: throw GradleException(
-                "Android SDK path is not configured. Set sdk.dir in local.properties or ANDROID_SDK_ROOT."
-            )
-        val ndkDir = androidNdkDir
-            ?: throw GradleException(
-                "Android NDK $configuredNdkVersion is missing. Set ndk.dir in local.properties or install it under ${sdkDir.resolve("ndk").absolutePath}."
-            )
-        val rustOutputDir = outputDir.get().asFile
-        if (rustOutputDir.exists()) {
-            rustOutputDir.deleteRecursively()
-        }
-        rustOutputDir.mkdirs()
-
-        task.environment("ANDROID_HOME", sdkDir.absolutePath)
-        task.environment("ANDROID_SDK_ROOT", sdkDir.absolutePath)
-        task.environment("ANDROID_NDK_HOME", ndkDir.absolutePath)
-        task.environment("ANDROID_NDK_ROOT", ndkDir.absolutePath)
-        task.environment("CARGO_TARGET_DIR", cargoTargetDir.get().asFile.absolutePath)
-    }
-}
-
-val buildCargoNdkDebug by tasks.registering(Exec::class) {
-    configureCargoNdkTask(this, release = false, outputDir = debugJniLibsDir)
-}
-
-val buildCargoNdkRelease by tasks.registering(Exec::class) {
-    configureCargoNdkTask(this, release = true, outputDir = releaseJniLibsDir)
+    alias(libs.plugins.rust.android)
 }
 
 android {
     namespace = "rs.chimera.android.ffi"
     compileSdk = 36
-    ndkVersion = configuredNdkVersion
+
+    ndkVersion = rootProject.extra["ndkVersion"] as String
+    buildToolsVersion = rootProject.extra["buildToolsVersion"] as String
 
     defaultConfig {
         minSdk = 23
@@ -108,13 +23,6 @@ android {
 
     buildFeatures {
         compose = true
-    }
-
-    buildToolsVersion = rootProject.extra["buildToolsVersion"] as String
-
-    sourceSets {
-        getByName("debug").jniLibs.srcDir(debugJniLibsDir)
-        getByName("release").jniLibs.srcDir(releaseJniLibsDir)
     }
 }
 
@@ -133,39 +41,29 @@ dependencies {
     androidTestImplementation(libs.androidx.espresso.core)
 }
 
-androidComponents {
-    onVariants { variant ->
-        val variantName = variant.name.replaceFirstChar(Char::titlecase)
-        val isRelease = variant.name.contains("release", ignoreCase = true)
-        val cargoNdkTask = if (isRelease) buildCargoNdkRelease else buildCargoNdkDebug
-        val variantJniLibsDir = if (isRelease) releaseJniLibsDir else debugJniLibsDir
-        val bindingsDir = layout.projectDirectory.dir("src/main/java")
+val hasSccache = System.getenv("PATH")
+    ?.split(File.pathSeparator)
+    ?.any { dir -> File(dir, "sccache").exists() }
+    ?: false
 
-        val generateBindings = tasks.register("generate${variantName}UniFFIBindings", Exec::class) {
-            workingDir = file("../uniffi")
-            commandLine(
-                "cargo",
-                "run",
-                "-p",
-                "uniffi-bindgen",
-                "generate",
-                "--library",
-                variantJniLibsDir.map { it.file("arm64-v8a/libchimera_ffi.so") }.get().asFile.absolutePath,
-                "--language",
-                "kotlin",
-                "--out-dir",
-                bindingsDir.asFile.absolutePath,
-            )
-            environment("CARGO_TARGET_DIR", cargoTargetDir.get().asFile.absolutePath)
-            dependsOn(cargoNdkTask)
-        }
+cargo {
+    module = "../uniffi"
+    libname = "chimera_ffi"
 
-        tasks.matching { it.name == "merge${variantName}JniLibFolders" }.configureEach {
-            dependsOn(cargoNdkTask)
-        }
+    extraCargoBuildArguments = arrayListOf("-p", "chimera-ffi")
 
-        tasks.matching { it.name == "compile${variantName}Kotlin" }.configureEach {
-            dependsOn(generateBindings)
-        }
+    if (hasSccache) {
+        environmentalOverrides["RUSTC_WRAPPER"] = "sccache"
     }
+    environmentalOverrides["RUSTC_BOOTSTRAP"] = "1"
+
+    targets = listOf("arm64", "arm", "x86", "x86_64")
+
+    profile = "release"
+}
+
+val rustJniLibsDir = layout.buildDirectory.dir("rustJniLibs/android").get()!!
+tasks.matching { it.name.matches(Regex("merge.*JniLibFolders")) }.configureEach {
+    inputs.dir(rustJniLibsDir)
+    dependsOn("cargoBuild")
 }
