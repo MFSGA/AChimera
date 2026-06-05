@@ -141,8 +141,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add app/build.gradle.kts uniffi/Cargo.toml
-          git commit -m "chore(release): bump version to ${NEW_TAG}"
+          if git diff --quiet -- app/build.gradle.kts uniffi/Cargo.toml; then
+            echo "Version files already match ${NEW_TAG}; skipping commit"
+          else
+            git add app/build.gradle.kts uniffi/Cargo.toml
+            git commit -m "chore(release): bump version to ${NEW_TAG}"
+          fi
+
           git tag -a "${NEW_TAG}" -m "Release ${NEW_TAG}"
 
           echo "Pushing commit and tag ${NEW_TAG}..."
@@ -155,14 +160,17 @@ jobs:
           echo "- Bump type: \`${{ inputs.bump_type }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- New version: \`${{ steps.resolve.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- New tag: \`${{ steps.resolve.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "Release job will run automatically as part of the tag-push workflow." >> "$GITHUB_STEP_SUMMARY"
+          echo "Release job will build and publish artifacts for the created tag in this workflow." >> "$GITHUB_STEP_SUMMARY"
 
   release:
     name: Build and publish release
     needs: [bump]
     if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
-      (github.event_name == 'workflow_dispatch' && always() && needs.bump.result == 'success')
+      always() &&
+      (
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'workflow_dispatch' && needs.bump.result == 'success')
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -305,8 +313,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEYSTORE_PASSWORD || '' }}
           KEY_ALIAS: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEY_ALIAS || '' }}
           KEY_PASSWORD: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEY_PASSWORD || '' }}
-          ANDROID_SPLIT_ABI_ENABLE: true
-          ANDROID_SPLIT_ABI_UNIVERSAL_APK: true
+          ANDROID_SPLIT_ABI_ENABLE: "true"
+          ANDROID_SPLIT_ABI_UNIVERSAL_APK: "true"
         run: |
           set -euo pipefail
           rm -rf app/build/outputs/apk
@@ -331,7 +339,11 @@ jobs:
           fi
           for APK_PATH in "${APK_PATHS[@]}"; do
             APK_NAME=$(basename "$APK_PATH")
-            cp "$APK_PATH" "output/chimera-lite-${VERSION}${SIGNED_SUFFIX}-${APK_NAME#app-}"
+            APK_BASE="${APK_NAME#app-}"
+            APK_BASE="${APK_BASE%.apk}"
+            APK_BASE="${APK_BASE%-unsigned}"
+            APK_BASE="${APK_BASE%-release}"
+            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_BASE}${SIGNED_SUFFIX}.apk"
           done
           sha256sum output/*.apk > output/SHA256SUMS.txt
           ls -lh output/
