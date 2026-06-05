@@ -7,7 +7,7 @@ pub(crate) fn init_logger(level: LevelFilter) {
     let filter = EnvFilter::from_default_env()
         .add_directive(format!("clash={}", level).parse().unwrap())
         .add_directive(format!("clash_lib={}", level).parse().unwrap())
-        .add_directive(format!("clash_android_ffi={}", level).parse().unwrap())
+        .add_directive(format!("chimera_ffi={}", level).parse().unwrap())
         .add_directive("warn".parse().unwrap());
 
     #[cfg(target_os = "android")]
@@ -21,8 +21,8 @@ pub(crate) fn init_logger(level: LevelFilter) {
             .boxed();
 
         tracing_subscriber::registry()
-            .with(filter)
             .with(android_layer)
+            .with(filter)
             .with(ErrorLayer::default())
             .init();
     }

@@ -15,7 +15,7 @@ mimalloc = ["dep:mimalloc"]
 
 [dependencies]
 uniffi.workspace = true
-jni = "0.21"
+jni = "0.22"
 tokio = "1"
 async-compat.workspace = true
 once_cell = "1"
