@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.ktlint)
 }
 
 val baseVersionName = "0.1.0"
@@ -69,7 +71,7 @@ android {
         abi {
             isEnable = env("ANDROID_SPLIT_ABI_ENABLE") == "true"
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
             isUniversalApk = env("ANDROID_SPLIT_ABI_UNIVERSAL_APK") == "true"
         }
     }
@@ -100,8 +102,13 @@ dependencies {
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.material3)
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.compose.destinations.core)
+    implementation(libs.androidx.runtime.livedata)
+
+    ksp(libs.compose.destinations.ksp)
+    ktlintRuleset(libs.ktlint.compose.rules)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
