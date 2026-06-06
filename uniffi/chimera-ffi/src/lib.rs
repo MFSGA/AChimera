@@ -4,23 +4,22 @@ pub mod log;
 #[global_allocator]
 static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 
-use clash_lib::{set_socket_protector, start, Config as ClashConfig, SocketProtector};
-use ipnet::Ipv4Net;
-use jni::objects::{GlobalRef, JObject, JString, JValue};
+use clash_lib::{
+    config::def::DNSMode,
+    set_socket_protector, start, Config as ClashConfig, SocketProtector,
+};
+use ipnet::{IpNet, Ipv4Net};
+use jni::objects::{Global, JObject, JString, JValue};
+use jni::signature::{JavaType, MethodSignature, Primitive};
 use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
-use jni::{JNIEnv, JavaVM};
+use jni::{jni_str, EnvUnowned, JavaVM, Outcome};
 use reqwest::redirect::Policy;
-use serde_yaml::{Mapping, Number, Value};
-use std::convert::TryFrom;
-use std::collections::hash_map::DefaultHasher;
 use std::fs::{self, File, OpenOptions};
-use std::hash::{Hash, Hasher};
 use std::io::Write;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::Ipv4Addr;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Once, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::runtime::Runtime;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
@@ -32,7 +31,7 @@ static CORE_RUNNING: AtomicBool = AtomicBool::new(false);
 static CORE_STATE: OnceLock<Mutex<Option<CoreState>>> = OnceLock::new();
 static LAST_ERROR: OnceLock<Mutex<Option<String>>> = OnceLock::new();
 static JVM: OnceLock<JavaVM> = OnceLock::new();
-static CHIMERA_FFI: OnceLock<GlobalRef> = OnceLock::new();
+static CHIMERA_FFI: OnceLock<Global<JObject<'static>>> = OnceLock::new();
 static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
 static RT: OnceLock<Runtime> = OnceLock::new();
 static INIT: Once = Once::new();
@@ -47,12 +46,10 @@ struct CoreState {
 #[derive(Clone)]
 struct CoreMetadata {
     profile_name: String,
-    profile_checksum: u64,
     tun_fd: i32,
     work_dir: PathBuf,
     log_path: PathBuf,
     socket_path: PathBuf,
-    started_at_epoch_secs: u64,
 }
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
@@ -123,17 +120,23 @@ impl SocketProtector for AndroidSocketProtector {
         let chimera_ffi = CHIMERA_FFI
             .get()
             .ok_or_else(|| std::io::Error::other("ChimeraFfi object not initialized"))?;
-        let mut env = vm.attach_current_thread_permanently().map_err(|error| {
-            std::io::Error::other(format!("failed to attach current thread: {error}"))
-        })?;
-        let protected = env
-            .call_method(
-                chimera_ffi.as_obj(),
-                "protectSocket",
-                "(I)Z",
-                &[JValue::Int(fd)],
-            )
-            .and_then(|value| value.z())
+        let protected = vm
+            .attach_current_thread(|env| {
+                let protect_socket_sig = unsafe {
+                    MethodSignature::from_raw_parts(
+                        jni_str!("(I)Z"),
+                        &[JavaType::Primitive(Primitive::Int)],
+                        JavaType::Primitive(Primitive::Boolean),
+                    )
+                };
+                env.call_method(
+                    chimera_ffi.as_obj(),
+                    jni_str!("protectSocket"),
+                    protect_socket_sig,
+                    &[JValue::Int(fd)],
+                )
+                .and_then(|value| value.z())
+            })
             .map_err(|error| {
                 std::io::Error::other(format!(
                     "failed to call ChimeraFfi.protectSocket({fd}): {error}"
@@ -165,7 +168,7 @@ fn runtime() -> &'static Runtime {
         builder.enable_all();
         builder.on_thread_start(|| {
             if let Some(vm) = JVM.get() {
-                let _ = vm.attach_current_thread_permanently();
+                let _ = vm.attach_current_thread(|_| Ok::<(), jni::errors::Error>(()));
             }
         });
         builder
@@ -180,19 +183,6 @@ fn core_state() -> &'static Mutex<Option<CoreState>> {
 
 fn last_error_state() -> &'static Mutex<Option<String>> {
     LAST_ERROR.get_or_init(|| Mutex::new(None))
-}
-
-fn now_epoch_secs() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|it| it.as_secs())
-        .unwrap_or(0)
-}
-
-fn profile_checksum(content: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    content.hash(&mut hasher);
-    hasher.finish()
 }
 
 fn set_last_error(message: impl Into<String>) {
@@ -229,158 +219,24 @@ fn log_line(log_path: &Path, message: &str) {
     let Ok(mut file) = file else {
         return;
     };
-    let _ = writeln!(file, "[{}] {}", now_epoch_secs(), message);
-}
-
-fn yaml_key(key: &str) -> Value {
-    Value::String(key.to_string())
-}
-
-fn yaml_string(value: impl Into<String>) -> Value {
-    Value::String(value.into())
-}
-
-fn yaml_bool(value: bool) -> Value {
-    Value::Bool(value)
-}
-
-fn yaml_u16(value: u16) -> Value {
-    Value::Number(Number::from(value))
-}
-
-fn mapping_mut(value: &mut Value) -> Result<&mut Mapping, String> {
-    value
-        .as_mapping_mut()
-        .ok_or_else(|| "config root is not a mapping".to_string())
-}
-
-fn ensure_mapping<'a>(parent: &'a mut Mapping, key: &str) -> &'a mut Mapping {
-    let key_value = yaml_key(key);
-    let needs_replace = !matches!(parent.get(&key_value), Some(Value::Mapping(_)));
-    if needs_replace {
-        parent.insert(key_value.clone(), Value::Mapping(Mapping::new()));
-    }
-
-    parent
-        .get_mut(&key_value)
-        .and_then(Value::as_mapping_mut)
-        .expect("mapping entry should exist")
-}
-
-fn set_or_insert(parent: &mut Mapping, key: &str, value: Value) {
-    parent.insert(yaml_key(key), value);
-}
-
-fn insert_if_missing(parent: &mut Mapping, key: &str, value: Value) {
-    parent.entry(yaml_key(key)).or_insert(value);
-}
-
-fn insert_sequence_if_missing(parent: &mut Mapping, key: &str, values: &[Value]) {
-    if parent.contains_key(yaml_key(key)) {
-        return;
-    }
-    parent.insert(yaml_key(key), Value::Sequence(values.to_vec()));
-}
-
-fn current_mixed_port(root: &Mapping, default_port: u16) -> u16 {
-    root.get(yaml_key("mixed-port"))
-        .and_then(Value::as_u64)
-        .and_then(|value| u16::try_from(value).ok())
-        .unwrap_or(default_port)
-}
-
-fn build_runtime_config(
-    profile_content: &str,
-    socket_path: &Path,
-    over: &ProfileOverride,
-) -> Result<(String, FinalProfile), String> {
-    let mut value: Value = serde_yaml::from_str(profile_content)
-        .map_err(|error| format!("failed to parse profile yaml: {error}"))?;
-    value
-        .apply_merge()
-        .map_err(|error| format!("failed to resolve yaml anchors: {error}"))?;
-
-    let root = mapping_mut(&mut value)?;
-    insert_if_missing(root, "mixed-port", yaml_u16(over.mixed_port));
-    if let Some(http_port) = over.http_port {
-        insert_if_missing(root, "port", yaml_u16(http_port));
-    }
-    if let Some(socks_port) = over.socks_port {
-        insert_if_missing(root, "socks-port", yaml_u16(socks_port));
-    }
-
-    set_or_insert(
-        root,
-        "external-controller-unix",
-        yaml_string(socket_path.to_string_lossy().to_string()),
-    );
-    set_or_insert(root, "mmdb", yaml_string("Country.mmdb"));
-    set_or_insert(root, "geosite", yaml_string("geosite.dat"));
-    set_or_insert(root, "asn-mmdb", Value::Null);
-    set_or_insert(root, "ipv6", yaml_bool(over.ipv6));
-
-    let tun = ensure_mapping(root, "tun");
-    set_or_insert(tun, "enable", yaml_bool(true));
-    set_or_insert(tun, "device", yaml_string(format!("fd://{}", over.tun_fd)));
-    set_or_insert(tun, "route-all", yaml_bool(false));
-    set_or_insert(tun, "routes", Value::Sequence(Vec::new()));
-    set_or_insert(tun, "gateway", yaml_string("10.0.0.1/30"));
-    set_or_insert(tun, "gateway-v6", Value::Null);
-    set_or_insert(tun, "mtu", Value::Null);
-    set_or_insert(tun, "so-mark", Value::Null);
-    set_or_insert(tun, "route-table", Value::Number(Number::from(0)));
-    set_or_insert(tun, "dns-hijack", yaml_bool(true));
-
-    let dns = ensure_mapping(root, "dns");
-    set_or_insert(dns, "enable", yaml_bool(true));
-    set_or_insert(dns, "ipv6", yaml_bool(over.ipv6));
-
-    let listen = ensure_mapping(dns, "listen");
-    set_or_insert(listen, "udp", yaml_string("127.0.0.1:53553"));
-
-    insert_sequence_if_missing(
-        dns,
-        "nameserver",
-        &[
-            yaml_string("https://223.5.5.5:443"),
-            yaml_string("https://223.6.6.6:443"),
-            yaml_string("https://120.53.53.53:443"),
-            yaml_string("https://1.12.12.12:443"),
-        ],
-    );
-    insert_sequence_if_missing(
-        dns,
-        "default-nameserver",
-        &[yaml_string("223.6.6.6"), yaml_string("8.8.8.8")],
-    );
-
-    if over.fake_ip {
-        set_or_insert(dns, "enhanced-mode", yaml_string("fake-ip"));
-        set_or_insert(
-            dns,
-            "fake-ip-range",
-            yaml_string(over.fake_ip_range.clone()),
-        );
-    } else {
-        set_or_insert(dns, "enhanced-mode", yaml_string("normal"));
-    }
-
-    let final_profile = FinalProfile {
-        mixed_port: current_mixed_port(root, over.mixed_port),
-    };
-    let rendered = serde_yaml::to_string(&value)
-        .map_err(|error| format!("failed to render runtime config: {error}"))?;
-    Ok((rendered, final_profile))
+    let _ = writeln!(file, "[{message}]");
 }
 
 fn extract_jstring(
-    env: &mut JNIEnv<'_>,
+    env: &mut EnvUnowned<'_>,
     value: JString<'_>,
     field_name: &str,
 ) -> Result<String, String> {
-    env.get_string(&value)
-        .map(|it| it.to_string_lossy().into_owned())
-        .map_err(|_| format!("failed to read JNI string: {field_name}"))
+    match env
+        .with_env(|env| value.try_to_string(env))
+        .into_outcome()
+    {
+        Outcome::Ok(value) => Ok(value),
+        Outcome::Err(error) => {
+            Err(format!("failed to read JNI string {field_name}: {error}"))
+        }
+        Outcome::Panic(_) => Err(format!("failed to read JNI string {field_name}: JNI panic")),
+    }
 }
 
 fn stop_core_internal() -> Result<(), String> {
@@ -435,12 +291,6 @@ fn start_core_internal(
         ));
     }
 
-    let profile_content = fs::read_to_string(&profile_path)
-        .map_err(|error| format!("failed to read profile file: {error}"))?;
-    if profile_content.trim().is_empty() {
-        return Err("profile file is empty".to_string());
-    }
-
     let work_dir = PathBuf::from(cache_dir);
     fs::create_dir_all(&work_dir)
         .map_err(|error| format!("failed to create work dir {}: {error}", work_dir.display()))?;
@@ -478,10 +328,8 @@ fn start_core_internal(
         .to_str()
         .ok_or_else(|| "profile path contains invalid UTF-8".to_string())?
         .to_string();
-    let (runtime_config, final_profile) =
-        build_runtime_config(&profile_content, &socket_path, &over)?;
 
-    let mut config = ClashConfig::Str(runtime_config)
+    let mut config = ClashConfig::File(profile_path_string.clone())
         .try_parse()
         .map_err(|error| {
             format!(
@@ -501,13 +349,25 @@ fn start_core_internal(
     config.tun.so_mark = None;
     config.tun.route_table = 0;
     config.tun.dns_hijack = true;
+
+    config.general.ipv6 = over.ipv6;
     config.general.mmdb = Some("Country.mmdb".to_string());
+    config.general.controller.external_controller_ipc =
+        Some(socket_path.to_string_lossy().to_string());
 
     config.dns.enable = true;
-    config.dns.listen.udp = Some(SocketAddr::new(
-        IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-        53553,
-    ));
+    config.dns.ipv6 = over.ipv6;
+    config.dns.listen.udp = Some("127.0.0.1:53553".parse().unwrap());
+    if over.fake_ip {
+        config.dns.enhance_mode = DNSMode::FakeIp;
+        config.dns.fake_ip_range = over
+            .fake_ip_range
+            .parse::<IpNet>()
+            .map_err(|error| format!("invalid fake-ip-range: {error}"))?;
+    } else {
+        config.dns.enhance_mode = DNSMode::Normal;
+    }
+
     let profile_name = profile_path
         .file_name()
         .and_then(|it| it.to_str())
@@ -515,13 +375,24 @@ fn start_core_internal(
         .to_string();
     let metadata = CoreMetadata {
         profile_name,
-        profile_checksum: profile_checksum(&profile_content),
         tun_fd,
         work_dir: work_dir.clone(),
         log_path: log_path.clone(),
         socket_path: socket_path.clone(),
-        started_at_epoch_secs: now_epoch_secs(),
     };
+
+    let mixed_port = config
+        .listeners
+        .iter()
+        .find_map(|l| {
+            if let clash_lib::config::listener::InboundOpts::Mixed { common_opts, .. } = l {
+                Some(common_opts.port)
+            } else {
+                None
+            }
+        })
+        .unwrap_or(over.mixed_port);
+    let final_profile = FinalProfile { mixed_port };
 
     let runtime_log_path = log_path.clone();
     let worker = runtime().spawn(async move {
@@ -566,16 +437,15 @@ fn build_hello_message() -> String {
     }
 
     if CORE_RUNNING.load(Ordering::SeqCst) {
-        let guard = core_state().lock();
-        if let Ok(guard) = guard {
-            if let Some(state) = guard.as_ref() {
-                return format!(
-                    "ffi: core running {} tun={} ({})",
-                    state.metadata.profile_name,
-                    state.metadata.tun_fd,
-                    state.metadata.work_dir.display()
-                );
-            }
+        if let Ok(guard) = core_state().lock()
+            && let Some(state) = guard.as_ref()
+        {
+            return format!(
+                "ffi: core running {} tun={} ({})",
+                state.metadata.profile_name,
+                state.metadata.tun_fd,
+                state.metadata.work_dir.display()
+            );
         }
         return "ffi: core running".to_string();
     }
@@ -584,20 +454,6 @@ fn build_hello_message() -> String {
         return format!("ffi: core stopped ({last_error})");
     }
     "ffi: core stopped".to_string()
-}
-
-fn default_profile_override() -> ProfileOverride {
-    ProfileOverride {
-        tun_fd: 1,
-        log_file_path: "chimera-rs.log".to_string(),
-        allow_lan: false,
-        mixed_port: 7890,
-        http_port: None,
-        socks_port: None,
-        fake_ip: false,
-        fake_ip_range: "198.18.0.2/16".to_string(),
-        ipv6: true,
-    }
 }
 
 #[uniffi::export]
@@ -621,38 +477,15 @@ fn verify_config(config_path: String) -> Result<String, ChimeraError> {
     let profile_content = fs::read_to_string(&path)
         .map_err(|error| runtime_error(format!("failed to read config file: {error}")))?;
 
-    ClashConfig::File(config_path)
+    if profile_content.trim().is_empty() {
+        return Err(runtime_error("config file is empty"));
+    }
+
+    let _config = ClashConfig::File(config_path)
         .try_parse()
-        .map_err(|error| runtime_error(format!("failed to verify config: {error}")))?;
+        .map_err(|error| runtime_error(format!("invalid config: {error}")))?;
 
-    let mut value: serde_yaml::Value = serde_yaml::from_str(&profile_content)
-        .map_err(|error| runtime_error(format!("failed to parse config yaml: {error}")))?;
-    value
-        .apply_merge()
-        .map_err(|error| runtime_error(format!("failed to resolve yaml anchors: {error}")))?;
-
-    let socket_path = path
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join("clash.sock");
-    let (runtime_config, final_profile) = build_runtime_config(
-        &profile_content,
-        &socket_path,
-        &default_profile_override(),
-    )
-    .map_err(|error| runtime_error(format!("failed to build runtime config: {error}")))?;
-
-    ClashConfig::Str(runtime_config.clone())
-        .try_parse()
-        .map_err(|error| runtime_error(format!("failed to verify runtime config: {error}")))?;
-
-    let merged_config = serde_yaml::to_string(&value)
-        .map_err(|error| runtime_error(format!("failed to serialize verified config: {error}")))?;
-
-    Ok(format!(
-        "Raw config: valid\nRuntime config: valid\nMixed port: {}\n\n# Merged Config\n{}\n# Runtime Config\n{}",
-        final_profile.mixed_port, merged_config, runtime_config
-    ))
+    Ok("Config is valid".to_string())
 }
 
 #[uniffi::export]
@@ -756,70 +589,81 @@ async fn download_file_with_progress(
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
-    env: JNIEnv<'_>,
+    mut env: EnvUnowned<'_>,
     _this: JObject<'_>,
 ) -> jboolean {
-    match env.get_java_vm() {
-        Ok(vm) => {
-            if !(JVM.set(vm).is_ok() || JVM.get().is_some()) {
-                set_last_error("failed to persist JavaVM");
-                return JNI_FALSE;
-            }
-
-            let chimera_ffi = match env.new_global_ref(&_this) {
-                Ok(reference) => reference,
-                Err(error) => {
-                    set_last_error(format!("failed to create ChimeraFfi global ref: {error}"));
-                    return JNI_FALSE;
-                }
-            };
-
-            if !(CHIMERA_FFI.set(chimera_ffi).is_ok() || CHIMERA_FFI.get().is_some()) {
-                set_last_error("failed to persist ChimeraFfi global ref");
-                return JNI_FALSE;
-            }
-
-            INIT.call_once(|| unsafe {
-                let level = if cfg!(debug_assertions) {
-                    LevelFilter::DEBUG
-                } else {
-                    LevelFilter::INFO
-                };
-                std::env::set_var("RUST_BACKTRACE", "1");
-                init_logger(level);
-                let _ = color_eyre::install();
-                // Install aws-lc-rs as the default crypto provider
-                let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
-                info!("native logger initialized");
-            });
-
-            install_socket_protector();
-            let _ = runtime();
-            clear_last_error();
-            info!("native setup complete");
-            JNI_TRUE
-        }
-        Err(error) => {
+    let vm = match env.with_env(|env| env.get_java_vm()).into_outcome() {
+        Outcome::Ok(vm) => vm,
+        Outcome::Err(error) => {
             set_last_error(format!("failed to get JavaVM: {error}"));
-            JNI_FALSE
+            return JNI_FALSE;
         }
+        Outcome::Panic(_) => {
+            set_last_error("failed to get JavaVM: JNI panic");
+            return JNI_FALSE;
+        }
+    };
+
+    if !(JVM.set(vm).is_ok() || JVM.get().is_some()) {
+        set_last_error("failed to persist JavaVM");
+        return JNI_FALSE;
     }
+
+    let chimera_ffi = match env.with_env(|env| env.new_global_ref(&_this)).into_outcome() {
+        Outcome::Ok(reference) => reference,
+        Outcome::Err(error) => {
+            set_last_error(format!("failed to create ChimeraFfi global ref: {error}"));
+            return JNI_FALSE;
+        }
+        Outcome::Panic(_) => {
+            set_last_error("failed to create ChimeraFfi global ref: JNI panic");
+            return JNI_FALSE;
+        }
+    };
+
+    if !(CHIMERA_FFI.set(chimera_ffi).is_ok() || CHIMERA_FFI.get().is_some()) {
+        set_last_error("failed to persist ChimeraFfi global ref");
+        return JNI_FALSE;
+    }
+
+    INIT.call_once(|| unsafe {
+        let level = if cfg!(debug_assertions) {
+            LevelFilter::DEBUG
+        } else {
+            LevelFilter::INFO
+        };
+        std::env::set_var("RUST_BACKTRACE", "1");
+        init_logger(level);
+        let _ = color_eyre::install();
+        // Install aws-lc-rs as the default crypto provider
+        let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
+        info!("native logger initialized");
+    });
+
+    install_socket_protector();
+    let _ = runtime();
+    clear_last_error();
+    info!("native setup complete");
+    JNI_TRUE
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeHello(
-    env: JNIEnv<'_>,
+    mut env: EnvUnowned<'_>,
     _this: JObject<'_>,
 ) -> jstring {
-    match env.new_string(build_hello_message()) {
-        Ok(value) => value.into_raw(),
-        Err(_) => std::ptr::null_mut(),
+    match env
+        .with_env(|env| env.new_string(build_hello_message()))
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value.into_raw(),
+        _ => std::ptr::null_mut(),
     }
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
-    mut env: JNIEnv<'_>,
+    mut env: EnvUnowned<'_>,
     _this: JObject<'_>,
     profile_path: JString<'_>,
     cache_dir: JString<'_>,
@@ -872,7 +716,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStop(
-    _env: JNIEnv<'_>,
+    _env: EnvUnowned<'_>,
     _this: JObject<'_>,
 ) -> jboolean {
     match stop_core_internal() {
