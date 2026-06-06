@@ -509,7 +509,6 @@ dependencies = [
  "ipnet",
  "jni",
  "mimalloc",
- "once_cell",
  "paranoid-android",
  "reqwest",
  "rustls",

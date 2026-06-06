@@ -27,14 +27,38 @@ use tokio_stream::StreamExt;
 use tracing::{error, info};
 use tracing_subscriber::filter::LevelFilter;
 
-static CORE_RUNNING: AtomicBool = AtomicBool::new(false);
-static CORE_STATE: OnceLock<Mutex<Option<CoreState>>> = OnceLock::new();
-static LAST_ERROR: OnceLock<Mutex<Option<String>>> = OnceLock::new();
-static JVM: OnceLock<JavaVM> = OnceLock::new();
-static CHIMERA_FFI: OnceLock<Global<JObject<'static>>> = OnceLock::new();
+static INSTANCE: OnceLock<ClashInstance> = OnceLock::new();
 static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
-static RT: OnceLock<Runtime> = OnceLock::new();
 static INIT: Once = Once::new();
+
+struct ClashInstance {
+    jvm: JavaVM,
+    chimera_ffi: Global<JObject<'static>>,
+    rt: OnceLock<Runtime>,
+    core_state: Mutex<Option<CoreState>>,
+    last_error: Mutex<Option<String>>,
+    core_running: AtomicBool,
+}
+
+impl ClashInstance {
+    fn runtime(&self) -> &Runtime {
+        self.rt.get_or_init(|| {
+            let jvm = self.jvm.clone();
+            let mut builder = tokio::runtime::Builder::new_multi_thread();
+            builder.enable_all();
+            builder.on_thread_start(move || {
+                let _ = jvm.attach_current_thread(|_| Ok::<(), jni::errors::Error>(()));
+            });
+            builder
+                .build()
+                .expect("failed to create chimera tokio runtime")
+        })
+    }
+}
+
+fn instance() -> &'static ClashInstance {
+    INSTANCE.get().expect("ClashInstance not initialized")
+}
 
 use log::init_logger;
 
@@ -63,15 +87,8 @@ pub struct ProfileOverride {
     pub tun_fd: i32,
     pub log_file_path: String,
 
-    #[uniffi(default = false)]
-    pub allow_lan: bool,
-
     #[uniffi(default = 7890)]
     pub mixed_port: u16,
-    #[uniffi(default = None)]
-    pub http_port: Option<u16>,
-    #[uniffi(default = None)]
-    pub socks_port: Option<u16>,
 
     #[uniffi(default = false)]
     pub fake_ip: bool,
@@ -114,13 +131,9 @@ impl SocketProtector for AndroidSocketProtector {
         let fd = i32::try_from(handle).map_err(|_| {
             std::io::Error::other(format!("socket handle out of i32 range: {handle}"))
         })?;
-        let vm = JVM
-            .get()
-            .ok_or_else(|| std::io::Error::other("JavaVM not initialized"))?;
-        let chimera_ffi = CHIMERA_FFI
-            .get()
-            .ok_or_else(|| std::io::Error::other("ChimeraFfi object not initialized"))?;
-        let protected = vm
+        let inst = instance();
+        let protected = inst
+            .jvm
             .attach_current_thread(|env| {
                 let protect_socket_sig = unsafe {
                     MethodSignature::from_raw_parts(
@@ -130,7 +143,7 @@ impl SocketProtector for AndroidSocketProtector {
                     )
                 };
                 env.call_method(
-                    chimera_ffi.as_obj(),
+                    inst.chimera_ffi.as_obj(),
                     jni_str!("protectSocket"),
                     protect_socket_sig,
                     &[JValue::Int(fd)],
@@ -163,44 +176,21 @@ fn install_socket_protector() {
 }
 
 fn runtime() -> &'static Runtime {
-    RT.get_or_init(|| {
-        let mut builder = tokio::runtime::Builder::new_multi_thread();
-        builder.enable_all();
-        builder.on_thread_start(|| {
-            if let Some(vm) = JVM.get() {
-                let _ = vm.attach_current_thread(|_| Ok::<(), jni::errors::Error>(()));
-            }
-        });
-        builder
-            .build()
-            .expect("failed to create chimera tokio runtime")
-    })
-}
-
-fn core_state() -> &'static Mutex<Option<CoreState>> {
-    CORE_STATE.get_or_init(|| Mutex::new(None))
-}
-
-fn last_error_state() -> &'static Mutex<Option<String>> {
-    LAST_ERROR.get_or_init(|| Mutex::new(None))
+    instance().runtime()
 }
 
 fn set_last_error(message: impl Into<String>) {
     let message = message.into();
     error!("{message}");
-    if let Ok(mut guard) = last_error_state().lock() {
+    if let Ok(mut guard) = instance().last_error.lock() {
         *guard = Some(message);
     }
 }
 
 fn clear_last_error() {
-    if let Ok(mut guard) = last_error_state().lock() {
+    if let Ok(mut guard) = instance().last_error.lock() {
         *guard = None;
     }
-}
-
-fn read_last_error() -> Option<String> {
-    last_error_state().lock().ok().and_then(|it| it.clone())
 }
 
 fn runtime_error(message: impl Into<String>) -> ChimeraError {
@@ -241,7 +231,8 @@ fn extract_jstring(
 
 fn stop_core_internal() -> Result<(), String> {
     let running = {
-        let mut guard = core_state()
+        let mut guard = instance()
+            .core_state
             .lock()
             .map_err(|error| format!("core state lock poisoned: {error}"))?;
         guard.take()
@@ -253,7 +244,7 @@ fn stop_core_internal() -> Result<(), String> {
         log_line(&state.metadata.log_path, "chimera core stop requested");
     }
 
-    CORE_RUNNING.store(false, Ordering::SeqCst);
+    instance().core_running.store(false, Ordering::SeqCst);
     clear_last_error();
     Ok(())
 }
@@ -418,26 +409,28 @@ fn start_core_internal(
         } else {
             log_line(&runtime_log_path, "clash core exited");
         }
-        CORE_RUNNING.store(false, Ordering::SeqCst);
+        instance().core_running.store(false, Ordering::SeqCst);
     });
 
     {
-        let mut guard = core_state()
+        let mut guard = instance()
+            .core_state
             .lock()
             .map_err(|error| format!("core state lock poisoned: {error}"))?;
         *guard = Some(CoreState { worker, metadata });
     }
-    CORE_RUNNING.store(true, Ordering::SeqCst);
+    instance().core_running.store(true, Ordering::SeqCst);
     Ok(final_profile)
 }
 
 fn build_hello_message() -> String {
-    if JVM.get().is_none() {
-        return "ffi: jni not setup".to_string();
-    }
+    let inst = match INSTANCE.get() {
+        Some(inst) => inst,
+        None => return "ffi: jni not setup".to_string(),
+    };
 
-    if CORE_RUNNING.load(Ordering::SeqCst) {
-        if let Ok(guard) = core_state().lock()
+    if inst.core_running.load(Ordering::SeqCst) {
+        if let Ok(guard) = inst.core_state.lock()
             && let Some(state) = guard.as_ref()
         {
             return format!(
@@ -450,7 +443,7 @@ fn build_hello_message() -> String {
         return "ffi: core running".to_string();
     }
 
-    if let Some(last_error) = read_last_error() {
+    if let Some(last_error) = inst.last_error.lock().ok().and_then(|it| it.clone()) {
         return format!("ffi: core stopped ({last_error})");
     }
     "ffi: core stopped".to_string()
@@ -604,11 +597,6 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
         }
     };
 
-    if !(JVM.set(vm).is_ok() || JVM.get().is_some()) {
-        set_last_error("failed to persist JavaVM");
-        return JNI_FALSE;
-    }
-
     let chimera_ffi = match env.with_env(|env| env.new_global_ref(&_this)).into_outcome() {
         Outcome::Ok(reference) => reference,
         Outcome::Err(error) => {
@@ -621,8 +609,17 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
         }
     };
 
-    if !(CHIMERA_FFI.set(chimera_ffi).is_ok() || CHIMERA_FFI.get().is_some()) {
-        set_last_error("failed to persist ChimeraFfi global ref");
+    let instance = ClashInstance {
+        jvm: vm,
+        chimera_ffi,
+        rt: OnceLock::new(),
+        core_state: Mutex::new(None),
+        last_error: Mutex::new(None),
+        core_running: AtomicBool::new(false),
+    };
+
+    if !(INSTANCE.set(instance).is_ok() || INSTANCE.get().is_some()) {
+        set_last_error("failed to initialize ClashInstance");
         return JNI_FALSE;
     }
 
@@ -695,10 +692,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
     let over = ProfileOverride {
         tun_fd,
         log_file_path,
-        allow_lan: false,
         mixed_port: 7890,
-        http_port: None,
-        socks_port: None,
         fake_ip: false,
         fake_ip_range: "198.18.0.2/16".to_string(),
         ipv6: true,
@@ -708,7 +702,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
         Ok(_) => JNI_TRUE,
         Err(error) => {
             set_last_error(error);
-            CORE_RUNNING.store(false, Ordering::SeqCst);
+            instance().core_running.store(false, Ordering::SeqCst);
             JNI_FALSE
         }
     }
