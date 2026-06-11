@@ -1,0 +1,6 @@
+[submodule "ref/ClashMetaForAndroid"]
+	path = ref/ClashMetaForAndroid
+	url = https://github.com/MetaCubeX/ClashMetaForAndroid
+[submodule "ref/clash-android"]
+	path = ref/clash-android
+	url = https://github.com/Watfaq/clash-android
