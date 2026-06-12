@@ -170,6 +170,7 @@
     <string name="app_selector_search">Search apps</string>
     <string name="app_selector_system_apps">Show system apps</string>
     <string name="app_selector_loading">Loading apps…</string>
+    <string name="proxy_delay_test">Delay Test</string>
     <string name="profile_import">Add Profile</string>
     <string name="profile_import_file">Import From File</string>
     <string name="profile_delete">Delete</string>

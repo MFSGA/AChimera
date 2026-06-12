@@ -33,6 +33,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         binding.toolbar.setNavigationOnClickListener {
             request(Request.NavigateBack)
         }
+        binding.fabDelayTest.setOnClickListener {
+            request(Request.DelayTest)
+        }
         binding.viewPager.adapter = pagerAdapter
 
         TabLayoutMediator(
@@ -76,6 +79,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     sealed class Request {
         data class SelectProxy(val groupName: String, val proxyName: String) : Request()
+        data object DelayTest : Request()
         data object NavigateBack : Request()
     }
 

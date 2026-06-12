@@ -60,6 +60,19 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                     }
                 }
             }
+            ProxyDesign.Request.DelayTest -> {
+                val groups = backend.listProxyGroups()
+                for (group in groups) {
+                    for (proxyName in group.proxies) {
+                        runCatching {
+                            backend.testProxyDelay(proxyName)
+                        }
+                    }
+                }
+                withContext(Dispatchers.Main) {
+                    design.showToast("Delay test queued")
+                }
+            }
             is ProxyDesign.Request.NavigateBack -> {
                 withContext(Dispatchers.Main) {
                     finish()
