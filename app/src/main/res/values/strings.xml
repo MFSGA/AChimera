@@ -124,7 +124,6 @@
     <string name="profile_type_remote">Remote</string>
     <string name="profile_activate">Activate</string>
     <string name="profile_active_badge">Active</string>
-    <string name="profile_delete">Delete</string>
     <string name="profile_missing">No profile selected</string>
     <string name="profile_import_url">Import From URL</string>
     <string name="profile_user_agent_label">User-Agent</string>
@@ -171,4 +170,8 @@
     <string name="app_selector_search">Search apps</string>
     <string name="app_selector_system_apps">Show system apps</string>
     <string name="app_selector_loading">Loading apps…</string>
+    <string name="profile_import">Add Profile</string>
+    <string name="profile_import_file">Import From File</string>
+    <string name="profile_delete">Delete</string>
+    <string name="profile_delete_confirm">Delete this profile?</string>
 </resources>
