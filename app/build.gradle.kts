@@ -105,6 +105,7 @@ android {
 
     buildFeatures {
         compose = true
+        dataBinding = true
         resValues = true
     }
 }
@@ -129,6 +130,11 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.compose.destinations.core)
     implementation(libs.androidx.runtime.livedata)
+    implementation(libs.androidx.appcompat)
+    implementation("com.google.android.material:material:1.12.0")
+    implementation("androidx.recyclerview:recyclerview:1.4.0")
+    implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.1")
 
     ksp(libs.compose.destinations.ksp)
 
