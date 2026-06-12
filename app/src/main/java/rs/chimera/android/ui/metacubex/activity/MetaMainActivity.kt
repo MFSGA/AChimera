@@ -112,16 +112,16 @@ class MetaMainActivity : AppCompatActivity() {
                 }
             }
             MainDesign.Request.OpenProxy -> {
-                // TODO: Open MetaProxyActivity
+                startActivity(Intent(this, MetaProxyActivity::class.java))
             }
             MainDesign.Request.OpenProfiles -> {
-                // TODO: Open MetaProfilesActivity
+                startActivity(Intent(this, MetaProfilesActivity::class.java))
             }
             MainDesign.Request.OpenLogs -> {
-                // TODO: Open MetaLogsActivity
+                startActivity(Intent(this, MetaLogsActivity::class.java))
             }
             MainDesign.Request.OpenSettings -> {
-                // TODO: Open MetaSettingsActivity
+                startActivity(Intent(this, MetaSettingsActivity::class.java))
             }
             MainDesign.Request.OpenWatfaq -> {
                 withContext(Dispatchers.Main) {

@@ -36,6 +36,22 @@
             android:name="rs.chimera.android.ui.metacubex.activity.MetaMainActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaProxyActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaProfilesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaLogsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
         <service
             android:name="rs.chimera.android.service.TunService"
             android:enabled="true"
