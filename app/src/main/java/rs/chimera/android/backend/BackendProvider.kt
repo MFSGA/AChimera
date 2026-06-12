@@ -1,6 +1,9 @@
 package rs.chimera.android.backend
 
 object BackendProvider {
-    @Suppress("UNUSED_PARAMETER")
-    fun provide(): ChimeraBackend = ChimeraBackendImpl()
+    private val backend: ChimeraBackend by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        ChimeraBackendImpl()
+    }
+
+    fun provide(): ChimeraBackend = backend
 }

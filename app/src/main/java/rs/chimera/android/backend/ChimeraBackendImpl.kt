@@ -45,6 +45,10 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val _traffic = MutableStateFlow(TrafficSnapshot(0, 0, 0))
     override val traffic: StateFlow<TrafficSnapshot> = _traffic.asStateFlow()
 
+    init {
+        refreshActiveProfile()
+    }
+
     override suspend fun prepareStartVpn(context: Context): StartVpnResult {
         val path = Global.profilePath
         if (path.isBlank()) {
