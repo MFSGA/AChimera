@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <attr name="colorClashStopped" format="color" />
+    <attr name="colorControlDisabled" format="color" />
 
     <style name="Theme.Chimera.MetaCubeX" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/clash_started</item>
