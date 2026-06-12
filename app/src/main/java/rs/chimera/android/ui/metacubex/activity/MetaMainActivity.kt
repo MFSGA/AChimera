@@ -112,13 +112,13 @@ class MetaMainActivity : AppCompatActivity() {
                 }
             }
             MainDesign.Request.OpenProxy -> {
-                startActivity(Intent(this, MetaProxyActivity::class.java))
+                startActivity(Intent(this, MetaProxyDesignActivity::class.java))
             }
             MainDesign.Request.OpenProfiles -> {
-                startActivity(Intent(this, MetaProfilesActivity::class.java))
+                startActivity(Intent(this, MetaProfilesDesignActivity::class.java))
             }
             MainDesign.Request.OpenLogs -> {
-                startActivity(Intent(this, MetaLogsActivity::class.java))
+                startActivity(Intent(this, MetaLogsDesignActivity::class.java))
             }
             MainDesign.Request.OpenSettings -> {
                 startActivity(Intent(this, MetaSettingsActivity::class.java))
