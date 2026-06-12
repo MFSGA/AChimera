@@ -32,6 +32,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaMainActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera" />
         <service
             android:name="rs.chimera.android.service.TunService"
             android:enabled="true"
