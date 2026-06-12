@@ -14,6 +14,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.core.content.ContextCompat
 import rs.chimera.android.theme.ChimeraTheme
+import rs.chimera.android.ui.navigation.DefaultAppUiRouter
+import rs.chimera.android.ui.watfaq.WatfaqAppRoot
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
@@ -38,7 +40,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             ChimeraTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
-                    ChimeraAppRoot()
+                    WatfaqAppRoot(
+                        onSwitchUi = {
+                            DefaultAppUiRouter.openMetaCubeX(this@MainActivity)
+                        },
+                    )
                 }
             }
         }
