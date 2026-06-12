@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.outlined.Subject
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -59,6 +60,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val activity = context as? android.app.Activity
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showUiDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
     if (showInfoDialog) {
@@ -117,6 +119,21 @@ fun SettingsScreen(
             }
 
             item {
+                SectionHeader(text = "UI")
+            }
+
+            item {
+                SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Default.Dashboard,
+                        title = "UI Style",
+                        subtitle = if (viewModel.uiVariant == rs.chimera.android.viewmodel.UiVariant.METACUBEX) "MetaCubeX (View)" else "Watfaq (Compose)",
+                        onClick = { showUiDialog = true },
+                    )
+                }
+            }
+
+            item {
                 SectionHeader(text = stringResource(R.string.settings_about))
             }
 
@@ -133,6 +150,23 @@ fun SettingsScreen(
             }
 
             item { Spacer(modifier = Modifier.height(16.dp)) }
+        }
+
+        if (showUiDialog) {
+            UiDialog(
+                currentVariant = viewModel.uiVariant,
+                onDismiss = { showUiDialog = false },
+                onConfirm = { variant ->
+                    val oldVariant = viewModel.uiVariant
+                    if (oldVariant != variant) {
+                        viewModel.updateUiVariant(variant)
+                        showUiDialog = false
+                        activity?.recreate()
+                    } else {
+                        showUiDialog = false
+                    }
+                },
+            )
         }
 
         if (showLanguageDialog) {
@@ -227,6 +261,44 @@ private fun SettingsItem(
             )
         }
     }
+}
+
+@Composable
+private fun UiDialog(
+    currentVariant: rs.chimera.android.viewmodel.UiVariant,
+    onDismiss: () -> Unit,
+    onConfirm: (rs.chimera.android.viewmodel.UiVariant) -> Unit,
+) {
+    var selectedVariant by remember { mutableStateOf(currentVariant) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("UI Style") },
+        text = {
+            Column(modifier = Modifier.selectableGroup()) {
+                LanguageOption(
+                    text = "Watfaq (Compose)",
+                    selected = selectedVariant == rs.chimera.android.viewmodel.UiVariant.WATFAQ,
+                    onClick = { selectedVariant = rs.chimera.android.viewmodel.UiVariant.WATFAQ },
+                )
+                LanguageOption(
+                    text = "MetaCubeX (View)",
+                    selected = selectedVariant == rs.chimera.android.viewmodel.UiVariant.METACUBEX,
+                    onClick = { selectedVariant = rs.chimera.android.viewmodel.UiVariant.METACUBEX },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selectedVariant) }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
 }
 
 @Composable

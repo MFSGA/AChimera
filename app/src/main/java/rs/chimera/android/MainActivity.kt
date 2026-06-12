@@ -37,6 +37,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         applyLanguagePreference()
         requestNotificationPermission()
+
+        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
+        val uiVariant = prefs.getString("ui_variant", "WATFAQ") ?: "WATFAQ"
+
+        if (uiVariant == "METACUBEX") {
+            DefaultAppUiRouter.openMetaCubeX(this)
+            finish()
+            return
+        }
+
         setContent {
             ChimeraTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {

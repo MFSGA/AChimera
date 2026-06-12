@@ -9,6 +9,11 @@ import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import rs.chimera.android.R
 
+enum class UiVariant {
+    WATFAQ,
+    METACUBEX,
+}
+
 enum class LanguagePreference {
     SYSTEM,
     SIMPLIFIED_CHINESE,
@@ -46,6 +51,23 @@ class SettingsViewModel(
             }
             LanguagePreference.ENGLISH -> context.getString(R.string.language_english)
         }
+    }
+
+    var uiVariant: UiVariant by mutableStateOf(loadUiVariant())
+        private set
+
+    private fun loadUiVariant(): UiVariant {
+        val value = prefs.getString("ui_variant", "WATFAQ") ?: "WATFAQ"
+        return try {
+            UiVariant.valueOf(value)
+        } catch (_: IllegalArgumentException) {
+            UiVariant.WATFAQ
+        }
+    }
+
+    fun updateUiVariant(variant: UiVariant) {
+        uiVariant = variant
+        prefs.edit { putString("ui_variant", variant.name) }
     }
 
     var appFilterMode: AppFilterMode by mutableStateOf(AppFilterMode.ALL)
