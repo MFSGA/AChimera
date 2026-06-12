@@ -5,7 +5,6 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableStateFlow
 import uniffi.chimera_ffi.ChimeraException
 import java.io.File
 
@@ -25,8 +24,6 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
         private set
 
     var proxyPort: UShort? = null
-
-    val isServiceRunning = MutableStateFlow(false)
 
     fun runtimeLogFile(): File = File(application.cacheDir, RUNTIME_LOG_FILE_NAME)
 

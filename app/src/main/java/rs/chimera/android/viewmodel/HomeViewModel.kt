@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.service.tunService
 import uniffi.chimera_ffi.ClashController
@@ -86,7 +87,8 @@ class HomeViewModel : ViewModel() {
         sharedPreferences.registerOnSharedPreferenceChangeListener(sharedPreferenceChangeListener)
 
         viewModelScope.launch {
-            Global.isServiceRunning.collectLatest { running ->
+            backend.serviceState.collectLatest { state ->
+                val running = state == ServiceState.RUNNING
                 isVpnRunning = running
                 errorMessage = null
                 statsPollingJob?.cancel()

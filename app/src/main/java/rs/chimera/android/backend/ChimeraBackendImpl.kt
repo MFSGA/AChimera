@@ -36,8 +36,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
-    private val _serviceState = MutableStateFlow(ServiceState.STOPPED)
-    override val serviceState: StateFlow<ServiceState> = _serviceState.asStateFlow()
+    override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
 
     private val _activeProfile = MutableStateFlow<ProfileSummary?>(null)
     override val activeProfile: StateFlow<ProfileSummary?> = _activeProfile.asStateFlow()
@@ -64,16 +63,23 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun startVpnAfterPermission() {
-        _serviceState.value = ServiceState.STARTING
-        Global.application.startService(Intent(Global.application, TunService::class.java))
-        _serviceState.value = ServiceState.RUNNING
+        BackendRuntimeState.updateServiceState(ServiceState.STARTING)
+        runCatching {
+            Global.application.startService(Intent(Global.application, TunService::class.java))
+        }.onFailure {
+            BackendRuntimeState.updateServiceState(ServiceState.ERROR)
+        }.getOrThrow()
     }
 
     override suspend fun stopVpn() {
-        _serviceState.value = ServiceState.STOPPING
-        shutdownClash()
-        tunService?.stopVpn()
-        _serviceState.value = ServiceState.STOPPED
+        BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
+        val service = tunService
+        if (service != null) {
+            service.stopVpn()
+        } else {
+            shutdownClash()
+            BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
+        }
     }
 
     override suspend fun listProfiles(): List<ProfileSummary> {
@@ -324,7 +330,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> {
-        if (_serviceState.value != ServiceState.RUNNING) return emptyList()
+        if (serviceState.value != ServiceState.RUNNING) return emptyList()
 
         return runCatching {
             val proxies = controller.getProxies()
@@ -369,7 +375,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun listConnections(): ConnectionsSnapshot {
-        if (_serviceState.value != ServiceState.RUNNING) {
+        if (serviceState.value != ServiceState.RUNNING) {
             return ConnectionsSnapshot(emptyList(), 0, 0)
         }
 

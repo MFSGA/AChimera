@@ -14,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
+import rs.chimera.android.backend.BackendRuntimeState
+import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
@@ -48,6 +50,7 @@ class TunService : VpnService() {
         appendRuntimeLog("service onStartCommand")
         ensureForegroundService()
         tunService = this
+        BackendRuntimeState.updateServiceState(ServiceState.STARTING)
 
         serviceScope.launch {
             try {
@@ -55,8 +58,7 @@ class TunService : VpnService() {
             } catch (error: Exception) {
                 Log.e(TAG, "Error in runVpn", error)
                 appendRuntimeLog("service runVpn failed", error)
-                Global.isServiceRunning.value = false
-                cleanup()
+                cleanup(ServiceState.ERROR)
                 NotificationHelper.notifyFailed(this@TunService, error.message)
                 stopSelf()
             }
@@ -107,7 +109,7 @@ class TunService : VpnService() {
         Global.proxyPort = finalProfile.mixedPort
         appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
-        Global.isServiceRunning.value = true
+        BackendRuntimeState.updateServiceState(ServiceState.RUNNING)
     }
 
     private fun buildTunnel(settings: ServiceSettings): ParcelFileDescriptor? {
@@ -236,7 +238,7 @@ class TunService : VpnService() {
         }
     }
 
-    private fun cleanup() {
+    private fun cleanup(finalState: ServiceState = ServiceState.STOPPED) {
         synchronized(this) {
             if (isDestroying) {
                 return
@@ -268,7 +270,7 @@ class TunService : VpnService() {
         tunFd = null
         tunService = null
         Global.proxyPort = null
-        Global.isServiceRunning.value = false
+        BackendRuntimeState.updateServiceState(finalState)
         appendRuntimeLog("service cleanup complete")
     }
 
