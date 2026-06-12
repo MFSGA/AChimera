@@ -90,7 +90,7 @@
     <string name="native_bridge_subtitle">Rust FFI 调用结果</string>
     <string name="native_bridge_subtitle_with_time">%1$s 的 Rust FFI 调用结果</string>
     <string name="service_status_title">服务状态</string>
-    <string name="service_status_subtitle">由 Global.isServiceRunning 提供</string>
+    <string name="service_status_subtitle">由共享服务状态提供</string>
     <string name="service_running">运行中</string>
     <string name="service_stopped">已停止</string>
     <string name="service_start_action">启动</string>
