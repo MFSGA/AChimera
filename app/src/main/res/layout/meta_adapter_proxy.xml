@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <data>
+        <variable
+            name="proxyName"
+            type="String" />
+        <variable
+            name="proxyType"
+            type="String" />
+        <variable
+            name="delay"
+            type="String" />
+        <variable
+            name="isSelected"
+            type="boolean" />
+        <variable
+            name="clicked"
+            type="android.view.View.OnClickListener" />
+    </data>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginVertical="3dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:onClick="@{clicked}"
+        android:foreground="?attr/selectableItemBackground"
+        app:cardElevation="2dp"
+        app:strokeWidth="@{isSelected ? 2 : 0}"
+        app:strokeColor="?attr/colorPrimary">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp"
+            android:gravity="center_vertical">
+
+            <RadioButton
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:checked="@{isSelected}"
+                android:clickable="false"
+                android:focusable="false"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{proxyName}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{proxyType}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@{delay}"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+                android:textColor="?attr/colorOnSurface"
+                android:gravity="end" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</layout>

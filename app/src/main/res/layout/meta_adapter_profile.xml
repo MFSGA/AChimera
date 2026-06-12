@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <data>
+        <variable
+            name="profileName"
+            type="String" />
+        <variable
+            name="profileType"
+            type="String" />
+        <variable
+            name="isActive"
+            type="boolean" />
+        <variable
+            name="clicked"
+            type="android.view.View.OnClickListener" />
+        <variable
+            name="menu"
+            type="android.view.View.OnClickListener" />
+    </data>
+
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="12dp"
+        android:layout_marginVertical="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:onClick="@{clicked}"
+        android:foreground="?attr/selectableItemBackground"
+        app:cardElevation="3dp"
+        app:strokeWidth="@{isActive ? 2 : 0}"
+        app:strokeColor="?attr/colorPrimary">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <RadioButton
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:checked="@{isActive}"
+                android:clickable="false"
+                android:focusable="false"
+                android:gravity="center" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{profileName}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{profileType}"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+                    android:visibility="@{profileType != null ? View.VISIBLE : View.GONE}" />
+            </LinearLayout>
+
+            <ImageButton
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@android:drawable/ic_menu_more"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Menu"
+                android:onClick="@{menu}" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+</layout>
