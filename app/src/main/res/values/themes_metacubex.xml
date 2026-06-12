@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="colorClashStopped" format="color" />
+
+    <style name="Theme.Chimera.MetaCubeX" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/clash_started</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorControlNormal">@android:color/black</item>
+        <item name="colorClashStopped">@color/clash_stopped</item>
+        <item name="colorControlDisabled">#FFD3D3D3</item>
+
+        <item name="colorPrimaryDark">?attr/colorPrimary</item>
+        <item name="colorSecondary">?attr/colorPrimary</item>
+        <item name="colorOnSecondary">?attr/colorOnPrimary</item>
+        <item name="colorControlActivated">?attr/colorPrimary</item>
+        <item name="android:textColor">?attr/colorControlNormal</item>
+    </style>
+
+    <style name="Theme.Chimera.MetaCubeX.Dark" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="colorPrimary">@color/clash_started_dark</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSurface">#FF202020</item>
+        <item name="colorControlNormal">@android:color/white</item>
+        <item name="colorClashStopped">?attr/colorSurface</item>
+        <item name="colorControlDisabled">#FF808080</item>
+
+        <item name="colorPrimaryDark">?attr/colorPrimary</item>
+        <item name="colorSecondary">?attr/colorPrimary</item>
+        <item name="colorOnSecondary">?attr/colorOnPrimary</item>
+        <item name="colorControlActivated">?attr/colorPrimary</item>
+        <item name="android:textColor">?attr/colorControlNormal</item>
+    </style>
+</resources>

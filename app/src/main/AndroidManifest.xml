@@ -35,7 +35,7 @@
         <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaMainActivity"
             android:exported="false"
-            android:theme="@style/Theme.Chimera" />
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
         <service
             android:name="rs.chimera.android.service.TunService"
             android:enabled="true"
