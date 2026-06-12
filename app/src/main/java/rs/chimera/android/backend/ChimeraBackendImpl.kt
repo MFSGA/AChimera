@@ -185,6 +185,140 @@ class ChimeraBackendImpl : ChimeraBackend {
         appendProfile(profileJson)
     }
 
+    override suspend fun deleteProfile(id: String) {
+        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
+
+        runCatching {
+            val jsonArray = JSONArray(profilesJson)
+            val updatedArray = JSONArray()
+            var wasActive = false
+            for (index in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(index)
+                if (obj.getString("id") == id) {
+                    wasActive = obj.getBoolean("isActive")
+                    File(obj.getString("filePath")).takeIf { it.exists() }?.delete()
+                } else {
+                    updatedArray.put(obj)
+                }
+            }
+            if (updatedArray.length() > 0 && wasActive) {
+                updatedArray.getJSONObject(0).put("isActive", true)
+            }
+            profilePrefs.edit {
+                putString(PROFILES_LIST_KEY, updatedArray.toString())
+                val activePath = if (updatedArray.length() > 0) {
+                    updatedArray.getJSONObject(0).getString("filePath")
+                } else null
+                putString(PROFILE_PATH_KEY, activePath)
+            }
+            val firstPath = if (updatedArray.length() > 0) {
+                updatedArray.getJSONObject(0).getString("filePath")
+            } else null
+            Global.updateProfilePath(firstPath.orEmpty())
+        }
+        refreshActiveProfile()
+    }
+
+    override suspend fun renameProfile(id: String, newName: String) {
+        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
+
+        runCatching {
+            val jsonArray = JSONArray(profilesJson)
+            for (index in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(index)
+                if (obj.getString("id") == id) {
+                    obj.put("name", newName)
+                }
+            }
+            profilePrefs.edit {
+                putString(PROFILES_LIST_KEY, jsonArray.toString())
+            }
+        }
+        refreshActiveProfile()
+    }
+
+    override suspend fun updateRemoteProfile(id: String) {
+        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
+
+        val targetProfile = runCatching {
+            val jsonArray = JSONArray(profilesJson)
+            for (index in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(index)
+                if (obj.getString("id") == id) {
+                    return@runCatching obj
+                }
+            }
+            null
+        }.getOrNull() ?: return
+
+        if (targetProfile.optString("type", "LOCAL") != "REMOTE") return
+        val url = targetProfile.optString("url").takeIf { it.isNotBlank() } ?: return
+
+        val context = Global.application
+        val profileName = targetProfile.getString("name")
+        val userAgent = targetProfile.optString("userAgent").takeIf { it.isNotBlank() }
+        val proxyUrl = targetProfile.optString("proxyUrl").takeIf { it.isNotBlank() }
+            ?: Global.proxyPort?.let { "http://127.0.0.1:$it" }
+
+        val file = withContext(Dispatchers.IO) {
+            val remoteName = runCatching {
+                java.net.URL(url).path.substringAfterLast('/').substringBefore('?')
+            }.getOrNull().orEmpty()
+            val extension = remoteName.substringAfterLast('.', "yaml")
+            val fileName = sanitizeFileName("$profileName.$extension")
+            val outputFile = File(context.filesDir, fileName)
+
+            ChimeraFfi.ensureInitialized()
+            val result = downloadFileWithProgress(
+                url = url,
+                outputPath = outputFile.absolutePath,
+                userAgent = userAgent,
+                proxyUrl = proxyUrl,
+                progressCallback = object : DownloadProgressCallback {
+                    override fun onProgress(progress: DownloadProgress) {}
+                },
+            )
+            if (!result.success) {
+                throw IllegalStateException(result.errorMessage ?: "Unknown download error")
+            }
+            outputFile
+        }
+
+        runCatching {
+            val jsonArray = JSONArray(profilesJson)
+            for (index in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(index)
+                if (obj.getString("id") == id) {
+                    obj.put("filePath", file.absolutePath)
+                    obj.put("fileSize", file.length())
+                    obj.put("lastUpdated", System.currentTimeMillis())
+                }
+            }
+            profilePrefs.edit {
+                putString(PROFILES_LIST_KEY, jsonArray.toString())
+                val activePath = (0 until jsonArray.length())
+                    .map { jsonArray.getJSONObject(it) }
+                    .firstOrNull { it.getBoolean("isActive") }
+                    ?.getString("filePath")
+                if (activePath != null) putString(PROFILE_PATH_KEY, activePath)
+                val activeProfile = (0 until jsonArray.length())
+                    .map { jsonArray.getJSONObject(it) }
+                    .firstOrNull { it.getBoolean("isActive") }
+                if (activeProfile?.getString("id") == id) {
+                    Global.updateProfilePath(file.absolutePath)
+                }
+            }
+        }
+        refreshActiveProfile()
+    }
+
+    override suspend fun verifyProfile(filePath: String): Result<String> {
+        return runCatching {
+            ChimeraFfi.ensureInitialized()
+            verifyConfig(filePath)
+        }
+    }
+
     override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> {
         if (_serviceState.value != ServiceState.RUNNING) return emptyList()
 

@@ -16,8 +16,12 @@ interface ChimeraBackend {
 
     suspend fun listProfiles(): List<ProfileSummary>
     suspend fun activateProfile(id: String)
+    suspend fun deleteProfile(id: String)
+    suspend fun renameProfile(id: String, newName: String)
     suspend fun importLocalProfile(uri: Uri, name: String?)
     suspend fun importRemoteProfile(request: RemoteProfileRequest)
+    suspend fun updateRemoteProfile(id: String)
+    suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)
     suspend fun testProxyDelay(proxyName: String): String
