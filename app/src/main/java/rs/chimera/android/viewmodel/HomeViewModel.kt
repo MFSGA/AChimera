@@ -3,7 +3,6 @@ package rs.chimera.android.viewmodel
 import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.content.SharedPreferences
-import android.net.VpnService
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.result.ActivityResult
 import androidx.compose.runtime.getValue
@@ -22,13 +21,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
-import rs.chimera.android.service.TunService
+import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.service.tunService
 import uniffi.chimera_ffi.ClashController
 import uniffi.chimera_ffi.MemoryResponse
 import uniffi.chimera_ffi.Mode
 import uniffi.chimera_ffi.Proxy
-import uniffi.chimera_ffi.shutdown
 
 class HomeViewModel : ViewModel() {
     var profilePath = MutableLiveData<String?>(null)
@@ -65,6 +65,7 @@ class HomeViewModel : ViewModel() {
     var totalUpload by mutableLongStateOf(0)
         private set
 
+    private val backend: ChimeraBackend = BackendProvider.provide()
     private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
     private var statsPollingJob: Job? = null
     private val sharedPreferenceChangeListener =
@@ -232,27 +233,24 @@ class HomeViewModel : ViewModel() {
     }
 
     fun startVpn(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>? = null) {
-        val app = Global.application
         if (Global.profilePath.isBlank()) {
             errorMessage = "Please select a config file first"
             return
         }
 
-        val intent = VpnService.prepare(app)
-        if (intent != null) {
-            launcher?.launch(intent)
-        } else {
-            app.startService(Intent(app, TunService::class.java))
+        viewModelScope.launch {
+            when (val result = backend.prepareStartVpn(Global.application)) {
+                is StartVpnResult.Prepared -> launcher?.launch(result.intent)
+                is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
+                is StartVpnResult.Error -> errorMessage = result.message
+            }
         }
     }
 
     fun stopVpn() {
-        runCatching { shutdown() }
-            .onFailure { error ->
-                val details = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
-                errorMessage = "Failed to stop core: $details"
-            }
-        tunService?.stopVpn()
+        viewModelScope.launch {
+            backend.stopVpn()
+        }
     }
 
     private suspend fun testProxyDelay(name: String) {

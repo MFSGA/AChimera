@@ -1,6 +1,5 @@
 package rs.chimera.android.backend
 
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -46,13 +45,13 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val _traffic = MutableStateFlow(TrafficSnapshot(0, 0, 0))
     override val traffic: StateFlow<TrafficSnapshot> = _traffic.asStateFlow()
 
-    override suspend fun prepareStartVpn(activity: Activity): StartVpnResult {
+    override suspend fun prepareStartVpn(context: Context): StartVpnResult {
         val path = Global.profilePath
         if (path.isBlank()) {
-            return StartVpnResult.Error(activity.getString(rs.chimera.android.R.string.service_profile_required))
+            return StartVpnResult.Error(context.getString(rs.chimera.android.R.string.service_profile_required))
         }
 
-        val intent = VpnService.prepare(activity)
+        val intent = VpnService.prepare(context)
         return if (intent != null) {
             StartVpnResult.Prepared(intent)
         } else {
