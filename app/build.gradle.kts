@@ -21,6 +21,20 @@ fun Project.exec(command: String): String =
 
 fun env(key: String): String? = System.getenv(key).let { if (it.isNullOrEmpty()) null else it }
 
+val fullAbiBuild = providers
+    .gradleProperty("chimera.fullAbi")
+    .map(String::toBoolean)
+    .getOrElse(
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName.contains("Release", ignoreCase = true)
+        },
+    )
+val enabledAbis = if (fullAbiBuild) {
+    listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+} else {
+    listOf("x86_64")
+}
+
 android {
     namespace = "rs.chimera.android"
     compileSdk = 37
@@ -39,7 +53,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86", "x86_64"))
+            abiFilters.addAll(enabledAbis)
         }
     }
 
@@ -79,7 +93,7 @@ android {
         abi {
             isEnable = env("ANDROID_SPLIT_ABI_ENABLE") == "true"
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            include(*enabledAbis.toTypedArray())
             isUniversalApk = env("ANDROID_SPLIT_ABI_UNIVERSAL_APK") == "true"
         }
     }

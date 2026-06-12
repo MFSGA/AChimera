@@ -45,10 +45,19 @@ val hasSccache = System.getenv("PATH")
     ?.split(File.pathSeparator)
     ?.any { dir -> File(dir, "sccache").exists() }
     ?: false
+val fullAbiBuild = providers
+    .gradleProperty("chimera.fullAbi")
+    .map(String::toBoolean)
+    .getOrElse(
+        gradle.startParameter.taskNames.any { taskName ->
+            taskName.contains("Release", ignoreCase = true)
+        },
+    )
 
 cargo {
     module = "../uniffi"
     libname = "chimera_ffi"
+    pythonCommand = "/usr/bin/python3"
 
     extraCargoBuildArguments = arrayListOf("-p", "chimera-ffi")
 
@@ -57,9 +66,13 @@ cargo {
     }
     environmentalOverrides["RUSTC_BOOTSTRAP"] = "1"
 
-    targets = listOf("arm64", "arm", "x86", "x86_64")
+    targets = if (fullAbiBuild) {
+        listOf("arm64", "arm", "x86", "x86_64")
+    } else {
+        listOf("x86_64")
+    }
 
-    profile = "release"
+    profile = if (fullAbiBuild) "release" else "debug"
 }
 
 val rustJniLibsDir = layout.buildDirectory.dir("rustJniLibs/android").get()!!

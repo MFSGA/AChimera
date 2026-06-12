@@ -1,5 +1,5 @@
 [versions]
-agp = "9.2.0"
+agp = "9.1.0"
 kotlin = "2.3.21"
 rust-android-gradle = "0.10.1"
 coreKtx = "1.18.0"
