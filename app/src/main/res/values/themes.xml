@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Chimera" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <color name="clash_started">#1976d2</color>
+    <color name="clash_stopped">#808080</color>
+    <color name="clash_started_dark">#1e4376</color>
 </resources>
