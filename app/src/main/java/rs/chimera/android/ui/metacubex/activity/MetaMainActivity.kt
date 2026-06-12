@@ -4,6 +4,14 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
@@ -12,18 +20,16 @@ import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.ui.metacubex.design.MainDesign
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.formatSize
-import kotlinx.coroutines.*
 
 class MetaMainActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private lateinit var design: MainDesign
-    private var job: Job? = null
 
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
         if (result.resultCode == RESULT_OK) {
-            CoroutineScope(Dispatchers.Default).launch {
+            lifecycleScope.launch(Dispatchers.Default) {
                 backend.startVpnAfterPermission()
             }
         }
@@ -35,7 +41,7 @@ class MetaMainActivity : AppCompatActivity() {
         design = MainDesign(this)
         setContentView(design.root)
 
-        job = CoroutineScope(Dispatchers.Default).launch {
+        lifecycleScope.launch(Dispatchers.Default) {
             for (request in design.requests) {
                 handleRequest(request)
             }
@@ -44,49 +50,48 @@ class MetaMainActivity : AppCompatActivity() {
         observeBackend()
     }
 
-    override fun onDestroy() {
-        job?.cancel()
-        super.onDestroy()
-    }
-
     private fun observeBackend() {
-        CoroutineScope(Dispatchers.Default).launch {
-            backend.serviceState.collect { state ->
-                val running = state == ServiceState.RUNNING
-                withContext(Dispatchers.Main) {
-                    design.setClashRunning(running)
-                }
-            }
-        }
-
-        CoroutineScope(Dispatchers.Default).launch {
-            backend.activeProfile.collect { profile ->
-                withContext(Dispatchers.Main) {
-                    design.setProfileName(profile?.name)
-                }
-            }
-        }
-
-        CoroutineScope(Dispatchers.Default).launch {
-            backend.traffic.collect { traffic ->
-                val total = formatSize(traffic.downloadTotal + traffic.uploadTotal)
-                withContext(Dispatchers.Main) {
-                    design.setForwarded(total)
-                }
-            }
-        }
-
-        CoroutineScope(Dispatchers.Default).launch {
-            while (isActive) {
-                if (backend.serviceState.value == ServiceState.RUNNING) {
-                    val mode = runCatching {
-                        backend.listProxyGroups().firstOrNull()?.mode?.name ?: "Rule"
-                    }.getOrDefault("Rule")
-                    withContext(Dispatchers.Main) {
-                        design.setMode(mode)
+        lifecycleScope.launch(Dispatchers.Default) {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch {
+                    backend.serviceState.collect { state ->
+                        val running = state == ServiceState.RUNNING
+                        withContext(Dispatchers.Main) {
+                            design.setClashRunning(running)
+                        }
                     }
                 }
-                delay(3000)
+
+                launch {
+                    backend.activeProfile.collect { profile ->
+                        withContext(Dispatchers.Main) {
+                            design.setProfileName(profile?.name)
+                        }
+                    }
+                }
+
+                launch {
+                    backend.traffic.collect { traffic ->
+                        val total = formatSize(traffic.downloadTotal + traffic.uploadTotal)
+                        withContext(Dispatchers.Main) {
+                            design.setForwarded(total)
+                        }
+                    }
+                }
+
+                launch {
+                    while (isActive) {
+                        if (backend.serviceState.value == ServiceState.RUNNING) {
+                            val mode = runCatching {
+                                backend.listProxyGroups().firstOrNull()?.mode?.name ?: "Rule"
+                            }.getOrDefault("Rule")
+                            withContext(Dispatchers.Main) {
+                                design.setMode(mode)
+                            }
+                        }
+                        delay(3000)
+                    }
+                }
             }
         }
     }
@@ -99,7 +104,9 @@ class MetaMainActivity : AppCompatActivity() {
                 } else {
                     when (val result = backend.prepareStartVpn(this)) {
                         is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
-                        is StartVpnResult.Prepared -> vpnPermissionLauncher.launch(result.intent)
+                        is StartVpnResult.Prepared -> withContext(Dispatchers.Main) {
+                            vpnPermissionLauncher.launch(result.intent)
+                        }
                         is StartVpnResult.Error -> design.showToast(result.message)
                     }
                 }
