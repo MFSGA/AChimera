@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -82,6 +83,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
     onConnectionsClick: () -> Unit = {},
+    onSwitchUi: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var showRestartDialog by remember { mutableStateOf(false) }
@@ -138,6 +140,14 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.home_title)) },
                 actions = {
+                    if (onSwitchUi != null) {
+                        IconButton(onClick = onSwitchUi) {
+                            Icon(
+                                imageVector = Icons.Filled.SwapHoriz,
+                                contentDescription = stringResource(R.string.switch_to_metacubex_ui),
+                            )
+                        }
+                    }
                     IconButton(onClick = { showInfoDialog = true }) {
                         Icon(
                             imageVector = Icons.Filled.Info,
