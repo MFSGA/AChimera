@@ -14,6 +14,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenProfiles,
         OpenLogs,
         OpenSettings,
+        OpenWatfaq,
         OpenHelp,
         OpenAbout,
     }
@@ -33,6 +34,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.cardProfiles.setOnClickListener { request(Request.OpenProfiles) }
         binding.cardLogs.setOnClickListener { request(Request.OpenLogs) }
         binding.cardSettings.setOnClickListener { request(Request.OpenSettings) }
+        binding.buttonOpenWatfaq.setOnClickListener { request(Request.OpenWatfaq) }
     }
 
     fun setProfileName(name: String?) {

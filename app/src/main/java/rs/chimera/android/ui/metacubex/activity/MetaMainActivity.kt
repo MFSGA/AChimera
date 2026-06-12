@@ -10,6 +10,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.ui.metacubex.design.MainDesign
+import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.formatSize
 import kotlinx.coroutines.*
 
@@ -114,6 +115,12 @@ class MetaMainActivity : AppCompatActivity() {
             }
             MainDesign.Request.OpenSettings -> {
                 // TODO: Open MetaSettingsActivity
+            }
+            MainDesign.Request.OpenWatfaq -> {
+                withContext(Dispatchers.Main) {
+                    DefaultAppUiRouter.openWatfaq(this@MetaMainActivity)
+                    finish()
+                }
             }
             MainDesign.Request.OpenHelp -> {
                 design.showToast("Help not yet available")
