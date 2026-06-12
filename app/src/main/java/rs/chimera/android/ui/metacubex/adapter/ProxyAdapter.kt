@@ -5,7 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import rs.chimera.android.backend.model.ProxySnapshot
+
 import rs.chimera.android.databinding.MetaAdapterProxyBinding
 
 class ProxyAdapter(

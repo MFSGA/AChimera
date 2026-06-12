@@ -10,16 +10,16 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.backend.BackendProvider
-import rs.chimera.android.ui.metacubex.design.ProxyDesign
+import rs.chimera.android.ui.metacubex.design.LogsDesign
 
-class MetaProxyDesignActivity : AppCompatActivity() {
+class MetaLogsDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
-    private lateinit var design: ProxyDesign
+    private lateinit var design: LogsDesign
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        design = ProxyDesign(this)
+        design = LogsDesign(this)
         setContentView(design.root)
 
         lifecycleScope.launch(Dispatchers.Default) {
@@ -28,42 +28,35 @@ class MetaProxyDesignActivity : AppCompatActivity() {
             }
         }
 
-        observeProxyGroups()
+        observeLogs()
     }
 
-    private fun observeProxyGroups() {
+    private fun observeLogs() {
         lifecycleScope.launch(Dispatchers.Default) {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (isActive) {
                     try {
-                        val groups = backend.listProxyGroups()
+                        val log = backend.readRuntimeLogs(500)
+                        val lines = log.count { it == '\n' }
                         withContext(Dispatchers.Main) {
-                            design.setGroups(groups)
+                            design.setLogContent(log, lines)
                         }
                     } catch (_: Exception) {
                         // ignore
                     }
-                    kotlinx.coroutines.delay(5000)
+                    kotlinx.coroutines.delay(2000)
                 }
             }
         }
     }
 
-    private suspend fun handleRequest(request: ProxyDesign.Request) {
+    private suspend fun handleRequest(request: LogsDesign.Request) {
         when (request) {
-            is ProxyDesign.Request.SelectProxy -> {
-                runCatching {
-                    backend.selectProxy(request.groupName, request.proxyName)
-                }.onFailure {
-                    withContext(Dispatchers.Main) {
-                        design.showToast(it.message ?: "Failed to select proxy")
-                    }
-                }
+            LogsDesign.Request.NavigateBack -> {
+                withContext(Dispatchers.Main) { finish() }
             }
-            is ProxyDesign.Request.NavigateBack -> {
-                withContext(Dispatchers.Main) {
-                    finish()
-                }
+            LogsDesign.Request.ClearLogs -> {
+                runCatching { backend.clearRuntimeLogs() }
             }
         }
     }

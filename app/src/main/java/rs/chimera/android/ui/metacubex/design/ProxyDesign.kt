@@ -6,7 +6,6 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.databinding.MetaDesignProxyBinding
@@ -76,7 +75,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     sealed class Request {
-        data class SelectProxy(val proxyName: String) : Request()
+        data class SelectProxy(val groupName: String, val proxyName: String) : Request()
         data object NavigateBack : Request()
     }
 
@@ -101,9 +100,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
         override fun onBindViewHolder(holder: PageHolder, position: Int) {
             val items = pages.getOrNull(position) ?: emptyList()
-            val selected = items.firstOrNull { it.isSelected }?.name
-            val adapter = ProxyAdapter(selected) { proxyName ->
-                request(Request.SelectProxy(proxyName))
+            val groupName = groups.getOrNull(position)?.name ?: ""
+            val adapter = ProxyAdapter(null) { proxyName ->
+                request(Request.SelectProxy(groupName, proxyName))
             }
             adapter.submitList(items)
             holder.recyclerView.adapter = adapter

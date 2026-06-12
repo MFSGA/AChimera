@@ -53,6 +53,10 @@
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaLogsDesignActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaLogsActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
