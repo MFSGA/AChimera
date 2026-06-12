@@ -6,10 +6,15 @@ import android.net.Uri
 import android.net.VpnService
 import android.provider.OpenableColumns
 import androidx.core.content.edit
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import rs.chimera.android.Global
@@ -32,6 +37,7 @@ import java.util.Locale
 import java.util.UUID
 
 class ChimeraBackendImpl : ChimeraBackend {
+    private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
     private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
@@ -46,6 +52,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     init {
         refreshActiveProfile()
+        observeTraffic()
     }
 
     override suspend fun prepareStartVpn(context: Context): StartVpnResult {
@@ -427,6 +434,31 @@ class ChimeraBackendImpl : ChimeraBackend {
             patch.appFilterMode?.let { putString("app_filter_mode", it) }
             patch.allowedApps?.let { putStringSet("allowed_apps", it) }
             patch.disallowedApps?.let { putStringSet("disallowed_apps", it) }
+        }
+    }
+
+    private fun observeTraffic() {
+        backendScope.launch {
+            serviceState.collectLatest { state ->
+                if (state != ServiceState.RUNNING) {
+                    _traffic.value = TrafficSnapshot(0, 0, 0)
+                    return@collectLatest
+                }
+
+                delay(1000)
+                while (true) {
+                    runCatching {
+                        controller.getConnections()
+                    }.onSuccess { response ->
+                        _traffic.value = TrafficSnapshot(
+                            downloadTotal = response.downloadTotal,
+                            uploadTotal = response.uploadTotal,
+                            connectionCount = response.connections.size,
+                        )
+                    }
+                    delay(3000)
+                }
+            }
         }
     }
 
