@@ -162,10 +162,7 @@ class TunService : VpnService() {
         return ProfileOverride(
             tunFd = currentTunFd,
             logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
-            allowLan = settings.allowLan,
             mixedPort = settings.mixedPort,
-            httpPort = settings.httpPort,
-            socksPort = settings.socksPort,
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
         )

@@ -2228,13 +2228,7 @@ data class ProfileOverride (
     , 
     var `logFilePath`: kotlin.String
     , 
-    var `allowLan`: kotlin.Boolean = false 
-    , 
     var `mixedPort`: kotlin.UShort = 7890u 
-    , 
-    var `httpPort`: kotlin.UShort? = null 
-    , 
-    var `socksPort`: kotlin.UShort? = null 
     , 
     var `fakeIp`: kotlin.Boolean = false 
     , 
@@ -2259,10 +2253,7 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
         return ProfileOverride(
             FfiConverterInt.read(buf),
             FfiConverterString.read(buf),
-            FfiConverterBoolean.read(buf),
             FfiConverterUShort.read(buf),
-            FfiConverterOptionalUShort.read(buf),
-            FfiConverterOptionalUShort.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
@@ -2272,10 +2263,7 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
     override fun allocationSize(value: ProfileOverride) = (
             FfiConverterInt.allocationSize(value.`tunFd`) +
             FfiConverterString.allocationSize(value.`logFilePath`) +
-            FfiConverterBoolean.allocationSize(value.`allowLan`) +
             FfiConverterUShort.allocationSize(value.`mixedPort`) +
-            FfiConverterOptionalUShort.allocationSize(value.`httpPort`) +
-            FfiConverterOptionalUShort.allocationSize(value.`socksPort`) +
             FfiConverterBoolean.allocationSize(value.`fakeIp`) +
             FfiConverterString.allocationSize(value.`fakeIpRange`) +
             FfiConverterBoolean.allocationSize(value.`ipv6`)
@@ -2284,10 +2272,7 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
     override fun write(value: ProfileOverride, buf: ByteBuffer) {
             FfiConverterInt.write(value.`tunFd`, buf)
             FfiConverterString.write(value.`logFilePath`, buf)
-            FfiConverterBoolean.write(value.`allowLan`, buf)
             FfiConverterUShort.write(value.`mixedPort`, buf)
-            FfiConverterOptionalUShort.write(value.`httpPort`, buf)
-            FfiConverterOptionalUShort.write(value.`socksPort`, buf)
             FfiConverterBoolean.write(value.`fakeIp`, buf)
             FfiConverterString.write(value.`fakeIpRange`, buf)
             FfiConverterBoolean.write(value.`ipv6`, buf)
