@@ -18,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            android:title="@string/proxy"
+            android:title="@string/panel_screen"
             app:titleTextColor="@android:color/white"
             app:navigationIcon="@android:drawable/ic_menu_compass" />
 
