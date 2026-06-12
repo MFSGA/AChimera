@@ -12,6 +12,12 @@
     <string name="home_logs_empty">No runtime logs yet.</string>
     <string name="home_logs_copy">Copy Logs</string>
     <string name="home_logs_clear">Clear Logs</string>
+    <string name="cmfa_traffic_forwarded">Forwarded: %1$s</string>
+    <string name="cmfa_profile_activated">Activated: %1$s</string>
+    <string name="cmfa_help_title">Help</string>
+    <string name="cmfa_help_body">This screen follows the ClashMetaForAndroid main-page layout while using the current Chimera backend.</string>
+    <string name="switch_to_metacubex_ui">Switch to MetaCubeX UI</string>
+    <string name="switch_to_watfaq_ui">Switch to Watfaq UI</string>
     <string name="logs_screen">Logs</string>
     <string name="logs_autoscroll_title">Auto Scroll</string>
     <string name="logs_autoscroll_hint">Keep the log view pinned to the latest line.</string>
