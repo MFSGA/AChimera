@@ -32,6 +32,7 @@ class TunService : VpnService() {
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isDestroying = false
+    private var startRequested = false
 
     private data class ServiceSettings(
         val appFilterMode: String,
@@ -45,7 +46,26 @@ class TunService : VpnService() {
         val ipv6: Boolean,
     )
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
+        val shouldStart =
+            synchronized(this) {
+                if (startRequested || isDestroying) {
+                    false
+                } else {
+                    startRequested = true
+                    true
+                }
+            }
+        if (!shouldStart) {
+            Log.i(TAG, "Ignoring duplicate VPN start request")
+            appendRuntimeLog("ignored duplicate vpn start request")
+            return START_STICKY
+        }
+
         Log.i(TAG, "onStartCommand")
         appendRuntimeLog("service onStartCommand")
         ensureForegroundService()
@@ -95,11 +115,12 @@ class TunService : VpnService() {
             error("Invalid tun fd: $currentTunFd")
         }
 
-        val startResult = initClash(
-            configPath = profilePath,
-            workDir = Global.application.cacheDir.absolutePath,
-            over = createProfileOverride(currentTunFd, settings),
-        )
+        val startResult =
+            initClash(
+                configPath = profilePath,
+                workDir = Global.application.cacheDir.absolutePath,
+                over = createProfileOverride(currentTunFd, settings),
+            )
         if (startResult.isFailure) {
             throw startResult.exceptionOrNull()
                 ?: IllegalStateException("Failed to initialize Rust core")
@@ -124,11 +145,12 @@ class TunService : VpnService() {
     }
 
     private fun resolveProfilePath(): String {
-        val path = if (Global.profilePath.isBlank()) {
-            Global.restoreProfilePath()
-        } else {
-            Global.profilePath
-        }.trim()
+        val path =
+            if (Global.profilePath.isBlank()) {
+                Global.restoreProfilePath()
+            } else {
+                Global.profilePath
+            }.trim()
 
         if (path.isEmpty()) {
             throw IllegalStateException(getString(rs.chimera.android.R.string.service_profile_required))
@@ -153,22 +175,24 @@ class TunService : VpnService() {
             httpPort = prefs.getOptionalPort("http_port"),
             socksPort = prefs.getOptionalPort("socks_port"),
             fakeIp = prefs.getBoolean("fake_ip", false),
-            ipv6 = prefs.getBoolean("ipv6", true),
+            ipv6 = prefs.getBoolean("ipv6", false),
         )
     }
 
     private fun createProfileOverride(
         currentTunFd: Int,
         settings: ServiceSettings,
-    ): ProfileOverride {
-        return ProfileOverride(
+    ): ProfileOverride =
+        ProfileOverride(
             tunFd = currentTunFd,
             logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
+            allowLan = settings.allowLan,
             mixedPort = settings.mixedPort,
+            httpPort = settings.httpPort,
+            socksPort = settings.socksPort,
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
         )
-    }
 
     private fun applyAppFilter(
         builder: Builder,
@@ -204,7 +228,10 @@ class TunService : VpnService() {
             }
     }
 
-    private fun copyRuntimeAssetsIfAvailable(assets: AssetManager, cacheDir: File) {
+    private fun copyRuntimeAssetsIfAvailable(
+        assets: AssetManager,
+        cacheDir: File,
+    ) {
         listOf("Country.mmdb", "geosite.dat").forEach { name ->
             runCatching {
                 assets.open("clash-res/$name").use { input ->
@@ -289,16 +316,17 @@ class TunService : VpnService() {
     ) {
         val file = Global.runtimeLogFile()
         val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        val line = buildString {
-            append('[')
-            append(timestamp)
-            append("] ")
-            append(message)
-            if (error != null) {
-                append(": ")
-                append(error.message ?: error.javaClass.simpleName)
+        val line =
+            buildString {
+                append('[')
+                append(timestamp)
+                append("] ")
+                append(message)
+                if (error != null) {
+                    append(": ")
+                    append(error.message ?: error.javaClass.simpleName)
+                }
             }
-        }
 
         runCatching {
             file.parentFile?.mkdirs()
@@ -309,17 +337,23 @@ class TunService : VpnService() {
 
 private fun SharedPreferences.getOptionalPort(key: String): UShort? {
     val value = all[key] ?: return null
-    val intValue = when (value) {
-        is Int -> value
-        is Long -> value.toInt()
-        is String -> value.toIntOrNull()
-        else -> null
-    } ?: return null
+    val intValue =
+        when (value) {
+            is Int -> value
+            is Long -> value.toInt()
+            is String -> value.toIntOrNull()
+            else -> null
+        } ?: return null
 
-    return intValue.toUShort()
+    return intValue
+        .takeIf { it in MIN_PORT..MAX_PORT }
+        ?.toUShort()
 }
 
 private fun SharedPreferences.getPort(
     key: String,
     defaultValue: UShort,
 ): UShort = getOptionalPort(key) ?: defaultValue
+
+private const val MIN_PORT = 1
+private const val MAX_PORT = 65_535

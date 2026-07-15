@@ -1,7 +1,6 @@
 package rs.chimera.android.backend.model
 
 import uniffi.chimera_ffi.Mode
-import uniffi.chimera_ffi.Proxy
 
 data class ProxySnapshot(
     val name: String,
