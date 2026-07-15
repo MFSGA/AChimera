@@ -57,9 +57,10 @@ val fullAbiBuild = providers
 cargo {
     module = "../uniffi"
     libname = "chimera_ffi"
-    pythonCommand = "/usr/bin/python3"
+    // Resolve Python from PATH so Nix, Linux, and Windows environments can provide it differently.
+    pythonCommand = "python3"
 
-    extraCargoBuildArguments = arrayListOf("-p", "chimera-ffi")
+    extraCargoBuildArguments = arrayListOf("--locked", "-p", "chimera-ffi")
 
     if (hasSccache) {
         environmentalOverrides["RUSTC_WRAPPER"] = "sccache"

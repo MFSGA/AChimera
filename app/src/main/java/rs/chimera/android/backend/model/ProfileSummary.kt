@@ -14,4 +14,8 @@ data class ProfileSummary(
     val isRemote: Boolean,
     val lastUpdated: Long?,
     val fileSize: Long,
+    val url: String? = null,
+    val autoUpdate: Boolean = false,
+    val userAgent: String? = null,
+    val proxyUrl: String? = null,
 )

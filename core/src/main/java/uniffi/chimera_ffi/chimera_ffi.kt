@@ -316,7 +316,7 @@ internal inline fun<T, reified E: Throwable> uniffiTraitInterfaceCallWithError(
         }
     }
 }
-// Initial value and increment amount for handles. 
+// Initial value and increment amount for handles.
 // These ensure that Kotlin-generated handles always have the lowest bit set
 private const val UNIFFI_HANDLEMAP_INITIAL = 1.toLong()
 private const val UNIFFI_HANDLEMAP_DELTA = 2.toLong()
@@ -326,7 +326,7 @@ private const val UNIFFI_HANDLEMAP_DELTA = 2.toLong()
 // This is used pass an opaque 64-bit handle representing a foreign object to the Rust code.
 internal class UniffiHandleMap<T: Any> {
     private val map = ConcurrentHashMap<Long, T>()
-    // Start 
+    // Start
     private val counter = java.util.concurrent.atomic.AtomicLong(UNIFFI_HANDLEMAP_INITIAL)
 
     val size: Int
@@ -667,10 +667,6 @@ internal object IntegrityCheckingUniffiLib {
         uniffiCheckContractApiVersion(this)
         uniffiCheckApiChecksums(this)
     }
-    external fun uniffi_chimera_ffi_checksum_func_download_file(
-    ): Short
-    external fun uniffi_chimera_ffi_checksum_func_download_file_with_progress(
-    ): Short
     external fun uniffi_chimera_ffi_checksum_func_hello(
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_run_clash(
@@ -678,6 +674,10 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_chimera_ffi_checksum_func_shutdown(
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_verify_config(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_func_download_file(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_func_download_file_with_progress(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs(
     ): Short
@@ -704,27 +704,27 @@ internal object IntegrityCheckingUniffiLib {
     external fun ffi_chimera_ffi_uniffi_contract_version(
     ): Int
 
-        
+
 }
 
 internal object UniffiLib {
-    
+
     // The Cleaner for the whole library
     internal val CLEANER: UniffiCleaner by lazy {
         UniffiCleaner.create()
     }
-    
+
 
     init {
         Native.register(UniffiLib::class.java, findLibraryName(componentName = "chimera_ffi"))
         uniffiCallbackInterfaceDownloadProgressCallback.register(this)
-        
+
     }
-    external fun uniffi_chimera_ffi_fn_clone_clashcontroller(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_chimera_ffi_fn_clone_clashcontroller(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Long
-    external fun uniffi_chimera_ffi_fn_free_clashcontroller(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_chimera_ffi_fn_free_clashcontroller(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    external fun uniffi_chimera_ffi_fn_constructor_clashcontroller_new(`socketPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun uniffi_chimera_ffi_fn_constructor_clashcontroller_new(`socketPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(`ptr`: Long,
     ): Long
@@ -746,25 +746,25 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
     ): Unit
+    external fun uniffi_chimera_ffi_fn_func_hello(uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_chimera_ffi_fn_func_run_clash(`configPath`: RustBuffer.ByValue,`workDir`: RustBuffer.ByValue,`over`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_chimera_ffi_fn_func_shutdown(uniffi_out_err: UniffiRustCallStatus,
+    ): Unit
+    external fun uniffi_chimera_ffi_fn_func_verify_config(`configPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_download_file(`url`: RustBuffer.ByValue,`outputPath`: RustBuffer.ByValue,`userAgent`: RustBuffer.ByValue,`proxyUrl`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_func_download_file_with_progress(`url`: RustBuffer.ByValue,`outputPath`: RustBuffer.ByValue,`userAgent`: RustBuffer.ByValue,`proxyUrl`: RustBuffer.ByValue,`progressCallback`: RustBuffer.ByValue,
     ): Long
-    external fun uniffi_chimera_ffi_fn_func_hello(uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    external fun uniffi_chimera_ffi_fn_func_run_clash(`configPath`: RustBuffer.ByValue,`workDir`: RustBuffer.ByValue,`over`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
-    external fun uniffi_chimera_ffi_fn_func_shutdown(uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
-    external fun uniffi_chimera_ffi_fn_func_verify_config(`configPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun ffi_chimera_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun ffi_chimera_ffi_rustbuffer_from_bytes(`bytes`: ForeignBytes.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): RustBuffer.ByValue
-    external fun ffi_chimera_ffi_rustbuffer_free(`buf`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
-    ): Unit
-    external fun ffi_chimera_ffi_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rustbuffer_reserve(`buf`: RustBuffer.ByValue,`additional`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun ffi_chimera_ffi_rust_future_poll_u8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -772,7 +772,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_u8(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_u8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Byte
     external fun ffi_chimera_ffi_rust_future_poll_i8(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -780,7 +780,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_i8(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_i8(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Byte
     external fun ffi_chimera_ffi_rust_future_poll_u16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -788,7 +788,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_u16(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_u16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Short
     external fun ffi_chimera_ffi_rust_future_poll_i16(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -796,7 +796,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_i16(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_i16(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Short
     external fun ffi_chimera_ffi_rust_future_poll_u32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -804,7 +804,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_u32(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_u32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Int
     external fun ffi_chimera_ffi_rust_future_poll_i32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -812,7 +812,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_i32(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_i32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Int
     external fun ffi_chimera_ffi_rust_future_poll_u64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -820,7 +820,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_u64(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_u64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Long
     external fun ffi_chimera_ffi_rust_future_poll_i64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -828,7 +828,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_i64(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_i64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Long
     external fun ffi_chimera_ffi_rust_future_poll_f32(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -836,7 +836,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_f32(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_f32(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Float
     external fun ffi_chimera_ffi_rust_future_poll_f64(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -844,7 +844,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_f64(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_f64(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Double
     external fun ffi_chimera_ffi_rust_future_poll_rust_buffer(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -852,7 +852,7 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_rust_buffer(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_rust_buffer(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun ffi_chimera_ffi_rust_future_poll_void(`handle`: Long,`callback`: UniffiRustFutureContinuationCallback,`callbackData`: Long,
     ): Unit
@@ -860,10 +860,10 @@ internal object UniffiLib {
     ): Unit
     external fun ffi_chimera_ffi_rust_future_free_void(`handle`: Long,
     ): Unit
-    external fun ffi_chimera_ffi_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
+    external fun ffi_chimera_ffi_rust_future_complete_void(`handle`: Long,uniffi_out_err: UniffiRustCallStatus,
     ): Unit
 
-        
+
 }
 
 private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
@@ -877,12 +877,6 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
-    if (lib.uniffi_chimera_ffi_checksum_func_download_file() != 23863.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_chimera_ffi_checksum_func_download_file_with_progress() != 8745.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
     if (lib.uniffi_chimera_ffi_checksum_func_hello() != 60002.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -893,6 +887,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_func_verify_config() != 32534.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_func_download_file() != 63148.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_func_download_file_with_progress() != 62176.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 12014.toShort()) {
@@ -925,7 +925,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_constructor_clashcontroller_new() != 63231.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress() != 55716.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_downloadprogresscallback_on_progress() != 48830.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
 }
@@ -1043,7 +1043,7 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
         }
     }
 
-/** 
+/**
  * Placeholder object used to signal that we're constructing an interface with a FFI handle.
  *
  * This is the first argument for interface constructors that input a raw handle. It exists is that
@@ -1054,7 +1054,7 @@ inline fun <T : Disposable?, R> T.use(block: (T) -> R) =
  * */
 object UniffiWithHandle
 
-/** 
+/**
  * Used to instantiate an interface without an actual pointer, for fakes in tests, mostly.
  *
  * @suppress
@@ -1425,25 +1425,25 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 
 
 public interface ClashControllerInterface {
-    
+
     suspend fun `getConfigs`(): ConfigResponse
-    
+
     suspend fun `getConnections`(): ConnectionsResponse
-    
+
     suspend fun `getMemory`(): MemoryResponse
-    
+
     suspend fun `getMode`(): Mode?
-    
+
     suspend fun `getProxies`(): List<Proxy>
-    
+
     suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?): DelayResponse
-    
+
     suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String)
-    
+
     suspend fun `setMode`(`mode`: Mode)
-    
+
     suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>)
-    
+
     companion object
 }
 
@@ -1472,10 +1472,10 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         this.cleanable = null
     }
     constructor(`socketPath`: kotlin.String) :
-        this(UniffiWithHandle, 
+        this(UniffiWithHandle,
     uniffiRustCall() { _status ->
     UniffiLib.uniffi_chimera_ffi_fn_constructor_clashcontroller_new(
-    
+
         FfiConverterString.lower(`socketPath`),_status)
 }
     )
@@ -1551,7 +1551,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         }
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getConfigs`() : ConfigResponse {
@@ -1559,7 +1559,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(
                 uniffiHandle,
-                
+
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -1572,7 +1572,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getConnections`() : ConnectionsResponse {
@@ -1580,7 +1580,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_connections(
                 uniffiHandle,
-                
+
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -1593,7 +1593,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getMemory`() : MemoryResponse {
@@ -1601,7 +1601,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_memory(
                 uniffiHandle,
-                
+
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -1614,7 +1614,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getMode`() : Mode? {
@@ -1622,7 +1622,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_mode(
                 uniffiHandle,
-                
+
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -1635,7 +1635,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getProxies`() : List<Proxy> {
@@ -1643,7 +1643,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         callWithHandle { uniffiHandle ->
             UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_proxies(
                 uniffiHandle,
-                
+
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
@@ -1656,7 +1656,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?) : DelayResponse {
@@ -1677,7 +1677,7 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String) {
@@ -1693,13 +1693,13 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
         // lift function
         { Unit },
-        
+
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `setMode`(`mode`: Mode) {
@@ -1715,13 +1715,13 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
         // lift function
         { Unit },
-        
+
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
     }
 
-    
+
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>) {
@@ -1737,24 +1737,24 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
         // lift function
         { Unit },
-        
+
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
     }
 
-    
-
-    
 
 
-    
-    
+
+
+
+
+
     /**
      * @suppress
      */
     companion object
-    
+
 }
 
 
@@ -1785,17 +1785,17 @@ public object FfiConverterTypeClashController: FfiConverter<ClashController, Lon
 
 data class ConfigResponse (
     var `externalController`: kotlin.String?
-    , 
+    ,
     var `secret`: kotlin.String?
-    , 
+    ,
     var `mode`: Mode?
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -1828,25 +1828,25 @@ public object FfiConverterTypeConfigResponse: FfiConverterRustBuffer<ConfigRespo
 
 data class Connection (
     var `id`: kotlin.String
-    , 
+    ,
     var `metadata`: Metadata
-    , 
+    ,
     var `upload`: kotlin.Long
-    , 
+    ,
     var `download`: kotlin.Long
-    , 
+    ,
     var `start`: kotlin.String
-    , 
+    ,
     var `chains`: List<kotlin.String>
-    , 
+    ,
     var `rule`: kotlin.String?
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -1891,19 +1891,19 @@ public object FfiConverterTypeConnection: FfiConverterRustBuffer<Connection> {
 
 data class ConnectionsResponse (
     var `downloadTotal`: kotlin.Long
-    , 
+    ,
     var `uploadTotal`: kotlin.Long
-    , 
+    ,
     var `memory`: kotlin.Long?
-    , 
+    ,
     var `connections`: List<Connection>
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -1939,15 +1939,15 @@ public object FfiConverterTypeConnectionsResponse: FfiConverterRustBuffer<Connec
 
 data class DelayHistory (
     var `time`: kotlin.String
-    , 
+    ,
     var `delay`: kotlin.Int
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -1977,13 +1977,13 @@ public object FfiConverterTypeDelayHistory: FfiConverterRustBuffer<DelayHistory>
 
 data class DelayResponse (
     var `delay`: kotlin.Int
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2010,15 +2010,15 @@ public object FfiConverterTypeDelayResponse: FfiConverterRustBuffer<DelayRespons
 
 data class DownloadProgress (
     var `downloaded`: kotlin.ULong
-    , 
+    ,
     var `total`: kotlin.ULong
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2048,17 +2048,17 @@ public object FfiConverterTypeDownloadProgress: FfiConverterRustBuffer<DownloadP
 
 data class DownloadResult (
     var `success`: kotlin.Boolean
-    , 
+    ,
     var `fileSize`: kotlin.ULong
-    , 
+    ,
     var `errorMessage`: kotlin.String?
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2090,14 +2090,14 @@ public object FfiConverterTypeDownloadResult: FfiConverterRustBuffer<DownloadRes
 
 
 data class FinalProfile (
-    var `mixedPort`: kotlin.UShort = 7890u 
-    
+    var `mixedPort`: kotlin.UShort = 7890u
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2124,15 +2124,15 @@ public object FfiConverterTypeFinalProfile: FfiConverterRustBuffer<FinalProfile>
 
 data class MemoryResponse (
     var `inuse`: kotlin.Long
-    , 
+    ,
     var `oslimit`: kotlin.Long
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2162,25 +2162,25 @@ public object FfiConverterTypeMemoryResponse: FfiConverterRustBuffer<MemoryRespo
 
 data class Metadata (
     var `network`: kotlin.String
-    , 
+    ,
     var `metadataType`: kotlin.String
-    , 
+    ,
     var `sourceIp`: kotlin.String
-    , 
+    ,
     var `destinationIp`: kotlin.String?
-    , 
+    ,
     var `sourcePort`: kotlin.UShort?
-    , 
+    ,
     var `destinationPort`: kotlin.UShort
-    , 
+    ,
     var `host`: kotlin.String
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2225,23 +2225,29 @@ public object FfiConverterTypeMetadata: FfiConverterRustBuffer<Metadata> {
 
 data class ProfileOverride (
     var `tunFd`: kotlin.Int
-    , 
+    ,
     var `logFilePath`: kotlin.String
-    , 
-    var `mixedPort`: kotlin.UShort = 7890u 
-    , 
-    var `fakeIp`: kotlin.Boolean = false 
-    , 
-    var `fakeIpRange`: kotlin.String = "198.18.0.2/16" 
-    , 
-    var `ipv6`: kotlin.Boolean = true 
-    
+    ,
+    var `allowLan`: kotlin.Boolean = false
+    ,
+    var `mixedPort`: kotlin.UShort = 7890u
+    ,
+    var `httpPort`: kotlin.UShort? = null
+    ,
+    var `socksPort`: kotlin.UShort? = null
+    ,
+    var `fakeIp`: kotlin.Boolean = false
+    ,
+    var `fakeIpRange`: kotlin.String = "198.18.0.2/16"
+    ,
+    var `ipv6`: kotlin.Boolean = false
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2253,7 +2259,10 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
         return ProfileOverride(
             FfiConverterInt.read(buf),
             FfiConverterString.read(buf),
+            FfiConverterBoolean.read(buf),
             FfiConverterUShort.read(buf),
+            FfiConverterOptionalUShort.read(buf),
+            FfiConverterOptionalUShort.read(buf),
             FfiConverterBoolean.read(buf),
             FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
@@ -2263,7 +2272,10 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
     override fun allocationSize(value: ProfileOverride) = (
             FfiConverterInt.allocationSize(value.`tunFd`) +
             FfiConverterString.allocationSize(value.`logFilePath`) +
+            FfiConverterBoolean.allocationSize(value.`allowLan`) +
             FfiConverterUShort.allocationSize(value.`mixedPort`) +
+            FfiConverterOptionalUShort.allocationSize(value.`httpPort`) +
+            FfiConverterOptionalUShort.allocationSize(value.`socksPort`) +
             FfiConverterBoolean.allocationSize(value.`fakeIp`) +
             FfiConverterString.allocationSize(value.`fakeIpRange`) +
             FfiConverterBoolean.allocationSize(value.`ipv6`)
@@ -2272,7 +2284,10 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
     override fun write(value: ProfileOverride, buf: ByteBuffer) {
             FfiConverterInt.write(value.`tunFd`, buf)
             FfiConverterString.write(value.`logFilePath`, buf)
+            FfiConverterBoolean.write(value.`allowLan`, buf)
             FfiConverterUShort.write(value.`mixedPort`, buf)
+            FfiConverterOptionalUShort.write(value.`httpPort`, buf)
+            FfiConverterOptionalUShort.write(value.`socksPort`, buf)
             FfiConverterBoolean.write(value.`fakeIp`, buf)
             FfiConverterString.write(value.`fakeIpRange`, buf)
             FfiConverterBoolean.write(value.`ipv6`, buf)
@@ -2283,21 +2298,21 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
 
 data class Proxy (
     var `name`: kotlin.String
-    , 
+    ,
     var `proxyType`: kotlin.String
-    , 
+    ,
     var `all`: List<kotlin.String>
-    , 
+    ,
     var `now`: kotlin.String?
-    , 
+    ,
     var `history`: List<DelayHistory>
-    
+
 ){
-    
 
-    
 
-    
+
+
+
     companion object
 }
 
@@ -2337,24 +2352,24 @@ public object FfiConverterTypeProxy: FfiConverterRustBuffer<Proxy> {
 
 
 sealed class ChimeraException: kotlin.Exception() {
-    
+
     class Runtime(
-        
+
         val `details`: kotlin.String
         ) : ChimeraException() {
         override val message
             get() = "details=${ `details` }"
     }
-    
 
-    
+
+
 
 
     companion object ErrorHandler : UniffiRustCallStatusErrorHandler<ChimeraException> {
         override fun lift(error_buf: RustBuffer.ByValue): ChimeraException = FfiConverterTypeChimeraError.lift(error_buf)
     }
 
-    
+
 }
 
 /**
@@ -2362,7 +2377,7 @@ sealed class ChimeraException: kotlin.Exception() {
  */
 public object FfiConverterTypeChimeraError : FfiConverterRustBuffer<ChimeraException> {
     override fun read(buf: ByteBuffer): ChimeraException {
-        
+
 
         return when(buf.getInt()) {
             1 -> ChimeraException.Runtime(
@@ -2398,12 +2413,12 @@ public object FfiConverterTypeChimeraError : FfiConverterRustBuffer<ChimeraExcep
 
 
 enum class Mode {
-    
+
     RULE,
     GLOBAL,
     DIRECT;
 
-    
+
 
 
     companion object
@@ -2434,9 +2449,9 @@ public object FfiConverterTypeMode: FfiConverterRustBuffer<Mode> {
 
 
 public interface DownloadProgressCallback {
-    
+
     fun `onProgress`(`progress`: DownloadProgress)
-    
+
     companion object
 }
 
@@ -2838,6 +2853,48 @@ public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.Str
 
 
 
+ fun `hello`(): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_hello(
+
+        _status)
+}
+    )
+    }
+
+
+    @Throws(ChimeraException::class) fun `runClash`(`configPath`: kotlin.String, `workDir`: kotlin.String, `over`: ProfileOverride): FinalProfile {
+            return FfiConverterTypeFinalProfile.lift(
+    uniffiRustCallWithError(ChimeraException) { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_run_clash(
+
+        FfiConverterString.lower(`configPath`),FfiConverterString.lower(`workDir`),FfiConverterTypeProfileOverride.lower(`over`),_status)
+}
+    )
+    }
+
+
+    @Throws(ChimeraException::class) fun `shutdown`()
+        =
+    uniffiRustCallWithError(ChimeraException) { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_shutdown(
+
+        _status)
+}
+
+
+
+    @Throws(ChimeraException::class) fun `verifyConfig`(`configPath`: kotlin.String): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(ChimeraException) { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_verify_config(
+
+        FfiConverterString.lower(`configPath`),_status)
+}
+    )
+    }
+
 
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
@@ -2868,47 +2925,5 @@ public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.Str
         ChimeraException.ErrorHandler,
     )
     }
- fun `hello`(): kotlin.String {
-            return FfiConverterString.lift(
-    uniffiRustCall() { _status ->
-    UniffiLib.uniffi_chimera_ffi_fn_func_hello(
-    
-        _status)
-}
-    )
-    }
-    
-
-    @Throws(ChimeraException::class) fun `runClash`(`configPath`: kotlin.String, `workDir`: kotlin.String, `over`: ProfileOverride): FinalProfile {
-            return FfiConverterTypeFinalProfile.lift(
-    uniffiRustCallWithError(ChimeraException) { _status ->
-    UniffiLib.uniffi_chimera_ffi_fn_func_run_clash(
-    
-        FfiConverterString.lower(`configPath`),FfiConverterString.lower(`workDir`),FfiConverterTypeProfileOverride.lower(`over`),_status)
-}
-    )
-    }
-    
-
-    @Throws(ChimeraException::class) fun `shutdown`()
-        = 
-    uniffiRustCallWithError(ChimeraException) { _status ->
-    UniffiLib.uniffi_chimera_ffi_fn_func_shutdown(
-    
-        _status)
-}
-    
-    
-
-    @Throws(ChimeraException::class) fun `verifyConfig`(`configPath`: kotlin.String): kotlin.String {
-            return FfiConverterString.lift(
-    uniffiRustCallWithError(ChimeraException) { _status ->
-    UniffiLib.uniffi_chimera_ffi_fn_func_verify_config(
-    
-        FfiConverterString.lower(`configPath`),_status)
-}
-    )
-    }
-    
 
 
