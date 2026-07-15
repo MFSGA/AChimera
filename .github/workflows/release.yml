@@ -126,12 +126,13 @@ jobs:
           # Update uniffi/Cargo.toml workspace version
           if [ -f uniffi/Cargo.toml ]; then
             sed -i -E "0,/^(version = \")[0-9]+\.[0-9]+\.[0-9]+(\")/{s//\1${NEW_VERSION}\2/}" uniffi/Cargo.toml
+            cargo update --manifest-path uniffi/Cargo.toml -p chimera-ffi
             echo "Updated uniffi/Cargo.toml:"
             grep -E '^version' uniffi/Cargo.toml | head -n 3
           fi
 
           echo "----- diff -----"
-          git --no-pager diff -- app/build.gradle.kts uniffi/Cargo.toml || true
+          git --no-pager diff -- app/build.gradle.kts uniffi/Cargo.toml uniffi/Cargo.lock || true
 
       - name: Create commit and tag
         env:
@@ -141,10 +142,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet -- app/build.gradle.kts uniffi/Cargo.toml; then
+          if git diff --quiet -- app/build.gradle.kts uniffi/Cargo.toml uniffi/Cargo.lock; then
             echo "Version files already match ${NEW_TAG}; skipping commit"
           else
-            git add app/build.gradle.kts uniffi/Cargo.toml
+            git add app/build.gradle.kts uniffi/Cargo.toml uniffi/Cargo.lock
             git commit -m "chore(release): bump version to ${NEW_TAG}"
           fi
 
