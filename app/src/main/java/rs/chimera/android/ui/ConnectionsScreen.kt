@@ -31,9 +31,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
+import rs.chimera.android.backend.model.ConnectionSnapshot
 import rs.chimera.android.formatSize
 import rs.chimera.android.viewmodel.ConnectionsViewModel
-import uniffi.chimera_ffi.Connection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +78,7 @@ fun ConnectionsScreen(
 
 @Composable
 private fun ConnectionsContent(
-    connections: List<Connection>,
+    connections: List<ConnectionSnapshot>,
     downloadTotal: Long,
     uploadTotal: Long,
     errorMessage: String?,
@@ -193,14 +193,17 @@ private fun SummaryMetric(
 
 @Composable
 private fun ConnectionCard(
-    connection: Connection,
+    connection: ConnectionSnapshot,
     modifier: Modifier = Modifier,
 ) {
     val metadata = connection.metadata
-    val destinationHost = metadata.host.ifEmpty { metadata.destinationIp.orEmpty() }
-    val destinationIp = metadata.destinationIp ?: stringResource(R.string.not_available)
-    val sourcePort = metadata.sourcePort?.toString() ?: "?"
-    val destinationPort = metadata.destinationPort.toString()
+    val destinationHost = connection.host.ifEmpty { metadata["destinationIp"].orEmpty() }
+    val destinationIp = metadata["destinationIp"]?.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.not_available)
+    val sourceIp = metadata["sourceIp"]?.takeIf { it.isNotBlank() } ?: "?"
+    val sourcePort = metadata["sourcePort"]?.takeIf { it.isNotBlank() } ?: "?"
+    val destinationPort = metadata["destinationPort"]?.takeIf { it.isNotBlank() } ?: "?"
+    val network = metadata["network"]?.takeIf { it.isNotBlank() } ?: "?"
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -224,7 +227,7 @@ private fun ConnectionCard(
                     modifier = Modifier.weight(1f),
                 )
                 Text(
-                    text = metadata.network.uppercase(),
+                    text = network.uppercase(),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.secondary,
                 )
@@ -238,7 +241,7 @@ private fun ConnectionCard(
             Text(
                 text = stringResource(
                     R.string.connections_source,
-                    "${metadata.sourceIp}:$sourcePort",
+                    "$sourceIp:$sourcePort",
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,

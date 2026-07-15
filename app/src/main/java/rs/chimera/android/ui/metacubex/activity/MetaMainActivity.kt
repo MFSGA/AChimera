@@ -92,6 +92,14 @@ class MetaMainActivity : AppCompatActivity() {
                         delay(3000)
                     }
                 }
+
+                launch {
+                    backend.runtimeError.collect { error ->
+                        error?.let {
+                            design.showToast(it.message)
+                        }
+                    }
+                }
             }
         }
     }

@@ -7,21 +7,17 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import rs.chimera.android.Global
-import uniffi.chimera_ffi.ClashController
-import uniffi.chimera_ffi.Connection
+import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.model.ConnectionSnapshot
 
 class ConnectionsViewModel : ViewModel() {
-    private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
-    private var pollingJob: Job? = null
-    private val fetchMutex = Mutex()
+    private val backend: ChimeraBackend = BackendProvider.provide()
+    private var observationJob: Job? = null
 
-    var connections by mutableStateOf<List<Connection>>(emptyList())
+    var connections by mutableStateOf<List<ConnectionSnapshot>>(emptyList())
         private set
 
     var downloadTotal by mutableLongStateOf(0L)
@@ -34,21 +30,23 @@ class ConnectionsViewModel : ViewModel() {
         private set
 
     fun startPolling() {
-        if (pollingJob != null) {
+        if (observationJob != null) {
             return
         }
 
-        pollingJob = viewModelScope.launch {
-            while (isActive) {
-                fetchConnectionsInternal()
-                delay(2000)
+        observationJob = viewModelScope.launch {
+            backend.connections.collectLatest { snapshot ->
+                errorMessage = null
+                connections = snapshot.connections
+                downloadTotal = snapshot.downloadTotal
+                uploadTotal = snapshot.uploadTotal
             }
         }
     }
 
     fun stopPolling() {
-        pollingJob?.cancel()
-        pollingJob = null
+        observationJob?.cancel()
+        observationJob = null
     }
 
     fun fetchConnections() {
@@ -69,17 +67,17 @@ class ConnectionsViewModel : ViewModel() {
     }
 
     private suspend fun fetchConnectionsInternal() {
-        fetchMutex.withLock {
-            errorMessage = null
-            try {
-                val response = controller.getConnections()
-                connections = response.connections
-                downloadTotal = response.downloadTotal
-                uploadTotal = response.uploadTotal
-            } catch (error: Exception) {
-                connections = emptyList()
-                errorMessage = formatError("Failed to load connections", error)
-            }
+        errorMessage = null
+        try {
+            val snapshot = backend.listConnections()
+            connections = snapshot.connections
+            downloadTotal = snapshot.downloadTotal
+            uploadTotal = snapshot.uploadTotal
+        } catch (error: Exception) {
+            connections = emptyList()
+            downloadTotal = 0L
+            uploadTotal = 0L
+            errorMessage = formatError("Failed to load connections", error)
         }
     }
 }
