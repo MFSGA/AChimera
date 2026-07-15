@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
-val baseVersionName = "0.5.0"
+val baseVersionName = "0.5.1"
 val Project.verName: String
     get() {
         val commit = exec("git rev-parse --short HEAD")
