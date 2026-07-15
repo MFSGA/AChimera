@@ -14,10 +14,10 @@ AChimera — это экспериментальный прокси-клиент
 
 ## Технологический стек
 
-- Android SDK 36
+- Android SDK 37
 - Kotlin + Jetpack Compose
-- Java 21 Toolchain
-- Rust 2021
+- Java 25 Toolchain
+- Rust 2024
 - UniFFI
 - `cargo-ndk`
 - `clash-lib` как зависимость Rust-ядра
@@ -26,8 +26,8 @@ AChimera — это экспериментальный прокси-клиент
 
 Перед локальной сборкой необходимо подготовить как минимум:
 
-- JDK 21
-- Android SDK
+- JDK 25
+- Android SDK 37 и Build Tools 36.0.0
 - Android NDK `29.0.14206865`
 - Rust toolchain
 - `cargo-ndk`

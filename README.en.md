@@ -14,10 +14,10 @@ The current app name is `Chimera Lite`, and the package includes both the Androi
 
 ## Tech Stack
 
-- Android SDK 36
+- Android SDK 37
 - Kotlin + Jetpack Compose
-- Java 21 Toolchain
-- Rust 2021
+- Java 25 Toolchain
+- Rust 2024
 - UniFFI
 - `cargo-ndk`
 - `clash-lib` as the Rust core dependency
@@ -26,8 +26,8 @@ The current app name is `Chimera Lite`, and the package includes both the Androi
 
 Before building locally, prepare at least:
 
-- JDK 21
-- Android SDK
+- JDK 25
+- Android SDK 37 and Build Tools 36.0.0
 - Android NDK `29.0.14206865`
 - Rust toolchain
 - `cargo-ndk`
