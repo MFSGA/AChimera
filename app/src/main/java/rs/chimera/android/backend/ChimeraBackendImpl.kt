@@ -83,7 +83,8 @@ class ChimeraBackendImpl : ChimeraBackend {
         observeProxyGroups()
     }
 
-    override suspend fun prepareStartVpn(context: Context): StartVpnResult {
+    override suspend fun prepareStartVpn(): StartVpnResult {
+        val context = Global.application
         val path = Global.profilePath
         if (path.isBlank()) {
             return StartVpnResult.Error(context.getString(rs.chimera.android.R.string.service_profile_required))

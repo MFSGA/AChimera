@@ -1,6 +1,5 @@
 package rs.chimera.android.backend
 
-import android.content.Context
 import android.net.Uri
 import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.BackendRuntimeError
@@ -23,7 +22,7 @@ interface ChimeraBackend {
     val connections: StateFlow<ConnectionsSnapshot>
     val runtimeError: StateFlow<BackendRuntimeError?>
 
-    suspend fun prepareStartVpn(context: Context): StartVpnResult
+    suspend fun prepareStartVpn(): StartVpnResult
     suspend fun startVpnAfterPermission()
     suspend fun stopVpn()
 

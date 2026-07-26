@@ -1,8 +1,6 @@
 package rs.chimera.android.viewmodel
 
-import android.content.Context.MODE_PRIVATE
 import android.content.Intent
-import android.content.SharedPreferences
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.result.ActivityResult
 import androidx.compose.runtime.getValue
@@ -11,30 +9,26 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
-import rs.chimera.android.service.tunService
-import uniffi.chimera_ffi.ClashController
+import uniffi.chimera_ffi.DelayHistory
 import uniffi.chimera_ffi.MemoryResponse
 import uniffi.chimera_ffi.Mode
 import uniffi.chimera_ffi.Proxy
 
-class HomeViewModel : ViewModel() {
-    var profilePath = MutableLiveData<String?>(null)
-
-    var isVpnRunning by mutableStateOf(tunService != null)
+class HomeViewModel(
+    private val backend: ChimeraBackend = BackendProvider.provide(),
+) : ViewModel() {
+    var isVpnRunning by mutableStateOf(false)
         private set
 
     var proxies by mutableStateOf(emptyArray<Proxy>())
@@ -66,82 +60,45 @@ class HomeViewModel : ViewModel() {
     var totalUpload by mutableLongStateOf(0)
         private set
 
-    private val backend: ChimeraBackend = BackendProvider.provide()
-    private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
-    private var statsPollingJob: Job? = null
-    private val sharedPreferenceChangeListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { sharedPreferences, key ->
-            if (key == PROFILE_PATH_KEY) {
-                val path = sharedPreferences.getString(PROFILE_PATH_KEY, null)
-                profilePath.value = path
-                Global.restoreProfilePath()
-            }
-        }
-
     init {
-        val context = Global.application.applicationContext
-        val sharedPreferences = context.getSharedPreferences(FILE_PREFS, MODE_PRIVATE)
-        val initialPath = sharedPreferences.getString(PROFILE_PATH_KEY, null)
-        profilePath.value = initialPath
-        Global.restoreProfilePath()
-        sharedPreferences.registerOnSharedPreferenceChangeListener(sharedPreferenceChangeListener)
+        observeBackend()
+    }
 
+    private fun observeBackend() {
         viewModelScope.launch {
             backend.serviceState.collectLatest { state ->
-                val running = state == ServiceState.RUNNING
-                isVpnRunning = running
-                errorMessage = null
-                statsPollingJob?.cancel()
-                if (running) {
-                    delay(1000)
-                    fetchMode()
-                    fetchProxies()
-                    startStatsPolling()
-                } else {
+                isVpnRunning = state == ServiceState.RUNNING
+                if (!isVpnRunning) {
                     proxies = emptyArray()
                     delays.clear()
                     currentMode = Mode.RULE
                     isModeUpdating = false
-                    memoryUsage = null
-                    connectionCount = 0
-                    totalDownload = 0
-                    totalUpload = 0
                 }
             }
         }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        statsPollingJob?.cancel()
-        Global.application
-            .getSharedPreferences(FILE_PREFS, MODE_PRIVATE)
-            .unregisterOnSharedPreferenceChangeListener(sharedPreferenceChangeListener)
-    }
-
-    private fun startStatsPolling() {
-        statsPollingJob?.cancel()
-        statsPollingJob = viewModelScope.launch {
-            while (isVpnRunning) {
-                fetchOverviewStats()
-                delay(3000)
+        viewModelScope.launch {
+            backend.proxyGroups.collectLatest(::applyProxyGroups)
+        }
+        viewModelScope.launch {
+            backend.memoryInfo.collectLatest { memory ->
+                memoryUsage = if (memory.inUse == 0L && memory.osLimit == 0L) {
+                    null
+                } else {
+                    MemoryResponse(memory.inUse, memory.osLimit)
+                }
             }
         }
-    }
-
-    private suspend fun fetchOverviewStats() {
-        if (!isVpnRunning) {
-            return
+        viewModelScope.launch {
+            backend.traffic.collectLatest { traffic ->
+                connectionCount = traffic.connectionCount
+                totalDownload = traffic.downloadTotal
+                totalUpload = traffic.uploadTotal
+            }
         }
-
-        try {
-            memoryUsage = controller.getMemory()
-            val connectionResponse = controller.getConnections()
-            connectionCount = connectionResponse.connections.size
-            totalDownload = connectionResponse.downloadTotal
-            totalUpload = connectionResponse.uploadTotal
-        } catch (error: Exception) {
-            errorMessage = formatError("Failed to fetch stats", error)
+        viewModelScope.launch {
+            backend.runtimeError.collectLatest { error ->
+                errorMessage = error?.message
+            }
         }
     }
 
@@ -155,13 +112,7 @@ class HomeViewModel : ViewModel() {
         errorMessage = null
         viewModelScope.launch {
             try {
-                val response = controller.getProxies()
-                response.forEach { proxy ->
-                    proxy.history.lastOrNull()?.delay?.takeIf { it > 0 }?.let { lastDelay ->
-                        delays[proxy.name] = "${lastDelay}ms"
-                    }
-                }
-                proxies = response.toTypedArray()
+                applyProxyGroups(backend.listProxyGroups())
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to fetch proxies", error)
             } finally {
@@ -171,18 +122,7 @@ class HomeViewModel : ViewModel() {
     }
 
     fun fetchMode() {
-        if (!isVpnRunning) {
-            currentMode = Mode.RULE
-            return
-        }
-
-        viewModelScope.launch {
-            try {
-                currentMode = controller.getMode() ?: Mode.RULE
-            } catch (error: Exception) {
-                errorMessage = formatError("Failed to fetch mode", error)
-            }
-        }
+        currentMode = backend.proxyGroups.value.firstOrNull()?.mode ?: Mode.RULE
     }
 
     fun switchMode(mode: Mode) {
@@ -195,7 +135,7 @@ class HomeViewModel : ViewModel() {
             isModeUpdating = true
             errorMessage = null
             try {
-                controller.setMode(mode)
+                backend.setMode(mode)
                 currentMode = mode
                 fetchProxies()
             } catch (error: Exception) {
@@ -222,7 +162,7 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             errorMessage = null
             try {
-                controller.selectProxy(groupName, proxyName)
+                backend.selectProxy(groupName, proxyName)
                 fetchProxies()
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to select proxy", error)
@@ -235,13 +175,8 @@ class HomeViewModel : ViewModel() {
     }
 
     fun startVpn(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>? = null) {
-        if (Global.profilePath.isBlank()) {
-            errorMessage = "Please select a config file first"
-            return
-        }
-
         viewModelScope.launch {
-            when (val result = backend.prepareStartVpn(Global.application)) {
+            when (val result = backend.prepareStartVpn()) {
                 is StartVpnResult.Prepared -> launcher?.launch(result.intent)
                 is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
                 is StartVpnResult.Error -> errorMessage = result.message
@@ -256,13 +191,31 @@ class HomeViewModel : ViewModel() {
     }
 
     private suspend fun testProxyDelay(name: String) {
-        try {
-            delays[name] = "testing..."
-            val response = controller.getProxyDelay(name, null, null)
-            delays[name] = "${response.delay}ms"
-        } catch (_: Exception) {
-            delays[name] = "timeout"
-        }
+        delays[name] = "testing..."
+        delays[name] = backend.testProxyDelay(name)
+    }
+
+    private fun applyProxyGroups(groups: List<ProxyGroupSnapshot>) {
+        currentMode = groups.firstOrNull()?.mode ?: Mode.RULE
+        proxies = groups.map { group ->
+            Proxy(
+                name = group.name,
+                proxyType = group.proxyDetails[group.name]?.type ?: "Selector",
+                all = group.proxies,
+                now = group.selected,
+                history = group.proxyDetails[group.name]
+                    ?.history
+                    .orEmpty()
+                    .map { DelayHistory(time = it.time.toString(), delay = it.delay) },
+            )
+        }.toTypedArray()
+        groups.asSequence()
+            .flatMap { it.proxyDetails.asSequence() }
+            .forEach { (name, proxy) ->
+                proxy.history.lastOrNull()?.delay?.takeIf { it > 0 }?.let { delay ->
+                    delays[name] = "${delay}ms"
+                }
+            }
     }
 
     private fun formatError(
@@ -271,10 +224,5 @@ class HomeViewModel : ViewModel() {
     ): String {
         val details = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
         return "$prefix: $details"
-    }
-
-    private companion object {
-        const val FILE_PREFS = "file_prefs"
-        const val PROFILE_PATH_KEY = "profile_path"
     }
 }

@@ -110,7 +110,7 @@ class MetaMainActivity : AppCompatActivity() {
                 if (backend.serviceState.value == ServiceState.RUNNING) {
                     backend.stopVpn()
                 } else {
-                    when (val result = backend.prepareStartVpn(this)) {
+                    when (val result = backend.prepareStartVpn()) {
                         is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
                         is StartVpnResult.Prepared -> withContext(Dispatchers.Main) {
                             vpnPermissionLauncher.launch(result.intent)
