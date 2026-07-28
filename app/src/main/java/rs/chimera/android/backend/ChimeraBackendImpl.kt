@@ -7,6 +7,7 @@ import android.net.VpnService
 import android.provider.OpenableColumns
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -123,56 +124,46 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     override suspend fun listProfiles(): List<ProfileSummary> {
         val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return emptyList()
-
-        return runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            buildList {
-                for (index in 0 until jsonArray.length()) {
-                    val obj = jsonArray.getJSONObject(index)
-                    add(
-                        ProfileSummary(
-                            id = obj.getString("id"),
-                            name = obj.getString("name"),
-                            filePath = obj.getString("filePath"),
-                            type = when (obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name)) {
-                                "REMOTE" -> ProfileType.REMOTE
-                                else -> ProfileType.LOCAL
-                            },
-                            isActive = obj.getBoolean("isActive"),
-                            isRemote = obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name) == "REMOTE",
-                            lastUpdated = obj.takeIf { it.has("lastUpdated") }?.getLong("lastUpdated"),
-                            fileSize = obj.getLong("fileSize"),
-                            url = obj.optString("url").takeIf { it.isNotBlank() },
-                            autoUpdate = obj.optBoolean("autoUpdate", false),
-                            userAgent = obj.optString("userAgent").takeIf { it.isNotBlank() },
-                            proxyUrl = obj.optString("proxyUrl").takeIf { it.isNotBlank() },
-                        )
+        val jsonArray = JSONArray(profilesJson)
+        return buildList {
+            for (index in 0 until jsonArray.length()) {
+                val obj = jsonArray.getJSONObject(index)
+                add(
+                    ProfileSummary(
+                        id = obj.getString("id"),
+                        name = obj.getString("name"),
+                        filePath = obj.getString("filePath"),
+                        type = when (obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name)) {
+                            "REMOTE" -> ProfileType.REMOTE
+                            else -> ProfileType.LOCAL
+                        },
+                        isActive = obj.getBoolean("isActive"),
+                        isRemote = obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name) == "REMOTE",
+                        lastUpdated = obj.takeIf { it.has("lastUpdated") }?.getLong("lastUpdated"),
+                        fileSize = obj.getLong("fileSize"),
+                        url = obj.optString("url").takeIf { it.isNotBlank() },
+                        autoUpdate = obj.optBoolean("autoUpdate", false),
+                        userAgent = obj.optString("userAgent").takeIf { it.isNotBlank() },
+                        proxyUrl = obj.optString("proxyUrl").takeIf { it.isNotBlank() },
                     )
-                }
+                )
             }
-        }.getOrDefault(emptyList())
+        }
     }
 
     override suspend fun activateProfile(id: String) {
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
-
-        runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            val profiles = jsonArray.toCatalogEntries()
-            val updatedProfiles = ProfileCatalogPolicy.activate(profiles, id) ?: return@runCatching
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                obj.put("isActive", updatedProfiles[index].isActive)
-            }
-            val activePath = ProfileCatalogPolicy.activePath(updatedProfiles)
-            profilePrefs.edit {
-                putString(PROFILES_LIST_KEY, jsonArray.toString())
-                putString(PROFILE_PATH_KEY, activePath)
-            }
-            if (activePath != null) {
-                Global.updateProfilePath(activePath)
-            }
+        val jsonArray = profileCatalogJson()
+        val updatedProfiles = ProfileCatalogPolicy.activate(jsonArray.toCatalogEntries(), id)
+            ?: throw IllegalArgumentException("Profile not found: $id")
+        for (index in 0 until jsonArray.length()) {
+            jsonArray.getJSONObject(index).put("isActive", updatedProfiles[index].isActive)
         }
+        val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
+        profilePrefs.edit {
+            putString(PROFILES_LIST_KEY, jsonArray.toString())
+            putString(PROFILE_PATH_KEY, activePath)
+        }
+        Global.updateProfilePath(activePath)
         refreshActiveProfile()
     }
 
@@ -208,6 +199,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun importRemoteProfile(request: RemoteProfileRequest) {
+        validateRemoteProfileUrl(request.url)
         val context = Global.application
         val resolvedName = request.name?.trim()?.takeIf { it.isNotEmpty() }
             ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
@@ -235,72 +227,58 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun deleteProfile(id: String) {
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
-
-        runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            val deletion = ProfileCatalogPolicy.delete(jsonArray.toCatalogEntries(), id)
-                ?: return@runCatching
-            val updatedArray = JSONArray()
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                val updated = deletion.profiles.firstOrNull { it.id == obj.getString("id") }
-                if (updated != null) {
-                    obj.put("isActive", updated.isActive)
-                    updatedArray.put(obj)
-                }
+        val jsonArray = profileCatalogJson()
+        val deletion = ProfileCatalogPolicy.delete(jsonArray.toCatalogEntries(), id)
+            ?: throw IllegalArgumentException("Profile not found: $id")
+        val updatedArray = JSONArray()
+        for (index in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(index)
+            deletion.profiles.firstOrNull { it.id == obj.getString("id") }?.let { updated ->
+                obj.put("isActive", updated.isActive)
+                updatedArray.put(obj)
             }
-            val activePath = ProfileCatalogPolicy.activePath(deletion.profiles)
-            profilePrefs.edit {
-                putString(PROFILES_LIST_KEY, updatedArray.toString())
-                putString(PROFILE_PATH_KEY, activePath)
-            }
-            Global.updateProfilePath(activePath.orEmpty())
-
-            if (deletion.shouldDeleteFile) {
-                File(deletion.deletedFilePath).takeIf { it.exists() }?.delete()
-            }
+        }
+        val activePath = ProfileCatalogPolicy.activePath(deletion.profiles)
+        profilePrefs.edit {
+            putString(PROFILES_LIST_KEY, updatedArray.toString())
+            if (activePath == null) remove(PROFILE_PATH_KEY) else putString(PROFILE_PATH_KEY, activePath)
+        }
+        Global.updateProfilePath(activePath.orEmpty())
+        if (deletion.shouldDeleteFile) {
+            val file = File(deletion.deletedFilePath)
+            check(!file.exists() || file.delete()) { "Failed to delete profile file: ${file.name}" }
         }
         refreshActiveProfile()
     }
 
     override suspend fun renameProfile(id: String, newName: String) {
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
-
-        runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            val updatedProfiles = ProfileCatalogPolicy.rename(
-                jsonArray.toCatalogEntries(),
-                id,
-                newName,
-            ) ?: return@runCatching
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                obj.put("name", updatedProfiles[index].name)
-            }
-            profilePrefs.edit {
-                putString(PROFILES_LIST_KEY, jsonArray.toString())
-            }
+        val normalizedName = newName.trim()
+        require(normalizedName.isNotEmpty()) { "Profile name is empty" }
+        val jsonArray = profileCatalogJson()
+        val updatedProfiles = ProfileCatalogPolicy.rename(
+            jsonArray.toCatalogEntries(),
+            id,
+            normalizedName,
+        ) ?: throw IllegalArgumentException("Profile not found: $id")
+        for (index in 0 until jsonArray.length()) {
+            jsonArray.getJSONObject(index).put("name", updatedProfiles[index].name)
         }
+        profilePrefs.edit { putString(PROFILES_LIST_KEY, jsonArray.toString()) }
         refreshActiveProfile()
     }
 
     override suspend fun updateRemoteProfile(id: String) {
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return
-
-        val targetProfile = runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                if (obj.getString("id") == id) {
-                    return@runCatching obj
-                }
-            }
-            null
-        }.getOrNull() ?: return
-
-        if (targetProfile.optString("type", "LOCAL") != "REMOTE") return
-        val url = targetProfile.optString("url").takeIf { it.isNotBlank() } ?: return
+        val jsonArray = profileCatalogJson()
+        val targetProfile = (0 until jsonArray.length())
+            .map { jsonArray.getJSONObject(it) }
+            .firstOrNull { it.getString("id") == id }
+            ?: throw IllegalArgumentException("Profile not found: $id")
+        require(targetProfile.optString("type", "LOCAL") == "REMOTE") {
+            "Profile is not remote: $id"
+        }
+        val url = targetProfile.optString("url").takeIf { it.isNotBlank() }
+            ?: throw IllegalStateException("Remote profile URL is missing")
+        validateRemoteProfileUrl(url)
 
         val context = Global.application
         val userAgent = targetProfile.optString("userAgent").takeIf { it.isNotBlank() }
@@ -334,29 +312,22 @@ class ChimeraBackendImpl : ChimeraBackend {
             outputFile
         }
 
-        runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                if (obj.getString("id") == id) {
-                    obj.put("filePath", file.absolutePath)
-                    obj.put("fileSize", file.length())
-                    obj.put("lastUpdated", System.currentTimeMillis())
-                }
+        for (index in 0 until jsonArray.length()) {
+            val obj = jsonArray.getJSONObject(index)
+            if (obj.getString("id") == id) {
+                obj.put("filePath", file.absolutePath)
+                obj.put("fileSize", file.length())
+                obj.put("lastUpdated", System.currentTimeMillis())
             }
-            profilePrefs.edit {
-                putString(PROFILES_LIST_KEY, jsonArray.toString())
-                val activePath = (0 until jsonArray.length())
-                    .map { jsonArray.getJSONObject(it) }
-                    .firstOrNull { it.getBoolean("isActive") }
-                    ?.getString("filePath")
-                if (activePath != null) putString(PROFILE_PATH_KEY, activePath)
-                val activeProfile = (0 until jsonArray.length())
-                    .map { jsonArray.getJSONObject(it) }
-                    .firstOrNull { it.getBoolean("isActive") }
-                if (activeProfile?.getString("id") == id) {
-                    Global.updateProfilePath(file.absolutePath)
-                }
+        }
+        profilePrefs.edit {
+            putString(PROFILES_LIST_KEY, jsonArray.toString())
+            val activeProfile = (0 until jsonArray.length())
+                .map { jsonArray.getJSONObject(it) }
+                .firstOrNull { it.getBoolean("isActive") }
+            activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
+            if (activeProfile?.getString("id") == id) {
+                Global.updateProfilePath(file.absolutePath)
             }
         }
         refreshActiveProfile()
@@ -369,56 +340,28 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> {
-        if (serviceState.value != ServiceState.RUNNING) return emptyList()
-
-        return runCatching {
-            val proxies = controller.getProxies()
-            val proxyMap = mutableMapOf<String, ProxySnapshot>()
-
-            proxies.forEach { proxy ->
-                proxyMap[proxy.name] = ProxySnapshot(
-                    name = proxy.name,
-                    type = proxy.proxyType,
-                    history = proxy.history.map { history ->
-                        ProxyDelayHistory(
-                            delay = history.delay,
-                            time = history.time.toLongOrNull() ?: 0L,
-                        )
-                    },
-                )
-            }
-
-            proxies.map { proxy ->
-                ProxyGroupSnapshot(
-                    name = proxy.name,
-                    proxies = proxy.all,
-                    selected = proxy.now,
-                    mode = controller.getMode() ?: Mode.RULE,
-                    proxyDetails = proxyMap,
-                )
-            }
-        }.getOrDefault(emptyList())
-    }
+    override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
+        runProxyOperation("Failed to refresh proxy groups") {
+            fetchProxyGroupsFromController()
+        }
 
     override suspend fun selectProxy(groupName: String, proxyName: String) {
-        runCatching {
+        runProxyOperation("Failed to select proxy") {
             controller.selectProxy(groupName, proxyName)
         }
     }
 
     override suspend fun setMode(mode: uniffi.chimera_ffi.Mode) {
-        runCatching {
+        runProxyOperation("Failed to switch proxy mode") {
             controller.setMode(mode)
         }
     }
 
-    override suspend fun testProxyDelay(proxyName: String): String {
-        return runCatching {
+    override suspend fun testProxyDelay(proxyName: String): String =
+        runProxyOperation("Failed to test proxy delay") {
             val response = controller.getProxyDelay(proxyName, null, null)
             "${response.delay}ms"
-        }.getOrDefault("timeout")
-    }
+        }
 
     override suspend fun listConnections(): ConnectionsSnapshot {
         if (serviceState.value != ServiceState.RUNNING) {
@@ -466,7 +409,9 @@ class ChimeraBackendImpl : ChimeraBackend {
         settingsPrefs.edit {
             patch.allowLan?.let { putBoolean("allow_lan", it) }
             patch.mixedPort?.let { putInt("mixed_port", it.toInt()) }
+            if (patch.clearHttpPort) remove("http_port")
             patch.httpPort?.let { putInt("http_port", it.toInt()) }
+            if (patch.clearSocksPort) remove("socks_port")
             patch.socksPort?.let { putInt("socks_port", it.toInt()) }
             patch.fakeIp?.let { putBoolean("fake_ip", it) }
             patch.ipv6?.let { putBoolean("ipv6", it) }
@@ -488,6 +433,57 @@ class ChimeraBackendImpl : ChimeraBackend {
     private fun clearRuntimeError(source: BackendRuntimeErrorSource) {
         if (_runtimeError.value?.source == source) {
             _runtimeError.value = null
+        }
+    }
+
+    private fun requireProxyServiceRunning() {
+        check(serviceState.value == ServiceState.RUNNING) {
+            Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
+        }
+    }
+
+    private suspend fun <T> runProxyOperation(
+        errorPrefix: String,
+        operation: suspend () -> T,
+    ): T {
+        requireProxyServiceRunning()
+        return try {
+            operation().also { clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            recordRuntimeError(
+                source = BackendRuntimeErrorSource.PROXY_GROUPS,
+                prefix = errorPrefix,
+                error = error,
+            )
+            throw error
+        }
+    }
+
+    private suspend fun fetchProxyGroupsFromController(): List<ProxyGroupSnapshot> {
+        val proxies = controller.getProxies()
+        val mode = controller.getMode() ?: Mode.RULE
+        val proxyMap = proxies.associate { proxy ->
+            proxy.name to ProxySnapshot(
+                name = proxy.name,
+                type = proxy.proxyType,
+                history = proxy.history.map { history ->
+                    ProxyDelayHistory(
+                        delay = history.delay,
+                        time = history.time.toLongOrNull() ?: 0L,
+                    )
+                },
+            )
+        }
+        return proxies.map { proxy ->
+            ProxyGroupSnapshot(
+                name = proxy.name,
+                proxies = proxy.all,
+                selected = proxy.now,
+                mode = mode,
+                proxyDetails = proxyMap,
+            )
         }
     }
 
@@ -591,29 +587,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
                 while (true) {
                     runCatching {
-                        val proxies = controller.getProxies()
-                        val proxyMap = mutableMapOf<String, ProxySnapshot>()
-                        proxies.forEach { proxy ->
-                            proxyMap[proxy.name] = ProxySnapshot(
-                                name = proxy.name,
-                                type = proxy.proxyType,
-                                history = proxy.history.map { history ->
-                                    ProxyDelayHistory(
-                                        delay = history.delay,
-                                        time = history.time.toLongOrNull() ?: 0L,
-                                    )
-                                },
-                            )
-                        }
-                        proxies.map { proxy ->
-                            ProxyGroupSnapshot(
-                                name = proxy.name,
-                                proxies = proxy.all,
-                                selected = proxy.now,
-                                mode = controller.getMode() ?: uniffi.chimera_ffi.Mode.RULE,
-                                proxyDetails = proxyMap,
-                            )
-                        }
+                        fetchProxyGroupsFromController()
                     }.onSuccess { groups ->
                         clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS)
                         _proxyGroups.value = groups
@@ -708,6 +682,19 @@ class ChimeraBackendImpl : ChimeraBackend {
             .lowercase(Locale.ROOT)
             .ifBlank { "yaml" }
         return "$id.$safeExtension"
+    }
+
+    private fun profileCatalogJson(): JSONArray {
+        val value = profilePrefs.getString(PROFILES_LIST_KEY, null)
+            ?: throw IllegalStateException("Profile catalog is empty")
+        return JSONArray(value)
+    }
+
+    private fun validateRemoteProfileUrl(value: String) {
+        val uri = runCatching { java.net.URI(value) }.getOrNull()
+        require(uri?.host != null && uri.scheme in setOf("http", "https")) {
+            "Remote profile URL must use http or https"
+        }
     }
 
     private fun JSONArray.toCatalogEntries(): List<ProfileCatalogEntry> =

@@ -106,14 +106,15 @@ class TunService : VpnService() {
             error("Failed to establish VPN interface")
         }
         vpnInterface = interfaceFd
-        tunFd = interfaceFd.fd
-
-        copyRuntimeAssetsIfAvailable(Global.application.assets, Global.application.cacheDir)
-
-        val currentTunFd = tunFd
-        if (currentTunFd == null || currentTunFd <= 0) {
+        val currentTunFd = duplicateTunFdForRust(interfaceFd)
+        tunFd = currentTunFd
+        if (currentTunFd <= 0) {
+            closeDetachedTunFd(currentTunFd)
+            tunFd = null
             error("Invalid tun fd: $currentTunFd")
         }
+
+        copyRuntimeAssetsIfAvailable(Global.application.assets, Global.application.cacheDir)
 
         val startResult =
             initClash(
@@ -122,6 +123,8 @@ class TunService : VpnService() {
                 over = createProfileOverride(currentTunFd, settings),
             )
         if (startResult.isFailure) {
+            closeDetachedTunFd(currentTunFd)
+            tunFd = null
             throw startResult.exceptionOrNull()
                 ?: IllegalStateException("Failed to initialize Rust core")
         }
@@ -136,12 +139,31 @@ class TunService : VpnService() {
     private fun buildTunnel(settings: ServiceSettings): ParcelFileDescriptor? {
         val builder = Builder()
         builder.setSession("ClashRS VPNService")
-        builder.addAddress("10.0.0.1", 30)
+        builder.addAddress(TUN_GATEWAY_V4, TUN_PREFIX_V4)
         builder.addRoute("0.0.0.0", 0)
-        builder.addDnsServer("10.0.0.2")
+        builder.addDnsServer(TUN_DNS_V4)
+        if (settings.ipv6) {
+            builder.addAddress(TUN_GATEWAY_V6, TUN_PREFIX_V6)
+            builder.addRoute("::", 0)
+            builder.addDnsServer(TUN_DNS_V6)
+        }
         applyAppFilter(builder, settings)
         builder.allowBypass()
         return builder.establish()
+    }
+
+    private fun duplicateTunFdForRust(interfaceFd: ParcelFileDescriptor): Int =
+        ParcelFileDescriptor
+            .dup(interfaceFd.fileDescriptor)
+            .detachFd()
+
+    private fun closeDetachedTunFd(fd: Int) {
+        if (fd < 0) return
+        runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
+            .onFailure { error ->
+                Log.w(TAG, "Failed to close detached TUN fd: $fd", error)
+                appendRuntimeLog("failed to close detached tun fd: $fd", error)
+            }
     }
 
     private fun resolveProfilePath(): String {
@@ -308,6 +330,12 @@ class TunService : VpnService() {
 
     private companion object {
         const val TAG = "ChimeraTunService"
+        const val TUN_GATEWAY_V4 = "10.0.0.1"
+        const val TUN_DNS_V4 = "10.0.0.2"
+        const val TUN_PREFIX_V4 = 30
+        const val TUN_GATEWAY_V6 = "fdfe:dcba:9876::1"
+        const val TUN_DNS_V6 = "fdfe:dcba:9876::2"
+        const val TUN_PREFIX_V6 = 126
     }
 
     private fun appendRuntimeLog(
@@ -335,25 +363,10 @@ class TunService : VpnService() {
     }
 }
 
-private fun SharedPreferences.getOptionalPort(key: String): UShort? {
-    val value = all[key] ?: return null
-    val intValue =
-        when (value) {
-            is Int -> value
-            is Long -> value.toInt()
-            is String -> value.toIntOrNull()
-            else -> null
-        } ?: return null
-
-    return intValue
-        .takeIf { it in MIN_PORT..MAX_PORT }
-        ?.toUShort()
-}
+private fun SharedPreferences.getOptionalPort(key: String): UShort? =
+    PortPreference.parse(all[key])
 
 private fun SharedPreferences.getPort(
     key: String,
     defaultValue: UShort,
 ): UShort = getOptionalPort(key) ?: defaultValue
-
-private const val MIN_PORT = 1
-private const val MAX_PORT = 65_535

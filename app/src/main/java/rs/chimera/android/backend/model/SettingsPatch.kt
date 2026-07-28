@@ -5,6 +5,8 @@ data class SettingsPatch(
     val mixedPort: UShort? = null,
     val httpPort: UShort? = null,
     val socksPort: UShort? = null,
+    val clearHttpPort: Boolean = false,
+    val clearSocksPort: Boolean = false,
     val fakeIp: Boolean? = null,
     val ipv6: Boolean? = null,
     val appFilterMode: String? = null,
