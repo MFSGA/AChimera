@@ -6,17 +6,18 @@ pub mod util;
 static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 
 use clash_lib::{
+    Config as ClashConfig, SocketProtector,
     config::def::{Config as ConfigDef, DNSMode, Port},
-    set_socket_protector, start, Config as ClashConfig, SocketProtector,
+    set_socket_protector, start,
 };
-use ipnet::{IpNet, Ipv4Net};
+use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use jni::objects::{Global, JObject, JString, JValue};
 use jni::signature::{JavaType, MethodSignature, Primitive};
-use jni::sys::{jboolean, jint, jstring, JNI_FALSE, JNI_TRUE};
-use jni::{jni_str, EnvUnowned, JavaVM, Outcome};
+use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jstring};
+use jni::{EnvUnowned, JavaVM, Outcome, jni_str};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::net::Ipv4Addr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Once, OnceLock};
@@ -196,6 +197,33 @@ fn validate_port(name: &str, port: u16) -> Result<(), String> {
     Ok(())
 }
 
+fn apply_listener_defaults(config: &mut ConfigDef, over: &ProfileOverride) -> Result<u16, String> {
+    config.allow_lan = Some(over.allow_lan);
+
+    let mixed_port = if let Some(Port(port)) = config.mixed_port {
+        port
+    } else {
+        validate_port("mixed", over.mixed_port)?;
+        config.mixed_port = Some(Port(over.mixed_port));
+        over.mixed_port
+    };
+
+    if config.port.is_none() {
+        if let Some(port) = over.http_port {
+            validate_port("http", port)?;
+            config.port = Some(Port(port));
+        }
+    }
+    if config.socks_port.is_none() {
+        if let Some(port) = over.socks_port {
+            validate_port("socks", port)?;
+            config.socks_port = Some(Port(port));
+        }
+    }
+
+    Ok(mixed_port)
+}
+
 fn log_line(log_path: &Path, message: &str) {
     info!("{message}");
     let file = OpenOptions::new().append(true).create(true).open(log_path);
@@ -210,14 +238,9 @@ fn extract_jstring(
     value: JString<'_>,
     field_name: &str,
 ) -> Result<String, String> {
-    match env
-        .with_env(|env| value.try_to_string(env))
-        .into_outcome()
-    {
+    match env.with_env(|env| value.try_to_string(env)).into_outcome() {
         Outcome::Ok(value) => Ok(value),
-        Outcome::Err(error) => {
-            Err(format!("failed to read JNI string {field_name}: {error}"))
-        }
+        Outcome::Err(error) => Err(format!("failed to read JNI string {field_name}: {error}")),
         Outcome::Panic(_) => Err(format!("failed to read JNI string {field_name}: JNI panic")),
     }
 }
@@ -260,14 +283,6 @@ fn start_core_internal(
     if over.log_file_path.trim().is_empty() {
         return Err("log file path is empty".to_string());
     }
-    validate_port("mixed", over.mixed_port)?;
-    if let Some(port) = over.http_port {
-        validate_port("http", port)?;
-    }
-    if let Some(port) = over.socks_port {
-        validate_port("socks", port)?;
-    }
-
     let profile_path = PathBuf::from(profile_path);
     if !profile_path.exists() {
         return Err(format!(
@@ -326,22 +341,14 @@ fn start_core_internal(
             profile_path.display()
         )
     })?;
-    config_def.allow_lan = Some(over.allow_lan);
-    config_def.mixed_port = Some(Port(over.mixed_port));
-    if let Some(port) = over.http_port {
-        config_def.port = Some(Port(port));
-    }
-    if let Some(port) = over.socks_port {
-        config_def.socks_port = Some(Port(port));
-    }
+    let mixed_port = apply_listener_defaults(&mut config_def, &over)?;
 
-    let mut config: clash_lib::config::RuntimeConfig =
-        config_def.try_into().map_err(|error| {
-            format!(
-                "failed to build runtime config {}: {error}",
-                profile_path.display()
-            )
-        })?;
+    let mut config: clash_lib::config::RuntimeConfig = config_def.try_into().map_err(|error| {
+        format!(
+            "failed to build runtime config {}: {error}",
+            profile_path.display()
+        )
+    })?;
 
     config.tun.enable = true;
     config.tun.device_id = format!("fd://{tun_fd}");
@@ -349,7 +356,19 @@ fn start_core_internal(
     config.tun.routes = Vec::new();
     config.tun.gateway = Ipv4Net::new(Ipv4Addr::new(10, 0, 0, 1), 30)
         .map_err(|error| format!("failed to build tun gateway: {error}"))?;
-    config.tun.gateway_v6 = None;
+    config.tun.gateway_v6 = if over.ipv6 {
+        Some(
+            Ipv6Net::new(
+                "fdfe:dcba:9876::1"
+                    .parse::<Ipv6Addr>()
+                    .map_err(|error| format!("failed to parse tun IPv6 gateway: {error}"))?,
+                126,
+            )
+            .map_err(|error| format!("failed to build tun IPv6 gateway: {error}"))?,
+        )
+    } else {
+        None
+    };
     config.tun.mtu = None;
     config.tun.so_mark = None;
     config.tun.route_table = 0;
@@ -362,7 +381,7 @@ fn start_core_internal(
 
     config.dns.enable = true;
     config.dns.ipv6 = over.ipv6;
-    config.dns.listen.udp = Some("127.0.0.1:53553".parse().unwrap());
+    config.dns.listen.udp = Some(SocketAddr::from(([127, 0, 0, 1], 53_553)));
     if over.fake_ip {
         config.dns.enhance_mode = DNSMode::FakeIp;
         config.dns.fake_ip_range = over
@@ -386,9 +405,7 @@ fn start_core_internal(
         socket_path: socket_path.clone(),
     };
 
-    let final_profile = FinalProfile {
-        mixed_port: over.mixed_port,
-    };
+    let final_profile = FinalProfile { mixed_port };
 
     let runtime_log_path = log_path.clone();
     let worker = runtime().spawn(async move {
@@ -508,7 +525,10 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
         }
     };
 
-    let chimera_ffi = match env.with_env(|env| env.new_global_ref(&_this)).into_outcome() {
+    let chimera_ffi = match env
+        .with_env(|env| env.new_global_ref(&_this))
+        .into_outcome()
+    {
         Outcome::Ok(reference) => reference,
         Outcome::Err(error) => {
             set_last_error(format!("failed to create ChimeraFfi global ref: {error}"));
@@ -633,6 +653,102 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStop(
             set_last_error(error);
             JNI_FALSE
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn profile_override() -> ProfileOverride {
+        ProfileOverride {
+            tun_fd: 1,
+            log_file_path: "chimera.log".to_string(),
+            allow_lan: true,
+            mixed_port: 7890,
+            http_port: Some(7891),
+            socks_port: Some(7892),
+            fake_ip: false,
+            fake_ip_range: "198.18.0.2/16".to_string(),
+            ipv6: false,
+        }
+    }
+
+    #[test]
+    fn bundled_profile_parses_with_current_clash_dependency() {
+        let profile_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../scripts/rVqZHZQSFdSN.yaml");
+        let mut config = ConfigDef::try_from(profile_path).unwrap();
+        let mixed_port = apply_listener_defaults(&mut config, &profile_override()).unwrap();
+        let _runtime_config: clash_lib::config::RuntimeConfig = config.try_into().unwrap();
+
+        assert_eq!(7890, mixed_port);
+    }
+
+    #[test]
+    fn listener_defaults_preserve_profile_ports() {
+        let mut config = ConfigDef::default();
+        config.mixed_port = Some(Port(9000));
+        config.port = Some(Port(9001));
+        config.socks_port = Some(Port(9002));
+
+        let mixed_port = apply_listener_defaults(&mut config, &profile_override()).unwrap();
+
+        assert_eq!(9000, mixed_port);
+        assert!(matches!(config.mixed_port, Some(Port(9000))));
+        assert!(matches!(config.port, Some(Port(9001))));
+        assert!(matches!(config.socks_port, Some(Port(9002))));
+        assert_eq!(Some(true), config.allow_lan);
+    }
+
+    #[test]
+    fn listener_defaults_fill_missing_profile_ports() {
+        let mut config = ConfigDef::default();
+
+        let mixed_port = apply_listener_defaults(&mut config, &profile_override()).unwrap();
+
+        assert_eq!(7890, mixed_port);
+        assert!(matches!(config.mixed_port, Some(Port(7890))));
+        assert!(matches!(config.port, Some(Port(7891))));
+        assert!(matches!(config.socks_port, Some(Port(7892))));
+    }
+
+    #[test]
+    fn listener_defaults_reject_zero_for_missing_port() {
+        let mut config = ConfigDef::default();
+        let mut over = profile_override();
+        over.mixed_port = 0;
+
+        let error = apply_listener_defaults(&mut config, &over).unwrap_err();
+
+        assert_eq!("mixed port must be between 1 and 65535", error);
+    }
+
+    #[test]
+    fn listener_defaults_ignore_invalid_fallback_when_profile_has_value() {
+        let mut config = ConfigDef::default();
+        config.mixed_port = Some(Port(9000));
+        let mut over = profile_override();
+        over.mixed_port = 0;
+
+        let mixed_port = apply_listener_defaults(&mut config, &over).unwrap();
+
+        assert_eq!(9000, mixed_port);
+    }
+
+    #[test]
+    fn listener_defaults_validate_only_missing_optional_ports() {
+        let mut config = ConfigDef::default();
+        config.mixed_port = Some(Port(9000));
+        config.port = Some(Port(9001));
+        let mut over = profile_override();
+        over.http_port = Some(0);
+        over.socks_port = Some(0);
+
+        let error = apply_listener_defaults(&mut config, &over).unwrap_err();
+
+        assert_eq!("socks port must be between 1 and 65535", error);
+        assert!(matches!(config.port, Some(Port(9001))));
     }
 }
 

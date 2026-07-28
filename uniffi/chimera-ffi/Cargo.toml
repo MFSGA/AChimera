@@ -43,7 +43,7 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 
 [dependencies.clash-lib]
 package = "clash-lib"
-rev = "df0551f0e05610c2f6d66882c514e52398d274f9"
+rev = "dee2dc145d3eab22b76abf0a365d381efb82c78d"
 git = "https://github.com/MFSGA/Chimera_Client.git"
 # TODO: Align features with upstream when ready
 features = [
