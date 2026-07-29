@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -13,33 +14,38 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.ConnectionSnapshot
 
-class ConnectionsViewModel : ViewModel() {
-    private val backend: ChimeraBackend = BackendProvider.provide()
+class ConnectionsViewModel(
+    private val backend: ChimeraBackend = BackendProvider.provide(),
+) : ViewModel() {
     private var observationJob: Job? = null
 
-    var connections by mutableStateOf<List<ConnectionSnapshot>>(emptyList())
+    private var state = ConnectionsUiState()
+
+    var connections by mutableStateOf<List<ConnectionSnapshot>>(state.connections)
         private set
 
-    var downloadTotal by mutableLongStateOf(0L)
+    var downloadTotal by mutableLongStateOf(state.downloadTotal)
         private set
 
-    var uploadTotal by mutableLongStateOf(0L)
+    var uploadTotal by mutableLongStateOf(state.uploadTotal)
         private set
 
-    var errorMessage by mutableStateOf<String?>(null)
+    var errorMessage by mutableStateOf(state.errorMessage)
         private set
 
     fun startPolling() {
-        if (observationJob != null) {
-            return
-        }
+        if (observationJob != null) return
 
         observationJob = viewModelScope.launch {
-            backend.connections.collectLatest { snapshot ->
-                errorMessage = null
-                connections = snapshot.connections
-                downloadTotal = snapshot.downloadTotal
-                uploadTotal = snapshot.uploadTotal
+            launch {
+                backend.connections.collectLatest { snapshot ->
+                    applyState(ConnectionsStatePolicy.applySnapshot(state, snapshot))
+                }
+            }
+            launch {
+                backend.runtimeError.collectLatest { error ->
+                    applyState(ConnectionsStatePolicy.applyRuntimeError(state, error))
+                }
             }
         }
     }
@@ -58,26 +64,29 @@ class ConnectionsViewModel : ViewModel() {
         super.onCleared()
     }
 
-    private fun formatError(
-        prefix: String,
-        error: Exception,
-    ): String {
-        val details = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
-        return "$prefix: $details"
-    }
-
     private suspend fun fetchConnectionsInternal() {
-        errorMessage = null
+        applyState(state.copy(errorMessage = null))
         try {
             val snapshot = backend.listConnections()
-            connections = snapshot.connections
-            downloadTotal = snapshot.downloadTotal
-            uploadTotal = snapshot.uploadTotal
+            applyState(ConnectionsStatePolicy.applySnapshot(state, snapshot))
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
-            connections = emptyList()
-            downloadTotal = 0L
-            uploadTotal = 0L
-            errorMessage = formatError("Failed to load connections", error)
+            applyState(
+                ConnectionsStatePolicy.applyFetchFailure(
+                    current = state,
+                    error = error,
+                    runtimeError = backend.runtimeError.value,
+                ),
+            )
         }
+    }
+
+    private fun applyState(newState: ConnectionsUiState) {
+        state = newState
+        connections = newState.connections
+        downloadTotal = newState.downloadTotal
+        uploadTotal = newState.uploadTotal
+        errorMessage = newState.errorMessage
     }
 }
