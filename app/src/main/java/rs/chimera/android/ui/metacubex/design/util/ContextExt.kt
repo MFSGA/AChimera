@@ -8,4 +8,4 @@ val Context.layoutInflater: LayoutInflater
     get() = LayoutInflater.from(this)
 
 val Context.root: ViewGroup?
-    get() = (this as? android.app.Activity)?.findViewById(android.R.id.content) as ViewGroup?
+    get() = (this as? android.app.Activity)?.findViewById(android.R.id.content)
