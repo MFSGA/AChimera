@@ -1,5 +1,6 @@
 package rs.chimera.android.ui
 
+import android.content.ClipData
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -25,14 +26,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +43,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.R
 import rs.chimera.android.ffi.ChimeraFfi
@@ -53,14 +56,16 @@ fun ChimeraApp(
     profilePath: String = "",
 ) {
     var refreshVersion by rememberSaveable { mutableIntStateOf(0) }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     val ffiMessage = remember(refreshVersion) { ChimeraFfi.helloOrFallback() }
     val refreshedAt = remember(refreshVersion) {
         SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
     }
-    val runtimeLog = remember(refreshVersion, isServiceRunning) {
-        Global.readRuntimeLogTail()
+    val runtimeLogResult = remember(refreshVersion, isServiceRunning) {
+        runCatching { Global.readRuntimeLogTail() }
     }
+    val runtimeLog = runtimeLogResult.getOrDefault("")
     val profileLabel = remember(profilePath) {
         if (profilePath.isBlank()) {
             ""
@@ -124,14 +129,23 @@ fun ChimeraApp(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 title = stringResource(id = R.string.home_logs_title),
                 subtitle = Global.runtimeLogFile().absolutePath,
-                content = runtimeLog.ifBlank {
+                content = runtimeLogResult.exceptionOrNull()?.let { error ->
+                    stringResource(
+                        id = R.string.logs_read_error,
+                        error.message ?: error.javaClass.simpleName,
+                    )
+                } ?: runtimeLog.ifBlank {
                     stringResource(id = R.string.home_logs_empty)
                 },
                 onCopy = {
-                    clipboardManager.setText(AnnotatedString(runtimeLog))
+                    coroutineScope.launch {
+                        clipboard.setClipEntry(
+                            ClipEntry(ClipData.newPlainText("Chimera runtime log", runtimeLog)),
+                        )
+                    }
                 },
                 onClear = {
-                    Global.clearRuntimeLog()
+                    runCatching { Global.clearRuntimeLog() }
                     refreshVersion++
                 },
             )

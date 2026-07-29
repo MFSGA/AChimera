@@ -1,5 +1,6 @@
 package rs.chimera.android.ui
 
+import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -30,17 +31,19 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.R
 
@@ -53,19 +56,24 @@ fun LogsScreen(
     modifier: Modifier = Modifier,
     onBack: (() -> Unit)? = null,
 ) {
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     val verticalScrollState = rememberScrollState()
-    var logContent by remember { mutableStateOf(Global.readRuntimeLogTail(MAX_LOG_LINES)) }
+    var logContent by remember { mutableStateOf("") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var autoScrollEnabled by remember { mutableStateOf(true) }
     var refreshPaused by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshPaused) {
         while (isActive) {
             if (!refreshPaused) {
-                val latest = Global.readRuntimeLogTail(MAX_LOG_LINES)
-                if (latest != logContent) {
-                    logContent = latest
-                }
+                runCatching { Global.readRuntimeLogTail(MAX_LOG_LINES) }
+                    .onSuccess { latest ->
+                        errorMessage = null
+                        if (latest != logContent) logContent = latest
+                    }.onFailure { error ->
+                        errorMessage = error.message ?: error.javaClass.simpleName
+                    }
             }
             delay(LOG_REFRESH_INTERVAL_MS)
         }
@@ -95,15 +103,25 @@ fun LogsScreen(
                 actions = {
                     TextButton(
                         onClick = {
-                            clipboardManager.setText(AnnotatedString(logContent))
+                            coroutineScope.launch {
+                                clipboard.setClipEntry(
+                                    ClipEntry(ClipData.newPlainText("Chimera runtime log", logContent)),
+                                )
+                            }
                         },
                     ) {
                         Text(text = stringResource(R.string.home_logs_copy))
                     }
                     TextButton(
+                        enabled = logContent.isNotBlank(),
                         onClick = {
-                            Global.clearRuntimeLog()
-                            logContent = ""
+                            runCatching { Global.clearRuntimeLog() }
+                                .onSuccess {
+                                    logContent = ""
+                                    errorMessage = null
+                                }.onFailure { error ->
+                                    errorMessage = error.message ?: error.javaClass.simpleName
+                                }
                         },
                     ) {
                         Text(text = stringResource(R.string.home_logs_clear))
@@ -120,6 +138,21 @@ fun LogsScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            if (errorMessage != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.logs_read_error, errorMessage!!),
+                        modifier = Modifier.padding(16.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),

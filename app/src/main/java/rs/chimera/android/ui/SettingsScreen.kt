@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -47,7 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
 import rs.chimera.android.ui.components.TextInfoDialog
-import rs.chimera.android.viewmodel.LanguagePreference
+import rs.chimera.android.ui.navigation.DefaultAppUiRouter
+import rs.chimera.android.ui.preferences.AppearancePreference
+import rs.chimera.android.ui.preferences.LanguagePreference
+import rs.chimera.android.ui.preferences.UiVariant
 import rs.chimera.android.viewmodel.SettingsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,8 +62,8 @@ fun SettingsScreen(
 ) {
     val viewModel: SettingsViewModel = viewModel()
     val context = LocalContext.current
-    val activity = context as? android.app.Activity
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showAppearanceDialog by remember { mutableStateOf(false) }
     var showUiDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
@@ -119,15 +123,21 @@ fun SettingsScreen(
             }
 
             item {
-                SectionHeader(text = "UI")
+                SectionHeader(text = stringResource(R.string.settings_appearance))
             }
 
             item {
                 SettingsCard {
                     SettingsItem(
+                        icon = Icons.Default.DarkMode,
+                        title = stringResource(R.string.settings_dark_mode),
+                        subtitle = appearanceLabel(viewModel.appearancePreference),
+                        onClick = { showAppearanceDialog = true },
+                    )
+                    SettingsItem(
                         icon = Icons.Default.Dashboard,
-                        title = "UI Style",
-                        subtitle = if (viewModel.uiVariant == rs.chimera.android.viewmodel.UiVariant.METACUBEX) "MetaCubeX (View)" else "Watfaq (Compose)",
+                        title = stringResource(R.string.settings_ui_style),
+                        subtitle = uiVariantLabel(viewModel.uiVariant),
                         onClick = { showUiDialog = true },
                     )
                 }
@@ -157,14 +167,25 @@ fun SettingsScreen(
                 currentVariant = viewModel.uiVariant,
                 onDismiss = { showUiDialog = false },
                 onConfirm = { variant ->
-                    val oldVariant = viewModel.uiVariant
-                    if (oldVariant != variant) {
+                    showUiDialog = false
+                    if (viewModel.uiVariant != variant) {
                         viewModel.updateUiVariant(variant)
-                        showUiDialog = false
-                        activity?.recreate()
-                    } else {
-                        showUiDialog = false
+                        when (variant) {
+                            UiVariant.WATFAQ -> DefaultAppUiRouter.openWatfaq(context)
+                            UiVariant.METACUBEX -> DefaultAppUiRouter.openMetaCubeX(context)
+                        }
                     }
+                },
+            )
+        }
+
+        if (showAppearanceDialog) {
+            AppearanceDialog(
+                currentPreference = viewModel.appearancePreference,
+                onDismiss = { showAppearanceDialog = false },
+                onConfirm = { preference ->
+                    showAppearanceDialog = false
+                    viewModel.updateAppearancePreference(preference)
                 },
             )
         }
@@ -174,12 +195,8 @@ fun SettingsScreen(
                 currentPreference = viewModel.languagePreference,
                 onDismiss = { showLanguageDialog = false },
                 onConfirm = { preference ->
-                    val oldPreference = viewModel.languagePreference
-                    viewModel.updateLanguagePreference(preference)
                     showLanguageDialog = false
-                    if (oldPreference != preference) {
-                        activity?.recreate()
-                    }
+                    viewModel.updateLanguagePreference(preference)
                 },
             )
         }
@@ -265,26 +282,26 @@ private fun SettingsItem(
 
 @Composable
 private fun UiDialog(
-    currentVariant: rs.chimera.android.viewmodel.UiVariant,
+    currentVariant: UiVariant,
     onDismiss: () -> Unit,
-    onConfirm: (rs.chimera.android.viewmodel.UiVariant) -> Unit,
+    onConfirm: (UiVariant) -> Unit,
 ) {
     var selectedVariant by remember { mutableStateOf(currentVariant) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("UI Style") },
+        title = { Text(stringResource(R.string.settings_ui_style)) },
         text = {
             Column(modifier = Modifier.selectableGroup()) {
                 LanguageOption(
-                    text = "Watfaq (Compose)",
-                    selected = selectedVariant == rs.chimera.android.viewmodel.UiVariant.WATFAQ,
-                    onClick = { selectedVariant = rs.chimera.android.viewmodel.UiVariant.WATFAQ },
+                    text = stringResource(R.string.ui_style_watfaq),
+                    selected = selectedVariant == UiVariant.WATFAQ,
+                    onClick = { selectedVariant = UiVariant.WATFAQ },
                 )
                 LanguageOption(
-                    text = "MetaCubeX (View)",
-                    selected = selectedVariant == rs.chimera.android.viewmodel.UiVariant.METACUBEX,
-                    onClick = { selectedVariant = rs.chimera.android.viewmodel.UiVariant.METACUBEX },
+                    text = stringResource(R.string.ui_style_metacubex),
+                    selected = selectedVariant == UiVariant.METACUBEX,
+                    onClick = { selectedVariant = UiVariant.METACUBEX },
                 )
             }
         },
@@ -300,6 +317,68 @@ private fun UiDialog(
         },
     )
 }
+
+@Composable
+private fun AppearanceDialog(
+    currentPreference: AppearancePreference,
+    onDismiss: () -> Unit,
+    onConfirm: (AppearancePreference) -> Unit,
+) {
+    var selectedPreference by remember { mutableStateOf(currentPreference) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_dark_mode)) },
+        text = {
+            Column(modifier = Modifier.selectableGroup()) {
+                LanguageOption(
+                    text = stringResource(R.string.dark_mode_system),
+                    selected = selectedPreference == AppearancePreference.SYSTEM,
+                    onClick = { selectedPreference = AppearancePreference.SYSTEM },
+                )
+                LanguageOption(
+                    text = stringResource(R.string.dark_mode_light),
+                    selected = selectedPreference == AppearancePreference.LIGHT,
+                    onClick = { selectedPreference = AppearancePreference.LIGHT },
+                )
+                LanguageOption(
+                    text = stringResource(R.string.dark_mode_dark),
+                    selected = selectedPreference == AppearancePreference.DARK,
+                    onClick = { selectedPreference = AppearancePreference.DARK },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(selectedPreference) }) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun appearanceLabel(preference: AppearancePreference): String =
+    stringResource(
+        when (preference) {
+            AppearancePreference.SYSTEM -> R.string.dark_mode_system
+            AppearancePreference.LIGHT -> R.string.dark_mode_light
+            AppearancePreference.DARK -> R.string.dark_mode_dark
+        },
+    )
+
+@Composable
+private fun uiVariantLabel(variant: UiVariant): String =
+    stringResource(
+        when (variant) {
+            UiVariant.WATFAQ -> R.string.ui_style_watfaq
+            UiVariant.METACUBEX -> R.string.ui_style_metacubex
+        },
+    )
 
 @Composable
 private fun LanguageDialog(
