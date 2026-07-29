@@ -5,12 +5,14 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import rs.chimera.android.ui.preferences.AppPreferences
 import uniffi.chimera_ffi.ChimeraException
 import java.io.File
 
 class ChimeraApplication : android.app.Application() {
     override fun onCreate() {
         super.onCreate()
+        AppPreferences.apply(this)
         setupUncaughtExceptionHandler()
         Global.init(this)
     }
@@ -27,28 +29,11 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
 
     fun runtimeLogFile(): File = File(application.cacheDir, RUNTIME_LOG_FILE_NAME)
 
-    fun readRuntimeLogTail(maxLines: Int = 160): String {
-        val file = runtimeLogFile()
-        if (!file.exists() || !file.isFile) {
-            return ""
-        }
-
-        return runCatching {
-            file.readLines()
-                .takeLast(maxLines)
-                .joinToString(separator = "\n")
-        }.getOrElse { error ->
-            "failed to read runtime log: ${error.message ?: "unknown error"}"
-        }
-    }
+    fun readRuntimeLogTail(maxLines: Int = 160): String =
+        readRuntimeLogTail(runtimeLogFile(), maxLines)
 
     fun clearRuntimeLog() {
-        val file = runtimeLogFile()
-        runCatching {
-            if (file.exists()) {
-                file.writeText("")
-            }
-        }
+        clearRuntimeLog(runtimeLogFile())
     }
 
     fun init(application: ChimeraApplication) {
@@ -83,6 +68,19 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private const val FILE_PREFS = "file_prefs"
     private const val PROFILE_PATH_KEY = "profile_path"
     private const val RUNTIME_LOG_FILE_NAME = "chimera-rs.log"
+}
+
+internal fun readRuntimeLogTail(file: File, maxLines: Int): String {
+    require(maxLines >= 0) { "maxLines must not be negative" }
+    if (!file.exists()) return ""
+    check(file.isFile) { "Runtime log path is not a file: ${file.absolutePath}" }
+    return file.useLines { lines -> lines.toList().takeLast(maxLines).joinToString("\n") }
+}
+
+internal fun clearRuntimeLog(file: File) {
+    if (!file.exists()) return
+    check(file.isFile) { "Runtime log path is not a file: ${file.absolutePath}" }
+    file.writeText("")
 }
 
 private fun setupUncaughtExceptionHandler() {

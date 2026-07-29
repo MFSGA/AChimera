@@ -4,21 +4,21 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.core.content.ContextCompat
 import rs.chimera.android.theme.ChimeraTheme
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
+import rs.chimera.android.ui.preferences.AppPreferences
+import rs.chimera.android.ui.preferences.UiVariant
 import rs.chimera.android.ui.watfaq.WatfaqAppRoot
-import java.util.Locale
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     companion object {
         fun intent(context: Context) = Intent(context, MainActivity::class.java)
     }
@@ -35,13 +35,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        applyLanguagePreference()
         requestNotificationPermission()
 
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val uiVariant = prefs.getString("ui_variant", "WATFAQ") ?: "WATFAQ"
-
-        if (uiVariant == "METACUBEX") {
+        if (AppPreferences.uiVariant(this) == UiVariant.METACUBEX) {
             DefaultAppUiRouter.openMetaCubeX(this)
             finish()
             return
@@ -58,27 +54,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-    }
-
-    private fun applyLanguagePreference() {
-        val prefs = getSharedPreferences("settings", Context.MODE_PRIVATE)
-        val languagePreference = prefs.getString("language", "SYSTEM") ?: "SYSTEM"
-
-        val locale = when (languagePreference) {
-            "SIMPLIFIED_CHINESE" -> Locale.SIMPLIFIED_CHINESE
-            "ENGLISH" -> Locale.ENGLISH
-            else -> return
-        }
-
-        val config = Configuration(resources.configuration)
-        config.setLocale(locale)
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            createConfigurationContext(config)
-        }
-
-        @Suppress("DEPRECATION")
-        resources.updateConfiguration(config, resources.displayMetrics)
     }
 
     private fun requestNotificationPermission() {
