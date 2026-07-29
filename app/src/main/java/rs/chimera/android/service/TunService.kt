@@ -78,6 +78,9 @@ class TunService : VpnService() {
             } catch (error: Exception) {
                 Log.e(TAG, "Error in runVpn", error)
                 appendRuntimeLog("service runVpn failed", error)
+                BackendRuntimeState.updateServiceError(
+                    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName,
+                )
                 cleanup(ServiceState.ERROR)
                 NotificationHelper.notifyFailed(this@TunService, error.message)
                 stopSelf()

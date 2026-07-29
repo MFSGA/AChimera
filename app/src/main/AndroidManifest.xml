@@ -36,14 +36,6 @@
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
-            android:name="rs.chimera.android.ui.metacubex.activity.MetaProxyActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Chimera.MetaCubeX" />
-        <activity
-            android:name="rs.chimera.android.ui.metacubex.activity.MetaProfilesActivity"
-            android:exported="false"
-            android:theme="@style/Theme.Chimera.MetaCubeX" />
-        <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaProfilesDesignActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
@@ -56,11 +48,11 @@
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
-            android:name="rs.chimera.android.ui.metacubex.activity.MetaLogsActivity"
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
-            android:name="rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity"
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaAccessControlActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <service

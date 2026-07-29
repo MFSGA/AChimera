@@ -7,31 +7,25 @@
             name="self"
             type="rs.chimera.android.ui.metacubex.design.MainDesign" />
         <variable
-            name="clashRunning"
-            type="boolean" />
-        <variable
-            name="forwarded"
-            type="String" />
-        <variable
             name="mode"
             type="String" />
         <variable
             name="profileName"
             type="String" />
-        <variable
-            name="colorClashStarted"
-            type="int" />
-        <variable
-            name="colorClashStopped"
-            type="int" />
         <import type="android.view.View" />
     </data>
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:fillViewport="true"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
 
         <TextView
             android:layout_width="wrap_content"
@@ -46,28 +40,29 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:focusable="true"
-            app:cardBackgroundColor="@{clashRunning ? colorClashStarted : colorClashStopped}"
+            app:cardBackgroundColor="@color/clash_stopped"
             android:layout_marginBottom="12dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="20dp"
-                android:gravity="center_vertical">
+                android:orientation="vertical"
+                android:padding="20dp">
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:id="@+id/text_status_title"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@{clashRunning ? @string/stat_vpn_running : @string/stat_vpn_stopped}"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
+                    android:text="@string/stat_vpn_stopped"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
                     android:textColor="@android:color/white" />
 
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:id="@+id/text_status_subtitle"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@{forwarded}"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/stat_vpn_hint_start"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
                     android:textColor="@android:color/white" />
             </LinearLayout>
@@ -79,7 +74,7 @@
             android:layout_height="wrap_content"
             android:clickable="true"
             android:focusable="true"
-            android:visibility="@{clashRunning ? View.VISIBLE : View.GONE}"
+            android:visibility="gone"
             android:layout_marginBottom="12dp">
 
             <LinearLayout
@@ -182,6 +177,38 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_help"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:text="@string/cmfa_help_title"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_about"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:padding="16dp"
+                android:text="@string/about_title"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+        </com.google.android.material.card.MaterialCardView>
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/button_open_watfaq"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -189,5 +216,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/switch_to_watfaq_ui" />
-    </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
 </layout>

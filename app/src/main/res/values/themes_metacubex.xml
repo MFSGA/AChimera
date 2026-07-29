@@ -3,7 +3,7 @@
     <attr name="colorClashStopped" format="color" />
     <attr name="colorControlDisabled" format="color" />
 
-    <style name="Theme.Chimera.MetaCubeX" parent="Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.Chimera.MetaCubeX" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/clash_started</item>
         <item name="colorOnPrimary">@android:color/white</item>
         <item name="colorControlNormal">@android:color/black</item>
