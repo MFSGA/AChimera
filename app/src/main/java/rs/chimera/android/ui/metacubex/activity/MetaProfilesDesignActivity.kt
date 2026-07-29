@@ -9,17 +9,22 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ProfileRemotePolicy
+import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
 
 class MetaProfilesDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private lateinit var design: ProfilesDesign
+    private var loadingProfiles = false
+    private var operationInProgress = false
 
     private val filePickerLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent(),
@@ -35,7 +40,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         design = ProfilesDesign(this)
         setContentView(design.root)
 
-        lifecycleScope.launch(Dispatchers.Default) {
+        lifecycleScope.launch {
             for (request in design.requests) {
                 handleRequest(request)
             }
@@ -45,23 +50,46 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private fun observeProfiles() {
-        lifecycleScope.launch(Dispatchers.Default) {
+        lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                design.showLoading()
                 while (true) {
-                    val profiles = backend.listProfiles()
-                    withContext(Dispatchers.Main) {
-                        design.submitList(profiles)
-                    }
+                    if (!operationInProgress) loadProfiles()
                     kotlinx.coroutines.delay(3000)
                 }
             }
         }
     }
 
+    private suspend fun loadProfiles(showLoading: Boolean = false) {
+        if (loadingProfiles) return
+        loadingProfiles = true
+        if (showLoading) design.showLoading()
+        try {
+            val profiles = withContext(Dispatchers.IO) { backend.listProfiles() }
+            design.submitList(profiles)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            design.showError(
+                getString(
+                    R.string.profile_list_error,
+                    error.message ?: getString(R.string.profile_unknown_error),
+                ),
+            )
+        } finally {
+            loadingProfiles = false
+        }
+    }
+
     private suspend fun handleRequest(request: ProfilesDesign.Request) {
         when (request) {
-            is ProfilesDesign.Request.SelectProfile -> {
-                runCatching { backend.activateProfile(request.profileId) }
+            is ProfilesDesign.Request.SelectProfile -> performOperation(
+                progressMessage = getString(R.string.profile_activating),
+                successMessage = getString(R.string.profile_activate_success),
+                errorMessageRes = R.string.profile_activate_error,
+            ) {
+                backend.activateProfile(request.profileId)
             }
             is ProfilesDesign.Request.ProfileMenu -> {
                 showProfileMenu(request.profileId)
@@ -69,74 +97,98 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             ProfilesDesign.Request.AddProfile -> {
                 showAddDialog()
             }
-            ProfilesDesign.Request.RefreshProfile -> {
-                refreshProfiles()
-            }
+            ProfilesDesign.Request.RefreshProfile -> updateRemoteProfiles()
+            ProfilesDesign.Request.Retry -> loadProfiles(showLoading = true)
+            ProfilesDesign.Request.NavigateBack -> finish()
         }
     }
 
     private suspend fun showProfileMenu(profileId: String) {
-        val profiles = backend.listProfiles()
-        val profile = profiles.firstOrNull { it.id == profileId } ?: return
-        val items = mutableListOf<String>().apply {
-            add(getString(R.string.profile_update))
-            add(getString(R.string.profile_rename))
-            add(getString(R.string.profile_delete))
+        if (operationInProgress) return
+        val profile = try {
+            withContext(Dispatchers.IO) {
+                backend.listProfiles().firstOrNull { it.id == profileId }
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            design.showToast(profileError(R.string.profile_list_error, error))
+            return
+        } ?: return
+        val actions = buildList {
+            if (profile.isRemote) add(ProfileAction.Update)
+            add(ProfileAction.Rename)
+            add(ProfileAction.Delete)
         }
+        AlertDialog.Builder(this)
+            .setTitle(profile.name)
+            .setItems(actions.map { getString(it.labelRes) }.toTypedArray()) { _, which ->
+                lifecycleScope.launch { handleProfileAction(profile, actions[which]) }
+            }
+            .show()
+    }
 
-        withContext(Dispatchers.Main) {
-            AlertDialog.Builder(this@MetaProfilesDesignActivity)
-                .setTitle(profile.name)
-                .setItems(items.toTypedArray()) { _, which ->
-                    lifecycleScope.launch {
-                        when (which) {
-                            0 -> runCatching { backend.updateRemoteProfile(profile.id) }
-                                .onSuccess { design.showToast("Updated") }
-                                .onFailure { design.showToast(it.message ?: "Update failed") }
-                            1 -> showRenameDialog(profile.id, profile.name)
-                            2 -> confirmDelete(profile.id, profile.name)
-                        }
-                    }
-                }
-                .show()
+    private suspend fun handleProfileAction(profile: ProfileSummary, action: ProfileAction) {
+        when (action) {
+            ProfileAction.Update -> performOperation(
+                progressMessage = getString(R.string.profile_updating),
+                successMessage = getString(R.string.profile_update_success, profile.name),
+                errorMessageRes = R.string.profile_update_error,
+            ) {
+                backend.updateRemoteProfile(profile.id)
+            }
+            ProfileAction.Rename -> showRenameDialog(profile.id, profile.name)
+            ProfileAction.Delete -> confirmDelete(profile.id, profile.name)
         }
     }
 
-    private suspend fun showRenameDialog(profileId: String, currentName: String) {
-        withContext(Dispatchers.Main) {
-            val input = EditText(this@MetaProfilesDesignActivity).apply { setText(currentName) }
-            AlertDialog.Builder(this@MetaProfilesDesignActivity)
-                .setTitle(R.string.profile_rename_title)
-                .setView(input)
-                .setPositiveButton(android.R.string.ok) { _, _ ->
-                    val newName = input.text.toString().trim()
-                    if (newName.isNotBlank()) {
-                        lifecycleScope.launch {
-                            runCatching { backend.renameProfile(profileId, newName) }
+    private fun showRenameDialog(profileId: String, currentName: String) {
+        val input = EditText(this).apply {
+            setText(currentName)
+            setSelectAllOnFocus(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle(R.string.profile_rename_title)
+            .setView(input)
+            .setPositiveButton(android.R.string.ok) { _, _ ->
+                val newName = input.text.toString().trim()
+                if (newName.isNotEmpty()) {
+                    lifecycleScope.launch {
+                        performOperation(
+                            progressMessage = getString(R.string.profile_renaming),
+                            successMessage = getString(R.string.profile_rename_success, newName),
+                            errorMessageRes = R.string.profile_rename_error,
+                        ) {
+                            backend.renameProfile(profileId, newName)
                         }
                     }
                 }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
-    private suspend fun confirmDelete(profileId: String, name: String) {
-        withContext(Dispatchers.Main) {
-            AlertDialog.Builder(this@MetaProfilesDesignActivity)
-                .setTitle("$name")
-                .setMessage(getString(R.string.profile_delete_confirm))
-                .setPositiveButton(R.string.profile_delete) { _, _ ->
-                    lifecycleScope.launch {
-                        runCatching { backend.deleteProfile(profileId) }
+    private fun confirmDelete(profileId: String, name: String) {
+        AlertDialog.Builder(this)
+            .setTitle(name)
+            .setMessage(getString(R.string.profile_delete_confirm))
+            .setPositiveButton(R.string.profile_delete) { _, _ ->
+                lifecycleScope.launch {
+                    performOperation(
+                        progressMessage = getString(R.string.profile_deleting),
+                        successMessage = getString(R.string.profile_delete_success, name),
+                        errorMessageRes = R.string.profile_delete_error,
+                    ) {
+                        backend.deleteProfile(profileId)
                     }
                 }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun showAddDialog() {
+        if (operationInProgress) return
         val options = arrayOf(
             getString(R.string.profile_import_url),
             getString(R.string.profile_import_file),
@@ -153,38 +205,113 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private fun showUrlImportDialog() {
-        val input = EditText(this)
-        AlertDialog.Builder(this)
+        val input = EditText(this).apply { setText("https://") }
+        val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.profile_import_url)
             .setView(input)
-            .setPositiveButton(android.R.string.ok) { _, _ ->
+            .setPositiveButton(android.R.string.ok, null)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val url = input.text.toString().trim()
-                if (url.isNotBlank()) {
-                    lifecycleScope.launch {
-                        runCatching {
-                            backend.importRemoteProfile(RemoteProfileRequest(null, url))
-                        }.onSuccess {
-                            design.showToast("Import queued")
-                        }.onFailure {
-                            design.showToast(it.message ?: "Import failed")
-                        }
+                if (!ProfileRemotePolicy.isValidUrl(url)) {
+                    input.error = getString(R.string.profile_url_invalid)
+                    return@setOnClickListener
+                }
+                dialog.dismiss()
+                lifecycleScope.launch {
+                    performOperation(
+                        progressMessage = getString(R.string.profile_importing),
+                        successMessage = getString(R.string.profile_import_success, url),
+                        errorMessageRes = R.string.profile_import_error,
+                    ) {
+                        backend.importRemoteProfile(RemoteProfileRequest(null, url))
                     }
                 }
             }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
+        }
+        dialog.show()
     }
 
     private suspend fun importLocalProfile(uri: Uri) {
-        runCatching { backend.importLocalProfile(uri, null) }
-            .onSuccess { design.showToast("Imported") }
-            .onFailure { design.showToast(it.message ?: "Import failed") }
+        performOperation(
+            progressMessage = getString(R.string.profile_importing),
+            successMessage = getString(R.string.profile_import_success, uri.lastPathSegment ?: "profile"),
+            errorMessageRes = R.string.profile_import_error,
+        ) {
+            backend.importLocalProfile(uri, null)
+        }
     }
 
-    private suspend fun refreshProfiles() {
-        val profiles = backend.listProfiles()
-        for (p in profiles.filter { it.isRemote }) {
-            runCatching { backend.updateRemoteProfile(p.id) }
+    private suspend fun performOperation(
+        progressMessage: String,
+        successMessage: String,
+        errorMessageRes: Int,
+        operation: suspend () -> Unit,
+    ) {
+        if (operationInProgress) return
+        operationInProgress = true
+        design.showOperation(progressMessage)
+        try {
+            withContext(Dispatchers.IO) { operation() }
+            loadProfiles()
+            design.showToast(successMessage)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            loadProfiles()
+            design.showToast(profileError(errorMessageRes, error))
+        } finally {
+            operationInProgress = false
         }
+    }
+
+    private fun profileError(messageRes: Int, error: Exception): String =
+        getString(
+            messageRes,
+            error.message ?: getString(R.string.profile_unknown_error),
+        )
+
+    private suspend fun updateRemoteProfiles() {
+        if (operationInProgress) return
+        val profiles = try {
+            withContext(Dispatchers.IO) { backend.listProfiles().filter { it.isRemote } }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            design.showToast(profileError(R.string.profile_list_error, error))
+            return
+        }
+        if (profiles.isEmpty()) {
+            design.showToast(getString(R.string.profile_no_remote_profiles))
+            return
+        }
+
+        var failed = 0
+        performOperation(
+            progressMessage = getString(R.string.profile_refreshing),
+            successMessage = getString(R.string.profile_refresh_result, profiles.size, 0),
+            errorMessageRes = R.string.profile_update_error,
+        ) {
+            profiles.forEach { profile ->
+                try {
+                    backend.updateRemoteProfile(profile.id)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    failed++
+                }
+            }
+            check(failed == 0) {
+                getString(R.string.profile_refresh_result, profiles.size - failed, failed)
+            }
+        }
+    }
+
+    private enum class ProfileAction(val labelRes: Int) {
+        Update(R.string.profile_update),
+        Rename(R.string.profile_rename),
+        Delete(R.string.profile_delete),
     }
 }
