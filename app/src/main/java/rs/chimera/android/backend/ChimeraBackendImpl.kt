@@ -2,9 +2,11 @@ package rs.chimera.android.backend
 
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.net.Uri
 import android.net.VpnService
 import android.provider.OpenableColumns
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import kotlinx.coroutines.CancellationException
@@ -58,6 +60,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
+    override val serviceError: StateFlow<String?> = BackendRuntimeState.serviceError
 
     private val _activeProfile = MutableStateFlow<ProfileSummary?>(null)
     override val activeProfile: StateFlow<ProfileSummary?> = _activeProfile.asStateFlow()
@@ -78,6 +81,10 @@ class ChimeraBackendImpl : ChimeraBackend {
     override val runtimeError: StateFlow<BackendRuntimeError?> = _runtimeError.asStateFlow()
 
     init {
+        runCatching { recoverStagedProfileDeletions() }
+            .onFailure { error ->
+                Log.e(TAG, "Failed to recover staged profile deletions", error)
+            }
         refreshActiveProfile()
         observeTraffic()
         observeMemory()
@@ -101,28 +108,35 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     override suspend fun startVpnAfterPermission() {
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
-        runCatching {
+        try {
             ContextCompat.startForegroundService(
                 Global.application,
                 Intent(Global.application, TunService::class.java),
             )
-        }.onFailure {
-            BackendRuntimeState.updateServiceState(ServiceState.ERROR)
-        }.getOrThrow()
+        } catch (error: Exception) {
+            BackendRuntimeState.updateServiceError(error.messageOrType())
+            throw error
+        }
     }
 
     override suspend fun stopVpn() {
         BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
-        val service = tunService
-        if (service != null) {
-            service.stopVpn()
-        } else {
-            shutdownClash()
-            BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
+        try {
+            val service = tunService
+            if (service != null) {
+                service.stopVpn()
+            } else {
+                shutdownClash().getOrThrow()
+                BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
+            }
+        } catch (error: Exception) {
+            BackendRuntimeState.updateServiceError(error.messageOrType())
+            throw error
         }
     }
 
     override suspend fun listProfiles(): List<ProfileSummary> {
+        recoverStagedProfileDeletions()
         val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return emptyList()
         val jsonArray = JSONArray(profilesJson)
         return buildList {
@@ -159,11 +173,12 @@ class ChimeraBackendImpl : ChimeraBackend {
             jsonArray.getJSONObject(index).put("isActive", updatedProfiles[index].isActive)
         }
         val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
-        profilePrefs.edit {
+        commitProfilePreferences(
+            afterCommit = { Global.restoreProfilePath() },
+        ) {
             putString(PROFILES_LIST_KEY, jsonArray.toString())
             putString(PROFILE_PATH_KEY, activePath)
         }
-        Global.updateProfilePath(activePath)
         refreshActiveProfile()
     }
 
@@ -173,15 +188,19 @@ class ChimeraBackendImpl : ChimeraBackend {
         val safeName = name?.trim()?.takeIf { it.isNotEmpty() }
             ?: fileName.substringBeforeLast('.')
         val id = UUID.randomUUID().toString()
-        val extension = fileName.substringAfterLast('.', "yaml")
-        val file = File(context.filesDir, profileStorageFileName(id, extension))
+        val file = File(
+            context.filesDir,
+            ProfileRemotePolicy.storageFileName(id, fileName),
+        )
 
         withContext(Dispatchers.IO) {
-            val input = context.contentResolver.openInputStream(uri)
-                ?: throw IllegalStateException("Unable to open selected profile")
-            input.use {
-                file.outputStream().use { output ->
-                    it.copyTo(output)
+            ProfileFilePolicy.writeOrRollback(file) { target ->
+                val input = context.contentResolver.openInputStream(uri)
+                    ?: throw IllegalStateException("Unable to open selected profile")
+                input.use {
+                    target.outputStream().use { output ->
+                        it.copyTo(output)
+                    }
                 }
             }
         }
@@ -195,11 +214,13 @@ class ChimeraBackendImpl : ChimeraBackend {
         profileJson.put("fileSize", file.length())
         profileJson.put("type", rs.chimera.android.model.ProfileType.LOCAL.name)
 
-        appendProfile(profileJson)
+        ProfileFilePolicy.commitOrRollback(file) {
+            appendProfile(profileJson)
+        }
     }
 
     override suspend fun importRemoteProfile(request: RemoteProfileRequest) {
-        validateRemoteProfileUrl(request.url)
+        ProfileRemotePolicy.requireValidUrl(request.url)
         val context = Global.application
         val resolvedName = request.name?.trim()?.takeIf { it.isNotEmpty() }
             ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
@@ -223,7 +244,9 @@ class ChimeraBackendImpl : ChimeraBackend {
         if (request.userAgent != null) profileJson.put("userAgent", request.userAgent)
         if (request.proxyUrl != null) profileJson.put("proxyUrl", request.proxyUrl)
 
-        appendProfile(profileJson)
+        ProfileFilePolicy.commitOrRollback(file) {
+            appendProfile(profileJson)
+        }
     }
 
     override suspend fun deleteProfile(id: String) {
@@ -239,15 +262,19 @@ class ChimeraBackendImpl : ChimeraBackend {
             }
         }
         val activePath = ProfileCatalogPolicy.activePath(deletion.profiles)
-        profilePrefs.edit {
-            putString(PROFILES_LIST_KEY, updatedArray.toString())
-            if (activePath == null) remove(PROFILE_PATH_KEY) else putString(PROFILE_PATH_KEY, activePath)
-        }
-        Global.updateProfilePath(activePath.orEmpty())
-        if (deletion.shouldDeleteFile) {
-            val file = File(deletion.deletedFilePath)
-            check(!file.exists() || file.delete()) { "Failed to delete profile file: ${file.name}" }
-        }
+        val originalCatalog = jsonArray.toString()
+        val originalActivePath = ProfileCatalogPolicy.activePath(jsonArray.toCatalogEntries())
+        ProfileDeletionPolicy.delete(
+            file = File(deletion.deletedFilePath),
+            shouldDeleteFile = deletion.shouldDeleteFile,
+            persistDeletion = {
+                commitProfileCatalog(updatedArray.toString(), activePath)
+            },
+            rollbackCatalog = {
+                commitProfileCatalog(originalCatalog, originalActivePath)
+            },
+        )
+        Global.restoreProfilePath()
         refreshActiveProfile()
     }
 
@@ -263,7 +290,9 @@ class ChimeraBackendImpl : ChimeraBackend {
         for (index in 0 until jsonArray.length()) {
             jsonArray.getJSONObject(index).put("name", updatedProfiles[index].name)
         }
-        profilePrefs.edit { putString(PROFILES_LIST_KEY, jsonArray.toString()) }
+        commitProfilePreferences {
+            putString(PROFILES_LIST_KEY, jsonArray.toString())
+        }
         refreshActiveProfile()
     }
 
@@ -278,7 +307,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
         val url = targetProfile.optString("url").takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Remote profile URL is missing")
-        validateRemoteProfileUrl(url)
+        ProfileRemotePolicy.requireValidUrl(url)
 
         val context = Global.application
         val userAgent = targetProfile.optString("userAgent").takeIf { it.isNotBlank() }
@@ -320,15 +349,18 @@ class ChimeraBackendImpl : ChimeraBackend {
                 obj.put("lastUpdated", System.currentTimeMillis())
             }
         }
-        profilePrefs.edit {
+        val activeProfile = (0 until jsonArray.length())
+            .map { jsonArray.getJSONObject(it) }
+            .firstOrNull { it.getBoolean("isActive") }
+        commitProfilePreferences(
+            afterCommit = {
+                if (activeProfile?.getString("id") == id) {
+                    Global.restoreProfilePath()
+                }
+            },
+        ) {
             putString(PROFILES_LIST_KEY, jsonArray.toString())
-            val activeProfile = (0 until jsonArray.length())
-                .map { jsonArray.getJSONObject(it) }
-                .firstOrNull { it.getBoolean("isActive") }
             activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
-            if (activeProfile?.getString("id") == id) {
-                Global.updateProfilePath(file.absolutePath)
-            }
         }
         refreshActiveProfile()
     }
@@ -364,37 +396,23 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
 
     override suspend fun listConnections(): ConnectionsSnapshot {
-        if (serviceState.value != ServiceState.RUNNING) {
-            return ConnectionsSnapshot(emptyList(), 0, 0)
+        check(serviceState.value == ServiceState.RUNNING) {
+            Global.application.getString(rs.chimera.android.R.string.panel_not_running_title)
         }
-
-        return runCatching {
-            val response = controller.getConnections()
-            ConnectionsSnapshot(
-                connections = response.connections.map { conn ->
-                    ConnectionSnapshot(
-                        id = conn.id,
-                        host = conn.metadata.host,
-                        process = null,
-                        upload = conn.upload,
-                        download = conn.download,
-                        startTime = conn.start.toLongOrNull() ?: 0L,
-                        chains = conn.chains,
-                        rule = conn.rule,
-                        metadata = mapOf(
-                            "network" to conn.metadata.network,
-                            "type" to conn.metadata.metadataType,
-                            "sourceIp" to conn.metadata.sourceIp,
-                            "destinationIp" to (conn.metadata.destinationIp ?: ""),
-                            "sourcePort" to (conn.metadata.sourcePort?.toString() ?: ""),
-                            "destinationPort" to conn.metadata.destinationPort.toString(),
-                        ),
-                    )
-                },
-                downloadTotal = response.downloadTotal,
-                uploadTotal = response.uploadTotal,
+        return try {
+            fetchConnectionsFromController().also {
+                clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC)
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            recordRuntimeError(
+                source = BackendRuntimeErrorSource.TRAFFIC,
+                prefix = "Failed to refresh connections",
+                error = error,
             )
-        }.getOrDefault(ConnectionsSnapshot(emptyList(), 0, 0))
+            throw error
+        }
     }
 
     override suspend fun readRuntimeLogs(maxLines: Int): String {
@@ -426,9 +444,11 @@ class ChimeraBackendImpl : ChimeraBackend {
         prefix: String,
         error: Throwable,
     ) {
-        val details = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
-        _runtimeError.value = BackendRuntimeError(source, "$prefix: $details")
+        _runtimeError.value = BackendRuntimeError(source, "$prefix: ${error.messageOrType()}")
     }
+
+    private fun Throwable.messageOrType(): String =
+        message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
 
     private fun clearRuntimeError(source: BackendRuntimeErrorSource) {
         if (_runtimeError.value?.source == source) {
@@ -487,6 +507,34 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
+    private suspend fun fetchConnectionsFromController(): ConnectionsSnapshot {
+        val response = controller.getConnections()
+        return ConnectionsSnapshot(
+            connections = response.connections.map { conn ->
+                ConnectionSnapshot(
+                    id = conn.id,
+                    host = conn.metadata.host,
+                    process = null,
+                    upload = conn.upload,
+                    download = conn.download,
+                    startTime = conn.start.toLongOrNull() ?: 0L,
+                    chains = conn.chains,
+                    rule = conn.rule,
+                    metadata = mapOf(
+                        "network" to conn.metadata.network,
+                        "type" to conn.metadata.metadataType,
+                        "sourceIp" to conn.metadata.sourceIp,
+                        "destinationIp" to conn.metadata.destinationIp.orEmpty(),
+                        "sourcePort" to conn.metadata.sourcePort?.toString().orEmpty(),
+                        "destinationPort" to conn.metadata.destinationPort.toString(),
+                    ),
+                )
+            },
+            downloadTotal = response.downloadTotal,
+            uploadTotal = response.uploadTotal,
+        )
+    }
+
     private fun observeTraffic() {
         backendScope.launch {
             serviceState.collectLatest { state ->
@@ -500,38 +548,15 @@ class ChimeraBackendImpl : ChimeraBackend {
                 delay(1000)
                 while (true) {
                     runCatching {
-                        controller.getConnections()
-                    }.onSuccess { response ->
+                        fetchConnectionsFromController()
+                    }.onSuccess { snapshot ->
                         clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC)
                         _traffic.value = TrafficSnapshot(
-                            downloadTotal = response.downloadTotal,
-                            uploadTotal = response.uploadTotal,
-                            connectionCount = response.connections.size,
+                            downloadTotal = snapshot.downloadTotal,
+                            uploadTotal = snapshot.uploadTotal,
+                            connectionCount = snapshot.connections.size,
                         )
-                        _connections.value = ConnectionsSnapshot(
-                            connections = response.connections.map { conn ->
-                                ConnectionSnapshot(
-                                    id = conn.id,
-                                    host = conn.metadata.host,
-                                    process = null,
-                                    upload = conn.upload,
-                                    download = conn.download,
-                                    startTime = conn.start.toLongOrNull() ?: 0L,
-                                    chains = conn.chains,
-                                    rule = conn.rule,
-                                    metadata = mapOf(
-                                        "network" to conn.metadata.network,
-                                        "type" to conn.metadata.metadataType,
-                                        "sourceIp" to conn.metadata.sourceIp,
-                                        "destinationIp" to (conn.metadata.destinationIp ?: ""),
-                                        "sourcePort" to (conn.metadata.sourcePort?.toString() ?: ""),
-                                        "destinationPort" to conn.metadata.destinationPort.toString(),
-                                    ),
-                                )
-                            },
-                            downloadTotal = response.downloadTotal,
-                            uploadTotal = response.uploadTotal,
-                        )
+                        _connections.value = snapshot
                     }.onFailure { error ->
                         recordRuntimeError(
                             source = BackendRuntimeErrorSource.TRAFFIC,
@@ -650,17 +675,41 @@ class ChimeraBackendImpl : ChimeraBackend {
         profileJson.put("isActive", isFirst)
 
         jsonArray.put(profileJson)
-        profilePrefs.edit {
+        val firstProfilePath = profileJson.getString("filePath").takeIf { isFirst }
+        commitProfilePreferences(
+            afterCommit = {
+                if (firstProfilePath != null) Global.restoreProfilePath()
+            },
+        ) {
             putString(PROFILES_LIST_KEY, jsonArray.toString())
-            if (isFirst) {
-                putString(PROFILE_PATH_KEY, profileJson.getString("filePath"))
-                Global.updateProfilePath(profileJson.getString("filePath"))
-            }
+            firstProfilePath?.let { putString(PROFILE_PATH_KEY, it) }
         }
 
         if (isFirst) {
             refreshActiveProfile()
         }
+    }
+
+    private fun commitProfileCatalog(
+        catalog: String,
+        activePath: String?,
+    ) {
+        commitProfilePreferences {
+            putString(PROFILES_LIST_KEY, catalog)
+            if (activePath == null) remove(PROFILE_PATH_KEY) else putString(PROFILE_PATH_KEY, activePath)
+        }
+    }
+
+    private fun commitProfilePreferences(
+        afterCommit: () -> Unit = {},
+        update: SharedPreferences.Editor.() -> Unit,
+    ) {
+        val editor = profilePrefs.edit()
+        editor.update()
+        ProfilePersistencePolicy.commit(
+            persist = editor::commit,
+            afterCommit = afterCommit,
+        )
     }
 
     private fun queryDisplayName(context: Context, uri: Uri): String {
@@ -676,25 +725,22 @@ class ChimeraBackendImpl : ChimeraBackend {
         } ?: "remote-profile.yaml"
     }
 
-    private fun profileStorageFileName(id: String, extension: String): String {
-        val safeExtension = extension
-            .replace(Regex("[^A-Za-z0-9]"), "")
-            .lowercase(Locale.ROOT)
-            .ifBlank { "yaml" }
-        return "$id.$safeExtension"
+    private fun recoverStagedProfileDeletions() {
+        val referencedPaths = profilePrefs.getString(PROFILES_LIST_KEY, null)
+            ?.let(::JSONArray)
+            ?.toCatalogEntries()
+            ?.mapTo(mutableSetOf()) { File(it.filePath).absolutePath }
+            .orEmpty()
+        ProfileDeletionRecoveryPolicy.recover(
+            directory = Global.application.filesDir,
+            referencedPaths = referencedPaths,
+        )
     }
 
     private fun profileCatalogJson(): JSONArray {
         val value = profilePrefs.getString(PROFILES_LIST_KEY, null)
             ?: throw IllegalStateException("Profile catalog is empty")
         return JSONArray(value)
-    }
-
-    private fun validateRemoteProfileUrl(value: String) {
-        val uri = runCatching { java.net.URI(value) }.getOrNull()
-        require(uri?.host != null && uri.scheme in setOf("http", "https")) {
-            "Remote profile URL must use http or https"
-        }
     }
 
     private fun JSONArray.toCatalogEntries(): List<ProfileCatalogEntry> =
@@ -713,33 +759,37 @@ class ChimeraBackendImpl : ChimeraBackend {
         profileId: String,
         request: RemoteProfileRequest,
     ): File {
-        val remoteName = runCatching {
-            java.net.URL(request.url).path.substringAfterLast('/').substringBefore('?')
-        }.getOrNull().orEmpty()
-        val extension = remoteName.substringAfterLast('.', "yaml")
-        val file = File(context.filesDir, profileStorageFileName(profileId, extension))
-
-        ChimeraFfi.ensureInitialized()
-        val result = downloadFileWithProgress(
-            url = request.url,
-            outputPath = file.absolutePath,
-            userAgent = request.userAgent,
-            proxyUrl = request.proxyUrl ?: Global.proxyPort?.let { "http://127.0.0.1:$it" },
-            progressCallback = object : DownloadProgressCallback {
-                override fun onProgress(progress: DownloadProgress) {
-                    // progress is intentionally not exposed through backend
-                }
-            },
+        val file = File(
+            context.filesDir,
+            ProfileRemotePolicy.storageFileNameForUrl(profileId, request.url),
         )
 
-        if (!result.success) {
-            throw IllegalStateException(result.errorMessage ?: "Unknown download error")
-        }
+        return try {
+            ChimeraFfi.ensureInitialized()
+            val result = downloadFileWithProgress(
+                url = request.url,
+                outputPath = file.absolutePath,
+                userAgent = request.userAgent,
+                proxyUrl = request.proxyUrl ?: Global.proxyPort?.let { "http://127.0.0.1:$it" },
+                progressCallback = object : DownloadProgressCallback {
+                    override fun onProgress(progress: DownloadProgress) {
+                        // progress is intentionally not exposed through backend
+                    }
+                },
+            )
 
-        return file
+            check(result.success) {
+                result.errorMessage ?: "Unknown download error"
+            }
+            file
+        } catch (error: Throwable) {
+            ProfileFilePolicy.deleteAfterFailure(file, error)
+            throw error
+        }
     }
 
     private companion object {
+        const val TAG = "ChimeraBackend"
         const val FILE_PREFS = "file_prefs"
         const val PROFILE_PATH_KEY = "profile_path"
         const val PROFILES_LIST_KEY = "profiles_list"

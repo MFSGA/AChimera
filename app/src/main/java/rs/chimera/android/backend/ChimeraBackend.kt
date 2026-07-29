@@ -15,6 +15,7 @@ import rs.chimera.android.backend.model.TrafficSnapshot
 
 interface ChimeraBackend {
     val serviceState: StateFlow<ServiceState>
+    val serviceError: StateFlow<String?>
     val activeProfile: StateFlow<ProfileSummary?>
     val traffic: StateFlow<TrafficSnapshot>
     val memoryInfo: StateFlow<MemoryInfo>
