@@ -5,6 +5,7 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import rs.chimera.android.R
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.databinding.MetaAdapterProfileBinding
 
@@ -31,7 +32,9 @@ class ProfileAdapter(
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(profile: ProfileSummary) {
             binding.profileName = profile.name
-            binding.profileType = if (profile.isRemote) "Remote" else "Local"
+            binding.profileType = binding.root.context.getString(
+                if (profile.isRemote) R.string.profile_type_remote else R.string.profile_type_local,
+            )
             binding.isActive = profile.isActive
             binding.clicked = android.view.View.OnClickListener { onItemClick(profile) }
             binding.menu = android.view.View.OnClickListener { onMenuClick(profile) }

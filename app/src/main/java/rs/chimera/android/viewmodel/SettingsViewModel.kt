@@ -8,38 +8,22 @@ import androidx.compose.runtime.setValue
 import androidx.core.content.edit
 import androidx.lifecycle.AndroidViewModel
 import rs.chimera.android.R
-
-enum class UiVariant {
-    WATFAQ,
-    METACUBEX,
-}
-
-enum class LanguagePreference {
-    SYSTEM,
-    SIMPLIFIED_CHINESE,
-    ENGLISH,
-}
+import rs.chimera.android.ui.preferences.AppPreferences
+import rs.chimera.android.ui.preferences.AppearancePreference
+import rs.chimera.android.ui.preferences.LanguagePreference
+import rs.chimera.android.ui.preferences.UiVariant
 
 class SettingsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
-    var languagePreference: LanguagePreference by mutableStateOf(loadLanguagePreference())
+    var languagePreference: LanguagePreference by mutableStateOf(AppPreferences.language(application))
         private set
-
-    private fun loadLanguagePreference(): LanguagePreference {
-        val value = prefs.getString("language", "SYSTEM") ?: "SYSTEM"
-        return try {
-            LanguagePreference.valueOf(value)
-        } catch (_: IllegalArgumentException) {
-            LanguagePreference.SYSTEM
-        }
-    }
 
     fun updateLanguagePreference(preference: LanguagePreference) {
         languagePreference = preference
-        prefs.edit { putString("language", preference.name) }
+        AppPreferences.updateLanguage(getApplication(), preference)
     }
 
     fun getLanguageDisplayName(): String {
@@ -53,21 +37,22 @@ class SettingsViewModel(
         }
     }
 
-    var uiVariant: UiVariant by mutableStateOf(loadUiVariant())
+    var appearancePreference: AppearancePreference by mutableStateOf(
+        AppPreferences.appearance(application),
+    )
         private set
 
-    private fun loadUiVariant(): UiVariant {
-        val value = prefs.getString("ui_variant", "WATFAQ") ?: "WATFAQ"
-        return try {
-            UiVariant.valueOf(value)
-        } catch (_: IllegalArgumentException) {
-            UiVariant.WATFAQ
-        }
+    fun updateAppearancePreference(preference: AppearancePreference) {
+        appearancePreference = preference
+        AppPreferences.updateAppearance(getApplication(), preference)
     }
+
+    var uiVariant: UiVariant by mutableStateOf(AppPreferences.uiVariant(application))
+        private set
 
     fun updateUiVariant(variant: UiVariant) {
         uiVariant = variant
-        prefs.edit { putString("ui_variant", variant.name) }
+        AppPreferences.updateUiVariant(getApplication(), variant)
     }
 
     var appFilterMode: AppFilterMode by mutableStateOf(AppFilterMode.ALL)

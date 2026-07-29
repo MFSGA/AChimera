@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.collectLatest
@@ -149,9 +150,13 @@ class HomeViewModel(
 
     fun testGroupDelay(proxyNames: List<String>) {
         viewModelScope.launch {
-            proxyNames.map { name ->
+            errorMessage = null
+            val failures = proxyNames.map { name ->
                 async { testProxyDelay(name) }
-            }.awaitAll()
+            }.awaitAll().filterNotNull()
+            failures.firstOrNull()?.let { error ->
+                errorMessage = formatError("Failed to test proxy delay", error)
+            }
         }
     }
 
@@ -190,9 +195,17 @@ class HomeViewModel(
         }
     }
 
-    private suspend fun testProxyDelay(name: String) {
+    private suspend fun testProxyDelay(name: String): Exception? {
         delays[name] = "testing..."
-        delays[name] = backend.testProxyDelay(name)
+        return try {
+            delays[name] = backend.testProxyDelay(name)
+            null
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            delays[name] = "timeout"
+            error
+        }
     }
 
     private fun applyProxyGroups(groups: List<ProxyGroupSnapshot>) {
