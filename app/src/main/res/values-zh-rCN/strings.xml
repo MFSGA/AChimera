@@ -43,7 +43,7 @@
     <string name="logs_clear_error">清空日志失败：%1$s</string>
     <string name="home_error_title">首页错误</string>
     <string name="action_about">关于</string>
-    <string name="action_restart">重启</string>
+    <string name="action_restart">重新加载</string>
     <string name="about_title">关于</string>
     <string name="about_app_name">Chimera Lite</string>
     <string name="about_version">版本</string>
@@ -51,11 +51,11 @@
     <string name="about_developer">开发者</string>
     <string name="about_github">GitHub 仓库</string>
     <string name="about_license">开源许可证</string>
-    <string name="about_known_issues">已知问题：\n- 当前停止 VPN 时会重启应用，以避免运行时进入不安全状态。</string>
+    <string name="about_known_issues">已知问题：\n- 部分设置需要重启 VPN 后才会生效。</string>
     <string name="profile_known_issues">已知问题：\n- 当前 clash-rs 仍未完全兼容所有 mihomo 配置。\n- 切换配置后，部分设置需要重启 VPN 才会生效。</string>
     <string name="back">返回</string>
-    <string name="restart_confirm_title">确认重启</string>
-    <string name="restart_confirm_message">这将立即重启 Android 进程。</string>
+    <string name="restart_confirm_title">确认重新加载</string>
+    <string name="restart_confirm_message">这将重新打开主界面并清空当前 Activity 栈。</string>
     <string name="confirm">确认</string>
     <string name="cancel">取消</string>
     <string name="connections_title">活跃连接</string>
