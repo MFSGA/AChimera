@@ -233,6 +233,26 @@ fn apply_listener_defaults(config: &mut ConfigDef, over: &ProfileOverride) -> Re
     Ok(mixed_port)
 }
 
+fn load_runtime_config(
+    profile_path: &Path,
+    over: &ProfileOverride,
+) -> Result<(clash_lib::config::RuntimeConfig, u16), String> {
+    let mut config_def = ConfigDef::try_from(profile_path.to_path_buf()).map_err(|error| {
+        format!(
+            "failed to parse profile {}: {error}",
+            profile_path.display()
+        )
+    })?;
+    let mixed_port = apply_listener_defaults(&mut config_def, over)?;
+    let config = config_def.try_into().map_err(|error| {
+        format!(
+            "failed to build runtime config {}: {error}",
+            profile_path.display()
+        )
+    })?;
+    Ok((config, mixed_port))
+}
+
 fn log_line(log_path: &Path, message: &str) {
     info!("{message}");
     let file = OpenOptions::new().append(true).create(true).open(log_path);
@@ -252,6 +272,10 @@ fn extract_jstring(
         Outcome::Err(error) => Err(format!("failed to read JNI string {field_name}: {error}")),
         Outcome::Panic(_) => Err(format!("failed to read JNI string {field_name}: JNI panic")),
     }
+}
+
+fn should_notify_core_stopped(notify_exit: &AtomicBool) -> bool {
+    notify_exit.load(Ordering::SeqCst)
 }
 
 fn notify_core_stopped(message: &str) {
@@ -467,20 +491,7 @@ fn start_core_internal(
         .ok_or_else(|| "profile path contains invalid UTF-8".to_string())?
         .to_string();
 
-    let mut config_def = ConfigDef::try_from(profile_path.clone()).map_err(|error| {
-        format!(
-            "failed to parse profile {}: {error}",
-            profile_path.display()
-        )
-    })?;
-    let mixed_port = apply_listener_defaults(&mut config_def, &over)?;
-
-    let mut config: clash_lib::config::RuntimeConfig = config_def.try_into().map_err(|error| {
-        format!(
-            "failed to build runtime config {}: {error}",
-            profile_path.display()
-        )
-    })?;
+    let (mut config, mixed_port) = load_runtime_config(&profile_path, &over)?;
 
     config.tun.enable = true;
     config.tun.device_id = format!("fd://{tun_fd}");
@@ -574,7 +585,7 @@ fn start_core_internal(
             }
         };
         instance().core_running.store(false, Ordering::SeqCst);
-        if worker_ready.load(Ordering::SeqCst) {
+        if should_notify_core_stopped(worker_ready.as_ref()) {
             notify_core_stopped(&exit_message);
         }
         result
@@ -839,6 +850,17 @@ mod tests {
         }
     }
 
+    fn unique_temp_path(name: &str) -> PathBuf {
+        std::env::temp_dir().join(format!(
+            "chimera-{name}-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ))
+    }
+
     #[test]
     fn bundled_profile_parses_with_current_clash_dependency() {
         let profile_path =
@@ -848,6 +870,20 @@ mod tests {
         let _runtime_config: clash_lib::config::RuntimeConfig = config.try_into().unwrap();
 
         assert_eq!(7890, mixed_port);
+    }
+
+    #[test]
+    fn invalid_profile_reports_parse_error() {
+        let profile_path = unique_temp_path("invalid-profile.yaml");
+        fs::write(&profile_path, "mixed-port: [invalid").unwrap();
+
+        let error = load_runtime_config(&profile_path, &profile_override())
+            .err()
+            .expect("invalid profile should fail");
+
+        assert!(error.contains("failed to parse profile"));
+        assert!(error.contains(profile_path.to_string_lossy().as_ref()));
+        let _ = fs::remove_file(profile_path);
     }
 
     #[test]
@@ -935,6 +971,35 @@ mod tests {
         assert_eq!("startup failed", error);
     }
 
+    #[test]
+    fn readiness_propagates_listener_port_conflict() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let socket_path = unique_temp_path("port-conflict.sock");
+
+        let error = runtime.block_on(async {
+            let occupied = tokio::net::TcpListener::bind(("127.0.0.1", 0))
+                .await
+                .unwrap();
+            let address = occupied.local_addr().unwrap();
+            let ready = AtomicBool::new(false);
+            let mut worker = tokio::spawn(async move {
+                tokio::net::TcpListener::bind(address)
+                    .await
+                    .map(|_| ())
+                    .map_err(|error| format!("failed to bind mixed-port {address}: {error}"))
+            });
+
+            wait_for_core_ready(&socket_path, &mut worker, &ready, Duration::from_secs(1))
+                .await
+                .unwrap_err()
+        });
+
+        assert!(error.contains("failed to bind mixed-port"));
+    }
+
     #[cfg(unix)]
     #[test]
     fn readiness_accepts_connectable_controller_socket() {
@@ -968,6 +1033,17 @@ mod tests {
             drop(listener);
         });
         let _ = std::fs::remove_file(socket_path);
+    }
+
+    #[test]
+    fn core_exit_notification_only_runs_after_ready() {
+        let notify_exit = AtomicBool::new(false);
+
+        assert!(!should_notify_core_stopped(&notify_exit));
+        notify_exit.store(true, Ordering::SeqCst);
+        assert!(should_notify_core_stopped(&notify_exit));
+        notify_exit.store(false, Ordering::SeqCst);
+        assert!(!should_notify_core_stopped(&notify_exit));
     }
 
     #[test]
