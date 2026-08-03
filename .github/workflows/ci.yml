@@ -83,6 +83,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('uniffi/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Ensure Android SDK path
         run: |
           if [ ! -f local.properties ]; then
@@ -93,11 +103,36 @@ jobs:
             echo "sdk.dir=${ANDROID_HOME}" > local.properties
           fi
 
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path uniffi/Cargo.toml --all -- --check
+
+      - name: Run Rust Clippy
+        run: cargo clippy --manifest-path uniffi/Cargo.toml --workspace --all-targets --locked -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path uniffi/Cargo.toml --workspace --locked
+
       - name: Generate Rust bindings
         run: just generate-bindings
 
+      - name: Run Android quality checks
+        run: ./gradlew ktlintCheck testDebugUnitTest lintDebug
+
       - name: Build Debug APK
         run: ./gradlew app:assembleDebug
+
+      - name: Upload CI reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-reports-${{ github.run_id }}
+          path: |
+            app/build/reports/tests/testDebugUnitTest/**
+            app/build/test-results/testDebugUnitTest/**
+            app/build/reports/lint-results-debug.*
+            core/build/reports/lint-results-debug.*
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
