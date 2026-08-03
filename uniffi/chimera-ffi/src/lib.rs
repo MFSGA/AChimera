@@ -217,17 +217,17 @@ fn apply_listener_defaults(config: &mut ConfigDef, over: &ProfileOverride) -> Re
         over.mixed_port
     };
 
-    if config.port.is_none() {
-        if let Some(port) = over.http_port {
-            validate_port("http", port)?;
-            config.port = Some(Port(port));
-        }
+    if config.port.is_none()
+        && let Some(port) = over.http_port
+    {
+        validate_port("http", port)?;
+        config.port = Some(Port(port));
     }
-    if config.socks_port.is_none() {
-        if let Some(port) = over.socks_port {
-            validate_port("socks", port)?;
-            config.socks_port = Some(Port(port));
-        }
+    if config.socks_port.is_none()
+        && let Some(port) = over.socks_port
+    {
+        validate_port("socks", port)?;
+        config.socks_port = Some(Port(port));
     }
 
     Ok(mixed_port)
@@ -888,10 +888,12 @@ mod tests {
 
     #[test]
     fn listener_defaults_preserve_profile_ports() {
-        let mut config = ConfigDef::default();
-        config.mixed_port = Some(Port(9000));
-        config.port = Some(Port(9001));
-        config.socks_port = Some(Port(9002));
+        let mut config = ConfigDef {
+            mixed_port: Some(Port(9000)),
+            port: Some(Port(9001)),
+            socks_port: Some(Port(9002)),
+            ..Default::default()
+        };
 
         let mixed_port = apply_listener_defaults(&mut config, &profile_override()).unwrap();
 
@@ -927,8 +929,10 @@ mod tests {
 
     #[test]
     fn listener_defaults_ignore_invalid_fallback_when_profile_has_value() {
-        let mut config = ConfigDef::default();
-        config.mixed_port = Some(Port(9000));
+        let mut config = ConfigDef {
+            mixed_port: Some(Port(9000)),
+            ..Default::default()
+        };
         let mut over = profile_override();
         over.mixed_port = 0;
 
@@ -939,9 +943,11 @@ mod tests {
 
     #[test]
     fn listener_defaults_validate_only_missing_optional_ports() {
-        let mut config = ConfigDef::default();
-        config.mixed_port = Some(Port(9000));
-        config.port = Some(Port(9001));
+        let mut config = ConfigDef {
+            mixed_port: Some(Port(9000)),
+            port: Some(Port(9001)),
+            ..Default::default()
+        };
         let mut over = profile_override();
         over.http_port = Some(0);
         over.socks_port = Some(0);

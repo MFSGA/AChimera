@@ -66,6 +66,12 @@ cargo {
         environmentalOverrides["RUSTC_WRAPPER"] = "sccache"
     }
     environmentalOverrides["RUSTC_BOOTSTRAP"] = "1"
+    // The Mullvad linker wrapper prints the invoked clang command to stdout.
+    // Rust 1.97 reports that expected wrapper output through the linker_messages lint.
+    environmentalOverrides["RUSTFLAGS"] = listOfNotNull(
+        System.getenv("RUSTFLAGS")?.takeIf { it.isNotBlank() },
+        "-A linker_messages",
+    ).joinToString(" ")
 
     targets = if (fullAbiBuild) {
         listOf("arm64", "arm", "x86", "x86_64")
