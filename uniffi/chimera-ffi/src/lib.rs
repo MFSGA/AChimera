@@ -252,6 +252,31 @@ fn extract_jstring(
     }
 }
 
+fn notify_core_stopped(message: &str) {
+    let inst = instance();
+    let result = inst.jvm.attach_current_thread(|env| {
+        let message = env.new_string(message)?;
+        let callback_sig = unsafe {
+            MethodSignature::from_raw_parts(
+                jni_str!("(Ljava/lang/String;)V"),
+                &[JavaType::Object],
+                JavaType::Primitive(Primitive::Void),
+            )
+        };
+        env.call_method(
+            inst.chimera_ffi.as_obj(),
+            jni_str!("onCoreStopped"),
+            callback_sig,
+            &[JValue::Object(&message)],
+        )?;
+        Ok::<(), jni::errors::Error>(())
+    });
+
+    if let Err(error) = result {
+        error!("failed to notify Android about core exit: {error}");
+    }
+}
+
 #[cfg(unix)]
 async fn controller_is_ready(socket_path: &Path) -> std::io::Result<()> {
     UnixStream::connect(socket_path).await.map(|_| ())
@@ -283,13 +308,17 @@ fn describe_worker_exit(result: Result<Result<(), String>, tokio::task::JoinErro
 async fn wait_for_core_ready(
     socket_path: &Path,
     worker: &mut JoinHandle<Result<(), String>>,
+    ready: &AtomicBool,
     timeout: Duration,
 ) -> Result<(), String> {
     let deadline = Instant::now() + timeout;
 
     loop {
         let connect_error = match controller_is_ready(socket_path).await {
-            Ok(()) => return Ok(()),
+            Ok(()) => {
+                ready.store(true, Ordering::SeqCst);
+                return Ok(());
+            }
             Err(error) => error,
         };
 
@@ -472,6 +501,8 @@ fn start_core_internal(
     let final_profile = FinalProfile { mixed_port };
 
     let runtime_log_path = log_path.clone();
+    let ready = Arc::new(AtomicBool::new(false));
+    let worker_ready = ready.clone();
     instance().core_running.store(true, Ordering::SeqCst);
     let mut worker = runtime().spawn(async move {
         let (log_tx, _) = broadcast::channel(100);
@@ -491,20 +522,29 @@ fn start_core_internal(
         .await
         .map_err(|error| format!("clash core exited with error: {error}"));
 
-        match &result {
-            Ok(()) => log_line(&runtime_log_path, "clash core exited"),
+        let exit_message = match &result {
+            Ok(()) => {
+                let message = "clash core exited unexpectedly".to_string();
+                log_line(&runtime_log_path, &message);
+                message
+            }
             Err(message) => {
                 set_last_error(message.clone());
                 log_line(&runtime_log_path, message);
+                message.clone()
             }
-        }
+        };
         instance().core_running.store(false, Ordering::SeqCst);
+        if worker_ready.load(Ordering::SeqCst) {
+            notify_core_stopped(&exit_message);
+        }
         result
     });
 
     if let Err(error) = runtime().block_on(wait_for_core_ready(
         &socket_path,
         &mut worker,
+        ready.as_ref(),
         CORE_START_TIMEOUT,
     )) {
         let _ = clash_shutdown();
@@ -842,8 +882,9 @@ mod tests {
         let socket_path = std::env::temp_dir().join("chimera-readiness-missing.sock");
 
         let error = runtime.block_on(async {
+            let ready = AtomicBool::new(false);
             let mut worker = tokio::spawn(async { Err("startup failed".to_string()) });
-            wait_for_core_ready(&socket_path, &mut worker, Duration::from_secs(1))
+            wait_for_core_ready(&socket_path, &mut worker, &ready, Duration::from_secs(1))
                 .await
                 .unwrap_err()
         });
@@ -869,14 +910,16 @@ mod tests {
 
         runtime.block_on(async {
             let listener = tokio::net::UnixListener::bind(&socket_path).unwrap();
+            let ready = AtomicBool::new(false);
             let mut worker = tokio::spawn(async {
                 std::future::pending::<()>().await;
                 Ok(())
             });
 
-            wait_for_core_ready(&socket_path, &mut worker, Duration::from_secs(1))
+            wait_for_core_ready(&socket_path, &mut worker, &ready, Duration::from_secs(1))
                 .await
                 .unwrap();
+            assert!(ready.load(Ordering::SeqCst));
 
             worker.abort();
             drop(listener);

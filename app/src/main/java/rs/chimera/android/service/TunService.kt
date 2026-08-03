@@ -290,17 +290,26 @@ class TunService : VpnService() {
         }
     }
 
-    private fun cleanup(finalState: ServiceState = ServiceState.STOPPED) {
+    private fun cleanup(
+        finalState: ServiceState = ServiceState.STOPPED,
+        stopCore: Boolean = true,
+        errorMessage: String? = null,
+    ): Boolean {
         synchronized(this) {
             if (isDestroying) {
-                return
+                return false
             }
             isDestroying = true
         }
 
-        shutdownClash().exceptionOrNull()?.let { error ->
-            Log.w(TAG, "Failed to stop Rust core cleanly", error)
-            appendRuntimeLog("failed to stop rust core cleanly", error)
+        if (errorMessage != null) {
+            BackendRuntimeState.updateServiceError(errorMessage)
+        }
+        if (stopCore) {
+            shutdownClash().exceptionOrNull()?.let { error ->
+                Log.w(TAG, "Failed to stop Rust core cleanly", error)
+                appendRuntimeLog("failed to stop rust core cleanly", error)
+            }
         }
         runCatching {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -324,6 +333,23 @@ class TunService : VpnService() {
         Global.proxyPort = null
         BackendRuntimeState.updateServiceState(finalState)
         appendRuntimeLog("service cleanup complete")
+        return true
+    }
+
+    fun onCoreStopped(message: String) {
+        serviceScope.launch {
+            val cleanedUp = cleanup(
+                finalState = ServiceState.ERROR,
+                stopCore = false,
+                errorMessage = message,
+            )
+            if (!cleanedUp) return@launch
+
+            Log.e(TAG, "Rust core stopped unexpectedly: $message")
+            appendRuntimeLog("rust core stopped unexpectedly: $message")
+            NotificationHelper.notifyFailed(this@TunService, message)
+            stopSelf()
+        }
     }
 
     fun stopVpn() {
