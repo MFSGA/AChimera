@@ -12,11 +12,11 @@ use hyper::Request;
 #[cfg(unix)]
 use hyper::body::Bytes;
 #[cfg(unix)]
-use hyperlocal::{UnixConnector, Uri as UnixUri};
-#[cfg(unix)]
 use hyper_util::client::legacy::Client;
 #[cfg(unix)]
 use hyper_util::rt::TokioExecutor;
+#[cfg(unix)]
+use hyperlocal::{UnixConnector, Uri as UnixUri};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, uniffi::Enum)]
 #[serde(rename_all = "lowercase")]
@@ -167,7 +167,10 @@ impl ClashController {
         group_name: String,
         proxy_name: String,
     ) -> Result<(), ChimeraError> {
-        debug!("controller select_proxy group={} proxy={}", group_name, proxy_name);
+        debug!(
+            "controller select_proxy group={} proxy={}",
+            group_name, proxy_name
+        );
         let body = serde_json::json!({ "name": proxy_name });
         let path = format!("/proxies/{}", encode(&group_name));
         self.request_no_response(
@@ -274,14 +277,13 @@ impl ClashController {
                     })?
             };
 
-            let response =
-                client
-                    .request(request)
-                    .await
-                    .map_err(|error| ChimeraError::Runtime {
-                        details: format!("controller request failed: {error}"),
-                    })
-                    .inspect_err(|error| tracing::error!("{error}"))?;
+            let response = client
+                .request(request)
+                .await
+                .map_err(|error| ChimeraError::Runtime {
+                    details: format!("controller request failed: {error}"),
+                })
+                .inspect_err(|error| tracing::error!("{error}"))?;
 
             if !response.status().is_success() {
                 tracing::error!("controller http status error: {}", response.status());
@@ -335,14 +337,13 @@ impl ClashController {
                     })?
             };
 
-            let response =
-                client
-                    .request(request)
-                    .await
-                    .map_err(|error| ChimeraError::Runtime {
-                        details: format!("controller request failed: {error}"),
-                    })
-                    .inspect_err(|error| tracing::error!("{error}"))?;
+            let response = client
+                .request(request)
+                .await
+                .map_err(|error| ChimeraError::Runtime {
+                    details: format!("controller request failed: {error}"),
+                })
+                .inspect_err(|error| tracing::error!("{error}"))?;
 
             if !response.status().is_success() {
                 tracing::error!("controller http status error: {}", response.status());
