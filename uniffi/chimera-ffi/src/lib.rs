@@ -8,7 +8,7 @@ static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 use clash_lib::{
     Config as ClashConfig, SocketProtector,
     config::def::{Config as ConfigDef, DNSMode, Port},
-    set_socket_protector, start,
+    set_socket_protector, shutdown as clash_shutdown, start,
 };
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use jni::objects::{Global, JObject, JString, JValue};
@@ -21,15 +21,22 @@ use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Once, OnceLock};
+use std::time::Duration;
+#[cfg(unix)]
+use tokio::net::UnixStream;
 use tokio::runtime::Runtime;
 use tokio::sync::broadcast;
 use tokio::task::JoinHandle;
+use tokio::time::{Instant, sleep};
 use tracing::{error, info};
 use tracing_subscriber::filter::LevelFilter;
 
 static INSTANCE: OnceLock<ClashInstance> = OnceLock::new();
 static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
 static INIT: Once = Once::new();
+
+const CORE_START_TIMEOUT: Duration = Duration::from_secs(10);
+const CORE_READY_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 struct ClashInstance {
     jvm: JavaVM,
@@ -63,7 +70,7 @@ fn instance() -> &'static ClashInstance {
 use log::init_logger;
 
 struct CoreState {
-    worker: JoinHandle<()>,
+    worker: JoinHandle<Result<(), String>>,
     metadata: CoreMetadata,
 }
 
@@ -245,6 +252,63 @@ fn extract_jstring(
     }
 }
 
+#[cfg(unix)]
+async fn controller_is_ready(socket_path: &Path) -> std::io::Result<()> {
+    UnixStream::connect(socket_path).await.map(|_| ())
+}
+
+#[cfg(not(unix))]
+async fn controller_is_ready(socket_path: &Path) -> std::io::Result<()> {
+    if socket_path.exists() {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "controller socket is not available",
+        ))
+    }
+}
+
+fn describe_worker_exit(result: Result<Result<(), String>, tokio::task::JoinError>) -> String {
+    match result {
+        Ok(Ok(())) => "clash core exited before becoming ready".to_string(),
+        Ok(Err(error)) => error,
+        Err(error) if error.is_cancelled() => {
+            "clash core startup task was cancelled before becoming ready".to_string()
+        }
+        Err(error) => format!("clash core startup task failed: {error}"),
+    }
+}
+
+async fn wait_for_core_ready(
+    socket_path: &Path,
+    worker: &mut JoinHandle<Result<(), String>>,
+    timeout: Duration,
+) -> Result<(), String> {
+    let deadline = Instant::now() + timeout;
+
+    loop {
+        let connect_error = match controller_is_ready(socket_path).await {
+            Ok(()) => return Ok(()),
+            Err(error) => error,
+        };
+
+        let now = Instant::now();
+        if now >= deadline {
+            return Err(format!(
+                "timed out waiting for clash controller {}: {connect_error}",
+                socket_path.display(),
+            ));
+        }
+
+        let delay = CORE_READY_POLL_INTERVAL.min(deadline.saturating_duration_since(now));
+        tokio::select! {
+            result = &mut *worker => return Err(describe_worker_exit(result)),
+            _ = sleep(delay) => {}
+        }
+    }
+}
+
 fn stop_core_internal() -> Result<(), String> {
     let running = {
         let mut guard = instance()
@@ -408,7 +472,8 @@ fn start_core_internal(
     let final_profile = FinalProfile { mixed_port };
 
     let runtime_log_path = log_path.clone();
-    let worker = runtime().spawn(async move {
+    instance().core_running.store(true, Ordering::SeqCst);
+    let mut worker = runtime().spawn(async move {
         let (log_tx, _) = broadcast::channel(100);
         log_line(
             &runtime_log_path,
@@ -417,22 +482,39 @@ fn start_core_internal(
                 profile_path_string, tun_fd, work_dir_string
             ),
         );
-        if let Err(error) = start(
+        let result = start(
             config,
             work_dir_string,
             Some(profile_path_string.clone()),
             log_tx,
         )
         .await
-        {
-            let message = format!("clash core exited with error: {error}");
-            set_last_error(message.clone());
-            log_line(&runtime_log_path, &message);
-        } else {
-            log_line(&runtime_log_path, "clash core exited");
+        .map_err(|error| format!("clash core exited with error: {error}"));
+
+        match &result {
+            Ok(()) => log_line(&runtime_log_path, "clash core exited"),
+            Err(message) => {
+                set_last_error(message.clone());
+                log_line(&runtime_log_path, message);
+            }
         }
         instance().core_running.store(false, Ordering::SeqCst);
+        result
     });
+
+    if let Err(error) = runtime().block_on(wait_for_core_ready(
+        &socket_path,
+        &mut worker,
+        CORE_START_TIMEOUT,
+    )) {
+        let _ = clash_shutdown();
+        worker.abort();
+        let _ = fs::remove_file(&socket_path);
+        instance().core_running.store(false, Ordering::SeqCst);
+        set_last_error(error.clone());
+        log_line(&log_path, &error);
+        return Err(error);
+    }
 
     {
         let mut guard = instance()
@@ -441,7 +523,7 @@ fn start_core_internal(
             .map_err(|error| format!("core state lock poisoned: {error}"))?;
         *guard = Some(CoreState { worker, metadata });
     }
-    instance().core_running.store(true, Ordering::SeqCst);
+    log_line(&log_path, "clash core controller is ready");
     Ok(final_profile)
 }
 
@@ -676,8 +758,8 @@ mod tests {
 
     #[test]
     fn bundled_profile_parses_with_current_clash_dependency() {
-        let profile_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../scripts/rVqZHZQSFdSN.yaml");
+        let profile_path =
+            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../scripts/rVqZHZQSFdSN.yaml");
         let mut config = ConfigDef::try_from(profile_path).unwrap();
         let mixed_port = apply_listener_defaults(&mut config, &profile_override()).unwrap();
         let _runtime_config: clash_lib::config::RuntimeConfig = config.try_into().unwrap();
@@ -749,6 +831,57 @@ mod tests {
 
         assert_eq!("socks port must be between 1 and 65535", error);
         assert!(matches!(config.port, Some(Port(9001))));
+    }
+
+    #[test]
+    fn readiness_reports_worker_failure() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let socket_path = std::env::temp_dir().join("chimera-readiness-missing.sock");
+
+        let error = runtime.block_on(async {
+            let mut worker = tokio::spawn(async { Err("startup failed".to_string()) });
+            wait_for_core_ready(&socket_path, &mut worker, Duration::from_secs(1))
+                .await
+                .unwrap_err()
+        });
+
+        assert_eq!("startup failed", error);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn readiness_accepts_connectable_controller_socket() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let socket_path = std::env::temp_dir().join(format!(
+            "chimera-readiness-{}-{}.sock",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ));
+
+        runtime.block_on(async {
+            let listener = tokio::net::UnixListener::bind(&socket_path).unwrap();
+            let mut worker = tokio::spawn(async {
+                std::future::pending::<()>().await;
+                Ok(())
+            });
+
+            wait_for_core_ready(&socket_path, &mut worker, Duration::from_secs(1))
+                .await
+                .unwrap();
+
+            worker.abort();
+            drop(listener);
+        });
+        let _ = std::fs::remove_file(socket_path);
     }
 }
 
