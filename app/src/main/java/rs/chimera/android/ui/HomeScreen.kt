@@ -109,9 +109,10 @@ fun HomeScreen(
                         showRestartDialog = false
                         val intent =
                             context.packageManager.getLaunchIntentForPackage(context.packageName)
-                        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                        context.startActivity(intent)
-                        android.os.Process.killProcess(android.os.Process.myPid())
+                        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                        if (intent != null) {
+                            context.startActivity(intent)
+                        }
                     },
                 ) {
                     Text(stringResource(R.string.confirm))
@@ -188,11 +189,6 @@ fun HomeScreen(
             onVpnToggle = {
                 if (isVpnRunning) {
                     viewModel.stopVpn()
-                    val intent =
-                        context.packageManager.getLaunchIntentForPackage(context.packageName)
-                    intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    context.startActivity(intent)
-                    android.os.Process.killProcess(android.os.Process.myPid())
                 } else {
                     viewModel.startVpn(vpnPermissionLauncher)
                 }
