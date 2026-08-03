@@ -1,5 +1,6 @@
 package rs.chimera.android.ffi
 
+import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.service.tunService
 import uniffi.chimera_ffi.hello
 import uniffi.chimera_ffi.shutdown
@@ -21,6 +22,17 @@ object ChimeraFfi {
     @Suppress("unused")
     fun protectSocket(fd: Int): Boolean {
         return tunService?.protect(fd) == true
+    }
+
+    @Suppress("unused")
+    fun onCoreStopped(message: String) {
+        val detail = message.trim().ifEmpty { "Rust core stopped unexpectedly" }
+        val service = tunService
+        if (service != null) {
+            service.onCoreStopped(detail)
+        } else {
+            BackendRuntimeState.updateServiceError(detail)
+        }
     }
 
     fun helloOrFallback(): String {
