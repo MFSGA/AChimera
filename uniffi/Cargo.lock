@@ -599,7 +599,6 @@ dependencies = [
  "downcast-rs",
  "educe",
  "erased-serde",
- "etherparse",
  "filetime",
  "futures",
  "h3",

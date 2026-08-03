@@ -45,18 +45,22 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 package = "clash-lib"
 rev = "dee2dc145d3eab22b76abf0a365d381efb82c78d"
 git = "https://github.com/MFSGA/Chimera_Client.git"
-# TODO: Align features with upstream when ready
+# Keep the Android runtime feature surface explicit so upstream default changes
+# cannot silently add or remove protocols and listeners.
 features = [
+    "zero_copy",
+    "tls",
+    "aws-lc-rs",
+    "tun",
+    "port",
+    "reality",
+    "extended-health-check",
     "ws",
     "trojan",
     "hysteria",
-    "tproxy",
-    "redir",
-    "http_port",
-    "mixed_port",
     "tracing",
 ]
-default-features = true
+default-features = false
 
 [target.'cfg(unix)'.dependencies]
 hyperlocal = "0.9"
