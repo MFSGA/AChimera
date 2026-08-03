@@ -36,10 +36,7 @@ class TunService : VpnService() {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var isDestroying = false
-    private var startRequested = false
-    private var stopRequested = false
-    private var startJob: Job? = null
+    private val lifecycleGate = VpnLifecycleGate()
 
     private data class ServiceSettings(
         val appFilterMode: String,
@@ -58,15 +55,7 @@ class TunService : VpnService() {
         flags: Int,
         startId: Int,
     ): Int {
-        val shouldStart =
-            synchronized(this) {
-                if (startRequested || stopRequested || isDestroying) {
-                    false
-                } else {
-                    startRequested = true
-                    true
-                }
-            }
+        val shouldStart = lifecycleGate.requestStart()
         if (!shouldStart) {
             Log.i(TAG, "Ignoring duplicate VPN start request")
             appendRuntimeLog("ignored duplicate vpn start request")
@@ -99,23 +88,10 @@ class TunService : VpnService() {
                     stopSelf()
                 }
             } finally {
-                val currentJob = currentCoroutineContext()[Job]
-                synchronized(this@TunService) {
-                    if (startJob === currentJob) {
-                        startJob = null
-                    }
-                }
+                currentCoroutineContext()[Job]?.let(lifecycleGate::clearStartup)
             }
         }
-        val shouldLaunch =
-            synchronized(this) {
-                if (stopRequested || isDestroying) {
-                    false
-                } else {
-                    startJob = job
-                    true
-                }
-            }
+        val shouldLaunch = lifecycleGate.registerStartup(job)
         if (shouldLaunch) {
             job.start()
         } else {
@@ -335,22 +311,14 @@ class TunService : VpnService() {
     }
 
     private fun cancelStartup(): Job? =
-        synchronized(this) {
-            stopRequested = true
-            startJob?.also { it.cancel() }
-        }
+        lifecycleGate.cancelStartup()
 
     private fun cleanup(
         finalState: ServiceState = ServiceState.STOPPED,
         stopCore: Boolean = true,
         errorMessage: String? = null,
     ): Boolean {
-        synchronized(this) {
-            if (isDestroying) {
-                return false
-            }
-            isDestroying = true
-        }
+        if (!lifecycleGate.beginCleanup()) return false
 
         if (errorMessage != null) {
             BackendRuntimeState.updateServiceError(errorMessage)
@@ -388,8 +356,7 @@ class TunService : VpnService() {
 
     fun onCoreStopped(message: String) {
         serviceScope.launch {
-            val stopping = synchronized(this@TunService) { stopRequested || isDestroying }
-            if (stopping) return@launch
+            if (!lifecycleGate.canHandleUnexpectedCoreStop()) return@launch
 
             val cleanedUp = cleanup(
                 finalState = ServiceState.ERROR,
@@ -406,14 +373,11 @@ class TunService : VpnService() {
     }
 
     fun stopVpn() {
-        val job =
-            synchronized(this) {
-                if (stopRequested || isDestroying) return
-                stopRequested = true
-                startJob?.also { it.cancel() }
-            }
+        val stopRequest = lifecycleGate.requestStop()
+        if (!stopRequest.accepted) return
+
         serviceScope.launch {
-            job?.join()
+            stopRequest.startupJob?.join()
             if (cleanup()) {
                 stopSelf()
             }
