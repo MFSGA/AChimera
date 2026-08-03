@@ -14,7 +14,7 @@ AChimera یک پروژه آزمایشی کلاینت پراکسی بر پایه 
 
 ## پشته فناوری
 
-- Android SDK 37
+- Android SDK 36
 - Kotlin + Jetpack Compose
 - Java 25 Toolchain
 - Rust 2024
@@ -27,7 +27,7 @@ AChimera یک پروژه آزمایشی کلاینت پراکسی بر پایه 
 پیش از ساخت محلی، حداقل این موارد باید آماده باشند:
 
 - JDK 25
-- Android SDK 37 و Build Tools 36.0.0
+- Android SDK 36 و Build Tools 36.0.0
 - Android NDK `29.0.14206865`
 - Rust toolchain
 - `cargo-ndk`

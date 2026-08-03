@@ -14,7 +14,7 @@ The current app name is `Chimera Lite`, and the package includes both the Androi
 
 ## Tech Stack
 
-- Android SDK 37
+- Android SDK 36
 - Kotlin + Jetpack Compose
 - Java 25 Toolchain
 - Rust 2024
@@ -27,7 +27,7 @@ The current app name is `Chimera Lite`, and the package includes both the Androi
 Before building locally, prepare at least:
 
 - JDK 25
-- Android SDK 37 and Build Tools 36.0.0
+- Android SDK 36 and Build Tools 36.0.0
 - Android NDK `29.0.14206865`
 - Rust toolchain
 - `cargo-ndk`

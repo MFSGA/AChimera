@@ -42,14 +42,14 @@ val enabledAbis =
 
 android {
     namespace = "rs.chimera.android"
-    compileSdk = 37
+    compileSdk = 36
     ndkVersion = rootProject.extra["ndkVersion"] as String
     val keystore = env("KEYSTORE_FILE")
 
     defaultConfig {
         applicationId = "rs.chimera.android"
         minSdk = 23
-        targetSdk = 37
+        targetSdk = 36
         versionCode = verCode
         versionName = verName
 

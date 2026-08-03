@@ -14,7 +14,7 @@ AChimera 是一个基于 Android + Kotlin/Jetpack Compose + Rust/UniFFI 的实�
 
 ## 技术栈
 
-- Android SDK 37
+- Android SDK 36
 - Kotlin + Jetpack Compose
 - Java 25 Toolchain
 - Rust 2024
@@ -27,7 +27,7 @@ AChimera 是一个基于 Android + Kotlin/Jetpack Compose + Rust/UniFFI 的实�
 在本地构建前，至少需要准备：
 
 - JDK 25
-- Android SDK 37 和 Build Tools 36.0.0
+- Android SDK 36 和 Build Tools 36.0.0
 - Android NDK `29.0.14206865`
 - Rust toolchain
 - `cargo-ndk`

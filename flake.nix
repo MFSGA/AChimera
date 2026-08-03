@@ -7,7 +7,7 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; config.allowUnfree = true; config.android_sdk.accept_license = true; };
       androidComposition = pkgs.androidenv.composeAndroidPackages {
-        platformVersions = [ "37" ];
+        platformVersions = [ "36" ];
         buildToolsVersions = [ "36.0.0" ];
         includeEmulator = true;
         includeNDK = true;

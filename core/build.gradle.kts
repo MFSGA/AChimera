@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "rs.chimera.android.ffi"
-    compileSdk = 37
+    compileSdk = 36
 
     ndkVersion = rootProject.extra["ndkVersion"] as String
     buildToolsVersion = rootProject.extra["buildToolsVersion"] as String
