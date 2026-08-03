@@ -36,6 +36,7 @@ static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
 static INIT: Once = Once::new();
 
 const CORE_START_TIMEOUT: Duration = Duration::from_secs(10);
+const CORE_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 const CORE_READY_POLL_INTERVAL: Duration = Duration::from_millis(50);
 
 struct ClashInstance {
@@ -71,6 +72,7 @@ use log::init_logger;
 
 struct CoreState {
     worker: JoinHandle<Result<(), String>>,
+    notify_exit: Arc<AtomicBool>,
     metadata: CoreMetadata,
 }
 
@@ -338,6 +340,24 @@ async fn wait_for_core_ready(
     }
 }
 
+async fn wait_for_worker_shutdown(
+    mut worker: JoinHandle<Result<(), String>>,
+    timeout: Duration,
+) -> Result<(), String> {
+    match tokio::time::timeout(timeout, &mut worker).await {
+        Ok(Ok(Ok(()))) | Ok(Ok(Err(_))) => Ok(()),
+        Ok(Err(error)) => Err(format!("clash core worker join failed: {error}")),
+        Err(_) => {
+            worker.abort();
+            let _ = worker.await;
+            Err(format!(
+                "timed out waiting for clash core shutdown after {} ms",
+                timeout.as_millis(),
+            ))
+        }
+    }
+}
+
 fn stop_core_internal() -> Result<(), String> {
     let running = {
         let mut guard = instance()
@@ -347,15 +367,34 @@ fn stop_core_internal() -> Result<(), String> {
         guard.take()
     };
 
-    if let Some(state) = running {
-        state.worker.abort();
-        let _ = fs::remove_file(state.metadata.socket_path);
-        log_line(&state.metadata.log_path, "chimera core stop requested");
-    }
+    let result = if let Some(state) = running {
+        let CoreState {
+            worker,
+            notify_exit,
+            metadata,
+        } = state;
+        notify_exit.store(false, Ordering::SeqCst);
+        let shutdown_sent = clash_shutdown();
+        log_line(
+            &metadata.log_path,
+            if shutdown_sent {
+                "chimera core graceful stop requested"
+            } else {
+                "chimera core stop requested without active shutdown token"
+            },
+        );
+        let result = runtime().block_on(wait_for_worker_shutdown(worker, CORE_STOP_TIMEOUT));
+        let _ = fs::remove_file(metadata.socket_path);
+        result
+    } else {
+        Ok(())
+    };
 
     instance().core_running.store(false, Ordering::SeqCst);
-    clear_last_error();
-    Ok(())
+    if result.is_ok() {
+        clear_last_error();
+    }
+    result
 }
 
 fn start_core_internal(
@@ -561,7 +600,11 @@ fn start_core_internal(
             .core_state
             .lock()
             .map_err(|error| format!("core state lock poisoned: {error}"))?;
-        *guard = Some(CoreState { worker, metadata });
+        *guard = Some(CoreState {
+            worker,
+            notify_exit: ready,
+            metadata,
+        });
     }
     log_line(&log_path, "clash core controller is ready");
     Ok(final_profile)
@@ -925,6 +968,62 @@ mod tests {
             drop(listener);
         });
         let _ = std::fs::remove_file(socket_path);
+    }
+
+    #[test]
+    fn shutdown_waits_for_worker_completion() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        runtime.block_on(async {
+            let worker = tokio::spawn(async {
+                sleep(Duration::from_millis(10)).await;
+                Ok(())
+            });
+
+            wait_for_worker_shutdown(worker, Duration::from_secs(1))
+                .await
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn shutdown_accepts_worker_error_after_exit() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        runtime.block_on(async {
+            let worker = tokio::spawn(async { Err("runtime failed".to_string()) });
+
+            wait_for_worker_shutdown(worker, Duration::from_secs(1))
+                .await
+                .unwrap();
+        });
+    }
+
+    #[test]
+    fn shutdown_aborts_worker_after_timeout() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let error = runtime.block_on(async {
+            let worker = tokio::spawn(async {
+                std::future::pending::<()>().await;
+                Ok(())
+            });
+
+            wait_for_worker_shutdown(worker, Duration::from_millis(10))
+                .await
+                .unwrap_err()
+        });
+
+        assert!(error.contains("timed out waiting for clash core shutdown"));
     }
 }
 
