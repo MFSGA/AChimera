@@ -9,9 +9,14 @@ import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendRuntimeState
@@ -33,6 +38,8 @@ class TunService : VpnService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var isDestroying = false
     private var startRequested = false
+    private var stopRequested = false
+    private var startJob: Job? = null
 
     private data class ServiceSettings(
         val appFilterMode: String,
@@ -53,7 +60,7 @@ class TunService : VpnService() {
     ): Int {
         val shouldStart =
             synchronized(this) {
-                if (startRequested || isDestroying) {
+                if (startRequested || stopRequested || isDestroying) {
                     false
                 } else {
                     startRequested = true
@@ -72,43 +79,76 @@ class TunService : VpnService() {
         tunService = this
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
 
-        serviceScope.launch {
+        val job = serviceScope.launch(start = CoroutineStart.LAZY) {
             try {
                 runVpn()
+            } catch (error: CancellationException) {
+                appendRuntimeLog("service startup cancelled")
+                throw error
             } catch (error: Exception) {
                 Log.e(TAG, "Error in runVpn", error)
                 appendRuntimeLog("service runVpn failed", error)
-                BackendRuntimeState.updateServiceError(
-                    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName,
+                val detail =
+                    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+                val cleanedUp = cleanup(
+                    finalState = ServiceState.ERROR,
+                    errorMessage = detail,
                 )
-                cleanup(ServiceState.ERROR)
-                NotificationHelper.notifyFailed(this@TunService, error.message)
-                stopSelf()
+                if (cleanedUp) {
+                    NotificationHelper.notifyFailed(this@TunService, detail)
+                    stopSelf()
+                }
+            } finally {
+                val currentJob = currentCoroutineContext()[Job]
+                synchronized(this@TunService) {
+                    if (startJob === currentJob) {
+                        startJob = null
+                    }
+                }
             }
+        }
+        val shouldLaunch =
+            synchronized(this) {
+                if (stopRequested || isDestroying) {
+                    false
+                } else {
+                    startJob = job
+                    true
+                }
+            }
+        if (shouldLaunch) {
+            job.start()
+        } else {
+            job.cancel()
         }
 
         return START_STICKY
     }
 
     override fun onRevoke() {
+        cancelStartup()
         cleanup()
         super.onRevoke()
     }
 
     override fun onDestroy() {
+        cancelStartup()
         cleanup()
         super.onDestroy()
     }
 
     private suspend fun runVpn() {
+        currentCoroutineContext().ensureActive()
         val profilePath = resolveProfilePath()
         val settings = loadServiceSettings()
+        currentCoroutineContext().ensureActive()
         appendRuntimeLog("service preparing vpn for profile: $profilePath")
         val interfaceFd = buildTunnel(settings)
         if (interfaceFd == null) {
             error("Failed to establish VPN interface")
         }
         vpnInterface = interfaceFd
+        currentCoroutineContext().ensureActive()
         val currentTunFd = duplicateTunFdForRust(interfaceFd)
         tunFd = currentTunFd
         if (currentTunFd <= 0) {
@@ -117,7 +157,9 @@ class TunService : VpnService() {
             error("Invalid tun fd: $currentTunFd")
         }
 
+        currentCoroutineContext().ensureActive()
         copyRuntimeAssetsIfAvailable(Global.application.assets, Global.application.cacheDir)
+        currentCoroutineContext().ensureActive()
 
         val startResult =
             initClash(
@@ -125,6 +167,7 @@ class TunService : VpnService() {
                 workDir = Global.application.cacheDir.absolutePath,
                 over = createProfileOverride(currentTunFd, settings),
             )
+        currentCoroutineContext().ensureActive()
         if (startResult.isFailure) {
             closeDetachedTunFd(currentTunFd)
             tunFd = null
@@ -133,6 +176,7 @@ class TunService : VpnService() {
         }
 
         val finalProfile = startResult.getOrThrow()
+        currentCoroutineContext().ensureActive()
         Global.proxyPort = finalProfile.mixedPort
         appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
@@ -290,6 +334,12 @@ class TunService : VpnService() {
         }
     }
 
+    private fun cancelStartup(): Job? =
+        synchronized(this) {
+            stopRequested = true
+            startJob?.also { it.cancel() }
+        }
+
     private fun cleanup(
         finalState: ServiceState = ServiceState.STOPPED,
         stopCore: Boolean = true,
@@ -338,6 +388,9 @@ class TunService : VpnService() {
 
     fun onCoreStopped(message: String) {
         serviceScope.launch {
+            val stopping = synchronized(this@TunService) { stopRequested || isDestroying }
+            if (stopping) return@launch
+
             val cleanedUp = cleanup(
                 finalState = ServiceState.ERROR,
                 stopCore = false,
@@ -353,8 +406,18 @@ class TunService : VpnService() {
     }
 
     fun stopVpn() {
-        cleanup()
-        stopSelf()
+        val job =
+            synchronized(this) {
+                if (stopRequested || isDestroying) return
+                stopRequested = true
+                startJob?.also { it.cancel() }
+            }
+        serviceScope.launch {
+            job?.join()
+            if (cleanup()) {
+                stopSelf()
+            }
+        }
     }
 
     private companion object {
