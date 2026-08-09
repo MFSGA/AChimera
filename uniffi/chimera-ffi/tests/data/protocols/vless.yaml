@@ -1,0 +1,16 @@
+mixed-port: 7890
+proxies:
+  - name: vless-minimal
+    type: vless
+    server: 127.0.0.1
+    port: 443
+    uuid: b831381d-6324-4d53-ad4f-8cda48b30811
+    network: tcp
+    udp: true
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - vless-minimal
+rules:
+  - MATCH,PROXY

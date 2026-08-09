@@ -1,0 +1,22 @@
+mixed-port: 7890
+proxies:
+  - name: reality-minimal
+    type: vless
+    server: 127.0.0.1
+    port: 443
+    uuid: b831381d-6324-4d53-ad4f-8cda48b30811
+    network: tcp
+    tls: true
+    flow: xtls-rprx-vision
+    server-name: www.example.com
+    reality-opts:
+      public-key: AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
+      short-id: 85144f63
+    client-fingerprint: chrome
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - reality-minimal
+rules:
+  - MATCH,PROXY
