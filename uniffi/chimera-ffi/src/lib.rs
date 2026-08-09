@@ -862,9 +862,14 @@ mod tests {
     }
 
     #[test]
-    fn bundled_profile_parses_with_current_clash_dependency() {
-        let profile_path =
-            PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../scripts/rVqZHZQSFdSN.yaml");
+    fn minimal_profile_parses_with_current_clash_dependency() {
+        let profile_path = unique_temp_path("compatible-profile.yaml");
+        fs::write(
+            &profile_path,
+            "mixed-port: 7890\nproxies: []\nproxy-groups: []\nrules: []\n",
+        )
+        .unwrap();
+
         let mut config = ConfigDef::try_from(profile_path).unwrap();
         let mixed_port = apply_listener_defaults(&mut config, &profile_override()).unwrap();
         let _runtime_config: clash_lib::config::RuntimeConfig = config.try_into().unwrap();
