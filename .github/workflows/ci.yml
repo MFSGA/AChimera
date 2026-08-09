@@ -50,11 +50,6 @@ jobs:
           targets: "x86_64-unknown-linux-gnu"
           components: "rustfmt,clippy,rust-src"
 
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: ${{ env.ANDROID_NDK_VERSION }}
-
       - name: Add Rust Android targets
         run: |
           rustup target add aarch64-linux-android
@@ -104,7 +99,9 @@ jobs:
           fi
           sdkmanager \
             "platforms;android-${ANDROID_PLATFORM_VERSION}" \
-            "build-tools;${ANDROID_BUILD_TOOLS_VERSION}"
+            "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
+            "ndk;${ANDROID_NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
 
       - name: Check Rust formatting
