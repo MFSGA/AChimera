@@ -264,7 +264,15 @@ jobs:
             echo "ANDROID_HOME is not set on runner."
             exit 1
           fi
-          sdkmanager \
+          sdkmanager_path="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager_path" ]; then
+            sdkmanager_path="$(find "${ANDROID_HOME}/cmdline-tools" -path '*/bin/sdkmanager' -type f -print -quit)"
+          fi
+          if [ -z "$sdkmanager_path" ] || [ ! -x "$sdkmanager_path" ]; then
+            echo "sdkmanager was not found under ANDROID_HOME=${ANDROID_HOME}."
+            exit 1
+          fi
+          "$sdkmanager_path" \
             "platforms;android-${ANDROID_PLATFORM_VERSION}" \
             "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
             "ndk;${ANDROID_NDK_VERSION}"
