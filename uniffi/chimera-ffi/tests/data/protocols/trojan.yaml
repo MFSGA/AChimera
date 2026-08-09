@@ -1,0 +1,17 @@
+mixed-port: 7890
+proxies:
+  - name: trojan-minimal
+    type: trojan
+    server: 127.0.0.1
+    port: 443
+    password: test-password
+    sni: example.com
+    skip-cert-verify: true
+    udp: true
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - trojan-minimal
+rules:
+  - MATCH,PROXY

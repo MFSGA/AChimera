@@ -1,5 +1,7 @@
 mod controller;
 pub mod log;
+#[cfg(test)]
+mod protocol_compat_tests;
 pub mod util;
 
 #[global_allocator]
@@ -7,7 +9,11 @@ static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 
 use clash_lib::{
     Config as ClashConfig, SocketProtector,
-    config::def::{Config as ConfigDef, DNSMode, Port},
+    app::outbound::manager::OutboundManager,
+    config::{
+        def::{Config as ConfigDef, DNSMode, Port},
+        internal::proxy::{OutboundProxyProtocol, XhttpDownloadSettings, XhttpOpt},
+    },
     set_socket_protector, shutdown as clash_shutdown, start,
 };
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
@@ -233,6 +239,165 @@ fn apply_listener_defaults(config: &mut ConfigDef, over: &ProfileOverride) -> Re
     Ok(mixed_port)
 }
 
+fn validate_xhttp_endpoint(settings: &XhttpDownloadSettings, label: &str) -> Result<(), String> {
+    if settings.address.is_empty() {
+        return Err(format!("xhttp {label} address must not be empty"));
+    }
+    if settings.port == 0 {
+        return Err(format!("xhttp {label} port must be greater than zero"));
+    }
+    if settings.network != "xhttp" {
+        return Err(format!(
+            "xhttp {label} network must be xhttp, got {}",
+            settings.network
+        ));
+    }
+    if let Some(security) = settings.security.as_deref()
+        && !matches!(security, "none" | "tls" | "reality")
+    {
+        return Err(format!("unsupported xhttp {label} security: {security}"));
+    }
+    if matches!(
+        settings
+            .xhttp_settings
+            .as_ref()
+            .and_then(|settings| settings.path.as_deref()),
+        Some("")
+    ) {
+        return Err(format!("xhttp {label} path must not be empty"));
+    }
+    Ok(())
+}
+
+fn validate_xhttp_options(options: &XhttpOpt) -> Result<(), String> {
+    if matches!(options.path.as_deref(), Some("")) {
+        return Err("xhttp path must not be empty".to_string());
+    }
+    if let Some(mode) = options.mode.as_deref()
+        && !matches!(
+            mode,
+            "stream-one" | "stream-up" | "packet-up" | "split" | "auto"
+        )
+    {
+        return Err(format!("unsupported xhttp mode: {mode}"));
+    }
+    for (name, value) in [
+        ("max_each_post_bytes", options.max_each_post_bytes),
+        ("max_buffered_posts", options.max_buffered_posts),
+    ] {
+        if matches!(value, Some(0)) {
+            return Err(format!("xhttp {name} must be greater than zero"));
+        }
+    }
+    if matches!(options.session_ttl, Some(0)) {
+        return Err("xhttp session_ttl must be greater than zero".to_string());
+    }
+    if matches!(
+        options
+            .extra
+            .as_ref()
+            .and_then(|extra| extra.sc_max_each_post_bytes),
+        Some(0)
+    ) {
+        return Err("xhttp extra sc_max_each_post_bytes must be greater than zero".to_string());
+    }
+    if matches!(
+        options
+            .extra
+            .as_ref()
+            .and_then(|extra| extra.sc_min_posts_interval_ms),
+        Some(0)
+    ) {
+        return Err("xhttp extra sc_min_posts_interval_ms must be greater than zero".to_string());
+    }
+    if let Some(settings) = options.upload_settings.as_ref() {
+        validate_xhttp_endpoint(settings, "upload_settings")?;
+    }
+    if let Some(settings) = options
+        .extra
+        .as_ref()
+        .and_then(|extra| extra.download_settings.as_ref())
+        .or(options.download_settings.as_ref())
+    {
+        validate_xhttp_endpoint(settings, "download_settings")?;
+    }
+    Ok(())
+}
+
+fn validate_proxy_options(proxy: &OutboundProxyProtocol) -> Result<(), String> {
+    match proxy {
+        OutboundProxyProtocol::Vless(proxy) => match proxy.network.as_deref().unwrap_or("tcp") {
+            "tcp" => Ok(()),
+            "ws" if proxy.ws_opts.is_none() => Err("ws_opts is required for vless ws".to_string()),
+            "ws" => Ok(()),
+            "xhttp" => proxy
+                .xhttp_opts
+                .as_ref()
+                .ok_or_else(|| "xhttp_opts is required for vless xhttp".to_string())
+                .and_then(validate_xhttp_options),
+            other => Err(format!("unsupported vless network: {other}")),
+        },
+        OutboundProxyProtocol::Trojan(proxy) => match proxy.network.as_deref() {
+            None => Ok(()),
+            Some("ws") if proxy.ws_opts.is_none() => {
+                Err("ws_opts is required for trojan ws".to_string())
+            }
+            Some("ws") => Ok(()),
+            Some(other) => Err(format!("unsupported trojan network: {other}")),
+        },
+        OutboundProxyProtocol::Hysteria2(proxy)
+            if proxy.obfs.is_some() && proxy.obfs_password.is_none() =>
+        {
+            Err("hysteria2 `obfs-password` is required when `obfs` is set".to_string())
+        }
+        _ => Ok(()),
+    }
+}
+
+fn proxy_identity(proxy: &OutboundProxyProtocol) -> (&str, &'static str) {
+    match proxy {
+        OutboundProxyProtocol::Direct(proxy) => (&proxy.name, "direct"),
+        OutboundProxyProtocol::Reject(proxy) => (&proxy.name, "reject"),
+        OutboundProxyProtocol::Socks5(proxy) => (&proxy.common_opts.name, "socks5"),
+        OutboundProxyProtocol::Vless(proxy) => (&proxy.common_opts.name, "vless"),
+        OutboundProxyProtocol::Trojan(proxy) => (&proxy.common_opts.name, "trojan"),
+        OutboundProxyProtocol::Hysteria2(proxy) => (&proxy.name, "hysteria2"),
+        #[allow(unreachable_patterns)]
+        _ => ("<unknown>", "unknown"),
+    }
+}
+
+fn validate_runtime_proxy_handlers(proxies: Vec<OutboundProxyProtocol>) -> Result<(), String> {
+    clash_lib::setup_default_crypto_provider();
+    for proxy in proxies {
+        let (name, protocol) = proxy_identity(&proxy);
+        let name = name.to_owned();
+        validate_proxy_options(&proxy)
+            .map_err(|error| format!("proxy `{name}` ({protocol}): {error}"))?;
+        if OutboundManager::load_plain_outbounds(vec![proxy]).is_empty() {
+            return Err(format!(
+                "proxy `{name}` ({protocol}) parsed successfully, but its runtime handler could not be constructed; verify protocol options and enabled clash-lib features"
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn validate_profile_runtime_handlers(profile_path: &Path) -> Result<(), String> {
+    let mut config = ConfigDef::try_from(profile_path.to_path_buf()).map_err(|error| {
+        format!(
+            "failed to parse profile {} for runtime validation: {error}",
+            profile_path.display()
+        )
+    })?;
+    validate_runtime_proxy_handlers(config.proxy.take().unwrap_or_default()).map_err(|error| {
+        format!(
+            "failed to validate runtime proxies {}: {error}",
+            profile_path.display()
+        )
+    })
+}
+
 fn load_runtime_config(
     profile_path: &Path,
     over: &ProfileOverride,
@@ -244,6 +409,7 @@ fn load_runtime_config(
         )
     })?;
     let mixed_port = apply_listener_defaults(&mut config_def, over)?;
+    validate_profile_runtime_handlers(profile_path)?;
     let config = config_def.try_into().map_err(|error| {
         format!(
             "failed to build runtime config {}: {error}",
@@ -675,6 +841,8 @@ fn verify_config(config_path: String) -> Result<String, ChimeraError> {
     let _config = ClashConfig::File(config_path)
         .try_parse()
         .map_err(|error| runtime_error(format!("invalid config: {error}")))?;
+    validate_profile_runtime_handlers(&path)
+        .map_err(|error| runtime_error(format!("invalid runtime config: {error}")))?;
 
     Ok("Config is valid".to_string())
 }

@@ -1,0 +1,23 @@
+mixed-port: 7890
+proxies:
+  - name: xhttp-minimal
+    type: vless
+    server: 127.0.0.1
+    port: 443
+    uuid: b831381d-6324-4d53-ad4f-8cda48b30811
+    network: xhttp
+    xhttp-opts:
+      path: /xhttp/
+      mode: stream-one
+      host:
+        - example.com
+      max-each-post-bytes: 1000000
+      max-buffered-posts: 30
+      session-ttl: 30
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - xhttp-minimal
+rules:
+  - MATCH,PROXY
