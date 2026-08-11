@@ -97,6 +97,12 @@ protocol_compatibility_tests!(
     trojan_runtime_handler_builds,
     "trojan.yaml"
 );
+protocol_compatibility_tests!(
+    tls_websocket_definition_parses,
+    tls_websocket_runtime_config_builds,
+    tls_websocket_runtime_handler_builds,
+    "tls-websocket.yaml"
+);
 fn common_options(name: &str) -> CommonConfigOptions {
     CommonConfigOptions {
         name: name.to_owned(),
