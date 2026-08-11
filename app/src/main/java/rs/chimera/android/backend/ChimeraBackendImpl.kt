@@ -58,6 +58,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
     private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
 
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
     override val serviceError: StateFlow<String?> = BackendRuntimeState.serviceError
@@ -137,9 +138,13 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     override suspend fun listProfiles(): List<ProfileSummary> {
         recoverStagedProfileDeletions()
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return emptyList()
+        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
+        if (profilesJson == null) {
+            profileAutoUpdateScheduler.refresh(emptyList())
+            return emptyList()
+        }
         val jsonArray = JSONArray(profilesJson)
-        return buildList {
+        val profiles = buildList {
             for (index in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(index)
                 add(
@@ -163,6 +168,8 @@ class ChimeraBackendImpl : ChimeraBackend {
                 )
             }
         }
+        profileAutoUpdateScheduler.refresh(profiles)
+        return profiles
     }
 
     override suspend fun activateProfile(id: String) {
