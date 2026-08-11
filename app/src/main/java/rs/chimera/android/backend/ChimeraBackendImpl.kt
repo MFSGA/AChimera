@@ -314,53 +314,62 @@ class ChimeraBackendImpl : ChimeraBackend {
         val proxyUrl = targetProfile.optString("proxyUrl").takeIf { it.isNotBlank() }
             ?: Global.proxyPort?.let { "http://127.0.0.1:$it" }
 
-        val file = withContext(Dispatchers.IO) {
-            val outputFile = File(targetProfile.getString("filePath"))
-            val tempFile = File(outputFile.parentFile ?: context.filesDir, "${outputFile.name}.download")
-            tempFile.delete()
-
-            ChimeraFfi.ensureInitialized()
-            val result = downloadFileWithProgress(
-                url = url,
-                outputPath = tempFile.absolutePath,
-                userAgent = userAgent,
-                proxyUrl = proxyUrl,
-                progressCallback = object : DownloadProgressCallback {
-                    override fun onProgress(progress: DownloadProgress) {}
-                },
-            )
-            if (!result.success) {
-                tempFile.delete()
-                throw IllegalStateException(result.errorMessage ?: "Unknown download error")
-            }
-
-            if (!tempFile.renameTo(outputFile)) {
-                tempFile.copyTo(outputFile, overwrite = true)
-                tempFile.delete()
-            }
-            outputFile
-        }
-
-        for (index in 0 until jsonArray.length()) {
-            val obj = jsonArray.getJSONObject(index)
-            if (obj.getString("id") == id) {
-                obj.put("filePath", file.absolutePath)
-                obj.put("fileSize", file.length())
-                obj.put("lastUpdated", System.currentTimeMillis())
-            }
-        }
+        val outputFile = File(targetProfile.getString("filePath"))
         val activeProfile = (0 until jsonArray.length())
             .map { jsonArray.getJSONObject(it) }
             .firstOrNull { it.getBoolean("isActive") }
-        commitProfilePreferences(
-            afterCommit = {
-                if (activeProfile?.getString("id") == id) {
-                    Global.restoreProfilePath()
+
+        withContext(Dispatchers.IO) {
+            ProfileUpdateTransactionPolicy.run(
+                destinationFile = outputFile,
+                update = {
+                    val tempFile = File(
+                        outputFile.parentFile ?: context.filesDir,
+                        "${outputFile.name}.download",
+                    )
+                    tempFile.delete()
+                    try {
+                        ChimeraFfi.ensureInitialized()
+                        val result = downloadFileWithProgress(
+                            url = url,
+                            outputPath = tempFile.absolutePath,
+                            userAgent = userAgent,
+                            proxyUrl = proxyUrl,
+                            progressCallback = object : DownloadProgressCallback {
+                                override fun onProgress(progress: DownloadProgress) {}
+                            },
+                        )
+                        if (!result.success) {
+                            throw IllegalStateException(result.errorMessage ?: "Unknown download error")
+                        }
+
+                        tempFile
+                    } catch (error: Throwable) {
+                        tempFile.delete()
+                        throw error
+                    }
+                },
+                persistMetadata = { file, _ ->
+                    for (index in 0 until jsonArray.length()) {
+                        val obj = jsonArray.getJSONObject(index)
+                        if (obj.getString("id") == id) {
+                            obj.put("filePath", file.absolutePath)
+                            obj.put("fileSize", file.length())
+                            obj.put("lastUpdated", System.currentTimeMillis())
+                        }
+                    }
+                    commitProfilePreferences(
+                        afterCommit = {
+                            if (activeProfile?.getString("id") == id) {
+                                Global.restoreProfilePath()
+                            }
+                        },
+                    ) {
+                        putString(PROFILES_LIST_KEY, jsonArray.toString())
+                        activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
+                    }
                 }
-            },
-        ) {
-            putString(PROFILES_LIST_KEY, jsonArray.toString())
-            activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
+            )
         }
         refreshActiveProfile()
     }

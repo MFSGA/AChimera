@@ -3,6 +3,16 @@ package rs.chimera.android.backend
 import java.io.File
 
 internal object ProfileFilePolicy {
+    fun replaceAtomically(source: File, destination: File) {
+        check(source.isFile) { "Replacement source does not exist: ${source.name}" }
+        if (source.renameTo(destination)) return
+
+        source.copyTo(destination, overwrite = true)
+        check(source.delete()) {
+            "Failed to remove replacement source: ${source.name}"
+        }
+    }
+
     fun writeOrRollback(
         file: File,
         write: (File) -> Unit,
