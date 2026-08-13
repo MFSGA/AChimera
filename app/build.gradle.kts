@@ -39,6 +39,7 @@ val enabledAbis =
     } else {
         listOf("x86_64")
     }
+val splitAbiBuild = env("ANDROID_SPLIT_ABI_ENABLE") == "true"
 
 android {
     namespace = "rs.chimera.android"
@@ -57,8 +58,10 @@ android {
         resValue("string", "app_ver", verName)
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        ndk {
-            abiFilters.addAll(enabledAbis)
+        if (!splitAbiBuild) {
+            ndk {
+                abiFilters.addAll(enabledAbis)
+            }
         }
     }
 
@@ -96,7 +99,7 @@ android {
 
     splits {
         abi {
-            isEnable = env("ANDROID_SPLIT_ABI_ENABLE") == "true"
+            isEnable = splitAbiBuild
             reset()
             include(*enabledAbis.toTypedArray())
             isUniversalApk = env("ANDROID_SPLIT_ABI_UNIVERSAL_APK") == "true"
