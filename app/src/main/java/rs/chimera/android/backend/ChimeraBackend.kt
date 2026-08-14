@@ -45,6 +45,7 @@ interface ChimeraBackend {
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)
     suspend fun setMode(mode: uniffi.chimera_ffi.Mode)
+    suspend fun resetNetwork()
     suspend fun testProxyDelay(proxyName: String): String
     suspend fun listConnections(): ConnectionsSnapshot
     suspend fun readRuntimeLogs(maxLines: Int = 160): String

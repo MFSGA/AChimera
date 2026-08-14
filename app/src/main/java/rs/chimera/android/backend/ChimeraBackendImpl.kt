@@ -406,6 +406,12 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
+    override suspend fun resetNetwork() {
+        runProxyOperation("Failed to reset network state") {
+            controller.resetNetwork()
+        }
+    }
+
     override suspend fun testProxyDelay(proxyName: String): String =
         runProxyOperation("Failed to test proxy delay") {
             val response = controller.getProxyDelay(proxyName, null, null)

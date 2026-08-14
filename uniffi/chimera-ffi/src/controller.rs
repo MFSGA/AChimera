@@ -240,6 +240,12 @@ impl ClashController {
         self.update_config(config).await
     }
 
+    pub async fn reset_network(&self) -> Result<(), ChimeraError> {
+        debug!("controller reset_network");
+        self.request_no_response("POST", "/network/reset", None)
+            .await
+    }
+
     pub async fn get_mode(&self) -> Result<Option<Mode>, ChimeraError> {
         let config = self.get_configs().await?;
         Ok(config.mode)

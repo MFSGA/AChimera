@@ -691,6 +691,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_reset_network(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode(
@@ -737,6 +739,8 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxies(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_delay(`ptr`: Long,`name`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`timeout`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_reset_network(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_select_proxy(`ptr`: Long,`groupName`: RustBuffer.ByValue,`proxyName`: RustBuffer.ByValue,
     ): Long
@@ -911,6 +915,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay() != 13007.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_reset_network() != 4116.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy() != 46981.toShort()) {
@@ -1438,6 +1445,8 @@ public interface ClashControllerInterface {
 
     suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?): DelayResponse
 
+    suspend fun `resetNetwork`()
+
     suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String)
 
     suspend fun `setMode`(`mode`: Mode)
@@ -1672,6 +1681,28 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterTypeDelayResponse.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `resetNetwork`() {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_reset_network(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
