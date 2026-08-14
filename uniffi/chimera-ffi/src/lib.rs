@@ -717,6 +717,12 @@ fn start_core_internal(
     let final_profile = FinalProfile { mixed_port };
 
     let runtime_log_path = log_path.clone();
+    let profile_label = PathBuf::from(&profile_path_string)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or("unknown-profile")
+        .to_string();
     let ready = Arc::new(AtomicBool::new(false));
     let worker_ready = ready.clone();
     instance().core_running.store(true, Ordering::SeqCst);
@@ -724,10 +730,7 @@ fn start_core_internal(
         let (log_tx, _) = broadcast::channel(100);
         log_line(
             &runtime_log_path,
-            &format!(
-                "starting clash core: profile={} tun_fd={} work_dir={}",
-                profile_path_string, tun_fd, work_dir_string
-            ),
+            &format!("starting clash core: profile={profile_label} tun_fd={tun_fd}"),
         );
         let result = start(
             config,

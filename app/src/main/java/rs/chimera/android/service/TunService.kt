@@ -125,7 +125,9 @@ class TunService : VpnService() {
         val profilePath = resolveProfilePath()
         val settings = loadServiceSettings()
         currentCoroutineContext().ensureActive()
-        appendRuntimeLog("service preparing vpn for profile: $profilePath")
+        appendRuntimeLog(
+            "service preparing vpn for profile: ${RuntimeLogSanitizer.profileLabel(profilePath)}",
+        )
         val interfaceFd = buildTunnel(settings)
         if (interfaceFd == null) {
             error("Failed to establish VPN interface")
