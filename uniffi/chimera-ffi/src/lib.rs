@@ -3,6 +3,8 @@ pub mod log;
 #[cfg(test)]
 mod protocol_compat_tests;
 pub mod util;
+#[cfg(test)]
+mod util_tests;
 
 #[global_allocator]
 static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;

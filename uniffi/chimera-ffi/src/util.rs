@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use reqwest::redirect::Policy;
 use tokio_stream::StreamExt;
@@ -23,6 +23,23 @@ pub trait DownloadProgressCallback: Send + Sync {
     fn on_progress(&self, progress: DownloadProgress);
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct DownloadLimits {
+    pub connect_timeout: Duration,
+    pub total_timeout: Duration,
+    pub max_redirects: usize,
+}
+
+impl Default for DownloadLimits {
+    fn default() -> Self {
+        Self {
+            connect_timeout: Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS),
+            total_timeout: Duration::from_secs(DEFAULT_TOTAL_TIMEOUT_SECS),
+            max_redirects: DEFAULT_MAX_REDIRECTS,
+        }
+    }
+}
+
 #[uniffi::export(async_runtime = "tokio")]
 pub async fn download_file(
     url: String,
@@ -41,10 +58,31 @@ pub async fn download_file_with_progress(
     proxy_url: Option<String>,
     progress_callback: Option<Box<dyn DownloadProgressCallback>>,
 ) -> Result<DownloadResult, ChimeraError> {
+    download_file_with_progress_and_limits(
+        url,
+        output_path,
+        user_agent,
+        proxy_url,
+        progress_callback,
+        DownloadLimits::default(),
+    )
+    .await
+}
+
+pub(crate) async fn download_file_with_progress_and_limits(
+    url: String,
+    output_path: String,
+    user_agent: Option<String>,
+    proxy_url: Option<String>,
+    progress_callback: Option<Box<dyn DownloadProgressCallback>>,
+    limits: DownloadLimits,
+) -> Result<DownloadResult, ChimeraError> {
     let user_agent = user_agent.unwrap_or_else(|| "chimera-android/0.1.0".to_string());
     let mut client_builder = reqwest::Client::builder()
         .user_agent(user_agent)
-        .redirect(Policy::limited(10));
+        .connect_timeout(limits.connect_timeout)
+        .timeout(limits.total_timeout)
+        .redirect(Policy::limited(limits.max_redirects));
 
     if let Some(proxy_url) = proxy_url.filter(|it| !it.trim().is_empty()) {
         let proxy = reqwest::Proxy::all(&proxy_url)
@@ -60,7 +98,7 @@ pub async fn download_file_with_progress(
         .get(&url)
         .send()
         .await
-        .map_err(|error| request_error("failed to send request", error))?;
+        .map_err(|error| download_request_error(error, limits))?;
 
     let status = response.status();
     if !status.is_success() {
@@ -117,8 +155,34 @@ pub async fn download_file_with_progress(
     })
 }
 
+fn download_request_error(error: reqwest::Error, limits: DownloadLimits) -> ChimeraError {
+    let details = if error.is_timeout() && error.is_connect() {
+        format!(
+            "download connection timed out after {} seconds",
+            limits.connect_timeout.as_secs_f64()
+        )
+    } else if error.is_timeout() {
+        format!(
+            "download request timed out after {} seconds",
+            limits.total_timeout.as_secs_f64()
+        )
+    } else if error.is_redirect() {
+        format!(
+            "download redirect limit exceeded (maximum {})",
+            limits.max_redirects
+        )
+    } else {
+        format!("failed to send request: {error}")
+    };
+    ChimeraError::Runtime { details }
+}
+
 fn request_error(prefix: &str, error: impl std::fmt::Display) -> ChimeraError {
     ChimeraError::Runtime {
         details: format!("{prefix}: {error}"),
     }
 }
+
+const DEFAULT_CONNECT_TIMEOUT_SECS: u64 = 10;
+const DEFAULT_TOTAL_TIMEOUT_SECS: u64 = 60;
+const DEFAULT_MAX_REDIRECTS: usize = 5;
