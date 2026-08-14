@@ -199,7 +199,7 @@ class ChimeraBackendImpl : ChimeraBackend {
                     ?: throw IllegalStateException("Unable to open selected profile")
                 input.use {
                     target.outputStream().use { output ->
-                        it.copyTo(output)
+                        ProfileImportPolicy.copyWithLimit(it, output)
                     }
                 }
             }
@@ -805,6 +805,7 @@ class ChimeraBackendImpl : ChimeraBackend {
             check(result.success) {
                 result.errorMessage ?: "Unknown download error"
             }
+            ProfileImportPolicy.requireWithinLimit(file)
             file
         } catch (error: Throwable) {
             ProfileFilePolicy.deleteAfterFailure(file, error)
