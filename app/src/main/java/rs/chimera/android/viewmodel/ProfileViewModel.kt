@@ -157,7 +157,9 @@ class ProfileViewModel : ViewModel() {
                         userAgent = userAgent,
                         proxyUrl = proxyUrl,
                     ),
-                )
+                ) { progress ->
+                    viewModelScope.launch { downloadProgress = progress }
+                }
                 refreshFromBackend()
                 val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
                     ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
@@ -213,7 +215,9 @@ class ProfileViewModel : ViewModel() {
             isDownloading = true
             downloadProgress = null
             try {
-                backend.updateRemoteProfile(profile.id)
+                backend.updateRemoteProfile(profile.id) { progress ->
+                    viewModelScope.launch { downloadProgress = progress }
+                }
                 refreshFromBackend()
                 statusMessage = context.getString(
                     rs.chimera.android.R.string.profile_update_success,

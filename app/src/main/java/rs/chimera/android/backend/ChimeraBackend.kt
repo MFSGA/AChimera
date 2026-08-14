@@ -12,6 +12,7 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.TrafficSnapshot
+import uniffi.chimera_ffi.DownloadProgress
 
 interface ChimeraBackend {
     val serviceState: StateFlow<ServiceState>
@@ -32,8 +33,14 @@ interface ChimeraBackend {
     suspend fun deleteProfile(id: String)
     suspend fun renameProfile(id: String, newName: String)
     suspend fun importLocalProfile(uri: Uri, name: String?)
-    suspend fun importRemoteProfile(request: RemoteProfileRequest)
-    suspend fun updateRemoteProfile(id: String)
+    suspend fun importRemoteProfile(
+        request: RemoteProfileRequest,
+        onProgress: (DownloadProgress) -> Unit = {},
+    )
+    suspend fun updateRemoteProfile(
+        id: String,
+        onProgress: (DownloadProgress) -> Unit = {},
+    )
     suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)

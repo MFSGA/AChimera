@@ -219,7 +219,10 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun importRemoteProfile(request: RemoteProfileRequest) {
+    override suspend fun importRemoteProfile(
+        request: RemoteProfileRequest,
+        onProgress: (DownloadProgress) -> Unit,
+    ) {
         ProfileRemotePolicy.requireValidUrl(request.url)
         val context = Global.application
         val resolvedName = request.name?.trim()?.takeIf { it.isNotEmpty() }
@@ -227,7 +230,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
         val id = UUID.randomUUID().toString()
         val file = withContext(Dispatchers.IO) {
-            downloadProfileToAppDirectory(context, id, request)
+            downloadProfileToAppDirectory(context, id, request, onProgress)
         }
 
         val profileJson = org.json.JSONObject()
@@ -296,7 +299,10 @@ class ChimeraBackendImpl : ChimeraBackend {
         refreshActiveProfile()
     }
 
-    override suspend fun updateRemoteProfile(id: String) {
+    override suspend fun updateRemoteProfile(
+        id: String,
+        onProgress: (DownloadProgress) -> Unit,
+    ) {
         val jsonArray = profileCatalogJson()
         val targetProfile = (0 until jsonArray.length())
             .map { jsonArray.getJSONObject(it) }
@@ -336,7 +342,9 @@ class ChimeraBackendImpl : ChimeraBackend {
                             userAgent = userAgent,
                             proxyUrl = proxyUrl,
                             progressCallback = object : DownloadProgressCallback {
-                                override fun onProgress(progress: DownloadProgress) {}
+                                override fun onProgress(progress: DownloadProgress) {
+                                    onProgress(progress)
+                                }
                             },
                         )
                         if (!result.success) {
@@ -767,6 +775,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         context: Context,
         profileId: String,
         request: RemoteProfileRequest,
+        onProgress: (DownloadProgress) -> Unit,
     ): File {
         val file = File(
             context.filesDir,
@@ -782,7 +791,7 @@ class ChimeraBackendImpl : ChimeraBackend {
                 proxyUrl = request.proxyUrl ?: Global.proxyPort?.let { "http://127.0.0.1:$it" },
                 progressCallback = object : DownloadProgressCallback {
                     override fun onProgress(progress: DownloadProgress) {
-                        // progress is intentionally not exposed through backend
+                        onProgress(progress)
                     }
                 },
             )
