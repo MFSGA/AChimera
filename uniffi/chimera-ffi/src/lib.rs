@@ -907,6 +907,15 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
         std::env::set_var("RUST_BACKTRACE", "1");
         init_logger(level);
         let _ = color_eyre::install();
+
+        // Route panic backtraces through tracing so Android logcat keeps them.
+        let previous_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            error!(target: "panic", "thread panicked: {info}\n{backtrace}");
+            previous_hook(info);
+        }));
+
         // Install aws-lc-rs as the default crypto provider
         let _ = rustls::crypto::aws_lc_rs::default_provider().install_default();
         info!("native logger initialized");
