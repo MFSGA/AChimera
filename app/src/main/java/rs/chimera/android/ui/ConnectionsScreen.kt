@@ -263,7 +263,7 @@ private fun ConnectionCard(
                 Text(
                     text = stringResource(
                         R.string.connections_chain,
-                        connection.chains.joinToString(" -> "),
+                        connection.chains.reversed().joinToString(" -> "),
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.secondary,
