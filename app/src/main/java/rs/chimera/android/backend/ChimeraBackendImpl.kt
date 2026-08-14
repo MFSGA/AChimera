@@ -83,6 +83,10 @@ class ChimeraBackendImpl : ChimeraBackend {
     override val runtimeError: StateFlow<BackendRuntimeError?> = _runtimeError.asStateFlow()
 
     init {
+        runCatching { recoverStagedProfileImports() }
+            .onFailure { error ->
+                Log.e(TAG, "Failed to recover staged profile imports", error)
+            }
         runCatching { recoverStagedProfileBackups() }
             .onFailure { error ->
                 Log.e(TAG, "Failed to recover staged profile backups", error)
@@ -200,13 +204,14 @@ class ChimeraBackendImpl : ChimeraBackend {
         val safeName = name?.trim()?.takeIf { it.isNotEmpty() }
             ?: fileName.substringBeforeLast('.')
         val id = UUID.randomUUID().toString()
-        val file = File(
+        val destinationFile = File(
             context.filesDir,
             ProfileRemotePolicy.storageFileName(id, fileName),
         )
+        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
 
         withContext(Dispatchers.IO) {
-            ProfileFilePolicy.writeOrRollback(file) { target ->
+            ProfileFilePolicy.writeOrRollback(stagedFile) { target ->
                 val input = context.contentResolver.openInputStream(uri)
                     ?: throw IllegalStateException("Unable to open selected profile")
                 input.use {
@@ -220,14 +225,29 @@ class ChimeraBackendImpl : ChimeraBackend {
         val profileJson = org.json.JSONObject()
         profileJson.put("id", id)
         profileJson.put("name", safeName)
-        profileJson.put("filePath", file.absolutePath)
+        profileJson.put("filePath", destinationFile.absolutePath)
         profileJson.put("createdAt", System.currentTimeMillis())
         profileJson.put("isActive", false)
-        profileJson.put("fileSize", file.length())
+        profileJson.put("fileSize", stagedFile.length())
         profileJson.put("type", rs.chimera.android.model.ProfileType.LOCAL.name)
 
-        ProfileFilePolicy.commitOrRollback(file) {
-            appendProfile(profileJson)
+        val becameActive = ProfileImportTransactionPolicy.run(
+            stagedFile = stagedFile,
+            destinationFile = destinationFile,
+            beginImportTransaction = ::markProfileImportPending,
+            persistMetadata = { file ->
+                profileJson.put("filePath", file.absolutePath)
+                profileJson.put("fileSize", file.length())
+                appendProfile(profileJson, pendingImport = file)
+            },
+            clearImportTransaction = ::clearProfileImportPending,
+        )
+        if (becameActive) {
+            try {
+                Global.restoreProfilePath()
+            } finally {
+                refreshActiveProfile()
+            }
         }
     }
 
@@ -241,17 +261,22 @@ class ChimeraBackendImpl : ChimeraBackend {
             ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
 
         val id = UUID.randomUUID().toString()
-        val file = withContext(Dispatchers.IO) {
-            downloadProfileToAppDirectory(context, id, request, onProgress)
+        val destinationFile = File(
+            context.filesDir,
+            ProfileRemotePolicy.storageFileNameForUrl(id, request.url),
+        )
+        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
+        withContext(Dispatchers.IO) {
+            downloadProfileToFile(stagedFile, request, onProgress)
         }
 
         val profileJson = org.json.JSONObject()
         profileJson.put("id", id)
         profileJson.put("name", resolvedName)
-        profileJson.put("filePath", file.absolutePath)
+        profileJson.put("filePath", destinationFile.absolutePath)
         profileJson.put("createdAt", System.currentTimeMillis())
         profileJson.put("isActive", false)
-        profileJson.put("fileSize", file.length())
+        profileJson.put("fileSize", stagedFile.length())
         profileJson.put("type", rs.chimera.android.model.ProfileType.REMOTE.name)
         profileJson.put("url", request.url)
         profileJson.put("lastUpdated", System.currentTimeMillis())
@@ -259,8 +284,23 @@ class ChimeraBackendImpl : ChimeraBackend {
         if (request.userAgent != null) profileJson.put("userAgent", request.userAgent)
         if (request.proxyUrl != null) profileJson.put("proxyUrl", request.proxyUrl)
 
-        ProfileFilePolicy.commitOrRollback(file) {
-            appendProfile(profileJson)
+        val becameActive = ProfileImportTransactionPolicy.run(
+            stagedFile = stagedFile,
+            destinationFile = destinationFile,
+            beginImportTransaction = ::markProfileImportPending,
+            persistMetadata = { file ->
+                profileJson.put("filePath", file.absolutePath)
+                profileJson.put("fileSize", file.length())
+                appendProfile(profileJson, pendingImport = file)
+            },
+            clearImportTransaction = ::clearProfileImportPending,
+        )
+        if (becameActive) {
+            try {
+                Global.restoreProfilePath()
+            } finally {
+                refreshActiveProfile()
+            }
         }
     }
 
@@ -361,7 +401,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
         val outputFile = File(targetProfile.getString("filePath"))
 
-        withContext(Dispatchers.IO) {
+        val updatedActiveProfile = withContext(Dispatchers.IO) {
             ProfileUpdateTransactionPolicy.run(
                 destinationFile = outputFile,
                 update = {
@@ -409,24 +449,23 @@ class ChimeraBackendImpl : ChimeraBackend {
                         val activeProfile = (0 until jsonArray.length())
                             .map { jsonArray.getJSONObject(it) }
                             .firstOrNull { it.optBoolean("isActive", false) }
-                        commitProfileUpdate(
-                            backup = backup,
-                            afterCommit = {
-                                if (activeProfile?.getString("id") == id) {
-                                    Global.restoreProfilePath()
-                                }
-                            },
-                        ) {
+                        val isUpdatedProfileActive = activeProfile?.optString("id") == id
+                        commitProfileUpdate(backup = backup) {
                             putString(PROFILES_LIST_KEY, jsonArray.toString())
                             activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
                         }
+                        isUpdatedProfileActive
                     }
                 },
                 beginBackupTransaction = ::markProfileUpdatePending,
                 clearBackupTransaction = ::clearProfileUpdatePending,
             )
         }
-        refreshActiveProfile()
+        try {
+            if (updatedActiveProfile) Global.restoreProfilePath()
+        } finally {
+            refreshActiveProfile()
+        }
     }
 
     override suspend fun verifyProfile(filePath: String): Result<String> {
@@ -737,29 +776,24 @@ class ChimeraBackendImpl : ChimeraBackend {
         _activeProfile.value = profile
     }
 
-    private fun appendProfile(profileJson: org.json.JSONObject) {
-        profileCatalogCoordinator.withLock {
-            val existingJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
-            val jsonArray = if (existingJson != null) JSONArray(existingJson) else JSONArray()
+    private fun appendProfile(
+        profileJson: org.json.JSONObject,
+        pendingImport: File? = null,
+    ): Boolean = profileCatalogCoordinator.withLock {
+        val existingJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
+        val jsonArray = if (existingJson != null) JSONArray(existingJson) else JSONArray()
 
-            val isFirst = jsonArray.length() == 0
-            profileJson.put("isActive", isFirst)
+        val isFirst = jsonArray.length() == 0
+        profileJson.put("isActive", isFirst)
 
-            jsonArray.put(profileJson)
-            val firstProfilePath = profileJson.getString("filePath").takeIf { isFirst }
-            commitProfilePreferences(
-                afterCommit = {
-                    if (firstProfilePath != null) Global.restoreProfilePath()
-                },
-            ) {
-                putString(PROFILES_LIST_KEY, jsonArray.toString())
-                firstProfilePath?.let { putString(PROFILE_PATH_KEY, it) }
-            }
-
-            if (isFirst) {
-                refreshActiveProfile()
-            }
+        jsonArray.put(profileJson)
+        val firstProfilePath = profileJson.getString("filePath").takeIf { isFirst }
+        commitProfilePreferences {
+            putString(PROFILES_LIST_KEY, jsonArray.toString())
+            firstProfilePath?.let { putString(PROFILE_PATH_KEY, it) }
+            pendingImport?.let { remove(profileImportPendingKey(it.name)) }
         }
+        isFirst
     }
 
     private fun commitProfileCatalog(
@@ -784,6 +818,18 @@ class ChimeraBackendImpl : ChimeraBackend {
         )
     }
 
+    private fun markProfileImportPending(destination: File) {
+        commitProfilePreferences {
+            putBoolean(profileImportPendingKey(destination.name), true)
+        }
+    }
+
+    private fun clearProfileImportPending(destination: File) {
+        commitProfilePreferences {
+            remove(profileImportPendingKey(destination.name))
+        }
+    }
+
     private fun markProfileUpdatePending(backup: File) {
         commitProfilePreferences {
             putBoolean(profileUpdatePendingKey(backup.name), true)
@@ -798,12 +844,36 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     private fun commitProfileUpdate(
         backup: File?,
-        afterCommit: () -> Unit = {},
         update: SharedPreferences.Editor.() -> Unit,
     ) {
-        commitProfilePreferences(afterCommit) {
+        commitProfilePreferences {
             update()
             backup?.let { remove(profileUpdatePendingKey(it.name)) }
+        }
+    }
+
+    private fun recoverStagedProfileImports() {
+        profileCatalogCoordinator.withLock {
+            val referencedPaths = profilePrefs.getString(PROFILES_LIST_KEY, null)
+                ?.let(::JSONArray)
+                ?.toCatalogEntries()
+                ?.mapTo(mutableSetOf()) { File(it.filePath).absolutePath }
+                .orEmpty()
+            val pendingDestinationNames = profilePrefs.all.keys
+                .filter { it.startsWith(PROFILE_IMPORT_PENDING_PREFIX) }
+                .mapTo(mutableSetOf()) { it.removePrefix(PROFILE_IMPORT_PENDING_PREFIX) }
+
+            ProfileImportRecoveryPolicy.recover(
+                directory = Global.application.filesDir,
+                referencedPaths = referencedPaths,
+                pendingDestinationNames = pendingDestinationNames,
+            )
+
+            if (pendingDestinationNames.isNotEmpty()) {
+                commitProfilePreferences {
+                    pendingDestinationNames.forEach { name -> remove(profileImportPendingKey(name)) }
+                }
+            }
         }
     }
 
@@ -886,17 +956,11 @@ class ChimeraBackendImpl : ChimeraBackend {
             )
         }
 
-    private suspend fun downloadProfileToAppDirectory(
-        context: Context,
-        profileId: String,
+    private suspend fun downloadProfileToFile(
+        file: File,
         request: RemoteProfileRequest,
         onProgress: (DownloadProgress) -> Unit,
     ): File {
-        val file = File(
-            context.filesDir,
-            ProfileRemotePolicy.storageFileNameForUrl(profileId, request.url),
-        )
-
         return try {
             ChimeraFfi.ensureInitialized()
             val result = downloadFileWithProgress(
@@ -923,6 +987,9 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
+    private fun profileImportPendingKey(destinationName: String): String =
+        "$PROFILE_IMPORT_PENDING_PREFIX$destinationName"
+
     private fun profileUpdatePendingKey(backupName: String): String =
         "$PROFILE_UPDATE_PENDING_PREFIX$backupName"
 
@@ -931,6 +998,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         const val FILE_PREFS = "file_prefs"
         const val PROFILE_PATH_KEY = "profile_path"
         const val PROFILES_LIST_KEY = "profiles_list"
+        const val PROFILE_IMPORT_PENDING_PREFIX = "profile_import_pending:"
         const val PROFILE_UPDATE_PENDING_PREFIX = "profile_update_pending:"
     }
 }
