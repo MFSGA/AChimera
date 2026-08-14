@@ -22,14 +22,18 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.awaitCancellation
 import rs.chimera.android.R
 import rs.chimera.android.backend.model.ConnectionSnapshot
 import rs.chimera.android.formatSize
@@ -42,9 +46,17 @@ fun ConnectionsScreen(
     modifier: Modifier = Modifier,
     viewModel: ConnectionsViewModel = viewModel(),
 ) {
-    DisposableEffect(viewModel) {
-        viewModel.startPolling()
-        onDispose { viewModel.stopPolling() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewModel.startPolling()
+            try {
+                awaitCancellation()
+            } finally {
+                viewModel.stopPolling()
+            }
+        }
     }
 
     Scaffold(

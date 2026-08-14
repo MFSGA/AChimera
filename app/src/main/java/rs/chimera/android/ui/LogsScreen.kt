@@ -41,6 +41,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -63,19 +66,22 @@ fun LogsScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var autoScrollEnabled by remember { mutableStateOf(true) }
     var refreshPaused by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(refreshPaused) {
-        while (isActive) {
-            if (!refreshPaused) {
-                runCatching { Global.readRuntimeLogTail(MAX_LOG_LINES) }
-                    .onSuccess { latest ->
-                        errorMessage = null
-                        if (latest != logContent) logContent = latest
-                    }.onFailure { error ->
-                        errorMessage = error.message ?: error.javaClass.simpleName
-                    }
+    LaunchedEffect(refreshPaused, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) {
+                if (!refreshPaused) {
+                    runCatching { Global.readRuntimeLogTail(MAX_LOG_LINES) }
+                        .onSuccess { latest ->
+                            errorMessage = null
+                            if (latest != logContent) logContent = latest
+                        }.onFailure { error ->
+                            errorMessage = error.message ?: error.javaClass.simpleName
+                        }
+                }
+                delay(LOG_REFRESH_INTERVAL_MS)
             }
-            delay(LOG_REFRESH_INTERVAL_MS)
         }
     }
 
