@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.content.res.AssetManager
+import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -18,7 +19,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.Global
+import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
@@ -37,6 +41,9 @@ class TunService : VpnService() {
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lifecycleGate = VpnLifecycleGate()
+    private val backend by lazy { BackendProvider.provide() }
+    private val networkResetMutex = Mutex()
+    private var networkCoordinator: UnderlyingNetworkCoordinator? = null
 
     private data class ServiceSettings(
         val appFilterMode: String,
@@ -124,6 +131,7 @@ class TunService : VpnService() {
             error("Failed to establish VPN interface")
         }
         vpnInterface = interfaceFd
+        startUnderlyingNetworkTracking()
         currentCoroutineContext().ensureActive()
         val currentTunFd = duplicateTunFdForRust(interfaceFd)
         tunFd = currentTunFd
@@ -173,6 +181,35 @@ class TunService : VpnService() {
         applyAppFilter(builder, settings)
         builder.allowBypass()
         return builder.establish()
+    }
+
+    private fun startUnderlyingNetworkTracking() {
+        networkCoordinator?.stop()
+        networkCoordinator =
+            UnderlyingNetworkCoordinator(
+                connectivityManager = getSystemService(ConnectivityManager::class.java),
+                applyNetworks = ::setUnderlyingNetworks,
+                onPrimaryNetworkChanged = ::handleUnderlyingNetworkChange,
+            ).also(UnderlyingNetworkCoordinator::start)
+    }
+
+    private fun handleUnderlyingNetworkChange() {
+        appendRuntimeLog("underlying network changed")
+        serviceScope.launch {
+            if (BackendRuntimeState.serviceState.value != ServiceState.RUNNING) return@launch
+            networkResetMutex.withLock {
+                if (BackendRuntimeState.serviceState.value != ServiceState.RUNNING) return@withLock
+                try {
+                    backend.resetNetwork()
+                    appendRuntimeLog("core network state reset after handoff")
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    Log.w(TAG, "Failed to reset core after network handoff", error)
+                    appendRuntimeLog("failed to reset core after network handoff", error)
+                }
+            }
+        }
     }
 
     private fun duplicateTunFdForRust(interfaceFd: ParcelFileDescriptor): Int =
@@ -320,6 +357,8 @@ class TunService : VpnService() {
     ): Boolean {
         if (!lifecycleGate.beginCleanup()) return false
 
+        networkCoordinator?.stop()
+        networkCoordinator = null
         if (errorMessage != null) {
             BackendRuntimeState.updateServiceError(errorMessage)
         }
