@@ -188,13 +188,15 @@ class ChimeraBackendImpl : ChimeraBackend {
                 jsonArray.getJSONObject(index).put("isActive", updatedProfiles[index].isActive)
             }
             val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
-            commitProfilePreferences(
-                afterCommit = { Global.restoreProfilePath() },
-            ) {
+            commitProfilePreferences {
                 putString(PROFILES_LIST_KEY, jsonArray.toString())
                 putString(PROFILE_PATH_KEY, activePath)
             }
-            refreshActiveProfile()
+            try {
+                Global.restoreProfilePath()
+            } finally {
+                refreshActiveProfile()
+            }
         }
     }
 
@@ -807,15 +809,11 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     private fun commitProfilePreferences(
-        afterCommit: () -> Unit = {},
         update: SharedPreferences.Editor.() -> Unit,
     ) {
         val editor = profilePrefs.edit()
         editor.update()
-        ProfilePersistencePolicy.commit(
-            persist = editor::commit,
-            afterCommit = afterCommit,
-        )
+        ProfilePersistencePolicy.commit(persist = editor::commit)
     }
 
     private fun markProfileImportPending(destination: File) {
@@ -878,27 +876,12 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     private fun recoverStagedProfileBackups() {
-        val metadataByPath = profilePrefs.getString(PROFILES_LIST_KEY, null)
-            ?.let(::JSONArray)
-            ?.let { catalog ->
-                (0 until catalog.length()).mapNotNull { index ->
-                    val profile = catalog.getJSONObject(index)
-                    val fileSize = profile.optLong("fileSize", -1L)
-                    if (fileSize < 0L) return@mapNotNull null
-                    File(profile.getString("filePath")).absolutePath to ProfileBackupRecoveryMetadata(
-                        fileSize = fileSize,
-                        lastUpdated = profile.takeIf { it.has("lastUpdated") }?.getLong("lastUpdated"),
-                    )
-                }.toMap()
-            }
-            .orEmpty()
         val pendingBackupNames = profilePrefs.all.keys
             .filter { it.startsWith(PROFILE_UPDATE_PENDING_PREFIX) }
             .mapTo(mutableSetOf()) { it.removePrefix(PROFILE_UPDATE_PENDING_PREFIX) }
 
         ProfileBackupRecoveryPolicy.recover(
             directory = Global.application.filesDir,
-            metadataByPath = metadataByPath,
             pendingBackupNames = pendingBackupNames,
         )
 

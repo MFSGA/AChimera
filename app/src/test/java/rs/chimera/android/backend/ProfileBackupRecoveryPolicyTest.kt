@@ -16,7 +16,6 @@ class ProfileBackupRecoveryPolicyTest {
 
         ProfileBackupRecoveryPolicy.recover(
             directory = directory,
-            metadataByPath = emptyMap(),
             pendingBackupNames = setOf(backup.name),
         )
 
@@ -25,19 +24,14 @@ class ProfileBackupRecoveryPolicyTest {
     }
 
     @Test
-    fun missingTargetRestoresBackupThatMatchesCatalog() {
+    fun pendingBackupRestoresMissingTarget() {
         val directory = Files.createTempDirectory("profile-backup-recovery").toFile()
         val target = directory.resolve("remote.yaml")
         val backup = managedBackup(directory, target.name).apply { writeText("old-profile") }
 
         ProfileBackupRecoveryPolicy.recover(
             directory = directory,
-            metadataByPath = mapOf(
-                target.absolutePath to ProfileBackupRecoveryMetadata(
-                    fileSize = backup.length(),
-                    lastUpdated = null,
-                ),
-            ),
+            pendingBackupNames = setOf(backup.name),
         )
 
         assertEquals("old-profile", target.readText())
@@ -45,22 +39,25 @@ class ProfileBackupRecoveryPolicyTest {
     }
 
     @Test
-    fun committedTargetDiscardsStaleBackup() {
+    fun committedBackupIsDiscardedEvenWhenTargetChangedAfterCommit() {
         val directory = Files.createTempDirectory("profile-backup-recovery").toFile()
-        val target = directory.resolve("remote.yaml").apply { writeText("new-profile") }
-        val backup = managedBackup(directory, target.name).apply { writeText("old") }
+        val target = directory.resolve("remote.yaml").apply { writeText("manually-edited-profile") }
+        val backup = managedBackup(directory, target.name).apply { writeText("old-profile") }
 
-        ProfileBackupRecoveryPolicy.recover(
-            directory = directory,
-            metadataByPath = mapOf(
-                target.absolutePath to ProfileBackupRecoveryMetadata(
-                    fileSize = target.length(),
-                    lastUpdated = null,
-                ),
-            ),
-        )
+        ProfileBackupRecoveryPolicy.recover(directory)
 
-        assertEquals("new-profile", target.readText())
+        assertEquals("manually-edited-profile", target.readText())
+        assertFalse(backup.exists())
+    }
+
+    @Test
+    fun committedBackupIsDiscardedWhenTargetIsMissing() {
+        val directory = Files.createTempDirectory("profile-backup-recovery").toFile()
+        val backup = managedBackup(directory, "remote.yaml").apply { writeText("old-profile") }
+
+        ProfileBackupRecoveryPolicy.recover(directory)
+
+        assertFalse(directory.resolve("remote.yaml").exists())
         assertFalse(backup.exists())
     }
 
@@ -69,7 +66,7 @@ class ProfileBackupRecoveryPolicyTest {
         val directory = Files.createTempDirectory("profile-backup-recovery").toFile()
         val unmanaged = directory.resolve("remote.yaml.backup").apply { writeText("keep") }
 
-        ProfileBackupRecoveryPolicy.recover(directory, emptyMap())
+        ProfileBackupRecoveryPolicy.recover(directory)
 
         assertTrue(unmanaged.exists())
     }
