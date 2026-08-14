@@ -38,7 +38,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -170,12 +169,12 @@ fun HomeScreen(
             )
         },
     ) { padding ->
-        val memory by remember { derivedStateOf { viewModel.memoryUsage } }
-        val connections by remember { derivedStateOf { viewModel.connectionCount } }
-        val download by remember { derivedStateOf { viewModel.totalDownload } }
-        val upload by remember { derivedStateOf { viewModel.totalUpload } }
-        val isVpnRunning by remember { derivedStateOf { viewModel.isVpnRunning } }
-        val errorMessage by remember { derivedStateOf { viewModel.errorMessage } }
+        val memory = viewModel.memoryUsage
+        val connections = viewModel.connectionCount
+        val download = viewModel.totalDownload
+        val upload = viewModel.totalUpload
+        val isVpnRunning = viewModel.isVpnRunning
+        val errorMessage = viewModel.errorMessage
 
         OverviewTab(
             memory = memory,
