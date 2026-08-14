@@ -350,6 +350,8 @@ class ChimeraBackendImpl : ChimeraBackend {
                         if (!result.success) {
                             throw IllegalStateException(result.errorMessage ?: "Unknown download error")
                         }
+                        ProfileImportPolicy.requireUsableDownloadedProfile(tempFile)
+                        verifyConfig(tempFile.absolutePath)
 
                         tempFile
                     } catch (error: Throwable) {
@@ -805,7 +807,8 @@ class ChimeraBackendImpl : ChimeraBackend {
             check(result.success) {
                 result.errorMessage ?: "Unknown download error"
             }
-            ProfileImportPolicy.requireWithinLimit(file)
+            ProfileImportPolicy.requireUsableDownloadedProfile(file)
+            verifyConfig(file.absolutePath)
             file
         } catch (error: Throwable) {
             ProfileFilePolicy.deleteAfterFailure(file, error)

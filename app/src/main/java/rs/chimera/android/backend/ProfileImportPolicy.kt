@@ -3,6 +3,7 @@ package rs.chimera.android.backend
 import java.io.File
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.charset.StandardCharsets
 
 internal object ProfileImportPolicy {
     const val MAX_PROFILE_BYTES: Long = 5L * 1024L * 1024L
@@ -36,4 +37,27 @@ internal object ProfileImportPolicy {
             "Profile exceeds maximum size of $maxBytes bytes"
         }
     }
+
+    fun requireUsableDownloadedProfile(
+        file: File,
+        maxBytes: Long = MAX_PROFILE_BYTES,
+    ) {
+        requireWithinLimit(file, maxBytes)
+        check(file.length() > 0) { "Downloaded profile is empty" }
+
+        val prefix = file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(CONTENT_SNIFF_BYTES)
+            val read = input.read(buffer)
+            if (read <= 0) "" else String(buffer, 0, read, StandardCharsets.UTF_8)
+        }.trimStart().lowercase()
+        check(
+            !prefix.startsWith("<!doctype html") &&
+                !prefix.startsWith("<html") &&
+                !prefix.contains("<head"),
+        ) {
+            "Downloaded content is HTML, not a profile configuration"
+        }
+    }
+
+    private const val CONTENT_SNIFF_BYTES = 4096
 }

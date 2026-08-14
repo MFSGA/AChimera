@@ -50,6 +50,49 @@ class ProfileImportPolicyTest {
     }
 
     @Test
+    fun requireUsableDownloadedProfileRejectsEmptyFile() {
+        val file = File.createTempFile("profile-import-policy", ".yaml")
+        try {
+            val error = assertThrows(IllegalStateException::class.java) {
+                ProfileImportPolicy.requireUsableDownloadedProfile(file)
+            }
+            assertEquals("Downloaded profile is empty", error.message)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun requireUsableDownloadedProfileRejectsHtml() {
+        val file = File.createTempFile("profile-import-policy", ".html").apply {
+            writeText("  <!DOCTYPE html><html><head><title>Login</title></head></html>")
+        }
+        try {
+            val error = assertThrows(IllegalStateException::class.java) {
+                ProfileImportPolicy.requireUsableDownloadedProfile(file)
+            }
+            assertEquals(
+                "Downloaded content is HTML, not a profile configuration",
+                error.message,
+            )
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
+    fun requireUsableDownloadedProfileAcceptsYaml() {
+        val file = File.createTempFile("profile-import-policy", ".yaml").apply {
+            writeText("mixed-port: 7890\n")
+        }
+        try {
+            ProfileImportPolicy.requireUsableDownloadedProfile(file)
+        } finally {
+            file.delete()
+        }
+    }
+
+    @Test
     fun requireWithinLimitRejectsOversizedDownloadedFile() {
         val file = File.createTempFile("profile-import-policy", ".yaml").apply {
             writeBytes(ByteArray(9))
