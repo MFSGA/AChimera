@@ -596,7 +596,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     private fun requireProxyServiceRunning() {
-        check(serviceState.value == ServiceState.RUNNING) {
+        RuntimeOperationPolicy.requireRunning(serviceState.value) {
             Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
         }
     }
@@ -624,8 +624,8 @@ class ChimeraBackendImpl : ChimeraBackend {
         errorPrefix: String,
         operation: suspend () -> T,
     ): T {
-        check(serviceState.value == ServiceState.RUNNING) {
-            Global.application.getString(rs.chimera.android.R.string.panel_not_running_title)
+        RuntimeOperationPolicy.requireRunning(serviceState.value) {
+            Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
         }
         return try {
             operation().also { clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC) }
