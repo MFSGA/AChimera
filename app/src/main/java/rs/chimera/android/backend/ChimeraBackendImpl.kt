@@ -24,14 +24,11 @@ import org.json.JSONArray
 import rs.chimera.android.Global
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
-import rs.chimera.android.backend.model.ConnectionSnapshot
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
-import rs.chimera.android.backend.model.ProxyDelayHistory
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
-import rs.chimera.android.backend.model.ProxySnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.ServiceState
@@ -683,58 +680,12 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     private suspend fun fetchProxyGroupsFromController(): List<ProxyGroupSnapshot> {
-        val proxies = controller.getProxies()
         val mode = controller.getMode() ?: Mode.RULE
-        val proxyMap = proxies.associate { proxy ->
-            proxy.name to ProxySnapshot(
-                name = proxy.name,
-                type = proxy.proxyType,
-                history = proxy.history.map { history ->
-                    ProxyDelayHistory(
-                        delay = history.delay,
-                        time = history.time.toLongOrNull() ?: 0L,
-                    )
-                },
-            )
-        }
-        return proxies.map { proxy ->
-            ProxyGroupSnapshot(
-                name = proxy.name,
-                proxies = proxy.all,
-                selected = proxy.now,
-                mode = mode,
-                proxyDetails = proxyMap,
-            )
-        }
+        return controller.getProxies().toProxyGroupSnapshots(mode)
     }
 
-    private suspend fun fetchConnectionsFromController(): ConnectionsSnapshot {
-        val response = controller.getConnections()
-        return ConnectionsSnapshot(
-            connections = response.connections.map { conn ->
-                ConnectionSnapshot(
-                    id = conn.id,
-                    host = conn.metadata.host,
-                    process = null,
-                    upload = conn.upload,
-                    download = conn.download,
-                    startTime = conn.start.toLongOrNull() ?: 0L,
-                    chains = conn.chains,
-                    rule = conn.rule,
-                    metadata = mapOf(
-                        "network" to conn.metadata.network,
-                        "type" to conn.metadata.metadataType,
-                        "sourceIp" to conn.metadata.sourceIp,
-                        "destinationIp" to conn.metadata.destinationIp.orEmpty(),
-                        "sourcePort" to conn.metadata.sourcePort?.toString().orEmpty(),
-                        "destinationPort" to conn.metadata.destinationPort.toString(),
-                    ),
-                )
-            },
-            downloadTotal = response.downloadTotal,
-            uploadTotal = response.uploadTotal,
-        )
-    }
+    private suspend fun fetchConnectionsFromController(): ConnectionsSnapshot =
+        controller.getConnections().toConnectionsSnapshot()
 
     private fun refreshActiveProfile() {
         _activeProfile.value = runCatching(profileCatalogReader::readActiveProfile).getOrNull()
