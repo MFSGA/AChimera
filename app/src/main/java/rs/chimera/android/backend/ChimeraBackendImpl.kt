@@ -31,7 +31,6 @@ import rs.chimera.android.backend.model.ConnectionSnapshot
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
-import rs.chimera.android.backend.model.ProfileType
 import rs.chimera.android.backend.model.ProxyDelayHistory
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
@@ -67,6 +66,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
+    private val profileCatalogReader = ProfileCatalogReader(profilePrefs, profileAutoUpdateStateStore)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileStagingStore = ProfileStagingStore(
@@ -180,41 +180,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     override suspend fun listProfiles(): List<ProfileSummary> {
         profileStagingStore.recoverDeletions()
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
-        if (profilesJson == null) {
-            refreshProfileAutoUpdateSchedule(emptyList())
-            return emptyList()
-        }
-        val jsonArray = JSONArray(profilesJson)
-        val profiles = buildList {
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                val autoUpdateState = profileAutoUpdateStateStore.read(obj.getString("id"))
-                add(
-                    ProfileSummary(
-                        id = obj.getString("id"),
-                        name = obj.getString("name"),
-                        filePath = obj.getString("filePath"),
-                        type = when (obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name)) {
-                            "REMOTE" -> ProfileType.REMOTE
-                            else -> ProfileType.LOCAL
-                        },
-                        isActive = obj.getBoolean("isActive"),
-                        isRemote = obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name) == "REMOTE",
-                        lastUpdated = obj.takeIf { it.has("lastUpdated") }?.getLong("lastUpdated"),
-                        fileSize = obj.getLong("fileSize"),
-                        url = obj.optString("url").takeIf { it.isNotBlank() },
-                        autoUpdate = obj.optBoolean("autoUpdate", false),
-                        userAgent = obj.optString("userAgent").takeIf { it.isNotBlank() },
-                        proxyUrl = obj.optString("proxyUrl").takeIf { it.isNotBlank() },
-                        lastAutoUpdateAttempt = autoUpdateState.lastAttempt,
-                        autoUpdateFailures = autoUpdateState.failureCount,
-                        nextAutoUpdateAt = autoUpdateState.nextAttemptAt,
-                        lastAutoUpdateError = autoUpdateState.lastError,
-                    )
-                )
-            }
-        }
+        val profiles = profileCatalogReader.readProfiles()
         refreshProfileAutoUpdateSchedule(profiles)
         return profiles
     }
@@ -867,46 +833,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     private fun refreshActiveProfile() {
-        val savedPath = profilePrefs.getString(PROFILE_PATH_KEY, null)
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
-
-        if (profilesJson == null || savedPath == null) {
-            _activeProfile.value = null
-            return
-        }
-
-        val profile = runCatching {
-            val jsonArray = JSONArray(profilesJson)
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                if (obj.getString("filePath") == savedPath || obj.getBoolean("isActive")) {
-                    val autoUpdateState = profileAutoUpdateStateStore.read(obj.getString("id"))
-                    return@runCatching ProfileSummary(
-                        id = obj.getString("id"),
-                        name = obj.getString("name"),
-                        filePath = obj.getString("filePath"),
-                        type = when (obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name)) {
-                            "REMOTE" -> ProfileType.REMOTE
-                            else -> ProfileType.LOCAL
-                        },
-                        isActive = true,
-                        isRemote = obj.optString("type", rs.chimera.android.model.ProfileType.LOCAL.name) == "REMOTE",
-                        lastUpdated = obj.takeIf { it.has("lastUpdated") }?.getLong("lastUpdated"),
-                        fileSize = obj.getLong("fileSize"),
-                        url = obj.optString("url").takeIf { it.isNotBlank() },
-                        autoUpdate = obj.optBoolean("autoUpdate", false),
-                        userAgent = obj.optString("userAgent").takeIf { it.isNotBlank() },
-                        proxyUrl = obj.optString("proxyUrl").takeIf { it.isNotBlank() },
-                        lastAutoUpdateAttempt = autoUpdateState.lastAttempt,
-                        autoUpdateFailures = autoUpdateState.failureCount,
-                        nextAutoUpdateAt = autoUpdateState.nextAttemptAt,
-                        lastAutoUpdateError = autoUpdateState.lastError,
-                    )
-                }
-            }
-            null as ProfileSummary?
-        }.getOrNull()
-        _activeProfile.value = profile
+        _activeProfile.value = runCatching(profileCatalogReader::readActiveProfile).getOrNull()
     }
 
     private fun appendProfile(
