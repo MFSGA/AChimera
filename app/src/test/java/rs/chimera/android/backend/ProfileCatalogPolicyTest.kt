@@ -31,11 +31,35 @@ class ProfileCatalogPolicyTest {
     }
 
     @Test
+    fun deletingProfileFromCatalogWithoutActiveEntryRecoversFirstRemainingProfile() {
+        val input = listOf(
+            profile("first", "/profiles/first.yaml"),
+            profile("second", "/profiles/second.yaml"),
+        )
+
+        val result = ProfileCatalogPolicy.delete(input, "second")!!
+
+        assertEquals(listOf("first"), result.profiles.map { it.id })
+        assertTrue(result.profiles.single().isActive)
+        assertEquals("/profiles/first.yaml", ProfileCatalogPolicy.activePath(result.profiles))
+    }
+
+    @Test
     fun deletingProfileKeepsFileReferencedByAnotherProfile() {
         val input = profiles() + profile("duplicate", "/profiles/shared.yaml")
         val result = ProfileCatalogPolicy.delete(input, "shared")!!
 
         assertFalse(result.shouldDeleteFile)
+    }
+
+    @Test
+    fun activePathReturnsNullWhenCatalogHasNoActiveEntry() {
+        val input = listOf(
+            profile("first", "/profiles/first.yaml"),
+            profile("second", "/profiles/second.yaml"),
+        )
+
+        assertNull(ProfileCatalogPolicy.activePath(input))
     }
 
     @Test

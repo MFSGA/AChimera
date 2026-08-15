@@ -2,7 +2,6 @@ package rs.chimera.android.backend
 
 import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.net.Uri
 import android.net.VpnService
 import android.provider.OpenableColumns
@@ -20,7 +19,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
 import rs.chimera.android.Global
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
@@ -59,13 +57,15 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
-    private val profileCatalogReader = ProfileCatalogReader(profilePrefs, profileAutoUpdateStateStore)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
+    private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
+    private val profileCatalogReader = ProfileCatalogReader(profileCatalogStore, profileAutoUpdateStateStore)
     private val profileStagingStore = ProfileStagingStore(
         profilePrefs = profilePrefs,
         filesDir = Global.application.filesDir,
         catalogCoordinator = profileCatalogCoordinator,
+        catalogStore = profileCatalogStore,
     )
 
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
@@ -188,17 +188,14 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     override suspend fun activateProfile(id: String) {
         profileCatalogCoordinator.withLock {
-            val jsonArray = profileCatalogJson()
-            val updatedProfiles = ProfileCatalogPolicy.activate(jsonArray.toCatalogEntries(), id)
+            val document = profileCatalogStore.readDocument()
+            val updatedProfiles = ProfileCatalogPolicy.activate(document.entries, id)
                 ?: throw IllegalArgumentException("Profile not found: $id")
-            for (index in 0 until jsonArray.length()) {
-                jsonArray.getJSONObject(index).put("isActive", updatedProfiles[index].isActive)
-            }
             val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
-            commitProfilePreferences {
-                putString(PROFILES_LIST_KEY, jsonArray.toString())
-                putString(PROFILE_PATH_KEY, activePath)
-            }
+            profileCatalogStore.commitCatalog(
+                catalog = profileCatalogStore.render(document, updatedProfiles),
+                activePath = activePath,
+            )
             try {
                 Global.restoreProfilePath()
             } finally {
@@ -250,7 +247,7 @@ class ChimeraBackendImpl : ChimeraBackend {
             persistMetadata = { file ->
                 profileJson.put("filePath", file.absolutePath)
                 profileJson.put("fileSize", file.length())
-                appendProfile(profileJson, pendingImport = file)
+                profileCatalogStore.append(profileJson, pendingImport = file)
             },
             clearImportTransaction = profileStagingStore::clearImportPending,
         )
@@ -303,7 +300,7 @@ class ChimeraBackendImpl : ChimeraBackend {
             persistMetadata = { file ->
                 profileJson.put("filePath", file.absolutePath)
                 profileJson.put("fileSize", file.length())
-                appendProfile(profileJson, pendingImport = file)
+                profileCatalogStore.append(profileJson, pendingImport = file)
             },
             clearImportTransaction = profileStagingStore::clearImportPending,
         )
@@ -326,28 +323,21 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     private fun deleteProfileLocked(id: String) {
         profileCatalogCoordinator.withLock {
-            val jsonArray = profileCatalogJson()
-            val deletion = ProfileCatalogPolicy.delete(jsonArray.toCatalogEntries(), id)
+            val document = profileCatalogStore.readDocument()
+            val deletion = ProfileCatalogPolicy.delete(document.entries, id)
                 ?: throw IllegalArgumentException("Profile not found: $id")
-            val updatedArray = JSONArray()
-            for (index in 0 until jsonArray.length()) {
-                val obj = jsonArray.getJSONObject(index)
-                deletion.profiles.firstOrNull { it.id == obj.getString("id") }?.let { updated ->
-                    obj.put("isActive", updated.isActive)
-                    updatedArray.put(obj)
-                }
-            }
             val activePath = ProfileCatalogPolicy.activePath(deletion.profiles)
-            val originalCatalog = jsonArray.toString()
-            val originalActivePath = ProfileCatalogPolicy.activePath(jsonArray.toCatalogEntries())
+            val originalCatalog = document.serialized
+            val originalActivePath = ProfileCatalogPolicy.activePath(document.entries)
+            val updatedCatalog = profileCatalogStore.render(document, deletion.profiles)
             ProfileDeletionPolicy.delete(
                 file = File(deletion.deletedFilePath),
                 shouldDeleteFile = deletion.shouldDeleteFile,
                 persistDeletion = {
-                    commitProfileCatalog(updatedArray.toString(), activePath)
+                    profileCatalogStore.commitCatalog(updatedCatalog, activePath)
                 },
                 rollbackCatalog = {
-                    commitProfileCatalog(originalCatalog, originalActivePath)
+                    profileCatalogStore.commitCatalog(originalCatalog, originalActivePath)
                 },
             )
             Global.restoreProfilePath()
@@ -366,18 +356,16 @@ class ChimeraBackendImpl : ChimeraBackend {
         val normalizedName = newName.trim()
         require(normalizedName.isNotEmpty()) { "Profile name is empty" }
         profileCatalogCoordinator.withLock {
-            val jsonArray = profileCatalogJson()
+            val document = profileCatalogStore.readDocument()
             val updatedProfiles = ProfileCatalogPolicy.rename(
-                jsonArray.toCatalogEntries(),
+                document.entries,
                 id,
                 normalizedName,
             ) ?: throw IllegalArgumentException("Profile not found: $id")
-            for (index in 0 until jsonArray.length()) {
-                jsonArray.getJSONObject(index).put("name", updatedProfiles[index].name)
-            }
-            commitProfilePreferences {
-                putString(PROFILES_LIST_KEY, jsonArray.toString())
-            }
+            profileCatalogStore.commitCatalog(
+                catalog = profileCatalogStore.render(document, updatedProfiles),
+                activePath = ProfileCatalogPolicy.activePath(updatedProfiles),
+            )
             refreshActiveProfile()
         }
     }
@@ -395,26 +383,17 @@ class ChimeraBackendImpl : ChimeraBackend {
         id: String,
         onProgress: (DownloadProgress) -> Unit,
     ) {
-        val targetProfile = profileCatalogCoordinator.withLock {
-            val jsonArray = profileCatalogJson()
-            (0 until jsonArray.length())
-                .map { jsonArray.getJSONObject(it) }
-                .firstOrNull { it.getString("id") == id }
-                ?.let { org.json.JSONObject(it.toString()) }
-                ?: throw IllegalArgumentException("Profile not found: $id")
-        }
-        require(targetProfile.optString("type", "LOCAL") == "REMOTE") {
-            "Profile is not remote: $id"
-        }
-        val url = targetProfile.optString("url").takeIf { it.isNotBlank() }
+        val targetProfile = profileCatalogStore.readRemoteProfile(id)
+        require(targetProfile.type == "REMOTE") { "Profile is not remote: $id" }
+        val url = targetProfile.url
             ?: throw IllegalStateException("Remote profile URL is missing")
         ProfileRemotePolicy.requireValidUrl(url)
 
-        val userAgent = targetProfile.optString("userAgent").takeIf { it.isNotBlank() }
-        val proxyUrl = targetProfile.optString("proxyUrl").takeIf { it.isNotBlank() }
+        val userAgent = targetProfile.userAgent
+        val proxyUrl = targetProfile.proxyUrl
             ?: Global.proxyPort?.let { "http://127.0.0.1:$it" }
 
-        val outputFile = File(targetProfile.getString("filePath"))
+        val outputFile = File(targetProfile.filePath)
 
         val updatedActiveProfile = withContext(Dispatchers.IO) {
             ProfileUpdateTransactionPolicy.run(
@@ -448,29 +427,12 @@ class ChimeraBackendImpl : ChimeraBackend {
                     }
                 },
                 persistMetadata = { file, backup ->
-                    profileCatalogCoordinator.withLock {
-                        val jsonArray = profileCatalogJson()
-                        var found = false
-                        for (index in 0 until jsonArray.length()) {
-                            val obj = jsonArray.getJSONObject(index)
-                            if (obj.getString("id") == id) {
-                                obj.put("filePath", file.absolutePath)
-                                obj.put("fileSize", file.length())
-                                obj.put("lastUpdated", System.currentTimeMillis())
-                                found = true
-                            }
-                        }
-                        check(found) { "Profile disappeared during update: $id" }
-                        val activeProfile = (0 until jsonArray.length())
-                            .map { jsonArray.getJSONObject(it) }
-                            .firstOrNull { it.optBoolean("isActive", false) }
-                        val isUpdatedProfileActive = activeProfile?.optString("id") == id
-                        commitProfileUpdate(backup = backup) {
-                            putString(PROFILES_LIST_KEY, jsonArray.toString())
-                            activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
-                        }
-                        isUpdatedProfileActive
-                    }
+                    profileCatalogStore.updateRemoteProfileMetadata(
+                        id = id,
+                        file = file,
+                        backup = backup,
+                        updatedAt = System.currentTimeMillis(),
+                    )
                 },
                 beginBackupTransaction = profileStagingStore::markUpdatePending,
                 clearBackupTransaction = profileStagingStore::clearUpdatePending,
@@ -691,54 +653,6 @@ class ChimeraBackendImpl : ChimeraBackend {
         _activeProfile.value = runCatching(profileCatalogReader::readActiveProfile).getOrNull()
     }
 
-    private fun appendProfile(
-        profileJson: org.json.JSONObject,
-        pendingImport: File? = null,
-    ): Boolean = profileCatalogCoordinator.withLock {
-        val existingJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
-        val jsonArray = if (existingJson != null) JSONArray(existingJson) else JSONArray()
-
-        val isFirst = jsonArray.length() == 0
-        profileJson.put("isActive", isFirst)
-
-        jsonArray.put(profileJson)
-        val firstProfilePath = profileJson.getString("filePath").takeIf { isFirst }
-        commitProfilePreferences {
-            putString(PROFILES_LIST_KEY, jsonArray.toString())
-            firstProfilePath?.let { putString(PROFILE_PATH_KEY, it) }
-            pendingImport?.let { remove(profileImportPendingKey(it.name)) }
-        }
-        isFirst
-    }
-
-    private fun commitProfileCatalog(
-        catalog: String,
-        activePath: String?,
-    ) {
-        commitProfilePreferences {
-            putString(PROFILES_LIST_KEY, catalog)
-            if (activePath == null) remove(PROFILE_PATH_KEY) else putString(PROFILE_PATH_KEY, activePath)
-        }
-    }
-
-    private fun commitProfilePreferences(
-        update: SharedPreferences.Editor.() -> Unit,
-    ) {
-        val editor = profilePrefs.edit()
-        editor.update()
-        ProfilePersistencePolicy.commit(persist = editor::commit)
-    }
-
-    private fun commitProfileUpdate(
-        backup: File?,
-        update: SharedPreferences.Editor.() -> Unit,
-    ) {
-        commitProfilePreferences {
-            update()
-            backup?.let { remove(profileUpdatePendingKey(it.name)) }
-        }
-    }
-
     private fun queryDisplayName(context: Context, uri: Uri): String {
         return context.contentResolver.query(
             uri,
@@ -751,23 +665,6 @@ class ChimeraBackendImpl : ChimeraBackend {
             if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
         } ?: "remote-profile.yaml"
     }
-
-    private fun profileCatalogJson(): JSONArray {
-        val value = profilePrefs.getString(PROFILES_LIST_KEY, null)
-            ?: throw IllegalStateException("Profile catalog is empty")
-        return JSONArray(value)
-    }
-
-    private fun JSONArray.toCatalogEntries(): List<ProfileCatalogEntry> =
-        (0 until length()).map { index ->
-            val profile = getJSONObject(index)
-            ProfileCatalogEntry(
-                id = profile.getString("id"),
-                name = profile.getString("name"),
-                filePath = profile.getString("filePath"),
-                isActive = profile.optBoolean("isActive", false),
-            )
-        }
 
     private suspend fun downloadProfileToFile(
         file: File,
@@ -803,7 +700,5 @@ class ChimeraBackendImpl : ChimeraBackend {
     private companion object {
         const val TAG = "ChimeraBackend"
         const val FILE_PREFS = "file_prefs"
-        const val PROFILE_PATH_KEY = "profile_path"
-        const val PROFILES_LIST_KEY = "profiles_list"
     }
 }

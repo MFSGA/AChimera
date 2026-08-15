@@ -1,13 +1,13 @@
 package rs.chimera.android.backend
 
 import android.content.SharedPreferences
-import org.json.JSONArray
 import java.io.File
 
 internal class ProfileStagingStore(
     private val profilePrefs: SharedPreferences,
     private val filesDir: File,
     private val catalogCoordinator: ProfileCatalogCoordinator,
+    private val catalogStore: ProfileCatalogStore,
 ) {
     fun markImportPending(destination: File) {
         commitPreferences {
@@ -84,31 +84,13 @@ internal class ProfileStagingStore(
     }
 
     private fun referencedProfilePaths(): Set<String> =
-        profilePrefs.getString(PROFILES_LIST_KEY, null)
-            ?.let(::JSONArray)
-            ?.toCatalogEntries()
-            ?.mapTo(mutableSetOf()) { File(it.filePath).absolutePath }
-            .orEmpty()
+        catalogStore.readEntriesOrEmpty()
+            .mapTo(mutableSetOf()) { File(it.filePath).absolutePath }
 
     private fun commitPreferences(update: SharedPreferences.Editor.() -> Unit) {
         val editor = profilePrefs.edit()
         editor.update()
         ProfilePersistencePolicy.commit(persist = editor::commit)
-    }
-
-    private fun JSONArray.toCatalogEntries(): List<ProfileCatalogEntry> =
-        (0 until length()).map { index ->
-            val profile = getJSONObject(index)
-            ProfileCatalogEntry(
-                id = profile.getString("id"),
-                name = profile.getString("name"),
-                filePath = profile.getString("filePath"),
-                isActive = profile.optBoolean("isActive", false),
-            )
-        }
-
-    private companion object {
-        const val PROFILES_LIST_KEY = "profiles_list"
     }
 }
 

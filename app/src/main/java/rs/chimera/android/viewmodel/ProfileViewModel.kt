@@ -299,6 +299,5 @@ class ProfileViewModel : ViewModel() {
     private companion object {
         const val FILE_PREFS = "file_prefs"
         const val PROFILE_PATH_KEY = "profile_path"
-        const val PROFILES_LIST_KEY = "profiles_list"
     }
 }

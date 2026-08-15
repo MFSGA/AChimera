@@ -1,31 +1,27 @@
 package rs.chimera.android.backend
 
-import android.content.SharedPreferences
-import org.json.JSONArray
 import org.json.JSONObject
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
 
 internal class ProfileCatalogReader(
-    private val profilePrefs: SharedPreferences,
+    private val catalogStore: ProfileCatalogStore,
     private val autoUpdateStateStore: ProfileAutoUpdateStateStore,
 ) {
     fun readProfiles(): List<ProfileSummary> {
-        val catalog = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return emptyList()
-        val jsonArray = JSONArray(catalog)
+        val document = catalogStore.readDocumentOrNull() ?: return emptyList()
         return buildList {
-            for (index in 0 until jsonArray.length()) {
-                add(jsonArray.getJSONObject(index).toProfileSummary())
+            for (index in 0 until document.json.length()) {
+                add(document.json.getJSONObject(index).toProfileSummary())
             }
         }
     }
 
     fun readActiveProfile(): ProfileSummary? {
-        val savedPath = profilePrefs.getString(PROFILE_PATH_KEY, null) ?: return null
-        val catalog = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return null
-        val jsonArray = JSONArray(catalog)
-        for (index in 0 until jsonArray.length()) {
-            val profile = jsonArray.getJSONObject(index)
+        val savedPath = catalogStore.readActivePath() ?: return null
+        val document = catalogStore.readDocumentOrNull() ?: return null
+        for (index in 0 until document.json.length()) {
+            val profile = document.json.getJSONObject(index)
             if (profile.getString("filePath") == savedPath || profile.getBoolean("isActive")) {
                 return profile.toProfileSummary(forceActive = true)
             }
@@ -55,10 +51,5 @@ internal class ProfileCatalogReader(
             nextAutoUpdateAt = autoUpdateState.nextAttemptAt,
             lastAutoUpdateError = autoUpdateState.lastError,
         )
-    }
-
-    private companion object {
-        const val PROFILE_PATH_KEY = "profile_path"
-        const val PROFILES_LIST_KEY = "profiles_list"
     }
 }
