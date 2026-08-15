@@ -49,6 +49,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.R
+import rs.chimera.android.backend.BackendProvider
 
 private const val MAX_LOG_LINES = 400
 private const val LOG_REFRESH_INTERVAL_MS = 5_000L
@@ -60,6 +61,7 @@ fun LogsScreen(
     onBack: (() -> Unit)? = null,
 ) {
     val clipboard = LocalClipboard.current
+    val backend = remember { BackendProvider.provide() }
     val coroutineScope = rememberCoroutineScope()
     val verticalScrollState = rememberScrollState()
     var logContent by remember { mutableStateOf("") }
@@ -72,7 +74,7 @@ fun LogsScreen(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
                 if (!refreshPaused) {
-                    runCatching { Global.readRuntimeLogTail(MAX_LOG_LINES) }
+                    runCatching { backend.readRuntimeLogs(MAX_LOG_LINES) }
                         .onSuccess { latest ->
                             errorMessage = null
                             if (latest != logContent) logContent = latest
@@ -121,13 +123,15 @@ fun LogsScreen(
                     TextButton(
                         enabled = logContent.isNotBlank(),
                         onClick = {
-                            runCatching { Global.clearRuntimeLog() }
-                                .onSuccess {
-                                    logContent = ""
-                                    errorMessage = null
-                                }.onFailure { error ->
-                                    errorMessage = error.message ?: error.javaClass.simpleName
-                                }
+                            coroutineScope.launch {
+                                runCatching { backend.clearRuntimeLogs() }
+                                    .onSuccess {
+                                        logContent = ""
+                                        errorMessage = null
+                                    }.onFailure { error ->
+                                        errorMessage = error.message ?: error.javaClass.simpleName
+                                    }
+                            }
                         },
                     ) {
                         Text(text = stringResource(R.string.home_logs_clear))

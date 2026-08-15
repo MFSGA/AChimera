@@ -78,11 +78,24 @@ data class AppInfo(
 	val isSystemApp: Boolean,
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Destination<RootGraph>
 @Composable
 fun AppSelectorScreen(
 	navigator: DestinationsNavigator,
+	modifier: Modifier = Modifier,
+	viewModel: SettingsViewModel = viewModel(),
+) {
+	AppSelectorScreen(
+		onBack = navigator::navigateUp,
+		modifier = modifier,
+		viewModel = viewModel,
+	)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppSelectorScreen(
+	onBack: () -> Unit,
 	modifier: Modifier = Modifier,
 	viewModel: SettingsViewModel = viewModel(),
 ) {
@@ -93,6 +106,8 @@ fun AppSelectorScreen(
 	var searchQuery by remember { mutableStateOf("") }
 	var showSystemApps by remember { mutableStateOf(false) }
 	var showModeDialog by remember { mutableStateOf(false) }
+	var isSaving by remember { mutableStateOf(false) }
+	var saveError by remember { mutableStateOf<String?>(null) }
 	var tempFilterMode by remember { mutableStateOf(viewModel.appFilterMode) }
 	var selectedApps by remember {
 		mutableStateOf(
@@ -131,6 +146,20 @@ fun AppSelectorScreen(
 		}
 	}
 
+	saveError?.let { error ->
+		val details = error.ifBlank { stringResource(R.string.profile_unknown_error) }
+		AlertDialog(
+			onDismissRequest = { saveError = null },
+			title = { Text(stringResource(R.string.settings_title)) },
+			text = { Text(stringResource(R.string.cmfa_settings_save_failed, details)) },
+			confirmButton = {
+				TextButton(onClick = { saveError = null }) {
+					Text(stringResource(android.R.string.ok))
+				}
+			},
+		)
+	}
+
 	// Filter apps based on search and system apps toggle
 	val filteredApps =
 		apps.filter { app ->
@@ -147,7 +176,7 @@ fun AppSelectorScreen(
 			TopAppBar(
 				title = { Text(stringResource(R.string.app_selector_title)) },
 				navigationIcon = {
-					IconButton(onClick = { navigator.navigateUp() }) {
+					IconButton(onClick = onBack) {
 						Icon(
 							imageVector = Icons.AutoMirrored.Filled.ArrowBack,
 							contentDescription = stringResource(R.string.back),
@@ -160,23 +189,19 @@ fun AppSelectorScreen(
 		floatingActionButton = {
 			FloatingActionButton(
 				onClick = {
-					// Save the selected apps
-					when (tempFilterMode) {
-						AppFilterMode.ALLOWED -> {
-							viewModel.updateAllowedApps(selectedApps)
-							viewModel.updateDisallowedApps(emptySet())
-						}
-						AppFilterMode.DISALLOWED -> {
-							viewModel.updateDisallowedApps(selectedApps)
-							viewModel.updateAllowedApps(emptySet())
-						}
-						AppFilterMode.ALL -> {
-							viewModel.updateAllowedApps(emptySet())
-							viewModel.updateDisallowedApps(emptySet())
+					if (!isSaving) {
+						isSaving = true
+						coroutineScope.launch {
+							runCatching {
+								viewModel.saveAppFilter(tempFilterMode, selectedApps)
+							}.onSuccess {
+								onBack()
+							}.onFailure { error ->
+								saveError = error.message.orEmpty()
+							}
+							isSaving = false
 						}
 					}
-					viewModel.updateAppFilterMode(tempFilterMode)
-					navigator.navigateUp()
 				},
 			) {
 				Icon(Icons.Default.Check, contentDescription = stringResource(R.string.save))

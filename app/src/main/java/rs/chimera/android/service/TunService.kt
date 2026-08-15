@@ -34,13 +34,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-var tunService: TunService? = null
-
-class TunService : VpnService() {
+class TunService : VpnService(), VpnRuntimeControl {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lifecycleGate = VpnLifecycleGate()
+    private val runtimeMutex = Mutex()
     private val backend by lazy { BackendProvider.provide() }
     private val networkResetMutex = Mutex()
     private var networkCoordinator: UnderlyingNetworkCoordinator? = null
@@ -72,12 +71,12 @@ class TunService : VpnService() {
         Log.i(TAG, "onStartCommand")
         appendRuntimeLog("service onStartCommand")
         ensureForegroundService()
-        tunService = this
+        VpnRuntimeRegistry.register(this)
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
 
         val job = serviceScope.launch(start = CoroutineStart.LAZY) {
             try {
-                runVpn()
+                runtimeMutex.withLock { runVpn() }
             } catch (error: CancellationException) {
                 appendRuntimeLog("service startup cancelled")
                 throw error
@@ -359,27 +358,40 @@ class TunService : VpnService() {
     ): Boolean {
         if (!lifecycleGate.beginCleanup()) return false
 
-        networkCoordinator?.stop()
-        networkCoordinator = null
         if (errorMessage != null) {
             BackendRuntimeState.updateServiceError(errorMessage)
         }
+        releaseRuntime(stopCore = stopCore, removeForeground = true)
+        VpnRuntimeRegistry.unregister(this)
+        BackendRuntimeState.updateServiceState(finalState)
+        appendRuntimeLog("service cleanup complete")
+        return true
+    }
+
+    private fun releaseRuntime(
+        stopCore: Boolean,
+        removeForeground: Boolean,
+    ) {
+        networkCoordinator?.stop()
+        networkCoordinator = null
         if (stopCore) {
             shutdownClash().exceptionOrNull()?.let { error ->
                 Log.w(TAG, "Failed to stop Rust core cleanly", error)
                 appendRuntimeLog("failed to stop rust core cleanly", error)
             }
         }
-        runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                stopForeground(STOP_FOREGROUND_REMOVE)
-            } else {
-                @Suppress("DEPRECATION")
-                stopForeground(true)
+        if (removeForeground) {
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                } else {
+                    @Suppress("DEPRECATION")
+                    stopForeground(true)
+                }
+            }.onFailure { error ->
+                Log.w(TAG, "Failed to stop foreground service", error)
+                appendRuntimeLog("failed to stop foreground service", error)
             }
-        }.onFailure { error ->
-            Log.w(TAG, "Failed to stop foreground service", error)
-            appendRuntimeLog("failed to stop foreground service", error)
         }
         runCatching { vpnInterface?.close() }
             .onFailure { error ->
@@ -388,42 +400,76 @@ class TunService : VpnService() {
             }
         vpnInterface = null
         tunFd = null
-        tunService = null
         Global.proxyPort = null
-        BackendRuntimeState.updateServiceState(finalState)
-        appendRuntimeLog("service cleanup complete")
-        return true
     }
 
-    fun onCoreStopped(message: String) {
-        serviceScope.launch {
-            if (!lifecycleGate.canHandleUnexpectedCoreStop()) return@launch
+    override suspend fun restartVpn() {
+        check(lifecycleGate.canRunRuntime()) { "VPN service is stopping" }
 
-            val cleanedUp = cleanup(
-                finalState = ServiceState.ERROR,
-                stopCore = false,
-                errorMessage = message,
-            )
-            if (!cleanedUp) return@launch
+        try {
+            runtimeMutex.withLock {
+                check(lifecycleGate.canRunRuntime()) { "VPN service is stopping" }
+                BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
+                appendRuntimeLog("service runtime reload requested")
+                ensureForegroundService()
+                releaseRuntime(stopCore = true, removeForeground = false)
 
-            Log.e(TAG, "Rust core stopped unexpectedly: $message")
-            appendRuntimeLog("rust core stopped unexpectedly: $message")
-            NotificationHelper.notifyFailed(this@TunService, message)
-            stopSelf()
+                if (!lifecycleGate.canRunRuntime()) {
+                    throw CancellationException("VPN runtime reload cancelled")
+                }
+
+                BackendRuntimeState.updateServiceState(ServiceState.STARTING)
+                runVpn()
+                appendRuntimeLog("service runtime reload complete")
+            }
+        } catch (error: CancellationException) {
+            appendRuntimeLog("service runtime reload cancelled")
+            throw error
+        } catch (error: Exception) {
+            val detail = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+            runtimeMutex.withLock {
+                if (cleanup(finalState = ServiceState.ERROR, errorMessage = detail)) {
+                    NotificationHelper.notifyFailed(this@TunService, detail)
+                    stopSelf()
+                }
+            }
+            throw error
         }
     }
 
-    fun stopVpn() {
+    override fun onCoreStopped(message: String) {
+        serviceScope.launch {
+            runtimeMutex.withLock {
+                if (!lifecycleGate.canHandleUnexpectedCoreStop()) return@withLock
+
+                val cleanedUp = cleanup(
+                    finalState = ServiceState.ERROR,
+                    stopCore = false,
+                    errorMessage = message,
+                )
+                if (!cleanedUp) return@withLock
+
+                Log.e(TAG, "Rust core stopped unexpectedly: $message")
+                appendRuntimeLog("rust core stopped unexpectedly: $message")
+                NotificationHelper.notifyFailed(this@TunService, message)
+                stopSelf()
+            }
+        }
+    }
+
+    override suspend fun stopVpn() {
         val stopRequest = lifecycleGate.requestStop()
         if (!stopRequest.accepted) return
 
-        serviceScope.launch {
-            stopRequest.startupJob?.join()
+        stopRequest.startupJob?.join()
+        runtimeMutex.withLock {
             if (cleanup()) {
                 stopSelf()
             }
         }
     }
+
+    override fun protectSocket(fd: Int): Boolean = protect(fd)
 
     private companion object {
         const val TAG = "ChimeraTunService"

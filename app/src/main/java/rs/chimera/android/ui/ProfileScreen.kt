@@ -613,6 +613,14 @@ private fun ProfileItem(
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameValue by remember(profile.id, profile.name) { mutableStateOf(profile.name) }
     val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
+    val context = LocalContext.current
+    val autoUpdatePresentation = resolveProfileAutoUpdatePresentation(
+        autoUpdate = profile.autoUpdate,
+        lastAttempt = profile.lastAutoUpdateAttempt,
+        failureCount = profile.autoUpdateFailures,
+        nextAttemptAt = profile.nextAutoUpdateAt,
+        error = profile.lastAutoUpdateError,
+    )
 
     if (showRenameDialog) {
         AlertDialog(
@@ -715,6 +723,17 @@ private fun ProfileItem(
                             ),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    autoUpdatePresentation?.let { presentation ->
+                        Text(
+                            text = presentation.format(context),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (presentation.status == ProfileAutoUpdateStatus.RETRY) {
+                                MaterialTheme.colorScheme.error
+                            } else {
+                                MaterialTheme.colorScheme.tertiary
+                            },
                         )
                     }
                 }

@@ -14,6 +14,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import rs.chimera.android.ui.AppSelectorScreen
 import rs.chimera.android.ui.ConnectionsScreen
 import rs.chimera.android.ui.HomeScreen
 import rs.chimera.android.ui.LogsScreen
@@ -31,8 +32,9 @@ fun WatfaqAppRoot(
     var selectedItem by rememberSaveable { mutableStateOf(BottomBarItem.Home) }
     var showConnectionsScreen by rememberSaveable { mutableStateOf(false) }
     var showLogsScreen by rememberSaveable { mutableStateOf(false) }
+    var showAppSelectorScreen by rememberSaveable { mutableStateOf(false) }
 
-    val showBottomBar = !showConnectionsScreen && !showLogsScreen
+    val showBottomBar = !showConnectionsScreen && !showLogsScreen && !showAppSelectorScreen
 
     Box(
         modifier = modifier
@@ -58,6 +60,7 @@ fun WatfaqAppRoot(
                             selectedItem = it
                             showConnectionsScreen = false
                             showLogsScreen = false
+                            showAppSelectorScreen = false
                         },
                     )
                 }
@@ -86,16 +89,26 @@ fun WatfaqAppRoot(
                 BottomBarItem.Profile -> ProfileScreen(modifier = contentModifier)
 
                 BottomBarItem.Settings -> {
-                    if (showLogsScreen) {
-                        LogsScreen(
-                            modifier = contentModifier,
-                            onBack = { showLogsScreen = false },
-                        )
-                    } else {
-                        SettingsScreen(
-                            modifier = contentModifier,
-                            onLogsClick = { showLogsScreen = true },
-                        )
+                    when {
+                        showLogsScreen -> {
+                            LogsScreen(
+                                modifier = contentModifier,
+                                onBack = { showLogsScreen = false },
+                            )
+                        }
+                        showAppSelectorScreen -> {
+                            AppSelectorScreen(
+                                modifier = contentModifier,
+                                onBack = { showAppSelectorScreen = false },
+                            )
+                        }
+                        else -> {
+                            SettingsScreen(
+                                modifier = contentModifier,
+                                onLogsClick = { showLogsScreen = true },
+                                onAppFilterClick = { showAppSelectorScreen = true },
+                            )
+                        }
                     }
                 }
             }

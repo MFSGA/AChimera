@@ -679,6 +679,10 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_download_file_with_progress(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_close_all_connections(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_close_connection(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections(
@@ -691,6 +695,14 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_rules(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_reset_network(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy(
@@ -698,6 +710,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_config(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider(
     ): Short
     external fun uniffi_chimera_ffi_checksum_constructor_clashcontroller_new(
     ): Short
@@ -728,6 +742,10 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_chimera_ffi_fn_constructor_clashcontroller_new(`socketPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_close_all_connections(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_close_connection(`ptr`: Long,`id`: RustBuffer.ByValue,
+    ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_connections(`ptr`: Long,
@@ -740,6 +758,14 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_delay(`ptr`: Long,`name`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`timeout`: RustBuffer.ByValue,
     ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_rules(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(`ptr`: Long,`name`: RustBuffer.ByValue,`recordType`: RustBuffer.ByValue,
+    ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_reset_network(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_select_proxy(`ptr`: Long,`groupName`: RustBuffer.ByValue,`proxyName`: RustBuffer.ByValue,
@@ -747,6 +773,8 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_set_mode(`ptr`: Long,`mode`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_config(`ptr`: Long,`config`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
     ): Unit
@@ -899,6 +927,12 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_func_download_file_with_progress() != 62176.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_close_all_connections() != 26699.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_close_connection() != 21182.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 12014.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -917,6 +951,18 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay() != 13007.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers() != 30983.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_rules() != 52140.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider() != 58383.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns() != 46980.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_reset_network() != 4116.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -927,6 +973,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_config() != 62337.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider() != 12271.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_constructor_clashcontroller_new() != 63231.toShort()) {
@@ -1433,6 +1482,10 @@ public object FfiConverterString: FfiConverter<String, RustBuffer.ByValue> {
 
 public interface ClashControllerInterface {
 
+    suspend fun `closeAllConnections`()
+
+    suspend fun `closeConnection`(`id`: kotlin.String)
+
     suspend fun `getConfigs`(): ConfigResponse
 
     suspend fun `getConnections`(): ConnectionsResponse
@@ -1445,6 +1498,14 @@ public interface ClashControllerInterface {
 
     suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?): DelayResponse
 
+    suspend fun `getProxyProviders`(): List<ProxyProviderSnapshot>
+
+    suspend fun `getRules`(): List<RuleSnapshot>
+
+    suspend fun `healthcheckProxyProvider`(`name`: kotlin.String)
+
+    suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String): kotlin.String
+
     suspend fun `resetNetwork`()
 
     suspend fun `selectProxy`(`groupName`: kotlin.String, `proxyName`: kotlin.String)
@@ -1452,6 +1513,8 @@ public interface ClashControllerInterface {
     suspend fun `setMode`(`mode`: Mode)
 
     suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>)
+
+    suspend fun `updateProxyProvider`(`name`: kotlin.String)
 
     companion object
 }
@@ -1558,6 +1621,50 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         return uniffiRustCall() { status ->
             UniffiLib.uniffi_chimera_ffi_fn_clone_clashcontroller(handle, status)
         }
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `closeAllConnections`() {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_close_all_connections(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `closeConnection`(`id`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_close_connection(
+                uniffiHandle,
+                FfiConverterString.lower(`id`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
     }
 
 
@@ -1689,6 +1796,91 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
 
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getProxyProviders`() : List<ProxyProviderSnapshot> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeProxyProviderSnapshot.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getRules`() : List<RuleSnapshot> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_rules(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeRuleSnapshot.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `healthcheckProxyProvider`(`name`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(
+                uniffiHandle,
+                FfiConverterString.lower(`name`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(
+                uniffiHandle,
+                FfiConverterString.lower(`name`),FfiConverterString.lower(`recordType`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `resetNetwork`() {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
@@ -1761,6 +1953,28 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
             UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_update_config(
                 uniffiHandle,
                 FfiConverterMapStringString.lower(`config`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `updateProxyProvider`(`name`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_update_proxy_provider(
+                uniffiHandle,
+                FfiConverterString.lower(`name`),
             )
         },
         { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
@@ -2380,6 +2594,97 @@ public object FfiConverterTypeProxy: FfiConverterRustBuffer<Proxy> {
 
 
 
+data class ProxyProviderSnapshot (
+    var `name`: kotlin.String
+    ,
+    var `providerType`: kotlin.String
+    ,
+    var `vehicleType`: kotlin.String
+    ,
+    var `proxyCount`: kotlin.Int
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeProxyProviderSnapshot: FfiConverterRustBuffer<ProxyProviderSnapshot> {
+    override fun read(buf: ByteBuffer): ProxyProviderSnapshot {
+        return ProxyProviderSnapshot(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ProxyProviderSnapshot) = (
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterString.allocationSize(value.`providerType`) +
+            FfiConverterString.allocationSize(value.`vehicleType`) +
+            FfiConverterInt.allocationSize(value.`proxyCount`)
+    )
+
+    override fun write(value: ProxyProviderSnapshot, buf: ByteBuffer) {
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterString.write(value.`providerType`, buf)
+            FfiConverterString.write(value.`vehicleType`, buf)
+            FfiConverterInt.write(value.`proxyCount`, buf)
+    }
+}
+
+
+
+data class RuleSnapshot (
+    var `ruleType`: kotlin.String
+    ,
+    var `proxy`: kotlin.String
+    ,
+    var `payload`: kotlin.String
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeRuleSnapshot: FfiConverterRustBuffer<RuleSnapshot> {
+    override fun read(buf: ByteBuffer): RuleSnapshot {
+        return RuleSnapshot(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: RuleSnapshot) = (
+            FfiConverterString.allocationSize(value.`ruleType`) +
+            FfiConverterString.allocationSize(value.`proxy`) +
+            FfiConverterString.allocationSize(value.`payload`)
+    )
+
+    override fun write(value: RuleSnapshot, buf: ByteBuffer) {
+            FfiConverterString.write(value.`ruleType`, buf)
+            FfiConverterString.write(value.`proxy`, buf)
+            FfiConverterString.write(value.`payload`, buf)
+    }
+}
+
+
+
 
 
 sealed class ChimeraException: kotlin.Exception() {
@@ -2845,6 +3150,62 @@ public object FfiConverterSequenceTypeProxy: FfiConverterRustBuffer<List<Proxy>>
 /**
  * @suppress
  */
+public object FfiConverterSequenceTypeProxyProviderSnapshot: FfiConverterRustBuffer<List<ProxyProviderSnapshot>> {
+    override fun read(buf: ByteBuffer): List<ProxyProviderSnapshot> {
+        val len = buf.getInt()
+        return List<ProxyProviderSnapshot>(len) {
+            FfiConverterTypeProxyProviderSnapshot.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<ProxyProviderSnapshot>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeProxyProviderSnapshot.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<ProxyProviderSnapshot>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeProxyProviderSnapshot.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeRuleSnapshot: FfiConverterRustBuffer<List<RuleSnapshot>> {
+    override fun read(buf: ByteBuffer): List<RuleSnapshot> {
+        val len = buf.getInt()
+        return List<RuleSnapshot>(len) {
+            FfiConverterTypeRuleSnapshot.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<RuleSnapshot>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeRuleSnapshot.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<RuleSnapshot>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeRuleSnapshot.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.String, kotlin.String>> {
     override fun read(buf: ByteBuffer): Map<kotlin.String, kotlin.String> {
         val len = buf.getInt()
@@ -2956,5 +3317,3 @@ public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.Str
         ChimeraException.ErrorHandler,
     )
     }
-
-

@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import rs.chimera.android.Global
@@ -31,16 +33,19 @@ import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
 import rs.chimera.android.backend.model.ProxyDelayHistory
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
+import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.ProxySnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
+import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.ServiceState
+import rs.chimera.android.backend.model.SettingsApplyEffect
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.ffi.shutdownClash
 import rs.chimera.android.service.TunService
-import rs.chimera.android.service.tunService
+import rs.chimera.android.service.VpnRuntimeRegistry
 import uniffi.chimera_ffi.ClashController
 import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
@@ -55,9 +60,12 @@ import java.util.UUID
 
 class ChimeraBackendImpl : ChimeraBackend {
     private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val vpnOperationMutex = Mutex()
     private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
     private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
+    private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
+    private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
 
@@ -100,6 +108,12 @@ class ChimeraBackendImpl : ChimeraBackend {
                 Log.e(TAG, "Failed to recover staged profile downloads", error)
             }
         refreshActiveProfile()
+        backendScope.launch {
+            runCatching { listProfiles() }
+                .onFailure { error ->
+                    Log.e(TAG, "Failed to synchronize automatic profile update schedule", error)
+                }
+        }
         observeTraffic()
         observeMemory()
         observeProxyGroups()
@@ -134,28 +148,42 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun stopVpn() {
-        BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
-        try {
-            val service = tunService
-            if (service != null) {
-                service.stopVpn()
-            } else {
-                shutdownClash().getOrThrow()
-                BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
+        vpnOperationMutex.withLock {
+            BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
+            try {
+                if (!VpnRuntimeRegistry.stopVpn()) {
+                    shutdownClash().getOrThrow()
+                    BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
+                }
+            } catch (error: Exception) {
+                BackendRuntimeState.updateServiceError(error.messageOrType())
+                throw error
             }
-        } catch (error: Exception) {
-            BackendRuntimeState.updateServiceError(error.messageOrType())
-            throw error
+        }
+    }
+
+    override suspend fun restartVpn() {
+        check(vpnOperationMutex.tryLock()) { "Another VPN operation is already in progress" }
+        try {
+            check(serviceState.value == ServiceState.RUNNING) { "VPN is not running" }
+            VpnRuntimeRegistry.restartVpn()
+        } finally {
+            vpnOperationMutex.unlock()
         }
     }
 
     override suspend fun listProfiles(): List<ProfileSummary> {
         recoverStagedProfileDeletions()
-        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null) ?: return emptyList()
+        val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
+        if (profilesJson == null) {
+            refreshProfileAutoUpdateSchedule(emptyList())
+            return emptyList()
+        }
         val jsonArray = JSONArray(profilesJson)
-        return buildList {
+        val profiles = buildList {
             for (index in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(index)
+                val autoUpdateState = profileAutoUpdateStateStore.read(obj.getString("id"))
                 add(
                     ProfileSummary(
                         id = obj.getString("id"),
@@ -173,10 +201,16 @@ class ChimeraBackendImpl : ChimeraBackend {
                         autoUpdate = obj.optBoolean("autoUpdate", false),
                         userAgent = obj.optString("userAgent").takeIf { it.isNotBlank() },
                         proxyUrl = obj.optString("proxyUrl").takeIf { it.isNotBlank() },
+                        lastAutoUpdateAttempt = autoUpdateState.lastAttempt,
+                        autoUpdateFailures = autoUpdateState.failureCount,
+                        nextAutoUpdateAt = autoUpdateState.nextAttemptAt,
+                        lastAutoUpdateError = autoUpdateState.lastError,
                     )
                 )
             }
         }
+        refreshProfileAutoUpdateSchedule(profiles)
+        return profiles
     }
 
     override suspend fun activateProfile(id: String) {
@@ -197,6 +231,9 @@ class ChimeraBackendImpl : ChimeraBackend {
             } finally {
                 refreshActiveProfile()
             }
+        }
+        if (serviceState.value == ServiceState.RUNNING) {
+            restartVpn()
         }
     }
 
@@ -304,12 +341,14 @@ class ChimeraBackendImpl : ChimeraBackend {
                 refreshActiveProfile()
             }
         }
+        synchronizeProfileAutoUpdateSchedule()
     }
 
     override suspend fun deleteProfile(id: String) {
         profileUpdateCoordinator.withLock(id) {
             deleteProfileLocked(id)
         }
+        synchronizeProfileAutoUpdateSchedule()
     }
 
     private fun deleteProfileLocked(id: String) {
@@ -339,6 +378,7 @@ class ChimeraBackendImpl : ChimeraBackend {
                 },
             )
             Global.restoreProfilePath()
+            profileAutoUpdateStateStore.clear(id)
             refreshActiveProfile()
         }
     }
@@ -463,6 +503,7 @@ class ChimeraBackendImpl : ChimeraBackend {
                 clearBackupTransaction = ::clearProfileUpdatePending,
             )
         }
+        profileAutoUpdateStateStore.clear(id)
         try {
             if (updatedActiveProfile) Global.restoreProfilePath()
         } finally {
@@ -506,24 +547,57 @@ class ChimeraBackendImpl : ChimeraBackend {
             "${response.delay}ms"
         }
 
-    override suspend fun listConnections(): ConnectionsSnapshot {
-        check(serviceState.value == ServiceState.RUNNING) {
-            Global.application.getString(rs.chimera.android.R.string.panel_not_running_title)
+    override suspend fun listConnections(): ConnectionsSnapshot =
+        runConnectionOperation("Failed to refresh connections", ::fetchConnectionsFromController)
+
+    override suspend fun closeConnection(id: String) {
+        runConnectionOperation("Failed to close connection") {
+            controller.closeConnection(id)
         }
-        return try {
-            fetchConnectionsFromController().also {
-                clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC)
-            }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            recordRuntimeError(
-                source = BackendRuntimeErrorSource.TRAFFIC,
-                prefix = "Failed to refresh connections",
-                error = error,
+    }
+
+    override suspend fun closeAllConnections() {
+        runConnectionOperation("Failed to close all connections") {
+            controller.closeAllConnections()
+        }
+    }
+
+    override suspend fun listRules(): List<RuleSnapshot> {
+        requireProxyServiceRunning()
+        return controller.getRules().map { rule ->
+            RuleSnapshot(
+                type = rule.ruleType,
+                proxy = rule.proxy,
+                payload = rule.payload,
             )
-            throw error
         }
+    }
+
+    override suspend fun listProxyProviders(): List<ProxyProviderSnapshot> {
+        requireProxyServiceRunning()
+        return controller.getProxyProviders().map { provider ->
+            ProxyProviderSnapshot(
+                name = provider.name,
+                type = provider.providerType,
+                vehicleType = provider.vehicleType,
+                proxyCount = provider.proxyCount,
+            )
+        }
+    }
+
+    override suspend fun updateProxyProvider(name: String) {
+        requireProxyServiceRunning()
+        controller.updateProxyProvider(name)
+    }
+
+    override suspend fun healthcheckProxyProvider(name: String) {
+        requireProxyServiceRunning()
+        controller.healthcheckProxyProvider(name)
+    }
+
+    override suspend fun queryDns(name: String, recordType: String): String {
+        requireProxyServiceRunning()
+        return controller.queryDns(name, recordType)
     }
 
     override suspend fun readRuntimeLogs(maxLines: Int): String {
@@ -534,7 +608,8 @@ class ChimeraBackendImpl : ChimeraBackend {
         Global.clearRuntimeLog()
     }
 
-    override suspend fun updateSettings(patch: SettingsPatch) {
+    override suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect {
+        val applyEffect = patch.requiredApplyEffect()
         settingsPrefs.edit {
             patch.allowLan?.let { putBoolean("allow_lan", it) }
             patch.mixedPort?.let { putInt("mixed_port", it.toInt()) }
@@ -548,6 +623,24 @@ class ChimeraBackendImpl : ChimeraBackend {
             patch.allowedApps?.let { putStringSet("allowed_apps", it) }
             patch.disallowedApps?.let { putStringSet("disallowed_apps", it) }
         }
+        if (applyEffect != SettingsApplyEffect.IMMEDIATE && serviceState.value == ServiceState.RUNNING) {
+            restartVpn()
+        }
+        return applyEffect
+    }
+
+    private fun refreshProfileAutoUpdateSchedule(profiles: List<ProfileSummary>) {
+        runCatching { profileAutoUpdateScheduler.refresh(profiles) }
+            .onFailure { error ->
+                Log.e(TAG, "Failed to synchronize automatic profile update schedule", error)
+            }
+    }
+
+    private suspend fun synchronizeProfileAutoUpdateSchedule() {
+        runCatching { listProfiles() }
+            .onFailure { error ->
+                Log.e(TAG, "Failed to refresh profile list after catalog mutation", error)
+            }
     }
 
     private fun recordRuntimeError(
@@ -585,6 +678,27 @@ class ChimeraBackendImpl : ChimeraBackend {
         } catch (error: Exception) {
             recordRuntimeError(
                 source = BackendRuntimeErrorSource.PROXY_GROUPS,
+                prefix = errorPrefix,
+                error = error,
+            )
+            throw error
+        }
+    }
+
+    private suspend fun <T> runConnectionOperation(
+        errorPrefix: String,
+        operation: suspend () -> T,
+    ): T {
+        check(serviceState.value == ServiceState.RUNNING) {
+            Global.application.getString(rs.chimera.android.R.string.panel_not_running_title)
+        }
+        return try {
+            operation().also { clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC) }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            recordRuntimeError(
+                source = BackendRuntimeErrorSource.TRAFFIC,
                 prefix = errorPrefix,
                 error = error,
             )
@@ -754,6 +868,7 @@ class ChimeraBackendImpl : ChimeraBackend {
             for (index in 0 until jsonArray.length()) {
                 val obj = jsonArray.getJSONObject(index)
                 if (obj.getString("filePath") == savedPath || obj.getBoolean("isActive")) {
+                    val autoUpdateState = profileAutoUpdateStateStore.read(obj.getString("id"))
                     return@runCatching ProfileSummary(
                         id = obj.getString("id"),
                         name = obj.getString("name"),
@@ -770,6 +885,10 @@ class ChimeraBackendImpl : ChimeraBackend {
                         autoUpdate = obj.optBoolean("autoUpdate", false),
                         userAgent = obj.optString("userAgent").takeIf { it.isNotBlank() },
                         proxyUrl = obj.optString("proxyUrl").takeIf { it.isNotBlank() },
+                        lastAutoUpdateAttempt = autoUpdateState.lastAttempt,
+                        autoUpdateFailures = autoUpdateState.failureCount,
+                        nextAutoUpdateAt = autoUpdateState.nextAttemptAt,
+                        lastAutoUpdateError = autoUpdateState.lastError,
                     )
                 }
             }

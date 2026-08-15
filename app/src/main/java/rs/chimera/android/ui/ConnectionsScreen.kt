@@ -8,21 +8,31 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,6 +57,7 @@ fun ConnectionsScreen(
     viewModel: ConnectionsViewModel = viewModel(),
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
+    var showCloseAllConfirmation by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(lifecycleOwner, viewModel) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -57,6 +68,30 @@ fun ConnectionsScreen(
                 viewModel.stopPolling()
             }
         }
+    }
+
+    if (showCloseAllConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showCloseAllConfirmation = false },
+            title = { Text(stringResource(R.string.connections_close_all_title)) },
+            text = { Text(stringResource(R.string.connections_close_all_message)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !viewModel.closeAllInProgress,
+                    onClick = {
+                        showCloseAllConfirmation = false
+                        viewModel.closeAllConnections()
+                    },
+                ) {
+                    Text(stringResource(R.string.connections_close_all))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCloseAllConfirmation = false }) {
+                    Text(stringResource(R.string.cancel))
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -72,6 +107,27 @@ fun ConnectionsScreen(
                     }
                 },
                 title = { Text(stringResource(R.string.connections_title)) },
+                actions = {
+                    if (viewModel.connections.isNotEmpty()) {
+                        IconButton(
+                            enabled = !viewModel.closeAllInProgress &&
+                                viewModel.closingConnectionIds.isEmpty(),
+                            onClick = { showCloseAllConfirmation = true },
+                        ) {
+                            if (viewModel.closeAllInProgress) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteSweep,
+                                    contentDescription = stringResource(R.string.connections_close_all),
+                                )
+                            }
+                        }
+                    }
+                },
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
@@ -81,6 +137,8 @@ fun ConnectionsScreen(
             downloadTotal = viewModel.downloadTotal,
             uploadTotal = viewModel.uploadTotal,
             errorMessage = viewModel.errorMessage,
+            closingConnectionIds = viewModel.closingConnectionIds,
+            onCloseConnection = viewModel::closeConnection,
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize(),
@@ -94,6 +152,8 @@ private fun ConnectionsContent(
     downloadTotal: Long,
     uploadTotal: Long,
     errorMessage: String?,
+    closingConnectionIds: Set<String>,
+    onCloseConnection: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     LazyColumn(
@@ -177,7 +237,11 @@ private fun ConnectionsContent(
             items = connections,
             key = { _, connection -> connection.id },
         ) { _, connection ->
-            ConnectionCard(connection = connection)
+            ConnectionCard(
+                connection = connection,
+                closing = connection.id in closingConnectionIds,
+                onClose = { onCloseConnection(connection.id) },
+            )
         }
     }
 }
@@ -206,6 +270,8 @@ private fun SummaryMetric(
 @Composable
 private fun ConnectionCard(
     connection: ConnectionSnapshot,
+    closing: Boolean,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val metadata = connection.metadata
@@ -238,11 +304,29 @@ private fun ConnectionCard(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
-                Text(
-                    text = network.uppercase(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary,
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = network.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                    IconButton(
+                        enabled = !closing,
+                        onClick = onClose,
+                    ) {
+                        if (closing) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(R.string.connections_close),
+                            )
+                        }
+                    }
+                }
             }
 
             Text(

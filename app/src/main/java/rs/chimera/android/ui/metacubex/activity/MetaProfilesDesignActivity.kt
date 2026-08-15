@@ -116,6 +116,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             return
         } ?: return
         val actions = buildList {
+            if (profile.isActive) add(ProfileAction.Verify)
             if (profile.isRemote) add(ProfileAction.Update)
             add(ProfileAction.Rename)
             add(ProfileAction.Delete)
@@ -130,6 +131,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
 
     private suspend fun handleProfileAction(profile: ProfileSummary, action: ProfileAction) {
         when (action) {
+            ProfileAction.Verify -> verifyProfile(profile)
             ProfileAction.Update -> performOperation(
                 progressMessage = getString(R.string.profile_updating),
                 successMessage = getString(R.string.profile_update_success, profile.name),
@@ -139,6 +141,39 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             }
             ProfileAction.Rename -> showRenameDialog(profile.id, profile.name)
             ProfileAction.Delete -> confirmDelete(profile.id, profile.name)
+        }
+    }
+
+    private suspend fun verifyProfile(profile: ProfileSummary) {
+        if (operationInProgress) return
+        operationInProgress = true
+        design.showOperation(getString(R.string.profile_verifying))
+        try {
+            val result = withContext(Dispatchers.IO) {
+                backend.verifyProfile(profile.filePath).getOrThrow()
+            }
+            loadProfiles()
+            AlertDialog.Builder(this)
+                .setTitle(R.string.profile_verification_title_success)
+                .setMessage(result)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            loadProfiles()
+            AlertDialog.Builder(this)
+                .setTitle(R.string.profile_verification_title_failure)
+                .setMessage(
+                    getString(
+                        R.string.profile_verify_failure,
+                        error.message ?: getString(R.string.profile_unknown_error),
+                    ),
+                )
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        } finally {
+            operationInProgress = false
         }
     }
 
@@ -310,6 +345,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private enum class ProfileAction(val labelRes: Int) {
+        Verify(R.string.profile_verify),
         Update(R.string.profile_update),
         Rename(R.string.profile_rename),
         Delete(R.string.profile_delete),

@@ -18,4 +18,8 @@ data class ProfileSummary(
     val autoUpdate: Boolean = false,
     val userAgent: String? = null,
     val proxyUrl: String? = null,
+    val lastAutoUpdateAttempt: Long? = null,
+    val autoUpdateFailures: Int = 0,
+    val nextAutoUpdateAt: Long? = null,
+    val lastAutoUpdateError: String? = null,
 )

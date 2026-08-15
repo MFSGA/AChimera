@@ -15,6 +15,9 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         data object NavigateBack : Request()
         data object EditPorts : Request()
         data object OpenLogs : Request()
+        data object OpenDnsDiagnostics : Request()
+        data object OpenRuleDiagnostics : Request()
+        data object OpenProxyProviders : Request()
         data object OpenAccessControl : Request()
         data object ChooseLanguage : Request()
         data object ChooseAppearance : Request()
@@ -48,6 +51,9 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
     private val cardUiVariant = root.findViewById<MaterialCardView>(R.id.card_ui_variant)
     private val cardPorts = root.findViewById<MaterialCardView>(R.id.card_ports)
     private val cardLogs = root.findViewById<MaterialCardView>(R.id.card_logs)
+    private val cardDns = root.findViewById<MaterialCardView>(R.id.card_dns)
+    private val cardRules = root.findViewById<MaterialCardView>(R.id.card_rules)
+    private val cardProviders = root.findViewById<MaterialCardView>(R.id.card_providers)
     private val cardAccessControl = root.findViewById<MaterialCardView>(R.id.card_access_control)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
@@ -65,6 +71,9 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }
         cardPorts.setOnClickListener { request(Request.EditPorts) }
         cardLogs.setOnClickListener { request(Request.OpenLogs) }
+        cardDns.setOnClickListener { request(Request.OpenDnsDiagnostics) }
+        cardRules.setOnClickListener { request(Request.OpenRuleDiagnostics) }
+        cardProviders.setOnClickListener { request(Request.OpenProxyProviders) }
         cardAccessControl.setOnClickListener { request(Request.OpenAccessControl) }
         switchAllowLan.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAllowLan(checked))

@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
@@ -97,8 +98,10 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
-            backend.runtimeError.collectLatest { error ->
-                errorMessage = error?.message
+            combine(backend.serviceError, backend.runtimeError) { serviceError, runtimeError ->
+                HomeErrorPolicy.resolve(serviceError, runtimeError)
+            }.collectLatest { error ->
+                errorMessage = error
             }
         }
     }

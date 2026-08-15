@@ -104,6 +104,28 @@ pub struct ConfigResponse {
     pub mode: Option<Mode>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct RuleSnapshot {
+    #[serde(rename = "type")]
+    pub rule_type: String,
+    pub proxy: String,
+    pub payload: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RulesResponse {
+    #[serde(default)]
+    rules: Vec<RuleSnapshot>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct ProxyProviderSnapshot {
+    pub name: String,
+    pub provider_type: String,
+    pub vehicle_type: String,
+    pub proxy_count: i32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct ProxiesResponse {
     pub proxies: HashMap<String, Proxy>,
@@ -209,6 +231,106 @@ impl ClashController {
 
     pub async fn get_connections(&self) -> Result<ConnectionsResponse, ChimeraError> {
         self.request("GET", "/connections", None).await
+    }
+
+    pub async fn close_connection(&self, id: String) -> Result<(), ChimeraError> {
+        debug!("controller close_connection id={}", id);
+        let path = format!("/connections/{}", encode(&id));
+        self.request_no_response("DELETE", &path, None).await
+    }
+
+    pub async fn close_all_connections(&self) -> Result<(), ChimeraError> {
+        debug!("controller close_all_connections");
+        self.request_no_response("DELETE", "/connections", None)
+            .await
+    }
+
+    pub async fn get_rules(&self) -> Result<Vec<RuleSnapshot>, ChimeraError> {
+        debug!("controller get_rules");
+        let response: RulesResponse = self.request("GET", "/rules", None).await?;
+        Ok(response.rules)
+    }
+
+    pub async fn get_proxy_providers(&self) -> Result<Vec<ProxyProviderSnapshot>, ChimeraError> {
+        debug!("controller get_proxy_providers");
+        let response: serde_json::Value = self.request("GET", "/providers/proxies", None).await?;
+        let providers = response
+            .get("providers")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| ChimeraError::Runtime {
+                details: "provider response is missing the providers object".to_string(),
+            })?;
+        let mut snapshots = providers
+            .iter()
+            .map(|(fallback_name, provider)| ProxyProviderSnapshot {
+                name: provider
+                    .get("name")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or(fallback_name)
+                    .to_string(),
+                provider_type: provider
+                    .get("type")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                vehicle_type: provider
+                    .get("vehicleType")
+                    .and_then(serde_json::Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                proxy_count: provider
+                    .get("proxies")
+                    .and_then(serde_json::Value::as_array)
+                    .map_or(0, |proxies| proxies.len() as i32),
+            })
+            .collect::<Vec<_>>();
+        snapshots.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(snapshots)
+    }
+
+    pub async fn update_proxy_provider(&self, name: String) -> Result<(), ChimeraError> {
+        debug!("controller update_proxy_provider name={}", name);
+        let path = format!("/providers/proxies/{}", encode(&name));
+        self.request_no_response("PUT", &path, None).await
+    }
+
+    pub async fn healthcheck_proxy_provider(&self, name: String) -> Result<(), ChimeraError> {
+        debug!("controller healthcheck_proxy_provider name={}", name);
+        let path = format!("/providers/proxies/{}/healthcheck", encode(&name));
+        self.request_no_response("GET", &path, None).await
+    }
+
+    pub async fn query_dns(
+        &self,
+        name: String,
+        record_type: String,
+    ) -> Result<String, ChimeraError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(ChimeraError::Runtime {
+                details: "DNS query name must not be empty".to_string(),
+            });
+        }
+        let record_type = record_type.trim().to_ascii_uppercase();
+        if !matches!(
+            record_type.as_str(),
+            "A" | "AAAA" | "CAA" | "CNAME" | "MX" | "NS" | "PTR" | "SOA" | "SRV" | "TXT"
+        ) {
+            return Err(ChimeraError::Runtime {
+                details: format!("unsupported DNS record type: {record_type}"),
+            });
+        }
+
+        debug!("controller query_dns name={} type={}", name, record_type);
+        let path = format!(
+            "/dns/query?name={}&type={}",
+            encode(name),
+            encode(&record_type),
+        );
+        let response: serde_json::Value = self.request("GET", &path, None).await?;
+        serde_json::to_string_pretty(&response).map_err(|error| ChimeraError::Runtime {
+            details: format!("failed to serialize DNS response: {error}"),
+        })
     }
 
     pub async fn get_configs(&self) -> Result<ConfigResponse, ChimeraError> {
@@ -339,5 +461,66 @@ impl ClashController {
         serde_json::from_slice(&body_bytes).map_err(|error| ChimeraError::Runtime {
             details: format!("failed to decode controller response: {error}"),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ClashController;
+
+    #[test]
+    fn rules_response_deserializes_structured_snapshots() {
+        let response: super::RulesResponse = serde_json::from_str(
+            r#"{"rules":[{"type":"DOMAIN-SUFFIX","proxy":"Proxy","payload":"example.com"},{"type":"MATCH","proxy":"DIRECT","payload":""}]}"#,
+        )
+        .unwrap();
+
+        assert_eq!(response.rules.len(), 2);
+        assert_eq!(response.rules[0].rule_type, "DOMAIN-SUFFIX");
+        assert_eq!(response.rules[0].proxy, "Proxy");
+        assert_eq!(response.rules[0].payload, "example.com");
+        assert_eq!(response.rules[1].rule_type, "MATCH");
+    }
+
+    #[test]
+    fn proxy_provider_snapshot_deserializes_expected_shape() {
+        let response: serde_json::Value = serde_json::from_str(
+            r#"{"providers":{"remote":{"name":"remote","type":"Proxy","vehicleType":"HTTP","proxies":[{},{}]}}}"#,
+        )
+        .unwrap();
+        let provider = &response["providers"]["remote"];
+
+        assert_eq!(provider["name"], "remote");
+        assert_eq!(provider["type"], "Proxy");
+        assert_eq!(provider["vehicleType"], "HTTP");
+        assert_eq!(provider["proxies"].as_array().map(Vec::len), Some(2));
+    }
+
+    #[tokio::test]
+    async fn query_dns_rejects_empty_name_before_request() {
+        let controller = ClashController {
+            socket_path: String::new(),
+        };
+
+        let error = controller
+            .query_dns("   ".to_string(), "A".to_string())
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.to_string(), "DNS query name must not be empty");
+    }
+
+    #[tokio::test]
+    async fn query_dns_rejects_unknown_record_type_before_request() {
+        let controller = ClashController {
+            socket_path: String::new(),
+        };
+
+        let error = controller
+            .query_dns("example.com".to_string(), "invalid".to_string())
+            .await
+            .unwrap_err();
+
+        assert_eq!(error.to_string(), "unsupported DNS record type: INVALID");
     }
 }

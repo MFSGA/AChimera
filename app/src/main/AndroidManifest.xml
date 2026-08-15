@@ -8,6 +8,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />
 
@@ -56,6 +57,10 @@
             android:name="rs.chimera.android.ui.metacubex.activity.MetaAccessControlActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <service
+            android:name="rs.chimera.android.backend.ProfileAutoUpdateJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
         <service
             android:name="rs.chimera.android.service.TunService"
             android:enabled="true"

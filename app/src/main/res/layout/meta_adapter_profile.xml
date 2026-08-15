@@ -71,6 +71,14 @@
                     android:text="@{profileType}"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
                     android:visibility="@{profileType != null ? View.VISIBLE : View.GONE}" />
+
+                <TextView
+                    android:id="@+id/text_profile_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
+                    android:visibility="gone" />
             </LinearLayout>
 
             <ImageButton

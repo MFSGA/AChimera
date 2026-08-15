@@ -45,6 +45,18 @@ internal object ConnectionsStatePolicy {
                 ?: formatError("Failed to load connections", error),
         )
 
+    fun applyOperationFailure(
+        current: ConnectionsUiState,
+        error: Exception,
+        runtimeError: BackendRuntimeError?,
+    ): ConnectionsUiState =
+        current.copy(
+            errorMessage = runtimeError
+                ?.takeIf { it.source == BackendRuntimeErrorSource.TRAFFIC }
+                ?.message
+                ?: formatError("Failed to close connection", error),
+        )
+
     private fun formatError(prefix: String, error: Exception): String {
         val details = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
         return "$prefix: $details"

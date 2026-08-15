@@ -83,6 +83,32 @@ class ConnectionsStatePolicyTest {
         assertEquals("Failed to load connections: VPN is not running", result.errorMessage)
     }
 
+    @Test
+    fun closeFailurePrefersSharedTrafficError() {
+        val result = ConnectionsStatePolicy.applyOperationFailure(
+            current = ConnectionsStatePolicy.applySnapshot(ConnectionsUiState(), snapshot()),
+            error = IllegalStateException("raw failure"),
+            runtimeError = BackendRuntimeError(
+                BackendRuntimeErrorSource.TRAFFIC,
+                "Failed to close connection: socket closed",
+            ),
+        )
+
+        assertEquals("Failed to close connection: socket closed", result.errorMessage)
+        assertEquals(listOf("connection-1"), result.connections.map { it.id })
+    }
+
+    @Test
+    fun closeFailureFallsBackToExceptionDetails() {
+        val result = ConnectionsStatePolicy.applyOperationFailure(
+            current = ConnectionsUiState(),
+            error = IllegalArgumentException("VPN is not running"),
+            runtimeError = null,
+        )
+
+        assertEquals("Failed to close connection: VPN is not running", result.errorMessage)
+    }
+
     private fun snapshot() =
         ConnectionsSnapshot(
             connections = listOf(

@@ -1,7 +1,7 @@
 package rs.chimera.android.ffi
 
 import rs.chimera.android.backend.BackendRuntimeState
-import rs.chimera.android.service.tunService
+import rs.chimera.android.service.VpnRuntimeRegistry
 import uniffi.chimera_ffi.hello
 import uniffi.chimera_ffi.shutdown
 import uniffi.chimera_ffi.uniffiEnsureInitialized
@@ -21,16 +21,13 @@ object ChimeraFfi {
 
     @Suppress("unused")
     fun protectSocket(fd: Int): Boolean {
-        return tunService?.protect(fd) == true
+        return VpnRuntimeRegistry.protectSocket(fd)
     }
 
     @Suppress("unused")
     fun onCoreStopped(message: String) {
         val detail = message.trim().ifEmpty { "Rust core stopped unexpectedly" }
-        val service = tunService
-        if (service != null) {
-            service.onCoreStopped(detail)
-        } else {
+        if (!VpnRuntimeRegistry.dispatchCoreStopped(detail)) {
             BackendRuntimeState.updateServiceError(detail)
         }
     }

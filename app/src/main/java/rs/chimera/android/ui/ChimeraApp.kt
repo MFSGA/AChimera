@@ -23,8 +23,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -46,6 +48,7 @@ import java.util.Locale
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.R
+import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.ffi.ChimeraFfi
 
 @Composable
@@ -58,12 +61,14 @@ fun ChimeraApp(
     var refreshVersion by rememberSaveable { mutableIntStateOf(0) }
     val clipboard = LocalClipboard.current
     val coroutineScope = rememberCoroutineScope()
+    val backend = remember { BackendProvider.provide() }
     val ffiMessage = remember(refreshVersion) { ChimeraFfi.helloOrFallback() }
     val refreshedAt = remember(refreshVersion) {
         SimpleDateFormat("HH:mm:ss", Locale.US).format(Date())
     }
-    val runtimeLogResult = remember(refreshVersion, isServiceRunning) {
-        runCatching { Global.readRuntimeLogTail() }
+    var runtimeLogResult by remember { mutableStateOf<Result<String>>(Result.success("")) }
+    LaunchedEffect(refreshVersion, isServiceRunning, backend) {
+        runtimeLogResult = runCatching { backend.readRuntimeLogs() }
     }
     val runtimeLog = runtimeLogResult.getOrDefault("")
     val profileLabel = remember(profilePath) {
@@ -145,8 +150,10 @@ fun ChimeraApp(
                     }
                 },
                 onClear = {
-                    runCatching { Global.clearRuntimeLog() }
-                    refreshVersion++
+                    coroutineScope.launch {
+                        runCatching { backend.clearRuntimeLogs() }
+                        refreshVersion++
+                    }
                 },
             )
         }

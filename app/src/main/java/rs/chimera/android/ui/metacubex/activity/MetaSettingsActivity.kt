@@ -14,6 +14,7 @@ import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.service.PortPreference
+import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
@@ -48,6 +49,9 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.OpenLogs -> {
                 startActivity(Intent(this, MetaLogsDesignActivity::class.java))
             }
+            SettingsDesign.Request.OpenDnsDiagnostics -> showDnsDialog()
+            SettingsDesign.Request.OpenRuleDiagnostics -> showRuleDiagnostics()
+            SettingsDesign.Request.OpenProxyProviders -> showProxyProviders()
             SettingsDesign.Request.OpenAccessControl -> {
                 startActivity(Intent(this, MetaAccessControlActivity::class.java))
             }
@@ -124,6 +128,167 @@ class MetaSettingsActivity : AppCompatActivity() {
                     )
                 }
                 dialog.dismiss()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun showRuleDiagnostics() {
+        lifecycleScope.launch {
+            runCatching { backend.listRules() }
+                .onSuccess { rules ->
+                    val message = formatRuleDiagnostics(
+                        rules = rules,
+                        totalLabel = getString(R.string.rules_diagnostics_count, rules.size),
+                        remainingLabel = { count ->
+                            getString(R.string.rules_diagnostics_more, count)
+                        },
+                    )
+                    AlertDialog.Builder(this@MetaSettingsActivity)
+                        .setTitle(R.string.rules_diagnostics_title)
+                        .setMessage(message)
+                        .setNegativeButton(R.string.rules_diagnostics_refresh) { _, _ ->
+                            showRuleDiagnostics()
+                        }.setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }.onFailure { error ->
+                    AlertDialog.Builder(this@MetaSettingsActivity)
+                        .setTitle(R.string.rules_diagnostics_title)
+                        .setMessage(error.message ?: getString(R.string.profile_unknown_error))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+        }
+    }
+
+    private fun showProxyProviders() {
+        lifecycleScope.launch {
+            runCatching { backend.listProxyProviders() }
+                .onSuccess { providers ->
+                    if (providers.isEmpty()) {
+                        design.showToast(getString(R.string.proxy_providers_empty))
+                        return@onSuccess
+                    }
+                    AlertDialog.Builder(this@MetaSettingsActivity)
+                        .setTitle(R.string.proxy_providers_title)
+                        .setItems(
+                            providers.map { provider ->
+                                getString(
+                                    R.string.proxy_provider_summary,
+                                    provider.name,
+                                    provider.type,
+                                    provider.vehicleType,
+                                    provider.proxyCount,
+                                )
+                            }.toTypedArray(),
+                        ) { _, which ->
+                            showProxyProviderActions(providers[which].name)
+                        }.setNegativeButton(android.R.string.cancel, null)
+                        .show()
+                }.onFailure { error ->
+                    design.showToast(error.message ?: getString(R.string.profile_unknown_error))
+                }
+        }
+    }
+
+    private fun showProxyProviderActions(name: String) {
+        val actions = arrayOf(
+            getString(R.string.proxy_provider_update),
+            getString(R.string.proxy_provider_healthcheck),
+        )
+        AlertDialog.Builder(this)
+            .setTitle(name)
+            .setItems(actions) { _, which ->
+                lifecycleScope.launch {
+                    val result = runCatching {
+                        if (which == 0) {
+                            backend.updateProxyProvider(name)
+                        } else {
+                            backend.healthcheckProxyProvider(name)
+                        }
+                    }
+                    result.onSuccess {
+                        design.showToast(
+                            getString(
+                                if (which == 0) {
+                                    R.string.proxy_provider_updated
+                                } else {
+                                    R.string.proxy_provider_checked
+                                },
+                                name,
+                            ),
+                        )
+                    }.onFailure { error ->
+                        design.showToast(
+                            getString(
+                                R.string.proxy_provider_action_failed,
+                                error.message ?: getString(R.string.profile_unknown_error),
+                            ),
+                        )
+                    }
+                }
+            }.setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showDnsDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val padding = (20 * resources.displayMetrics.density).toInt()
+            setPadding(padding, 0, padding, 0)
+        }
+        val nameInput = EditText(this).apply {
+            hint = getString(R.string.dns_query_name)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setText(DEFAULT_DNS_QUERY_NAME)
+            setSelectAllOnFocus(true)
+        }
+        val typeInput = EditText(this).apply {
+            hint = getString(R.string.dns_record_type)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+            setText(DEFAULT_DNS_RECORD_TYPE)
+            setSelectAllOnFocus(true)
+        }
+        container.addView(nameInput)
+        container.addView(typeInput)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.dns_diagnostics_title)
+            .setMessage(R.string.dns_diagnostics_summary)
+            .setView(container)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.dns_query_action, null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val name = nameInput.text.toString().trim()
+                val recordType = typeInput.text.toString().trim().uppercase()
+                if (name.isEmpty()) {
+                    nameInput.error = getString(R.string.dns_query_name_required)
+                    return@setOnClickListener
+                }
+                if (recordType.isEmpty()) {
+                    typeInput.error = getString(R.string.dns_record_type_required)
+                    return@setOnClickListener
+                }
+
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                lifecycleScope.launch {
+                    runCatching { backend.queryDns(name, recordType) }
+                        .onSuccess { result ->
+                            dialog.dismiss()
+                            AlertDialog.Builder(this@MetaSettingsActivity)
+                                .setTitle(R.string.dns_diagnostics_result)
+                                .setMessage(result)
+                                .setPositiveButton(android.R.string.ok, null)
+                                .show()
+                        }.onFailure { error ->
+                            typeInput.error =
+                                error.message ?: getString(R.string.profile_unknown_error)
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                        }
+                }
             }
         }
         dialog.show()
@@ -247,5 +412,7 @@ class MetaSettingsActivity : AppCompatActivity() {
 
     private companion object {
         const val DEFAULT_MIXED_PORT = 7890
+        const val DEFAULT_DNS_QUERY_NAME = "example.com"
+        const val DEFAULT_DNS_RECORD_TYPE = "A"
     }
 }

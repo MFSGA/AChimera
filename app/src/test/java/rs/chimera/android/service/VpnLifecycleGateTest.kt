@@ -9,6 +9,18 @@ import org.junit.Test
 
 class VpnLifecycleGateTest {
     @Test
+    fun runtimeCanRunOnlyBetweenStartAndStop() {
+        val gate = VpnLifecycleGate()
+
+        assertFalse(gate.canRunRuntime())
+        assertTrue(gate.requestStart())
+        assertTrue(gate.canRunRuntime())
+
+        assertTrue(gate.requestStop().accepted)
+        assertFalse(gate.canRunRuntime())
+    }
+
+    @Test
     fun stopDuringStartingCancelsRegisteredStartup() {
         val gate = VpnLifecycleGate()
         val startup = Job()

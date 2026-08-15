@@ -270,19 +270,7 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             val backendProfiles = backend.listProfiles()
             profiles.clear()
-            profiles.addAll(
-                backendProfiles.map { summary ->
-                    Profile(
-                        id = summary.id,
-                        name = summary.name,
-                        filePath = summary.filePath,
-                        isActive = summary.isActive,
-                        fileSize = summary.fileSize,
-                        type = if (summary.isRemote) ProfileType.REMOTE else ProfileType.LOCAL,
-                        lastUpdated = summary.lastUpdated,
-                    )
-                },
-            )
+            profiles.addAll(backendProfiles.map { it.toProfile() })
             activeProfile = profiles.firstOrNull { it.isActive }
             savedFilePath = activeProfile?.filePath
         }

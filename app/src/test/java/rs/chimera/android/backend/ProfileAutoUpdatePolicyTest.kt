@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.chimera.android.backend.model.ProfileSummary
@@ -12,22 +13,35 @@ import rs.chimera.android.backend.model.ServiceState
 
 class ProfileAutoUpdatePolicyTest {
     @Test
-    fun policySelectsOnlyConfiguredRemoteProfiles() {
+    fun policySelectsOnlyConfiguredProfilesWhoseBackoffExpired() {
         val eligible = remoteProfile(id = "eligible", autoUpdate = true)
+        val deferred = remoteProfile(
+            id = "deferred",
+            autoUpdate = true,
+            nextAutoUpdateAt = 2_000,
+        )
         val profiles = listOf(
             eligible,
+            deferred,
             remoteProfile(id = "disabled", autoUpdate = false),
             remoteProfile(id = "missing-url", autoUpdate = true, url = null),
             localProfile(),
         )
 
-        assertEquals(listOf(eligible), ProfileAutoUpdatePolicy.eligibleProfiles(profiles))
+        assertEquals(
+            listOf(eligible),
+            ProfileAutoUpdatePolicy.eligibleProfiles(profiles, now = 1_000),
+        )
         assertTrue(ProfileAutoUpdatePolicy.shouldSchedule(profiles))
-        assertFalse(ProfileAutoUpdatePolicy.shouldSchedule(profiles - eligible))
+        assertFalse(
+            ProfileAutoUpdatePolicy.shouldSchedule(
+                profiles.filterNot { it.id == "eligible" || it.id == "deferred" },
+            ),
+        )
     }
 
     @Test
-    fun runnerUpdatesEveryEligibleProfileAndContinuesAfterFailure() = runBlocking {
+    fun runnerPersistsSuccessAndFailureStateWithoutBlockingLaterProfiles() = runBlocking {
         val operations = FakeOperations(
             profiles = listOf(
                 remoteProfile(id = "first", autoUpdate = true),
@@ -38,14 +52,38 @@ class ProfileAutoUpdatePolicyTest {
             failedUpdates = setOf("failed"),
         )
 
-        val result = ProfileAutoUpdateRunner(operations).run()
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
 
         assertEquals(listOf("first", "failed", "last"), operations.updatedIds)
         assertEquals(3, result.attempted)
         assertEquals(2, result.updated)
+        assertEquals(0, result.deferred)
         assertEquals(1, result.failures.size)
+        assertEquals(0, operations.states.getValue("first").failureCount)
+        assertEquals(1, operations.states.getValue("failed").failureCount)
         assertTrue(result.shouldRetry)
         assertFalse(result.restartedVpn)
+    }
+
+    @Test
+    fun runnerDefersProfilesUntilRetryDeadline() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(
+                remoteProfile(
+                    id = "deferred",
+                    autoUpdate = true,
+                    failures = 2,
+                    nextAutoUpdateAt = 2_000,
+                ),
+            ),
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertTrue(operations.updatedIds.isEmpty())
+        assertEquals(0, result.attempted)
+        assertEquals(1, result.deferred)
+        assertFalse(result.shouldRetry)
     }
 
     @Test
@@ -58,7 +96,7 @@ class ProfileAutoUpdatePolicyTest {
             initialState = ServiceState.RUNNING,
         )
 
-        val result = ProfileAutoUpdateRunner(operations).run()
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
 
         assertEquals(1, operations.restartCount)
         assertTrue(result.restartedVpn)
@@ -73,11 +111,44 @@ class ProfileAutoUpdatePolicyTest {
             initialState = ServiceState.RUNNING,
         )
 
-        val result = ProfileAutoUpdateRunner(operations).run()
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
 
         assertEquals(0, operations.restartCount)
         assertFalse(result.restartedVpn)
         assertTrue(result.shouldRetry)
+    }
+
+    @Test
+    fun failurePolicyUsesBoundedExponentialBackoffWithoutPersistingSecretMessage() {
+        val first = ProfileAutoUpdatePolicy.failureState(
+            previousFailures = 0,
+            attemptedAt = 1_000,
+            error = IllegalStateException(
+                "https://user:password@example.test/profile?token=secret-value",
+            ),
+        )
+        val capped = ProfileAutoUpdatePolicy.failureState(
+            previousFailures = 20,
+            attemptedAt = 1_000,
+            error = IllegalArgumentException("failed"),
+        )
+        val success = ProfileAutoUpdatePolicy.successState(attemptedAt = 2_000)
+
+        assertEquals(1, first.failureCount)
+        assertEquals(
+            1_000 + ProfileAutoUpdatePolicy.BASE_RETRY_DELAY_MILLIS,
+            first.nextAttemptAt,
+        )
+        assertEquals("IllegalStateException", first.lastError)
+        assertEquals(21, capped.failureCount)
+        assertEquals(
+            1_000 + ProfileAutoUpdatePolicy.MAX_RETRY_DELAY_MILLIS,
+            capped.nextAttemptAt,
+        )
+        assertEquals(2_000L, success.lastAttempt)
+        assertEquals(0, success.failureCount)
+        assertNull(success.nextAttemptAt)
+        assertNull(success.lastError)
     }
 
     private class FakeOperations(
@@ -87,6 +158,7 @@ class ProfileAutoUpdatePolicyTest {
     ) : ProfileAutoUpdateOperations {
         override val serviceState = MutableStateFlow(initialState)
         val updatedIds = mutableListOf<String>()
+        val states = mutableMapOf<String, ProfileAutoUpdateState>()
         var restartCount = 0
             private set
 
@@ -95,6 +167,13 @@ class ProfileAutoUpdatePolicyTest {
         override suspend fun updateRemoteProfile(id: String) {
             updatedIds += id
             check(id !in failedUpdates) { "update failed: $id" }
+        }
+
+        override suspend fun recordAutoUpdateState(
+            id: String,
+            state: ProfileAutoUpdateState,
+        ) {
+            states[id] = state
         }
 
         override suspend fun restartVpn() {
@@ -107,6 +186,8 @@ class ProfileAutoUpdatePolicyTest {
         autoUpdate: Boolean,
         url: String? = "https://example.test/$id.yaml",
         active: Boolean = false,
+        failures: Int = 0,
+        nextAutoUpdateAt: Long? = null,
     ) = ProfileSummary(
         id = id,
         name = id,
@@ -118,6 +199,8 @@ class ProfileAutoUpdatePolicyTest {
         fileSize = 1,
         url = url,
         autoUpdate = autoUpdate,
+        autoUpdateFailures = failures,
+        nextAutoUpdateAt = nextAutoUpdateAt,
     )
 
     private fun localProfile() = ProfileSummary(

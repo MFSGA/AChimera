@@ -62,6 +62,10 @@ internal class VpnLifecycleGate {
     }
 
     @Synchronized
+    fun canRunRuntime(): Boolean =
+        startRequested && !stopRequested && !cleanupStarted
+
+    @Synchronized
     fun canHandleUnexpectedCoreStop(): Boolean =
-        !stopRequested && !cleanupStarted
+        canRunRuntime()
 }

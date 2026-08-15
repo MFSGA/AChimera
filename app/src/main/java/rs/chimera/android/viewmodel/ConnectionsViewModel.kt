@@ -33,6 +33,12 @@ class ConnectionsViewModel(
     var errorMessage by mutableStateOf(state.errorMessage)
         private set
 
+    var closingConnectionIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    var closeAllInProgress by mutableStateOf(false)
+        private set
+
     fun startPolling() {
         if (observationJob != null) return
 
@@ -59,6 +65,30 @@ class ConnectionsViewModel(
         viewModelScope.launch { fetchConnectionsInternal() }
     }
 
+    fun closeConnection(id: String) {
+        if (closeAllInProgress || id in closingConnectionIds) return
+        closingConnectionIds = closingConnectionIds + id
+        viewModelScope.launch {
+            try {
+                runCloseOperation { backend.closeConnection(id) }
+            } finally {
+                closingConnectionIds = closingConnectionIds - id
+            }
+        }
+    }
+
+    fun closeAllConnections() {
+        if (closeAllInProgress || closingConnectionIds.isNotEmpty()) return
+        closeAllInProgress = true
+        viewModelScope.launch {
+            try {
+                runCloseOperation(backend::closeAllConnections)
+            } finally {
+                closeAllInProgress = false
+            }
+        }
+    }
+
     override fun onCleared() {
         stopPolling()
         super.onCleared()
@@ -74,6 +104,24 @@ class ConnectionsViewModel(
         } catch (error: Exception) {
             applyState(
                 ConnectionsStatePolicy.applyFetchFailure(
+                    current = state,
+                    error = error,
+                    runtimeError = backend.runtimeError.value,
+                ),
+            )
+        }
+    }
+
+    private suspend fun runCloseOperation(operation: suspend () -> Unit) {
+        applyState(state.copy(errorMessage = null))
+        try {
+            operation()
+            fetchConnectionsInternal()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            applyState(
+                ConnectionsStatePolicy.applyOperationFailure(
                     current = state,
                     error = error,
                     runtimeError = backend.runtimeError.value,
