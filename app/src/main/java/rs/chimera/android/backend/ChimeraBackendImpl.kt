@@ -69,6 +69,11 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
+    private val profileStagingStore = ProfileStagingStore(
+        profilePrefs = profilePrefs,
+        filesDir = Global.application.filesDir,
+        catalogCoordinator = profileCatalogCoordinator,
+    )
 
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
     override val serviceError: StateFlow<String?> = BackendRuntimeState.serviceError
@@ -92,15 +97,15 @@ class ChimeraBackendImpl : ChimeraBackend {
     override val runtimeError: StateFlow<BackendRuntimeError?> = _runtimeError.asStateFlow()
 
     init {
-        runCatching { recoverStagedProfileImports() }
+        runCatching { profileStagingStore.recoverImports() }
             .onFailure { error ->
                 Log.e(TAG, "Failed to recover staged profile imports", error)
             }
-        runCatching { recoverStagedProfileBackups() }
+        runCatching { profileStagingStore.recoverBackups() }
             .onFailure { error ->
                 Log.e(TAG, "Failed to recover staged profile backups", error)
             }
-        runCatching { recoverStagedProfileDeletions() }
+        runCatching { profileStagingStore.recoverDeletions() }
             .onFailure { error ->
                 Log.e(TAG, "Failed to recover staged profile deletions", error)
             }
@@ -174,7 +179,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun listProfiles(): List<ProfileSummary> {
-        recoverStagedProfileDeletions()
+        profileStagingStore.recoverDeletions()
         val profilesJson = profilePrefs.getString(PROFILES_LIST_KEY, null)
         if (profilesJson == null) {
             refreshProfileAutoUpdateSchedule(emptyList())
@@ -274,13 +279,13 @@ class ChimeraBackendImpl : ChimeraBackend {
         val becameActive = ProfileImportTransactionPolicy.run(
             stagedFile = stagedFile,
             destinationFile = destinationFile,
-            beginImportTransaction = ::markProfileImportPending,
+            beginImportTransaction = profileStagingStore::markImportPending,
             persistMetadata = { file ->
                 profileJson.put("filePath", file.absolutePath)
                 profileJson.put("fileSize", file.length())
                 appendProfile(profileJson, pendingImport = file)
             },
-            clearImportTransaction = ::clearProfileImportPending,
+            clearImportTransaction = profileStagingStore::clearImportPending,
         )
         if (becameActive) {
             try {
@@ -327,13 +332,13 @@ class ChimeraBackendImpl : ChimeraBackend {
         val becameActive = ProfileImportTransactionPolicy.run(
             stagedFile = stagedFile,
             destinationFile = destinationFile,
-            beginImportTransaction = ::markProfileImportPending,
+            beginImportTransaction = profileStagingStore::markImportPending,
             persistMetadata = { file ->
                 profileJson.put("filePath", file.absolutePath)
                 profileJson.put("fileSize", file.length())
                 appendProfile(profileJson, pendingImport = file)
             },
-            clearImportTransaction = ::clearProfileImportPending,
+            clearImportTransaction = profileStagingStore::clearImportPending,
         )
         if (becameActive) {
             try {
@@ -500,8 +505,8 @@ class ChimeraBackendImpl : ChimeraBackend {
                         isUpdatedProfileActive
                     }
                 },
-                beginBackupTransaction = ::markProfileUpdatePending,
-                clearBackupTransaction = ::clearProfileUpdatePending,
+                beginBackupTransaction = profileStagingStore::markUpdatePending,
+                clearBackupTransaction = profileStagingStore::clearUpdatePending,
             )
         }
         profileAutoUpdateStateStore.clear(id)
@@ -942,30 +947,6 @@ class ChimeraBackendImpl : ChimeraBackend {
         ProfilePersistencePolicy.commit(persist = editor::commit)
     }
 
-    private fun markProfileImportPending(destination: File) {
-        commitProfilePreferences {
-            putBoolean(profileImportPendingKey(destination.name), true)
-        }
-    }
-
-    private fun clearProfileImportPending(destination: File) {
-        commitProfilePreferences {
-            remove(profileImportPendingKey(destination.name))
-        }
-    }
-
-    private fun markProfileUpdatePending(backup: File) {
-        commitProfilePreferences {
-            putBoolean(profileUpdatePendingKey(backup.name), true)
-        }
-    }
-
-    private fun clearProfileUpdatePending(backup: File) {
-        commitProfilePreferences {
-            remove(profileUpdatePendingKey(backup.name))
-        }
-    }
-
     private fun commitProfileUpdate(
         backup: File?,
         update: SharedPreferences.Editor.() -> Unit,
@@ -973,51 +954,6 @@ class ChimeraBackendImpl : ChimeraBackend {
         commitProfilePreferences {
             update()
             backup?.let { remove(profileUpdatePendingKey(it.name)) }
-        }
-    }
-
-    private fun recoverStagedProfileImports() {
-        profileCatalogCoordinator.withLock {
-            val referencedPaths = profilePrefs.getString(PROFILES_LIST_KEY, null)
-                ?.let(::JSONArray)
-                ?.toCatalogEntries()
-                ?.mapTo(mutableSetOf()) { File(it.filePath).absolutePath }
-                .orEmpty()
-            val pendingDestinationNames = profilePrefs.all.keys
-                .filter { it.startsWith(PROFILE_IMPORT_PENDING_PREFIX) }
-                .mapTo(mutableSetOf()) { it.removePrefix(PROFILE_IMPORT_PENDING_PREFIX) }
-
-            ProfileImportRecoveryPolicy.recover(
-                directory = Global.application.filesDir,
-                referencedPaths = referencedPaths,
-                pendingDestinationNames = pendingDestinationNames,
-            )
-
-            if (pendingDestinationNames.isNotEmpty()) {
-                commitProfilePreferences {
-                    pendingDestinationNames.forEach { name -> remove(profileImportPendingKey(name)) }
-                }
-            }
-        }
-    }
-
-    private fun recoverStagedProfileBackups() {
-        val pendingBackupNames = profilePrefs.all.keys
-            .filter { it.startsWith(PROFILE_UPDATE_PENDING_PREFIX) }
-            .mapTo(mutableSetOf()) { it.removePrefix(PROFILE_UPDATE_PENDING_PREFIX) }
-
-        ProfileBackupRecoveryPolicy.recover(
-            directory = Global.application.filesDir,
-            pendingBackupNames = pendingBackupNames,
-        )
-
-        val stalePendingBackups = pendingBackupNames.filterNot { name ->
-            Global.application.filesDir.resolve(name).isFile
-        }
-        if (stalePendingBackups.isNotEmpty()) {
-            commitProfilePreferences {
-                stalePendingBackups.forEach { name -> remove(profileUpdatePendingKey(name)) }
-            }
         }
     }
 
@@ -1032,20 +968,6 @@ class ChimeraBackendImpl : ChimeraBackend {
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
         } ?: "remote-profile.yaml"
-    }
-
-    private fun recoverStagedProfileDeletions() {
-        profileCatalogCoordinator.withLock {
-            val referencedPaths = profilePrefs.getString(PROFILES_LIST_KEY, null)
-                ?.let(::JSONArray)
-                ?.toCatalogEntries()
-                ?.mapTo(mutableSetOf()) { File(it.filePath).absolutePath }
-                .orEmpty()
-            ProfileDeletionRecoveryPolicy.recover(
-                directory = Global.application.filesDir,
-                referencedPaths = referencedPaths,
-            )
-        }
     }
 
     private fun profileCatalogJson(): JSONArray {
@@ -1096,18 +1018,10 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    private fun profileImportPendingKey(destinationName: String): String =
-        "$PROFILE_IMPORT_PENDING_PREFIX$destinationName"
-
-    private fun profileUpdatePendingKey(backupName: String): String =
-        "$PROFILE_UPDATE_PENDING_PREFIX$backupName"
-
     private companion object {
         const val TAG = "ChimeraBackend"
         const val FILE_PREFS = "file_prefs"
         const val PROFILE_PATH_KEY = "profile_path"
         const val PROFILES_LIST_KEY = "profiles_list"
-        const val PROFILE_IMPORT_PENDING_PREFIX = "profile_import_pending:"
-        const val PROFILE_UPDATE_PENDING_PREFIX = "profile_update_pending:"
     }
 }
