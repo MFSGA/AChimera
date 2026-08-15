@@ -5,6 +5,7 @@ import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
+import rs.chimera.android.backend.AppForegroundState
 import rs.chimera.android.ui.preferences.AppPreferences
 import uniffi.chimera_ffi.ChimeraException
 import java.io.File
@@ -14,6 +15,7 @@ class ChimeraApplication : android.app.Application() {
         super.onCreate()
         AppPreferences.apply(this)
         setupUncaughtExceptionHandler()
+        AppForegroundState.register(this)
         Global.init(this)
     }
 }

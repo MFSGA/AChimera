@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -762,94 +763,100 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     private fun observeTraffic() {
         backendScope.launch {
-            serviceState.collectLatest { state ->
-                if (state != ServiceState.RUNNING) {
-                    _traffic.value = TrafficSnapshot(0, 0, 0)
-                    _connections.value = ConnectionsSnapshot(emptyList(), 0, 0)
-                    clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC)
-                    return@collectLatest
-                }
-
-                delay(1000)
-                while (true) {
-                    runCatching {
-                        fetchConnectionsFromController()
-                    }.onSuccess { snapshot ->
+            combine(serviceState, AppForegroundState.isForeground, ::shouldPollRuntimeTelemetry)
+                .collectLatest { shouldPoll ->
+                    if (serviceState.value != ServiceState.RUNNING) {
+                        _traffic.value = TrafficSnapshot(0, 0, 0)
+                        _connections.value = ConnectionsSnapshot(emptyList(), 0, 0)
                         clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC)
-                        _traffic.value = TrafficSnapshot(
-                            downloadTotal = snapshot.downloadTotal,
-                            uploadTotal = snapshot.uploadTotal,
-                            connectionCount = snapshot.connections.size,
-                        )
-                        _connections.value = snapshot
-                    }.onFailure { error ->
-                        recordRuntimeError(
-                            source = BackendRuntimeErrorSource.TRAFFIC,
-                            prefix = "Failed to refresh connections",
-                            error = error,
-                        )
+                        return@collectLatest
                     }
-                    delay(3000)
-                }
+                    if (!shouldPoll) return@collectLatest
+
+                    delay(1000)
+                    while (true) {
+                        runCatching {
+                            fetchConnectionsFromController()
+                        }.onSuccess { snapshot ->
+                            clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC)
+                            _traffic.value = TrafficSnapshot(
+                                downloadTotal = snapshot.downloadTotal,
+                                uploadTotal = snapshot.uploadTotal,
+                                connectionCount = snapshot.connections.size,
+                            )
+                            _connections.value = snapshot
+                        }.onFailure { error ->
+                            recordRuntimeError(
+                                source = BackendRuntimeErrorSource.TRAFFIC,
+                                prefix = "Failed to refresh connections",
+                                error = error,
+                            )
+                        }
+                        delay(3000)
+                    }
             }
         }
     }
 
     private fun observeMemory() {
         backendScope.launch {
-            serviceState.collectLatest { state ->
-                if (state != ServiceState.RUNNING) {
-                    _memoryInfo.value = MemoryInfo(0, 0)
-                    clearRuntimeError(BackendRuntimeErrorSource.MEMORY)
-                    return@collectLatest
-                }
-
-                while (true) {
-                    runCatching {
-                        controller.getMemory()
-                    }.onSuccess { response ->
+            combine(serviceState, AppForegroundState.isForeground, ::shouldPollRuntimeTelemetry)
+                .collectLatest { shouldPoll ->
+                    if (serviceState.value != ServiceState.RUNNING) {
+                        _memoryInfo.value = MemoryInfo(0, 0)
                         clearRuntimeError(BackendRuntimeErrorSource.MEMORY)
-                        _memoryInfo.value = MemoryInfo(
-                            inUse = response.inuse,
-                            osLimit = response.oslimit,
-                        )
-                    }.onFailure { error ->
-                        recordRuntimeError(
-                            source = BackendRuntimeErrorSource.MEMORY,
-                            prefix = "Failed to refresh memory",
-                            error = error,
-                        )
+                        return@collectLatest
                     }
-                    delay(3000)
-                }
+                    if (!shouldPoll) return@collectLatest
+
+                    while (true) {
+                        runCatching {
+                            controller.getMemory()
+                        }.onSuccess { response ->
+                            clearRuntimeError(BackendRuntimeErrorSource.MEMORY)
+                            _memoryInfo.value = MemoryInfo(
+                                inUse = response.inuse,
+                                osLimit = response.oslimit,
+                            )
+                        }.onFailure { error ->
+                            recordRuntimeError(
+                                source = BackendRuntimeErrorSource.MEMORY,
+                                prefix = "Failed to refresh memory",
+                                error = error,
+                            )
+                        }
+                        delay(3000)
+                    }
             }
         }
     }
 
     private fun observeProxyGroups() {
         backendScope.launch {
-            serviceState.collectLatest { state ->
-                if (state != ServiceState.RUNNING) {
-                    _proxyGroups.value = emptyList()
-                    clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS)
-                    return@collectLatest
-                }
-
-                while (true) {
-                    runCatching {
-                        fetchProxyGroupsFromController()
-                    }.onSuccess { groups ->
+            combine(serviceState, AppForegroundState.isForeground, ::shouldPollRuntimeTelemetry)
+                .collectLatest { shouldPoll ->
+                    if (serviceState.value != ServiceState.RUNNING) {
+                        _proxyGroups.value = emptyList()
                         clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS)
-                        _proxyGroups.value = groups
-                    }.onFailure { error ->
-                        recordRuntimeError(
-                            source = BackendRuntimeErrorSource.PROXY_GROUPS,
-                            prefix = "Failed to refresh proxy groups",
-                            error = error,
-                        )
+                        return@collectLatest
                     }
-                    delay(3000)
-                }
+                    if (!shouldPoll) return@collectLatest
+
+                    while (true) {
+                        runCatching {
+                            fetchProxyGroupsFromController()
+                        }.onSuccess { groups ->
+                            clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS)
+                            _proxyGroups.value = groups
+                        }.onFailure { error ->
+                            recordRuntimeError(
+                                source = BackendRuntimeErrorSource.PROXY_GROUPS,
+                                prefix = "Failed to refresh proxy groups",
+                                error = error,
+                            )
+                        }
+                        delay(3000)
+                    }
             }
         }
     }
