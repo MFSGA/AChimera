@@ -4,12 +4,15 @@ import android.Manifest
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.scrollTo
@@ -81,18 +84,10 @@ class DualUiSettingsInstrumentedTest {
 
         ActivityScenario.launch(MainActivity::class.java).use {
             openWatfaqSettings()
-            composeRule.onNodeWithText(context.getString(R.string.settings_allow_lan))
-                .performScrollTo()
-                .assertIsOn()
-            composeRule.onNodeWithText(context.getString(R.string.settings_fake_ip))
-                .performScrollTo()
-                .assertIsOn()
-            composeRule.onNodeWithText(context.getString(R.string.settings_ipv6))
-                .performScrollTo()
-                .assertIsOn()
-            composeRule.onNodeWithText(portsSummary)
-                .performScrollTo()
-                .assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).assertIsOn()
+            scrollWatfaqTo(context.getString(R.string.settings_fake_ip)).assertIsOn()
+            scrollWatfaqTo(context.getString(R.string.settings_ipv6)).assertIsOn()
+            scrollWatfaqTo(portsSummary).assertIsDisplayed()
         }
 
         ActivityScenario.launch(MetaSettingsActivity::class.java).use {
@@ -107,15 +102,9 @@ class DualUiSettingsInstrumentedTest {
     fun diagnosticsEntriesAreReachableFromBothSettingsRoots() {
         ActivityScenario.launch(MainActivity::class.java).use {
             openWatfaqSettings()
-            composeRule.onNodeWithText(context.getString(R.string.dns_diagnostics_title))
-                .performScrollTo()
-                .assertIsDisplayed()
-            composeRule.onNodeWithText(context.getString(R.string.rules_diagnostics_title))
-                .performScrollTo()
-                .assertIsDisplayed()
-            composeRule.onNodeWithText(context.getString(R.string.proxy_providers_title))
-                .performScrollTo()
-                .assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.dns_diagnostics_title)).assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.rules_diagnostics_title)).assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.proxy_providers_title)).assertIsDisplayed()
         }
 
         ActivityScenario.launch(MetaSettingsActivity::class.java).use {
@@ -129,9 +118,7 @@ class DualUiSettingsInstrumentedTest {
     fun watfaqSettingChangeIsObservedByMetaCubeX() {
         ActivityScenario.launch(MainActivity::class.java).use {
             openWatfaqSettings()
-            composeRule.onNodeWithText(context.getString(R.string.settings_allow_lan))
-                .performScrollTo()
-                .performClick()
+            scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).performClick()
             waitUntil("Watfaq LAN change was not persisted") {
                 prefs.getBoolean(ALLOW_LAN_KEY, false)
             }
@@ -146,9 +133,7 @@ class DualUiSettingsInstrumentedTest {
     fun watfaqAppRoutingIsReachableFromSettings() {
         ActivityScenario.launch(MainActivity::class.java).use {
             openWatfaqSettings()
-            composeRule.onNodeWithText(context.getString(R.string.settings_app_filter))
-                .performScrollTo()
-                .performClick()
+            scrollWatfaqTo(context.getString(R.string.settings_app_filter)).performClick()
             composeRule.onNodeWithText(context.getString(R.string.app_selector_title))
                 .assertIsDisplayed()
         }
@@ -157,9 +142,12 @@ class DualUiSettingsInstrumentedTest {
     private fun openWatfaqSettings() {
         composeRule.onNodeWithText(context.getString(R.string.settings_screen))
             .performClick()
-        composeRule.onNodeWithText(context.getString(R.string.settings_allow_lan))
-            .performScrollTo()
-            .assertIsDisplayed()
+        scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).assertIsDisplayed()
+    }
+
+    private fun scrollWatfaqTo(text: String): SemanticsNodeInteraction {
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text))
+        return composeRule.onNodeWithText(text)
     }
 
     private fun resetRuntimeSettings() {
