@@ -8,7 +8,6 @@ import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.edit
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,7 +22,6 @@ import rs.chimera.android.Global
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ConnectionsSnapshot
-import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
@@ -33,7 +31,6 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsApplyEffect
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
-import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.ffi.shutdownClash
@@ -42,10 +39,8 @@ import rs.chimera.android.service.VpnDesiredStateReason
 import rs.chimera.android.service.VpnDesiredStateStore
 import rs.chimera.android.service.VpnRuntimeRegistry
 import rs.chimera.android.util.PrivacySafeLog
-import uniffi.chimera_ffi.ClashController
 import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
-import uniffi.chimera_ffi.Mode
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
 import java.io.File
@@ -57,7 +52,6 @@ import java.util.UUID
 class ChimeraBackendImpl : ChimeraBackend {
     private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val vpnOperationMutex = Mutex()
-    private val controller by lazy { ClashController("${Global.application.cacheDir}/clash.sock") }
     private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
@@ -84,28 +78,22 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val _runtimeError = MutableStateFlow<BackendRuntimeError?>(null)
     override val runtimeError: StateFlow<BackendRuntimeError?> = _runtimeError.asStateFlow()
 
+    private val controllerOperations = BackendControllerOperations(
+        socketPath = "${Global.application.cacheDir}/clash.sock",
+        serviceState = serviceState,
+        notRunningMessage = {
+            Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
+        },
+        recordRuntimeError = ::recordRuntimeError,
+        clearRuntimeError = ::clearRuntimeError,
+    )
     private val runtimeTelemetry = RuntimeTelemetryObserver(
         scope = backendScope,
         serviceState = serviceState,
         appForeground = AppForegroundState.isForeground,
-        fetchTraffic = {
-            controller.getConnectionSummary().let { summary ->
-                TrafficSnapshot(
-                    downloadTotal = summary.downloadTotal,
-                    uploadTotal = summary.uploadTotal,
-                    connectionCount = summary.connectionCount,
-                )
-            }
-        },
-        fetchMemory = {
-            controller.getMemory().let { response ->
-                MemoryInfo(
-                    inUse = response.inuse,
-                    osLimit = response.oslimit,
-                )
-            }
-        },
-        fetchProxyGroups = ::fetchProxyGroupsFromController,
+        fetchTraffic = controllerOperations::fetchTraffic,
+        fetchMemory = controllerOperations::fetchMemory,
+        fetchProxyGroups = controllerOperations::fetchProxyGroups,
         recordError = ::recordRuntimeError,
         clearError = ::clearRuntimeError,
     )
@@ -483,86 +471,50 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
-        runProxyOperation("Failed to refresh proxy groups") {
-            fetchProxyGroupsFromController()
-        }
+        controllerOperations.listProxyGroups()
 
     override suspend fun selectProxy(groupName: String, proxyName: String) {
-        runProxyOperation("Failed to select proxy") {
-            controller.selectProxy(groupName, proxyName)
-        }
+        controllerOperations.selectProxy(groupName, proxyName)
     }
 
     override suspend fun setMode(mode: uniffi.chimera_ffi.Mode) {
-        runProxyOperation("Failed to switch proxy mode") {
-            controller.setMode(mode)
-        }
+        controllerOperations.setMode(mode)
     }
 
     override suspend fun resetNetwork() {
-        runProxyOperation("Failed to reset network state") {
-            controller.resetNetwork()
-        }
+        controllerOperations.resetNetwork()
     }
 
     override suspend fun testProxyDelay(proxyName: String): String =
-        runProxyOperation("Failed to test proxy delay") {
-            val response = controller.getProxyDelay(proxyName, null, null)
-            "${response.delay}ms"
-        }
+        controllerOperations.testProxyDelay(proxyName)
 
     override suspend fun listConnections(): ConnectionsSnapshot =
-        runConnectionOperation("Failed to refresh connections", ::fetchConnectionsFromController)
+        controllerOperations.listConnections()
 
     override suspend fun closeConnection(id: String) {
-        runConnectionOperation("Failed to close connection") {
-            controller.closeConnection(id)
-        }
+        controllerOperations.closeConnection(id)
     }
 
     override suspend fun closeAllConnections() {
-        runConnectionOperation("Failed to close all connections") {
-            controller.closeAllConnections()
-        }
+        controllerOperations.closeAllConnections()
     }
 
-    override suspend fun listRules(): List<RuleSnapshot> {
-        requireProxyServiceRunning()
-        return controller.getRules().map { rule ->
-            RuleSnapshot(
-                type = rule.ruleType,
-                proxy = rule.proxy,
-                payload = rule.payload,
-            )
-        }
-    }
+    override suspend fun listRules(): List<RuleSnapshot> =
+        controllerOperations.listRules()
 
-    override suspend fun listProxyProviders(): List<ProxyProviderSnapshot> {
-        requireProxyServiceRunning()
-        return controller.getProxyProviders().map { provider ->
-            ProxyProviderSnapshot(
-                name = provider.name,
-                type = provider.providerType,
-                vehicleType = provider.vehicleType,
-                proxyCount = provider.proxyCount,
-            )
-        }
-    }
+    override suspend fun listProxyProviders(): List<ProxyProviderSnapshot> =
+        controllerOperations.listProxyProviders()
 
     override suspend fun updateProxyProvider(name: String) {
-        requireProxyServiceRunning()
-        controller.updateProxyProvider(name)
+        controllerOperations.updateProxyProvider(name)
     }
 
     override suspend fun healthcheckProxyProvider(name: String) {
-        requireProxyServiceRunning()
-        controller.healthcheckProxyProvider(name)
+        controllerOperations.healthcheckProxyProvider(name)
     }
 
-    override suspend fun queryDns(name: String, recordType: String): String {
-        requireProxyServiceRunning()
-        return controller.queryDns(name, recordType)
-    }
+    override suspend fun queryDns(name: String, recordType: String): String =
+        controllerOperations.queryDns(name, recordType)
 
     override suspend fun readRuntimeLogs(maxLines: Int): String {
         return Global.readRuntimeLogTail(maxLines)
@@ -626,60 +578,6 @@ class ChimeraBackendImpl : ChimeraBackend {
             _runtimeError.value = null
         }
     }
-
-    private fun requireProxyServiceRunning() {
-        RuntimeOperationPolicy.requireRunning(serviceState.value) {
-            Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
-        }
-    }
-
-    private suspend fun <T> runProxyOperation(
-        errorPrefix: String,
-        operation: suspend () -> T,
-    ): T {
-        requireProxyServiceRunning()
-        return try {
-            operation().also { clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            recordRuntimeError(
-                source = BackendRuntimeErrorSource.PROXY_GROUPS,
-                prefix = errorPrefix,
-                error = error,
-            )
-            throw error
-        }
-    }
-
-    private suspend fun <T> runConnectionOperation(
-        errorPrefix: String,
-        operation: suspend () -> T,
-    ): T {
-        RuntimeOperationPolicy.requireRunning(serviceState.value) {
-            Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
-        }
-        return try {
-            operation().also { clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC) }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            recordRuntimeError(
-                source = BackendRuntimeErrorSource.TRAFFIC,
-                prefix = errorPrefix,
-                error = error,
-            )
-            throw error
-        }
-    }
-
-    private suspend fun fetchProxyGroupsFromController(): List<ProxyGroupSnapshot> {
-        val mode = controller.getMode() ?: Mode.RULE
-        return controller.getProxies().toProxyGroupSnapshots(mode)
-    }
-
-    private suspend fun fetchConnectionsFromController(): ConnectionsSnapshot =
-        controller.getConnections().toConnectionsSnapshot()
 
     private fun refreshActiveProfile() {
         _activeProfile.value = runCatching(profileCatalogReader::readActiveProfile).getOrNull()
