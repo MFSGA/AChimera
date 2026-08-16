@@ -1,8 +1,6 @@
 package rs.chimera.android.service
 
-import android.content.Context
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.pm.ServiceInfo
 import android.content.res.AssetManager
 import android.net.ConnectivityManager
@@ -27,7 +25,6 @@ import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.util.PrivacySafeLog
-import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
 import java.io.File
@@ -46,18 +43,6 @@ class TunService : VpnService(), VpnRuntimeControl {
     private val networkResetMutex = Mutex()
     private val networkResetGeneration = NetworkResetGeneration()
     private var networkCoordinator: UnderlyingNetworkCoordinator? = null
-
-    private data class ServiceSettings(
-        val appFilterMode: String,
-        val allowedApps: Set<String>,
-        val disallowedApps: Set<String>,
-        val allowLan: Boolean,
-        val mixedPort: UShort,
-        val httpPort: UShort?,
-        val socksPort: UShort?,
-        val fakeIp: Boolean,
-        val ipv6: Boolean,
-    )
 
     override fun onStartCommand(
         intent: Intent?,
@@ -182,7 +167,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     private suspend fun runVpn() {
         currentCoroutineContext().ensureActive()
         val profilePath = resolveProfilePath()
-        val settings = loadServiceSettings()
+        val settings = TunServiceSettingsLoader.load(this)
         currentCoroutineContext().ensureActive()
         appendRuntimeLog(
             "service preparing vpn for profile: ${RuntimeLogSanitizer.profileLabel(profilePath)}",
@@ -210,7 +195,11 @@ class TunService : VpnService(), VpnRuntimeControl {
             initClash(
                 configPath = profilePath,
                 workDir = Global.application.cacheDir.absolutePath,
-                over = createProfileOverride(currentTunFd, settings),
+                over = TunServiceSettingsLoader.createProfileOverride(
+                    currentTunFd = currentTunFd,
+                    settings = settings,
+                    logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
+                ),
             )
         currentCoroutineContext().ensureActive()
         if (startResult.isFailure) {
@@ -228,7 +217,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         BackendRuntimeState.updateServiceState(ServiceState.RUNNING)
     }
 
-    private fun buildTunnel(settings: ServiceSettings): ParcelFileDescriptor? {
+    private fun buildTunnel(settings: TunServiceSettings): ParcelFileDescriptor? {
         val builder = Builder()
         builder.setSession("ClashRS VPNService")
         builder.addAddress(TUN_GATEWAY_V4, TUN_PREFIX_V4)
@@ -310,39 +299,9 @@ class TunService : VpnService(), VpnRuntimeControl {
         return path
     }
 
-    private fun loadServiceSettings(): ServiceSettings {
-        val prefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        return ServiceSettings(
-            appFilterMode = prefs.getString("app_filter_mode", "ALL") ?: "ALL",
-            allowedApps = prefs.getStringSet("allowed_apps", emptySet()) ?: emptySet(),
-            disallowedApps = prefs.getStringSet("disallowed_apps", emptySet()) ?: emptySet(),
-            allowLan = prefs.getBoolean("allow_lan", false),
-            mixedPort = prefs.getPort("mixed_port", 7890u),
-            httpPort = prefs.getOptionalPort("http_port"),
-            socksPort = prefs.getOptionalPort("socks_port"),
-            fakeIp = prefs.getBoolean("fake_ip", false),
-            ipv6 = prefs.getBoolean("ipv6", false),
-        )
-    }
-
-    private fun createProfileOverride(
-        currentTunFd: Int,
-        settings: ServiceSettings,
-    ): ProfileOverride =
-        ProfileOverride(
-            tunFd = currentTunFd,
-            logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
-            allowLan = settings.allowLan,
-            mixedPort = settings.mixedPort,
-            httpPort = settings.httpPort,
-            socksPort = settings.socksPort,
-            fakeIp = settings.fakeIp,
-            ipv6 = settings.ipv6,
-        )
-
     private fun applyAppFilter(
         builder: Builder,
-        settings: ServiceSettings,
+        settings: TunServiceSettings,
     ) {
         when (settings.appFilterMode) {
             "ALLOWED" -> {
@@ -592,11 +551,3 @@ class TunService : VpnService(), VpnRuntimeControl {
         }
     }
 }
-
-private fun SharedPreferences.getOptionalPort(key: String): UShort? =
-    PortPreference.parse(all[key])
-
-private fun SharedPreferences.getPort(
-    key: String,
-    defaultValue: UShort,
-): UShort = getOptionalPort(key) ?: defaultValue
