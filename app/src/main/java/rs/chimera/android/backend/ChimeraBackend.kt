@@ -24,7 +24,6 @@ interface ChimeraBackend {
     val traffic: StateFlow<TrafficSnapshot>
     val memoryInfo: StateFlow<MemoryInfo>
     val proxyGroups: StateFlow<List<ProxyGroupSnapshot>>
-    val connections: StateFlow<ConnectionsSnapshot>
     val runtimeError: StateFlow<BackendRuntimeError?>
 
     suspend fun prepareStartVpn(): StartVpnResult

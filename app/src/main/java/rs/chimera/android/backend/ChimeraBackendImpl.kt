@@ -33,6 +33,7 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsApplyEffect
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
+import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.ffi.shutdownClash
 import rs.chimera.android.service.TunService
@@ -84,7 +85,15 @@ class ChimeraBackendImpl : ChimeraBackend {
         scope = backendScope,
         serviceState = serviceState,
         appForeground = AppForegroundState.isForeground,
-        fetchConnections = ::fetchConnectionsFromController,
+        fetchTraffic = {
+            controller.getConnectionSummary().let { summary ->
+                TrafficSnapshot(
+                    downloadTotal = summary.downloadTotal,
+                    uploadTotal = summary.uploadTotal,
+                    connectionCount = summary.connectionCount,
+                )
+            }
+        },
         fetchMemory = {
             controller.getMemory().let { response ->
                 MemoryInfo(
@@ -100,7 +109,6 @@ class ChimeraBackendImpl : ChimeraBackend {
     override val traffic = runtimeTelemetry.traffic
     override val memoryInfo = runtimeTelemetry.memoryInfo
     override val proxyGroups = runtimeTelemetry.proxyGroups
-    override val connections = runtimeTelemetry.connections
 
     init {
         runCatching { profileStagingStore.recoverImports() }

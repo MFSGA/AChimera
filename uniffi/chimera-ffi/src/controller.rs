@@ -100,6 +100,23 @@ pub struct ConnectionsResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct ConnectionSummary {
+    pub download_total: i64,
+    pub upload_total: i64,
+    pub connection_count: i32,
+}
+
+#[derive(Debug, Deserialize)]
+struct ConnectionSummaryResponse {
+    #[serde(rename = "downloadTotal")]
+    download_total: i64,
+    #[serde(rename = "uploadTotal")]
+    upload_total: i64,
+    #[serde(rename = "connectionCount")]
+    connection_count: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
 pub struct ConfigResponse {
     #[serde(rename = "external-controller")]
     pub external_controller: Option<String>,
@@ -203,6 +220,16 @@ impl ClashController {
 
     pub async fn get_connections(&self) -> Result<ConnectionsResponse, ChimeraError> {
         self.request("GET", "/connections", None).await
+    }
+
+    pub async fn get_connection_summary(&self) -> Result<ConnectionSummary, ChimeraError> {
+        let response: ConnectionSummaryResponse =
+            self.request("GET", "/connections/summary", None).await?;
+        Ok(ConnectionSummary {
+            download_total: response.download_total,
+            upload_total: response.upload_total,
+            connection_count: response.connection_count,
+        })
     }
 
     pub async fn close_connection(&self, id: String) -> Result<(), ChimeraError> {
@@ -601,6 +628,62 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["alpha", "zeta"],
         );
+    }
+
+    #[tokio::test]
+    async fn get_connection_summary_uses_lightweight_endpoint() {
+        let sequence = SOCKET_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let socket_path = std::env::temp_dir().join(format!(
+            "chimera-controller-summary-test-{}-{sequence}.sock",
+            std::process::id(),
+        ));
+        let _ = std::fs::remove_file(&socket_path);
+        let listener = tokio::net::UnixListener::bind(&socket_path).unwrap();
+        let server_socket_path = socket_path.clone();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 512];
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let count = stream.read(&mut buffer).await.unwrap();
+                assert!(
+                    count > 0,
+                    "client closed before sending the summary request"
+                );
+                request.extend_from_slice(&buffer[..count]);
+            }
+            let request_line = String::from_utf8_lossy(&request)
+                .lines()
+                .next()
+                .unwrap_or_default()
+                .to_string();
+            let response_body = r#"{"downloadTotal":2048,"uploadTotal":1024,"connectionCount":2}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body,
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            let _ = std::fs::remove_file(server_socket_path);
+            request_line
+        });
+        let controller =
+            ClashController::for_socket_path(socket_path.to_string_lossy().to_string());
+
+        let summary =
+            tokio::time::timeout(Duration::from_secs(2), controller.get_connection_summary())
+                .await
+                .expect("connection summary request timed out")
+                .unwrap();
+        let request = tokio::time::timeout(Duration::from_secs(2), server)
+            .await
+            .expect("connection summary server did not finish")
+            .unwrap();
+
+        assert_eq!(request, "GET /connections/summary HTTP/1.1");
+        assert_eq!(summary.download_total, 2048);
+        assert_eq!(summary.upload_total, 1024);
+        assert_eq!(summary.connection_count, 2);
     }
 
     #[tokio::test]

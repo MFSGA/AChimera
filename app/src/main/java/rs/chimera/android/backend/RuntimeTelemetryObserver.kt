@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
-import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
@@ -20,7 +19,7 @@ internal class RuntimeTelemetryObserver(
     private val scope: CoroutineScope,
     private val serviceState: StateFlow<ServiceState>,
     private val appForeground: StateFlow<Boolean>,
-    private val fetchConnections: suspend () -> ConnectionsSnapshot,
+    private val fetchTraffic: suspend () -> TrafficSnapshot,
     private val fetchMemory: suspend () -> MemoryInfo,
     private val fetchProxyGroups: suspend () -> List<ProxyGroupSnapshot>,
     private val recordError: (BackendRuntimeErrorSource, String, Throwable) -> Unit,
@@ -37,9 +36,6 @@ internal class RuntimeTelemetryObserver(
     private val _proxyGroups = MutableStateFlow<List<ProxyGroupSnapshot>>(emptyList())
     val proxyGroups: StateFlow<List<ProxyGroupSnapshot>> = _proxyGroups.asStateFlow()
 
-    private val _connections = MutableStateFlow(ConnectionsSnapshot(emptyList(), 0, 0))
-    val connections: StateFlow<ConnectionsSnapshot> = _connections.asStateFlow()
-
     fun start() {
         observeTraffic()
         observeMemory()
@@ -52,7 +48,6 @@ internal class RuntimeTelemetryObserver(
                 .collectLatest { shouldPoll ->
                     if (serviceState.value != ServiceState.RUNNING) {
                         _traffic.value = TrafficSnapshot(0, 0, 0)
-                        _connections.value = ConnectionsSnapshot(emptyList(), 0, 0)
                         clearError(BackendRuntimeErrorSource.TRAFFIC)
                         return@collectLatest
                     }
@@ -60,15 +55,10 @@ internal class RuntimeTelemetryObserver(
 
                     delay(initialTrafficDelayMs)
                     while (true) {
-                        runCatchingPreservingCancellation { fetchConnections() }
+                        runCatchingPreservingCancellation { fetchTraffic() }
                             .onSuccess { snapshot ->
                                 clearError(BackendRuntimeErrorSource.TRAFFIC)
-                                _traffic.value = TrafficSnapshot(
-                                    downloadTotal = snapshot.downloadTotal,
-                                    uploadTotal = snapshot.uploadTotal,
-                                    connectionCount = snapshot.connections.size,
-                                )
-                                _connections.value = snapshot
+                                _traffic.value = snapshot
                             }.onFailure { error ->
                                 recordError(
                                     BackendRuntimeErrorSource.TRAFFIC,

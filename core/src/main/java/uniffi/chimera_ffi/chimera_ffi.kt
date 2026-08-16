@@ -685,6 +685,8 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_connection_summary(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_memory(
@@ -747,6 +749,8 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_close_connection(`ptr`: Long,`id`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_configs(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_connection_summary(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_connections(`ptr`: Long,
     ): Long
@@ -934,6 +938,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 12014.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connection_summary() != 59183.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections() != 34026.toShort()) {
@@ -1488,6 +1495,8 @@ public interface ClashControllerInterface {
 
     suspend fun `getConfigs`(): ConfigResponse
 
+    suspend fun `getConnectionSummary`(): ConnectionSummary
+
     suspend fun `getConnections`(): ConnectionsResponse
 
     suspend fun `getMemory`(): MemoryResponse
@@ -1683,6 +1692,27 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterTypeConfigResponse.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getConnectionSummary`() : ConnectionSummary {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_connection_summary(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterTypeConnectionSummary.lift(it) },
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
@@ -2129,6 +2159,49 @@ public object FfiConverterTypeConnection: FfiConverterRustBuffer<Connection> {
             FfiConverterString.write(value.`start`, buf)
             FfiConverterSequenceString.write(value.`chains`, buf)
             FfiConverterOptionalString.write(value.`rule`, buf)
+    }
+}
+
+
+
+data class ConnectionSummary (
+    var `downloadTotal`: kotlin.Long
+    ,
+    var `uploadTotal`: kotlin.Long
+    ,
+    var `connectionCount`: kotlin.Int
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeConnectionSummary: FfiConverterRustBuffer<ConnectionSummary> {
+    override fun read(buf: ByteBuffer): ConnectionSummary {
+        return ConnectionSummary(
+            FfiConverterLong.read(buf),
+            FfiConverterLong.read(buf),
+            FfiConverterInt.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ConnectionSummary) = (
+            FfiConverterLong.allocationSize(value.`downloadTotal`) +
+            FfiConverterLong.allocationSize(value.`uploadTotal`) +
+            FfiConverterInt.allocationSize(value.`connectionCount`)
+    )
+
+    override fun write(value: ConnectionSummary, buf: ByteBuffer) {
+            FfiConverterLong.write(value.`downloadTotal`, buf)
+            FfiConverterLong.write(value.`uploadTotal`, buf)
+            FfiConverterInt.write(value.`connectionCount`, buf)
     }
 }
 

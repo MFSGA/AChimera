@@ -8,7 +8,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
@@ -44,8 +46,9 @@ class ConnectionsViewModel(
 
         observationJob = viewModelScope.launch {
             launch {
-                backend.connections.collectLatest { snapshot ->
-                    applyState(ConnectionsStatePolicy.applySnapshot(state, snapshot))
+                while (isActive) {
+                    fetchConnectionsInternal()
+                    delay(CONNECTION_REFRESH_INTERVAL_MS)
                 }
             }
             launch {
@@ -136,5 +139,9 @@ class ConnectionsViewModel(
         downloadTotal = newState.downloadTotal
         uploadTotal = newState.uploadTotal
         errorMessage = newState.errorMessage
+    }
+
+    private companion object {
+        const val CONNECTION_REFRESH_INTERVAL_MS = 3_000L
     }
 }

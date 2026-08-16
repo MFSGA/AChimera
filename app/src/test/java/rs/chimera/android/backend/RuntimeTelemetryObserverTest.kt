@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import rs.chimera.android.backend.model.ConnectionSnapshot
-import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
@@ -29,9 +27,9 @@ class RuntimeTelemetryObserverTest {
             scope = scope,
             serviceState = serviceState,
             appForeground = appForeground,
-            fetchConnections = {
+            fetchTraffic = {
                 connectionCalls.incrementAndGet()
-                ConnectionsSnapshot(emptyList(), 1, 2)
+                rs.chimera.android.backend.model.TrafficSnapshot(1, 2, 0)
             },
             fetchMemory = { MemoryInfo(3, 4) },
             fetchProxyGroups = { emptyList() },
@@ -69,7 +67,7 @@ class RuntimeTelemetryObserverTest {
             scope = scope,
             serviceState = serviceState,
             appForeground = appForeground,
-            fetchConnections = { throw CancellationException("connections cancelled") },
+            fetchTraffic = { throw CancellationException("traffic cancelled") },
             fetchMemory = { throw CancellationException("memory cancelled") },
             fetchProxyGroups = { throw CancellationException("proxies cancelled") },
             recordError = { _, _, _ -> recordedErrors.incrementAndGet() },
@@ -96,11 +94,11 @@ class RuntimeTelemetryObserverTest {
             scope = scope,
             serviceState = serviceState,
             appForeground = appForeground,
-            fetchConnections = {
-                ConnectionsSnapshot(
-                    connections = listOf(testConnection()),
+            fetchTraffic = {
+                rs.chimera.android.backend.model.TrafficSnapshot(
                     downloadTotal = 11,
                     uploadTotal = 12,
+                    connectionCount = 7,
                 )
             },
             fetchMemory = { MemoryInfo(13, 14) },
@@ -124,7 +122,7 @@ class RuntimeTelemetryObserverTest {
         try {
             observer.start()
             waitUntil {
-                observer.traffic.value.connectionCount == 1 &&
+                observer.traffic.value.connectionCount == 7 &&
                     observer.memoryInfo.value.inUse == 13L &&
                     observer.proxyGroups.value.size == 1
             }
@@ -132,7 +130,6 @@ class RuntimeTelemetryObserverTest {
             serviceState.value = ServiceState.STOPPED
             waitUntil {
                 observer.traffic.value.connectionCount == 0 &&
-                    observer.connections.value.connections.isEmpty() &&
                     observer.memoryInfo.value.inUse == 0L &&
                     observer.proxyGroups.value.isEmpty()
             }
@@ -148,19 +145,6 @@ class RuntimeTelemetryObserverTest {
         }
         throw AssertionError("Condition was not met")
     }
-
-    private fun testConnection(): ConnectionSnapshot =
-        ConnectionSnapshot(
-            id = "connection-1",
-            host = "example.com",
-            process = null,
-            upload = 1,
-            download = 2,
-            startTime = 3,
-            chains = emptyList(),
-            rule = null,
-            metadata = emptyMap(),
-        )
 
     private companion object {
         const val TEST_POLL_INTERVAL_MS = 10L
