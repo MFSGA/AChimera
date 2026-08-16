@@ -16,19 +16,4 @@
         <item name="colorControlActivated">?attr/colorPrimary</item>
         <item name="android:textColor">?attr/colorControlNormal</item>
     </style>
-
-    <style name="Theme.Chimera.MetaCubeX.Dark" parent="Theme.MaterialComponents.NoActionBar">
-        <item name="colorPrimary">@color/clash_started_dark</item>
-        <item name="colorOnPrimary">@android:color/white</item>
-        <item name="colorSurface">#FF202020</item>
-        <item name="colorControlNormal">@android:color/white</item>
-        <item name="colorClashStopped">?attr/colorSurface</item>
-        <item name="colorControlDisabled">#FF808080</item>
-
-        <item name="colorPrimaryDark">?attr/colorPrimary</item>
-        <item name="colorSecondary">?attr/colorPrimary</item>
-        <item name="colorOnSecondary">?attr/colorOnPrimary</item>
-        <item name="colorControlActivated">?attr/colorPrimary</item>
-        <item name="android:textColor">?attr/colorControlNormal</item>
-    </style>
 </resources>
