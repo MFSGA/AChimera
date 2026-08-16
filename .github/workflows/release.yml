@@ -335,6 +335,34 @@ jobs:
           fi
           ./gradlew assembleRelease
 
+      - name: Verify signed APK signatures
+        if: steps.signing.outputs.signing_enabled == 'true'
+        run: |
+          set -euo pipefail
+          APKSIGNER="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}/apksigner"
+          if [ ! -x "$APKSIGNER" ]; then
+            echo "apksigner not found: $APKSIGNER" >&2
+            exit 1
+          fi
+          mapfile -t APK_PATHS < <(find app/build/outputs/apk/release -type f -name "*.apk" | sort)
+          if [ "${#APK_PATHS[@]}" -eq 0 ]; then
+            echo "No signed release APK found." >&2
+            exit 1
+          fi
+          for APK_PATH in "${APK_PATHS[@]}"; do
+            echo "Verifying APK signature: $APK_PATH"
+            "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
+          done
+
+      - name: Generate dependency inventory
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          ./gradlew -q app:dependencies --configuration releaseRuntimeClasspath \
+            > output/DEPENDENCIES-android-release-runtime.txt
+          cargo metadata --manifest-path uniffi/Cargo.toml --locked --format-version 1 \
+            > output/DEPENDENCIES-rust-cargo-metadata.json
+
       - name: Organize release artifacts
         env:
           VERSION: ${{ steps.version.outputs.tag }}
@@ -355,7 +383,7 @@ jobs:
             APK_BASE="${APK_BASE%-release}"
             cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_BASE}${SIGNED_SUFFIX}.apk"
           done
-          sha256sum output/*.apk > output/SHA256SUMS.txt
+          sha256sum output/*.apk output/DEPENDENCIES-* > output/SHA256SUMS.txt
           ls -lh output/
           echo "Artifacts filename suffix: '${SIGNED_SUFFIX}' (empty=signed, -unsigned=unsigned)"
 
