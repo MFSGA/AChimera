@@ -1,5 +1,7 @@
 package rs.chimera.android.service
 
+import java.util.concurrent.atomic.AtomicBoolean
+
 internal interface VpnRuntimeControl {
     fun protectSocket(fd: Int): Boolean
 
@@ -15,14 +17,26 @@ internal object VpnRuntimeRegistry {
 
     @Volatile
     private var control: VpnRuntimeControl? = null
+    private val runRequested = AtomicBoolean(false)
 
     val isRegistered: Boolean
         get() = control != null
 
-    fun register(runtime: VpnRuntimeControl) {
-        synchronized(lock) {
-            control = runtime
-        }
+    val shouldRun: Boolean
+        get() = runRequested.get()
+
+    fun requestStart() {
+        runRequested.set(true)
+    }
+
+    fun requestStop() {
+        runRequested.set(false)
+    }
+
+    fun register(runtime: VpnRuntimeControl): Boolean = synchronized(lock) {
+        if (!runRequested.get()) return@synchronized false
+        control = runtime
+        true
     }
 
     fun unregister(runtime: VpnRuntimeControl) {
@@ -42,6 +56,7 @@ internal object VpnRuntimeRegistry {
     }
 
     suspend fun stopVpn(): Boolean {
+        requestStop()
         val runtime = control ?: return false
         runtime.stopVpn()
         return true

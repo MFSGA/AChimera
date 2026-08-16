@@ -36,6 +36,8 @@ import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.ffi.shutdownClash
 import rs.chimera.android.service.TunService
+import rs.chimera.android.service.VpnDesiredStateReason
+import rs.chimera.android.service.VpnDesiredStateStore
 import rs.chimera.android.service.VpnRuntimeRegistry
 import uniffi.chimera_ffi.ClashController
 import uniffi.chimera_ffi.DownloadProgress
@@ -57,6 +59,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
+    private val vpnDesiredStateStore = VpnDesiredStateStore(Global.application)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
@@ -139,6 +142,8 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun startVpnAfterPermission() {
+        vpnDesiredStateStore.markRunning()
+        VpnRuntimeRegistry.requestStart()
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
         try {
             ContextCompat.startForegroundService(
@@ -146,12 +151,19 @@ class ChimeraBackendImpl : ChimeraBackend {
                 Intent(Global.application, TunService::class.java),
             )
         } catch (error: Exception) {
+            runCatching { vpnDesiredStateStore.markStopped(VpnDesiredStateReason.START_FAILED) }
+                .onFailure(error::addSuppressed)
+            VpnRuntimeRegistry.requestStop()
             BackendRuntimeState.updateServiceError(error.messageOrType())
             throw error
         }
     }
 
     override suspend fun stopVpn() {
+        val desiredStateError =
+            runCatching { vpnDesiredStateStore.markStopped(VpnDesiredStateReason.USER_STOP) }
+                .exceptionOrNull()
+        VpnRuntimeRegistry.requestStop()
         vpnOperationMutex.withLock {
             BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
             try {
@@ -160,9 +172,14 @@ class ChimeraBackendImpl : ChimeraBackend {
                     BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
                 }
             } catch (error: Exception) {
+                desiredStateError?.let(error::addSuppressed)
                 BackendRuntimeState.updateServiceError(error.messageOrType())
                 throw error
             }
+        }
+        if (desiredStateError != null && vpnDesiredStateStore.snapshot().shouldRun) {
+            BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
+            throw desiredStateError
         }
     }
 

@@ -41,6 +41,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     private val lifecycleGate = VpnLifecycleGate()
     private val runtimeMutex = Mutex()
     private val backend by lazy { BackendProvider.provide() }
+    private val desiredStateStore by lazy { VpnDesiredStateStore(this) }
     private val networkResetMutex = Mutex()
     private var networkCoordinator: UnderlyingNetworkCoordinator? = null
 
@@ -61,6 +62,16 @@ class TunService : VpnService(), VpnRuntimeControl {
         flags: Int,
         startId: Int,
     ): Int {
+        restoreRuntimeRequestIfEligible()
+        if (!VpnRuntimeRegistry.shouldRun) {
+            Log.i(TAG, "Discarding cancelled VPN start request")
+            appendRuntimeLog("discarded cancelled vpn start request")
+            ensureForegroundService()
+            cleanup()
+            stopSelf()
+            return START_NOT_STICKY
+        }
+
         val shouldStart = lifecycleGate.requestStart()
         if (!shouldStart) {
             Log.i(TAG, "Ignoring duplicate VPN start request")
@@ -71,7 +82,12 @@ class TunService : VpnService(), VpnRuntimeControl {
         Log.i(TAG, "onStartCommand")
         appendRuntimeLog("service onStartCommand")
         ensureForegroundService()
-        VpnRuntimeRegistry.register(this)
+        if (!VpnRuntimeRegistry.register(this)) {
+            appendRuntimeLog("vpn start registration cancelled")
+            cleanup()
+            stopSelf()
+            return START_NOT_STICKY
+        }
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
 
         val job = serviceScope.launch(start = CoroutineStart.LAZY) {
@@ -81,6 +97,7 @@ class TunService : VpnService(), VpnRuntimeControl {
                 appendRuntimeLog("service startup cancelled")
                 throw error
             } catch (error: Exception) {
+                recordDesiredStop(VpnDesiredStateReason.START_FAILED)
                 Log.e(TAG, "Error in runVpn", error)
                 appendRuntimeLog("service runVpn failed", error)
                 val detail =
@@ -108,15 +125,55 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     override fun onRevoke() {
+        recordDesiredStop(VpnDesiredStateReason.PERMISSION_REVOKED)
         cancelStartup()
         cleanup()
         super.onRevoke()
     }
 
     override fun onDestroy() {
+        VpnRuntimeRegistry.requestStop()
         cancelStartup()
         cleanup()
         super.onDestroy()
+    }
+
+    private fun restoreRuntimeRequestIfEligible() {
+        if (VpnRuntimeRegistry.shouldRun) return
+
+        when (
+            VpnRecoveryPolicy.decide(
+                snapshot = desiredStateStore.snapshot(),
+                profileAvailable = Global.restoreProfilePath().isNotBlank(),
+                permissionGranted = VpnService.prepare(this) == null,
+            )
+        ) {
+            VpnRecoveryDecision.RESTORE -> {
+                VpnRuntimeRegistry.requestStart()
+                appendRuntimeLog("restored persisted vpn run request")
+            }
+
+            VpnRecoveryDecision.BLOCK_MISSING_PROFILE -> {
+                recordDesiredStop(VpnDesiredStateReason.RECOVERY_MISSING_PROFILE)
+                appendRuntimeLog("vpn recovery blocked: missing profile")
+            }
+
+            VpnRecoveryDecision.BLOCK_PERMISSION_REQUIRED -> {
+                recordDesiredStop(VpnDesiredStateReason.RECOVERY_PERMISSION_REQUIRED)
+                appendRuntimeLog("vpn recovery blocked: permission required")
+            }
+
+            VpnRecoveryDecision.DISCARD_STOPPED -> Unit
+        }
+    }
+
+    private fun recordDesiredStop(reason: VpnDesiredStateReason) {
+        runCatching { desiredStateStore.markStopped(reason) }
+            .onFailure { error ->
+                Log.w(TAG, "Failed to persist desired VPN stop state", error)
+                appendRuntimeLog("failed to persist desired vpn stop state", error)
+            }
+        VpnRuntimeRegistry.requestStop()
     }
 
     private suspend fun runVpn() {
@@ -426,6 +483,7 @@ class TunService : VpnService(), VpnRuntimeControl {
             appendRuntimeLog("service runtime reload cancelled")
             throw error
         } catch (error: Exception) {
+            recordDesiredStop(VpnDesiredStateReason.RUNTIME_FAILED)
             val detail = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
             runtimeMutex.withLock {
                 if (cleanup(finalState = ServiceState.ERROR, errorMessage = detail)) {
@@ -438,6 +496,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     override fun onCoreStopped(message: String) {
+        recordDesiredStop(VpnDesiredStateReason.CORE_EXITED)
         serviceScope.launch {
             runtimeMutex.withLock {
                 if (!lifecycleGate.canHandleUnexpectedCoreStop()) return@withLock
@@ -458,6 +517,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     override suspend fun stopVpn() {
+        recordDesiredStop(VpnDesiredStateReason.USER_STOP)
         val stopRequest = lifecycleGate.requestStop()
         if (!stopRequest.accepted) return
 

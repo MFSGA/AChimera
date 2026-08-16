@@ -13,6 +13,7 @@ class VpnRuntimeRegistryTest {
     @After
     fun tearDown() {
         registeredControls.forEach(VpnRuntimeRegistry::unregister)
+        VpnRuntimeRegistry.requestStop()
     }
 
     @Test
@@ -22,8 +23,9 @@ class VpnRuntimeRegistryTest {
         assertTrue(VpnRuntimeRegistry.isRegistered)
         assertTrue(VpnRuntimeRegistry.protectSocket(42))
         assertTrue(VpnRuntimeRegistry.dispatchCoreStopped("core failed"))
-        assertTrue(VpnRuntimeRegistry.stopVpn())
         VpnRuntimeRegistry.restartVpn()
+        assertTrue(VpnRuntimeRegistry.stopVpn())
+        assertFalse(VpnRuntimeRegistry.shouldRun)
 
         assertEquals(listOf(42), control.protectedFds)
         assertEquals(listOf("core failed"), control.coreStopMessages)
@@ -44,8 +46,21 @@ class VpnRuntimeRegistryTest {
     }
 
     @Test
+    fun stoppedRequestRejectsLateRegistration() {
+        VpnRuntimeRegistry.requestStart()
+        VpnRuntimeRegistry.requestStop()
+        val control = FakeVpnRuntimeControl()
+        registeredControls += control
+
+        assertFalse(VpnRuntimeRegistry.register(control))
+        assertFalse(VpnRuntimeRegistry.isRegistered)
+        assertFalse(VpnRuntimeRegistry.shouldRun)
+    }
+
+    @Test
     fun unavailableRuntimeReturnsSafeFallbacks() = runBlocking {
         registeredControls.forEach(VpnRuntimeRegistry::unregister)
+        VpnRuntimeRegistry.requestStop()
 
         assertFalse(VpnRuntimeRegistry.isRegistered)
         assertFalse(VpnRuntimeRegistry.protectSocket(1))
@@ -57,7 +72,8 @@ class VpnRuntimeRegistryTest {
 
     private fun register(control: FakeVpnRuntimeControl): FakeVpnRuntimeControl {
         registeredControls += control
-        VpnRuntimeRegistry.register(control)
+        VpnRuntimeRegistry.requestStart()
+        assertTrue(VpnRuntimeRegistry.register(control))
         return control
     }
 
