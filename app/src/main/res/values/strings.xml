@@ -266,6 +266,16 @@
     <string name="profile_update_success">Updated %1$s</string>
     <string name="profile_update_error">Update failed: %1$s</string>
     <string name="profile_rename">Rename</string>
+    <string name="profile_details">Details</string>
+    <string name="profile_details_name">Name: %1$s</string>
+    <string name="profile_details_type">Type: %1$s</string>
+    <string name="profile_details_path">Path: %1$s</string>
+    <string name="profile_details_size">Size: %1$s</string>
+    <string name="profile_details_created">Created: %1$s</string>
+    <string name="profile_details_url">URL: %1$s</string>
+    <string name="profile_details_auto_update">Auto update: %1$s</string>
+    <string name="profile_details_user_agent">User-Agent: %1$s</string>
+    <string name="profile_details_proxy">HTTP proxy: %1$s</string>
     <string name="profile_rename_title">Rename Profile</string>
     <string name="profile_last_updated">Updated: %1$s</string>
     <string name="profile_unknown_error">Unknown error</string>

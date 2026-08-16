@@ -21,6 +21,7 @@ import rs.chimera.android.backend.ProfileRemotePolicy
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
+import rs.chimera.android.ui.profileDetailsText
 
 class MetaProfilesDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -117,6 +118,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             return
         } ?: return
         val actions = buildList {
+            add(ProfileAction.Details)
             if (profile.isActive) add(ProfileAction.Verify)
             if (profile.isRemote) add(ProfileAction.Update)
             add(ProfileAction.Rename)
@@ -132,6 +134,13 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
 
     private suspend fun handleProfileAction(profile: ProfileSummary, action: ProfileAction) {
         when (action) {
+            ProfileAction.Details -> {
+                AlertDialog.Builder(this)
+                    .setTitle(profile.name)
+                    .setMessage(profile.profileDetailsText(this))
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+            }
             ProfileAction.Verify -> verifyProfile(profile)
             ProfileAction.Update -> performOperation(
                 progressMessage = getString(R.string.profile_updating),
@@ -345,6 +354,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private enum class ProfileAction(val labelRes: Int) {
+        Details(R.string.profile_details),
         Verify(R.string.profile_verify),
         Update(R.string.profile_update),
         Rename(R.string.profile_rename),

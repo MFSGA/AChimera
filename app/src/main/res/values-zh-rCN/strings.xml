@@ -267,6 +267,16 @@
     <string name="profile_update_success">已更新 %1$s</string>
     <string name="profile_update_error">更新失败：%1$s</string>
     <string name="profile_rename">重命名</string>
+    <string name="profile_details">详情</string>
+    <string name="profile_details_name">名称：%1$s</string>
+    <string name="profile_details_type">类型：%1$s</string>
+    <string name="profile_details_path">路径：%1$s</string>
+    <string name="profile_details_size">大小：%1$s</string>
+    <string name="profile_details_created">创建时间：%1$s</string>
+    <string name="profile_details_url">URL：%1$s</string>
+    <string name="profile_details_auto_update">自动更新：%1$s</string>
+    <string name="profile_details_user_agent">User-Agent：%1$s</string>
+    <string name="profile_details_proxy">HTTP 代理：%1$s</string>
     <string name="profile_rename_title">重命名配置</string>
     <string name="profile_last_updated">更新时间：%1$s</string>
     <string name="profile_unknown_error">未知错误</string>

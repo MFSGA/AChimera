@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
@@ -40,6 +41,7 @@ import rs.chimera.android.model.ProfileType
 import rs.chimera.android.ui.ProfileAutoUpdateStatus
 import rs.chimera.android.ui.ProfileKindBadge
 import rs.chimera.android.ui.format
+import rs.chimera.android.ui.profileDetailsText
 import rs.chimera.android.ui.resolveProfileAutoUpdatePresentation
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -55,6 +57,7 @@ internal fun ProfileCard(
     onUpdate: (() -> Unit)?,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
+    var showDetailsDialog by remember { mutableStateOf(false) }
     val dateFormatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     val context = LocalContext.current
     val autoUpdatePresentation = resolveProfileAutoUpdatePresentation(
@@ -64,6 +67,14 @@ internal fun ProfileCard(
         nextAttemptAt = profile.nextAutoUpdateAt,
         error = profile.lastAutoUpdateError,
     )
+
+    if (showDetailsDialog) {
+        TextInfoDialog(
+            title = profile.name,
+            content = profile.profileDetailsText(context),
+            onDismiss = { showDetailsDialog = false },
+        )
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -161,6 +172,19 @@ internal fun ProfileCard(
                                 },
                             )
                         }
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(id = R.string.profile_details)) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = null,
+                                )
+                            },
+                            onClick = {
+                                showDetailsDialog = true
+                                menuExpanded = false
+                            },
+                        )
                         if (profile.type == ProfileType.REMOTE && onUpdate != null) {
                             DropdownMenuItem(
                                 text = { Text(text = stringResource(id = R.string.profile_update)) },
