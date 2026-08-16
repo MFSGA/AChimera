@@ -2,7 +2,6 @@ package rs.chimera.android.service
 
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.content.res.AssetManager
 import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.Build
@@ -27,10 +26,6 @@ import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 class TunService : VpnService(), VpnRuntimeControl {
     private var vpnInterface: ParcelFileDescriptor? = null
@@ -166,7 +161,7 @@ class TunService : VpnService(), VpnRuntimeControl {
 
     private suspend fun runVpn() {
         currentCoroutineContext().ensureActive()
-        val profilePath = resolveProfilePath()
+        val profilePath = TunRuntimeFiles.resolveProfilePath(this)
         val settings = TunServiceSettingsLoader.load(this)
         currentCoroutineContext().ensureActive()
         appendRuntimeLog(
@@ -188,7 +183,10 @@ class TunService : VpnService(), VpnRuntimeControl {
         }
 
         currentCoroutineContext().ensureActive()
-        copyRuntimeAssetsIfAvailable(Global.application.assets, Global.application.cacheDir)
+        TunRuntimeFiles.copyRuntimeAssetsIfAvailable(
+            Global.application.assets,
+            Global.application.cacheDir,
+        )
         currentCoroutineContext().ensureActive()
 
         val startResult =
@@ -279,26 +277,6 @@ class TunService : VpnService(), VpnRuntimeControl {
             }
     }
 
-    private fun resolveProfilePath(): String {
-        val path =
-            if (Global.profilePath.isBlank()) {
-                Global.restoreProfilePath()
-            } else {
-                Global.profilePath
-            }.trim()
-
-        if (path.isEmpty()) {
-            throw IllegalStateException(getString(rs.chimera.android.R.string.service_profile_required))
-        }
-
-        val configFile = File(path)
-        if (!configFile.exists() || !configFile.isFile) {
-            throw IllegalStateException("Profile file not found: $path")
-        }
-
-        return path
-    }
-
     private fun applyAppFilter(
         builder: Builder,
         settings: TunServiceSettings,
@@ -331,29 +309,6 @@ class TunService : VpnService(), VpnRuntimeControl {
                 PrivacySafeLog.warning(TAG, "Failed to add disallowed app", error, debugDetail = appPackageName)
                 appendRuntimeLog("failed to add disallowed app: $appPackageName", error)
             }
-    }
-
-    private fun copyRuntimeAssetsIfAvailable(
-        assets: AssetManager,
-        cacheDir: File,
-    ) {
-        listOf("Country.mmdb", "geosite.dat").forEach { name ->
-            runCatching {
-                assets.open("clash-res/$name").use { input ->
-                    val output = File(cacheDir, name)
-                    output.deleteOnExit()
-                    if (!output.exists()) {
-                        output.createNewFile()
-                    }
-                    output.outputStream().use { stream ->
-                        input.copyTo(stream)
-                    }
-                }
-            }.onFailure { error ->
-                PrivacySafeLog.warning(TAG, "Runtime asset unavailable", error, debugDetail = name)
-                appendRuntimeLog("runtime asset unavailable: $name", error)
-            }
-        }
     }
 
     private fun publishVpnSystemStatus(serviceActive: Boolean) {
@@ -533,21 +488,6 @@ class TunService : VpnService(), VpnRuntimeControl {
         message: String,
         error: Throwable? = null,
     ) {
-        val file = Global.runtimeLogFile()
-        val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        val line =
-            buildString {
-                append('[')
-                append(timestamp)
-                append("] ")
-                append(message)
-                if (error != null) {
-                    append(": ")
-                    append(error.message ?: error.javaClass.simpleName)
-                }
-            }
-        runCatching {
-            RuntimeLogStore.shared.append(file, line)
-        }
+        TunRuntimeFiles.appendRuntimeLog(message, error)
     }
 }
