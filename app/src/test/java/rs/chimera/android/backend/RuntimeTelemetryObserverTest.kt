@@ -36,7 +36,9 @@ class RuntimeTelemetryObserverTest {
             recordError = { _, _, error -> throw AssertionError(error) },
             clearError = {},
             initialTrafficDelayMs = 0,
-            pollIntervalMs = TEST_POLL_INTERVAL_MS,
+            trafficPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_POLL_INTERVAL_MS,
         )
 
         try {
@@ -58,6 +60,48 @@ class RuntimeTelemetryObserverTest {
     }
 
     @Test
+    fun highFrequencyTrafficDoesNotForceLowFrequencyPolls() = runBlocking {
+        val serviceState = MutableStateFlow(ServiceState.RUNNING)
+        val appForeground = MutableStateFlow(true)
+        val trafficCalls = AtomicInteger()
+        val memoryCalls = AtomicInteger()
+        val proxyCalls = AtomicInteger()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val observer = RuntimeTelemetryObserver(
+            scope = scope,
+            serviceState = serviceState,
+            appForeground = appForeground,
+            fetchTraffic = {
+                trafficCalls.incrementAndGet()
+                rs.chimera.android.backend.model.TrafficSnapshot(1, 2, 0)
+            },
+            fetchMemory = {
+                memoryCalls.incrementAndGet()
+                MemoryInfo(3, 4)
+            },
+            fetchProxyGroups = {
+                proxyCalls.incrementAndGet()
+                emptyList()
+            },
+            recordError = { _, _, error -> throw AssertionError(error) },
+            clearError = {},
+            initialTrafficDelayMs = 0,
+            trafficPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+        )
+
+        try {
+            observer.start()
+            waitUntil { trafficCalls.get() >= 3 }
+            assertEquals(1, memoryCalls.get())
+            assertEquals(1, proxyCalls.get())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun fetchCancellationDoesNotPublishRuntimeErrors() = runBlocking {
         val serviceState = MutableStateFlow(ServiceState.RUNNING)
         val appForeground = MutableStateFlow(true)
@@ -73,7 +117,9 @@ class RuntimeTelemetryObserverTest {
             recordError = { _, _, _ -> recordedErrors.incrementAndGet() },
             clearError = {},
             initialTrafficDelayMs = 0,
-            pollIntervalMs = TEST_POLL_INTERVAL_MS,
+            trafficPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_POLL_INTERVAL_MS,
         )
 
         try {
@@ -116,7 +162,9 @@ class RuntimeTelemetryObserverTest {
             recordError = { _, _, error -> throw AssertionError(error) },
             clearError = {},
             initialTrafficDelayMs = 0,
-            pollIntervalMs = TEST_POLL_INTERVAL_MS,
+            trafficPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_POLL_INTERVAL_MS,
         )
 
         try {
@@ -148,6 +196,7 @@ class RuntimeTelemetryObserverTest {
 
     private companion object {
         const val TEST_POLL_INTERVAL_MS = 10L
+        const val TEST_SLOW_POLL_INTERVAL_MS = 1_000L
         const val TEST_SETTLE_MS = 50L
         const val MAX_WAIT_ATTEMPTS = 100
     }

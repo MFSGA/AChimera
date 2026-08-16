@@ -25,7 +25,9 @@ internal class RuntimeTelemetryObserver(
     private val recordError: (BackendRuntimeErrorSource, String, Throwable) -> Unit,
     private val clearError: (BackendRuntimeErrorSource) -> Unit,
     private val initialTrafficDelayMs: Long = INITIAL_TRAFFIC_DELAY_MS,
-    private val pollIntervalMs: Long = POLL_INTERVAL_MS,
+    private val trafficPollIntervalMs: Long = TRAFFIC_POLL_INTERVAL_MS,
+    private val memoryPollIntervalMs: Long = MEMORY_POLL_INTERVAL_MS,
+    private val proxyGroupPollIntervalMs: Long = PROXY_GROUP_POLL_INTERVAL_MS,
 ) {
     private val _traffic = MutableStateFlow(TrafficSnapshot(0, 0, 0))
     val traffic: StateFlow<TrafficSnapshot> = _traffic.asStateFlow()
@@ -66,7 +68,7 @@ internal class RuntimeTelemetryObserver(
                                     error,
                                 )
                             }
-                        delay(pollIntervalMs)
+                        delay(trafficPollIntervalMs)
                     }
                 }
         }
@@ -95,7 +97,7 @@ internal class RuntimeTelemetryObserver(
                                     error,
                                 )
                             }
-                        delay(pollIntervalMs)
+                        delay(memoryPollIntervalMs)
                     }
                 }
         }
@@ -124,7 +126,7 @@ internal class RuntimeTelemetryObserver(
                                     error,
                                 )
                             }
-                        delay(pollIntervalMs)
+                        delay(proxyGroupPollIntervalMs)
                     }
                 }
         }
@@ -132,6 +134,8 @@ internal class RuntimeTelemetryObserver(
 
     private companion object {
         const val INITIAL_TRAFFIC_DELAY_MS = 1_000L
-        const val POLL_INTERVAL_MS = 3_000L
+        const val TRAFFIC_POLL_INTERVAL_MS = 3_000L
+        const val MEMORY_POLL_INTERVAL_MS = 10_000L
+        const val PROXY_GROUP_POLL_INTERVAL_MS = 10_000L
     }
 }
