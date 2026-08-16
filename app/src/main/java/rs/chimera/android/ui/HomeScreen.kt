@@ -88,6 +88,7 @@ fun HomeScreen(
     val vpnPermissionDeniedMessage = stringResource(R.string.service_vpn_permission_denied)
     var showRestartDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    val vpnPermissionDeniedMessage = stringResource(R.string.service_vpn_permission_denied)
 
     val vpnPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult(),
