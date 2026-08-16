@@ -124,8 +124,8 @@ jobs:
       - name: Run Rust tests
         run: cargo test --manifest-path uniffi/Cargo.toml --workspace --locked
 
-      - name: Generate Rust bindings
-        run: just generate-bindings
+      - name: Check Rust bindings
+        run: just check-bindings
 
       - name: Run Android quality checks
         run: ./gradlew ktlintCheck testDebugUnitTest lintDebug
