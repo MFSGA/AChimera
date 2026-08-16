@@ -37,6 +37,8 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         val language: String,
         val appearance: String,
         val uiVariant: String,
+        val vpnSystemStatus: String,
+        val vpnSystemRestricted: Boolean,
     )
 
     override val root: View = context.layoutInflater.inflate(
@@ -62,6 +64,8 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
     private val appearanceSummary = root.findViewById<TextView>(R.id.text_appearance_summary)
     private val uiVariantSummary = root.findViewById<TextView>(R.id.text_ui_variant_summary)
     private val portsSummary = root.findViewById<TextView>(R.id.text_ports_summary)
+    private val vpnSystemSummary = root.findViewById<TextView>(R.id.text_vpn_system_summary)
+    private val vpnSystemDefaultTextColor = vpnSystemSummary.currentTextColor
     private var rendering = false
 
     init {
@@ -99,6 +103,14 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
             state.mixedPort,
             state.httpPort?.toString() ?: context.getString(R.string.none),
             state.socksPort?.toString() ?: context.getString(R.string.none),
+        )
+        vpnSystemSummary.text = state.vpnSystemStatus
+        vpnSystemSummary.setTextColor(
+            if (state.vpnSystemRestricted) {
+                context.getColor(R.color.clash_error)
+            } else {
+                vpnSystemDefaultTextColor
+            },
         )
         rendering = false
     }

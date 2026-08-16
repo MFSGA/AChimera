@@ -8,14 +8,18 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.service.PortPreference
+import rs.chimera.android.ui.format
 import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
+import rs.chimera.android.ui.resolvePresentation
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
@@ -39,6 +43,13 @@ class MetaSettingsActivity : AppCompatActivity() {
         lifecycleScope.launch {
             for (request in design.requests) {
                 handleRequest(request)
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                backend.vpnSystemStatus.collect {
+                    design.render(loadState())
+                }
             }
         }
     }
@@ -396,8 +407,9 @@ class MetaSettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun loadState(): SettingsDesign.State =
-        SettingsDesign.State(
+    private fun loadState(): SettingsDesign.State {
+        val vpnPresentation = backend.vpnSystemStatus.value.resolvePresentation()
+        return SettingsDesign.State(
             allowLan = prefs.getBoolean("allow_lan", false),
             fakeIp = prefs.getBoolean("fake_ip", false),
             ipv6 = prefs.getBoolean("ipv6", false),
@@ -407,7 +419,10 @@ class MetaSettingsActivity : AppCompatActivity() {
             language = languageLabel(AppPreferences.language(this)),
             appearance = appearanceLabel(AppPreferences.appearance(this)),
             uiVariant = uiVariantLabel(AppPreferences.uiVariant(this)),
+            vpnSystemStatus = vpnPresentation.format(this),
+            vpnSystemRestricted = vpnPresentation.restricted,
         )
+    }
 
     private fun readPort(key: String): Int? = PortPreference.parse(prefs.all[key])?.toInt()
 

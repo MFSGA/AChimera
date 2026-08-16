@@ -83,6 +83,13 @@
     <string name="stat_connections_none">No active connections.</string>
     <string name="stat_download">Download</string>
     <string name="stat_upload">Upload</string>
+    <string name="vpn_system_status_title">System VPN mode</string>
+    <string name="vpn_system_status_unobserved">Start the VPN once to read the system Always-on and Lockdown status.</string>
+    <string name="vpn_system_status_current">Current: Always-on %1$s, Lockdown %2$s</string>
+    <string name="vpn_system_status_last_observed">Last observed: Always-on %1$s, Lockdown %2$s</string>
+    <string name="vpn_system_status_lockdown_warning">%1$s. Lockdown requires a valid profile and VPN permission for recovery.</string>
+    <string name="status_enabled">enabled</string>
+    <string name="status_disabled">disabled</string>
     <string name="panel_screen">Nodes</string>
     <string name="settings_screen">Settings</string>
     <string name="settings_title">Settings</string>

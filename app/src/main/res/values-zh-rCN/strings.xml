@@ -83,6 +83,13 @@
     <string name="stat_connections_none">当前没有活跃连接。</string>
     <string name="stat_download">下载</string>
     <string name="stat_upload">上传</string>
+    <string name="vpn_system_status_title">系统 VPN 模式</string>
+    <string name="vpn_system_status_unobserved">启动一次 VPN 后可读取系统 Always-on 和 Lockdown 状态。</string>
+    <string name="vpn_system_status_current">当前：Always-on %1$s，Lockdown %2$s</string>
+    <string name="vpn_system_status_last_observed">最近观测：Always-on %1$s，Lockdown %2$s</string>
+    <string name="vpn_system_status_lockdown_warning">%1$s。Lockdown 恢复要求有效 Profile 与 VPN 权限。</string>
+    <string name="status_enabled">已启用</string>
+    <string name="status_disabled">未启用</string>
     <string name="panel_screen">节点</string>
     <string name="settings_screen">设置</string>
     <string name="settings_title">设置</string>

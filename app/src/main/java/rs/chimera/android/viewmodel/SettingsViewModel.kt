@@ -17,6 +17,7 @@ import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.SettingsPatch
+import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.service.PortPreference
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
@@ -94,6 +95,14 @@ class SettingsViewModel(
         private set
     var allowedApps: Set<String> by mutableStateOf(loadAppSet("allowed_apps"))
     var disallowedApps: Set<String> by mutableStateOf(loadAppSet("disallowed_apps"))
+    var vpnSystemStatus: VpnSystemStatus by mutableStateOf(backend.vpnSystemStatus.value)
+        private set
+
+    init {
+        viewModelScope.launch {
+            backend.vpnSystemStatus.collect { status -> vpnSystemStatus = status }
+        }
+    }
 
     fun updateAllowLan(enabled: Boolean) {
         updateRuntimeSetting(SettingsPatch(allowLan = enabled)) {

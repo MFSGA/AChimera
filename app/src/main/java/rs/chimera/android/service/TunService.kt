@@ -89,6 +89,7 @@ class TunService : VpnService(), VpnRuntimeControl {
             stopSelf()
             return START_NOT_STICKY
         }
+        publishVpnSystemStatus(serviceActive = true)
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
 
         val job = serviceScope.launch(start = CoroutineStart.LAZY) {
@@ -395,6 +396,27 @@ class TunService : VpnService(), VpnRuntimeControl {
         }
     }
 
+    private fun publishVpnSystemStatus(serviceActive: Boolean) {
+        val previous = BackendRuntimeState.vpnSystemStatus.value
+        val status = if (serviceActive) {
+            VpnSystemStatusPolicy.observed(
+                apiLevel = Build.VERSION.SDK_INT,
+                serviceActive = true,
+                alwaysOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAlwaysOn,
+                lockdown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isLockdownEnabled,
+                observedAt = System.currentTimeMillis(),
+            )
+        } else {
+            VpnSystemStatusPolicy.inactive(previous)
+        }
+        BackendRuntimeState.updateVpnSystemStatus(status)
+        if (serviceActive) {
+            appendRuntimeLog(
+                "vpn system status observed: always_on=${status.alwaysOn} lockdown=${status.lockdown}",
+            )
+        }
+    }
+
     private fun ensureForegroundService() {
         NotificationHelper.ensureChannel(this)
         val notification = NotificationHelper.buildStartingNotification(this)
@@ -423,6 +445,7 @@ class TunService : VpnService(), VpnRuntimeControl {
             BackendRuntimeState.updateServiceError(errorMessage)
         }
         releaseRuntime(stopCore = stopCore, removeForeground = true)
+        publishVpnSystemStatus(serviceActive = false)
         VpnRuntimeRegistry.unregister(this)
         BackendRuntimeState.updateServiceState(finalState)
         appendRuntimeLog("service cleanup complete")

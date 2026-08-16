@@ -15,11 +15,13 @@ import rs.chimera.android.backend.model.SettingsApplyEffect
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.TrafficSnapshot
+import rs.chimera.android.backend.model.VpnSystemStatus
 import uniffi.chimera_ffi.DownloadProgress
 
 interface ChimeraBackend {
     val serviceState: StateFlow<ServiceState>
     val serviceError: StateFlow<String?>
+    val vpnSystemStatus: StateFlow<VpnSystemStatus>
     val activeProfile: StateFlow<ProfileSummary?>
     val traffic: StateFlow<TrafficSnapshot>
     val memoryInfo: StateFlow<MemoryInfo>

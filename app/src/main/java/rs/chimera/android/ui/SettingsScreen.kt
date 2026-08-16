@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -44,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -75,6 +77,8 @@ fun SettingsScreen(
     var showDnsDialog by remember { mutableStateOf(false) }
     var showRulesDialog by remember { mutableStateOf(false) }
     var showProvidersDialog by remember { mutableStateOf(false) }
+    val vpnSystemPresentation = viewModel.vpnSystemStatus.resolvePresentation()
+    val vpnSystemSummary = vpnSystemStatusSummary(vpnSystemPresentation)
 
     viewModel.runtimeSettingError?.let { error ->
         val details = error.ifBlank { stringResource(R.string.profile_unknown_error) }
@@ -198,6 +202,18 @@ fun SettingsScreen(
 
             item {
                 SettingsCard {
+                    SettingsItem(
+                        icon = Icons.Default.Security,
+                        title = stringResource(R.string.vpn_system_status_title),
+                        subtitle = vpnSystemSummary,
+                        subtitleColor = if (vpnSystemPresentation.restricted) {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            null
+                        },
+                        onClick = {},
+                        showChevron = false,
+                    )
                     SettingsItem(
                         icon = Icons.Default.Lan,
                         title = stringResource(R.string.settings_listener_ports),
@@ -342,6 +358,33 @@ private fun SectionHeader(
 }
 
 @Composable
+private fun vpnSystemStatusSummary(presentation: VpnSystemStatusPresentation): String {
+    if (presentation.mode == VpnSystemStatusDisplayMode.UNOBSERVED) {
+        return stringResource(R.string.vpn_system_status_unobserved)
+    }
+    val alwaysOnLabel = stringResource(
+        if (presentation.alwaysOn) R.string.status_enabled else R.string.status_disabled,
+    )
+    val lockdownLabel = stringResource(
+        if (presentation.lockdown) R.string.status_enabled else R.string.status_disabled,
+    )
+    val summary = stringResource(
+        if (presentation.mode == VpnSystemStatusDisplayMode.CURRENT) {
+            R.string.vpn_system_status_current
+        } else {
+            R.string.vpn_system_status_last_observed
+        },
+        alwaysOnLabel,
+        lockdownLabel,
+    )
+    return if (presentation.lockdown) {
+        stringResource(R.string.vpn_system_status_lockdown_warning, summary)
+    } else {
+        summary
+    }
+}
+
+@Composable
 private fun SettingsCard(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
@@ -362,6 +405,7 @@ private fun SettingsItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     showChevron: Boolean = true,
+    subtitleColor: Color? = null,
 ) {
     Row(
         modifier = modifier
@@ -390,7 +434,7 @@ private fun SettingsItem(
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = subtitleColor ?: MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }

@@ -34,6 +34,7 @@ import rs.chimera.android.backend.model.SettingsApplyEffect
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.TrafficSnapshot
+import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.ffi.shutdownClash
 import rs.chimera.android.service.TunService
@@ -74,6 +75,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
     override val serviceError: StateFlow<String?> = BackendRuntimeState.serviceError
+    override val vpnSystemStatus: StateFlow<VpnSystemStatus> = BackendRuntimeState.vpnSystemStatus
 
     private val _activeProfile = MutableStateFlow<ProfileSummary?>(null)
     override val activeProfile: StateFlow<ProfileSummary?> = _activeProfile.asStateFlow()
