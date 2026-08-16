@@ -1,12 +1,9 @@
 package rs.chimera.android.backend
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
-import android.net.VpnService
 import android.provider.OpenableColumns
 import android.util.Log
-import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import rs.chimera.android.Global
@@ -33,11 +29,6 @@ import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
-import rs.chimera.android.ffi.shutdownClash
-import rs.chimera.android.service.TunService
-import rs.chimera.android.service.VpnDesiredStateReason
-import rs.chimera.android.service.VpnDesiredStateStore
-import rs.chimera.android.service.VpnRuntimeRegistry
 import rs.chimera.android.util.PrivacySafeLog
 import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
@@ -51,12 +42,10 @@ import java.util.UUID
 
 class ChimeraBackendImpl : ChimeraBackend {
     private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val vpnOperationMutex = Mutex()
     private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
-    private val vpnDesiredStateStore = VpnDesiredStateStore(Global.application)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
@@ -78,6 +67,11 @@ class ChimeraBackendImpl : ChimeraBackend {
     private val _runtimeError = MutableStateFlow<BackendRuntimeError?>(null)
     override val runtimeError: StateFlow<BackendRuntimeError?> = _runtimeError.asStateFlow()
 
+    private val vpnOperations = BackendVpnOperations(
+        context = Global.application,
+        serviceState = serviceState,
+        profilePath = { Global.profilePath },
+    )
     private val controllerOperations = BackendControllerOperations(
         socketPath = "${Global.application.cacheDir}/clash.sock",
         serviceState = serviceState,
@@ -125,71 +119,19 @@ class ChimeraBackendImpl : ChimeraBackend {
         runtimeTelemetry.start()
     }
 
-    override suspend fun prepareStartVpn(): StartVpnResult {
-        val context = Global.application
-        val path = Global.profilePath
-        if (path.isBlank()) {
-            return StartVpnResult.Error(context.getString(rs.chimera.android.R.string.service_profile_required))
-        }
-
-        val intent = VpnService.prepare(context)
-        return if (intent != null) {
-            StartVpnResult.Prepared(intent)
-        } else {
-            StartVpnResult.PermissionNotRequired
-        }
-    }
+    override suspend fun prepareStartVpn(): StartVpnResult =
+        vpnOperations.prepareStartVpn()
 
     override suspend fun startVpnAfterPermission() {
-        vpnDesiredStateStore.markRunning()
-        VpnRuntimeRegistry.requestStart()
-        BackendRuntimeState.updateServiceState(ServiceState.STARTING)
-        try {
-            ContextCompat.startForegroundService(
-                Global.application,
-                Intent(Global.application, TunService::class.java),
-            )
-        } catch (error: Exception) {
-            runCatching { vpnDesiredStateStore.markStopped(VpnDesiredStateReason.START_FAILED) }
-                .onFailure(error::addSuppressed)
-            VpnRuntimeRegistry.requestStop()
-            BackendRuntimeState.updateServiceError(error.messageOrType())
-            throw error
-        }
+        vpnOperations.startVpnAfterPermission()
     }
 
     override suspend fun stopVpn() {
-        val desiredStateError =
-            runCatching { vpnDesiredStateStore.markStopped(VpnDesiredStateReason.USER_STOP) }
-                .exceptionOrNull()
-        VpnRuntimeRegistry.requestStop()
-        vpnOperationMutex.withLock {
-            BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
-            try {
-                if (!VpnRuntimeRegistry.stopVpn()) {
-                    shutdownClash().getOrThrow()
-                    BackendRuntimeState.updateServiceState(ServiceState.STOPPED)
-                }
-            } catch (error: Exception) {
-                desiredStateError?.let(error::addSuppressed)
-                BackendRuntimeState.updateServiceError(error.messageOrType())
-                throw error
-            }
-        }
-        if (desiredStateError != null && vpnDesiredStateStore.snapshot().shouldRun) {
-            BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
-            throw desiredStateError
-        }
+        vpnOperations.stopVpn()
     }
 
     override suspend fun restartVpn() {
-        check(vpnOperationMutex.tryLock()) { "Another VPN operation is already in progress" }
-        try {
-            check(serviceState.value == ServiceState.RUNNING) { "VPN is not running" }
-            VpnRuntimeRegistry.restartVpn()
-        } finally {
-            vpnOperationMutex.unlock()
-        }
+        vpnOperations.restartVpn()
     }
 
     override suspend fun listProfiles(): List<ProfileSummary> {
