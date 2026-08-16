@@ -63,10 +63,10 @@ jobs:
       - name: Setup sccache
         uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
 
-      - name: Install cargo-ndk and just
+      - name: Install Rust tooling
         uses: taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 # v2
         with:
-          tool: cargo-ndk,just
+          tool: cargo-ndk,just,cargo-deny@0.20.2
 
       - name: Configure SCCache & AWS-LC-RS
         run: |
@@ -93,6 +93,9 @@ jobs:
           key: ${{ runner.os }}-cargo-${{ hashFiles('uniffi/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
+
+      - name: Audit Rust dependency policy
+        run: cargo deny --config uniffi/deny.toml --manifest-path uniffi/Cargo.toml check advisories licenses sources
 
       - name: Configure Android SDK
         run: |

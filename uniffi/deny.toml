@@ -1,0 +1,75 @@
+[graph]
+targets = [
+    { triple = "aarch64-linux-android" },
+    { triple = "armv7-linux-androideabi" },
+    { triple = "i686-linux-android" },
+    { triple = "x86_64-linux-android" },
+    { triple = "x86_64-unknown-linux-gnu" },
+]
+all-features = false
+
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2026-0118", reason = "hickory-proto 0.25.2 is pulled by dhcproto 0.14 with default features disabled and no DNSSEC feature; remove when the pinned clash-lib upgrades dhcproto/hickory" },
+    { id = "RUSTSEC-2026-0119", reason = "dhcproto 0.14 constrains hickory-proto to 0.25; remove when the pinned clash-lib upgrades dhcproto/hickory to 0.26.1 or newer" },
+    { id = "RUSTSEC-2024-0436", reason = "paste is an unmaintained transitive dependency in target-specific netlink code and has no safe upgrade; remove when tun-rs/netlink upstream replaces it" },
+    { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile is transitive through the pinned chimera-dns/clash-lib revision and has no safe upgrade; remove when upstream migrates to rustls-pki-types" },
+]
+
+[licenses]
+confidence-threshold = 0.8
+allow = [
+    "0BSD",
+    "AGPL-3.0-only",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MIT-0",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[[licenses.clarify]]
+name = "chimera-dns"
+version = "0.24.8"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "clash-lib"
+version = "0.24.8"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "watfaq-netstack"
+version = "0.24.8"
+expression = "Apache-2.0"
+license-files = []
+
+[[licenses.clarify]]
+name = "sock2proc"
+version = "0.1.0"
+expression = "MIT"
+license-files = [
+    { path = "src/platform/linux.rs", hash = 0xc3bb3adc },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = [
+    "https://github.com/element-hq/async-compat",
+    "https://github.com/MFSGA/Chimera_Client.git",
+    "https://github.com/Watfaq/rustls.git",
+    "https://github.com/Watfaq/sock2proc.git",
+    "https://github.com/Watfaq/tokio-rustls.git",
+]
