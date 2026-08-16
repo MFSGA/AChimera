@@ -18,6 +18,9 @@ use hyper_util::rt::TokioExecutor;
 #[cfg(unix)]
 use hyperlocal::{UnixConnector, Uri as UnixUri};
 
+#[cfg(unix)]
+type UnixClient = Client<UnixConnector, Full<Bytes>>;
+
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, uniffi::Enum)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
@@ -134,13 +137,15 @@ struct ProxiesResponse {
 #[derive(uniffi::Object)]
 pub struct ClashController {
     socket_path: String,
+    #[cfg(unix)]
+    client: UnixClient,
 }
 
 #[uniffi::export(async_runtime = "tokio")]
 impl ClashController {
     #[uniffi::constructor]
     pub fn new(socket_path: String) -> Arc<Self> {
-        Arc::new(Self { socket_path })
+        Arc::new(Self::for_socket_path(socket_path))
     }
 
     pub async fn get_proxies(&self) -> Result<Vec<Proxy>, ChimeraError> {
@@ -375,6 +380,14 @@ impl ClashController {
 }
 
 impl ClashController {
+    fn for_socket_path(socket_path: String) -> Self {
+        Self {
+            socket_path,
+            #[cfg(unix)]
+            client: Client::builder(TokioExecutor::new()).build(UnixConnector),
+        }
+    }
+
     async fn do_request(
         &self,
         method: &str,
@@ -383,7 +396,6 @@ impl ClashController {
     ) -> Result<hyper::body::Bytes, ChimeraError> {
         #[cfg(unix)]
         {
-            let client = Client::builder(TokioExecutor::new()).build(UnixConnector);
             let uri: hyper::Uri = UnixUri::new(&self.socket_path, path).into();
 
             let request_builder = Request::builder()
@@ -405,7 +417,8 @@ impl ClashController {
                     })?
             };
 
-            let response = client
+            let response = self
+                .client
                 .request(request)
                 .await
                 .map_err(|error| ChimeraError::Runtime {
@@ -467,6 +480,11 @@ impl ClashController {
 #[cfg(test)]
 mod tests {
     use super::ClashController;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    static SOCKET_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
     #[test]
     fn rules_response_deserializes_structured_snapshots() {
@@ -497,10 +515,73 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn controller_reuses_unix_http_connection() {
+        let sequence = SOCKET_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let socket_path = std::env::temp_dir().join(format!(
+            "chimera-controller-keep-alive-test-{}-{sequence}.sock",
+            std::process::id(),
+        ));
+        let _ = std::fs::remove_file(&socket_path);
+        let listener = tokio::net::UnixListener::bind(&socket_path).unwrap();
+        let server_socket_path = socket_path.clone();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request_lines = Vec::new();
+            for _ in 0..2 {
+                let mut request = Vec::new();
+                let mut buffer = [0_u8; 512];
+                while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                    let count = stream.read(&mut buffer).await.unwrap();
+                    assert!(count > 0, "client closed the keep-alive connection early");
+                    request.extend_from_slice(&buffer[..count]);
+                }
+                request_lines.push(
+                    String::from_utf8_lossy(&request)
+                        .lines()
+                        .next()
+                        .unwrap_or_default()
+                        .to_string(),
+                );
+                let response_body = r#"{"inuse":1024,"oslimit":2048}"#;
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: keep-alive\r\n\r\n{}",
+                    response_body.len(),
+                    response_body,
+                );
+                stream.write_all(response.as_bytes()).await.unwrap();
+            }
+            let _ = std::fs::remove_file(server_socket_path);
+            request_lines
+        });
+        let controller = ClashController::for_socket_path(socket_path.to_string_lossy().to_string());
+
+        let first = tokio::time::timeout(Duration::from_secs(2), controller.get_memory())
+            .await
+            .expect("first controller request timed out")
+            .unwrap();
+        let second = tokio::time::timeout(Duration::from_secs(2), controller.get_memory())
+            .await
+            .expect("second controller request did not reuse the accepted connection")
+            .unwrap();
+        let requests = tokio::time::timeout(Duration::from_secs(2), server)
+            .await
+            .expect("keep-alive server did not finish")
+            .unwrap();
+
+        assert_eq!(first.inuse, 1024);
+        assert_eq!(second.oslimit, 2048);
+        assert_eq!(
+            requests,
+            vec![
+                "GET /memory HTTP/1.1".to_string(),
+                "GET /memory HTTP/1.1".to_string(),
+            ],
+        );
+    }
+
+    #[tokio::test]
     async fn query_dns_rejects_empty_name_before_request() {
-        let controller = ClashController {
-            socket_path: String::new(),
-        };
+        let controller = ClashController::for_socket_path(String::new());
 
         let error = controller
             .query_dns("   ".to_string(), "A".to_string())
@@ -512,9 +593,7 @@ mod tests {
 
     #[tokio::test]
     async fn query_dns_rejects_unknown_record_type_before_request() {
-        let controller = ClashController {
-            socket_path: String::new(),
-        };
+        let controller = ClashController::for_socket_path(String::new());
 
         let error = controller
             .query_dns("example.com".to_string(), "invalid".to_string())
