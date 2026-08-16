@@ -15,6 +15,7 @@ internal data class ProfileAutoUpdateState(
 
 /** Selects scheduled remote refreshes and computes bounded retry backoff. */
 internal object ProfileAutoUpdatePolicy {
+    const val UPDATE_INTERVAL_MILLIS = 24L * 60L * 60L * 1_000L
     const val BASE_RETRY_DELAY_MILLIS = 15L * 60L * 1_000L
     const val MAX_RETRY_DELAY_MILLIS = 5L * 60L * 60L * 1_000L
 
@@ -33,7 +34,7 @@ internal object ProfileAutoUpdatePolicy {
         ProfileAutoUpdateState(
             lastAttempt = attemptedAt,
             failureCount = 0,
-            nextAttemptAt = null,
+            nextAttemptAt = attemptedAt + UPDATE_INTERVAL_MILLIS,
             lastError = null,
         )
 

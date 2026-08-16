@@ -305,7 +305,10 @@ class ProfileAutoUpdatePolicyTest {
         )
         assertEquals(2_000L, success.lastAttempt)
         assertEquals(0, success.failureCount)
-        assertNull(success.nextAttemptAt)
+        assertEquals(
+            2_000L + ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS,
+            success.nextAttemptAt,
+        )
         assertNull(success.lastError)
     }
 

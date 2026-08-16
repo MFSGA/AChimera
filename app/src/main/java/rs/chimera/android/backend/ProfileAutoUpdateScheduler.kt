@@ -38,7 +38,7 @@ internal class ProfileAutoUpdateScheduler(
         val job = JobInfo.Builder(JOB_ID, componentName)
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setPersisted(true)
-            .setPeriodic(INTERVAL_MILLIS)
+            .setPeriodic(ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS)
             .setBackoffCriteria(
                 ProfileAutoUpdatePolicy.BASE_RETRY_DELAY_MILLIS,
                 JobInfo.BACKOFF_POLICY_EXPONENTIAL,
@@ -52,7 +52,7 @@ internal class ProfileAutoUpdateScheduler(
 
     internal companion object {
         const val JOB_ID = 0x4348_5052
-        const val INTERVAL_MILLIS = 24L * 60L * 60L * 1_000L
+        const val INTERVAL_MILLIS = ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS
     }
 }
 
