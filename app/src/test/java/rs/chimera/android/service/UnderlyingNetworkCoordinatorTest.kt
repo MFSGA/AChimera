@@ -1,6 +1,7 @@
 package rs.chimera.android.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -54,6 +55,26 @@ class UnderlyingNetworkCoordinatorTest {
             )
 
         assertEquals(listOf("wifi", "cellular"), ordered)
+    }
+
+    @Test
+    fun latestNetworkResetGenerationSupersedesQueuedRequests() {
+        val generation = NetworkResetGeneration()
+        val first = generation.next()
+        val second = generation.next()
+
+        assertFalse(generation.isLatest(first))
+        assertTrue(generation.isLatest(second))
+    }
+
+    @Test
+    fun invalidatingNetworkResetGenerationRejectsOutstandingRequest() {
+        val generation = NetworkResetGeneration()
+        val request = generation.next()
+
+        generation.invalidate()
+
+        assertFalse(generation.isLatest(request))
     }
 
     @Test

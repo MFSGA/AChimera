@@ -5,6 +5,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.util.Log
+import java.util.concurrent.atomic.AtomicLong
 
 internal enum class UnderlyingNetworkTransport(val priority: Int) {
     ETHERNET(4),
@@ -54,6 +55,18 @@ internal data class UnderlyingNetworkTransition(
     val previousPrimary: Long?,
     val currentPrimary: Long?,
 )
+
+internal class NetworkResetGeneration {
+    private val latest = AtomicLong()
+
+    fun next(): Long = latest.incrementAndGet()
+
+    fun isLatest(generation: Long): Boolean = latest.get() == generation
+
+    fun invalidate() {
+        latest.incrementAndGet()
+    }
+}
 
 internal class UnderlyingNetworkChangeTracker {
     private var initialized = false

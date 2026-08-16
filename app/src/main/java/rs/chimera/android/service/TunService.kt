@@ -43,6 +43,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     private val backend by lazy { BackendProvider.provide() }
     private val desiredStateStore by lazy { VpnDesiredStateStore(this) }
     private val networkResetMutex = Mutex()
+    private val networkResetGeneration = NetworkResetGeneration()
     private var networkCoordinator: UnderlyingNetworkCoordinator? = null
 
     private data class ServiceSettings(
@@ -242,6 +243,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     private fun startUnderlyingNetworkTracking() {
+        networkResetGeneration.invalidate()
         networkCoordinator?.stop()
         networkCoordinator =
             UnderlyingNetworkCoordinator(
@@ -252,11 +254,13 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     private fun handleUnderlyingNetworkChange() {
+        val generation = networkResetGeneration.next()
         appendRuntimeLog("underlying network changed")
         serviceScope.launch {
             if (BackendRuntimeState.serviceState.value != ServiceState.RUNNING) return@launch
             networkResetMutex.withLock {
                 if (BackendRuntimeState.serviceState.value != ServiceState.RUNNING) return@withLock
+                if (!networkResetGeneration.isLatest(generation)) return@withLock
                 try {
                     backend.resetNetwork()
                     appendRuntimeLog("core network state reset after handoff")
@@ -429,6 +433,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         stopCore: Boolean,
         removeForeground: Boolean,
     ) {
+        networkResetGeneration.invalidate()
         networkCoordinator?.stop()
         networkCoordinator = null
         if (stopCore) {
