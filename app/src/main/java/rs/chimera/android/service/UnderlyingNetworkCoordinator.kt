@@ -4,7 +4,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
-import android.util.Log
+import rs.chimera.android.util.PrivacySafeLog
 import java.util.concurrent.atomic.AtomicLong
 
 internal enum class UnderlyingNetworkTransport(val priority: Int) {
@@ -142,7 +142,7 @@ internal class UnderlyingNetworkCoordinator(
         }.onFailure { error ->
             started = false
             capabilitiesByNetwork.clear()
-            Log.w(TAG, "Failed to start underlying network tracking", error)
+            PrivacySafeLog.warning(TAG, "Failed to start underlying network tracking", error)
         }
     }
 
@@ -155,7 +155,7 @@ internal class UnderlyingNetworkCoordinator(
         changeTracker.reset()
         runCatching { connectivityManager.unregisterNetworkCallback(callback) }
             .onFailure { error ->
-                Log.w(TAG, "Failed to stop underlying network tracking", error)
+                PrivacySafeLog.warning(TAG, "Failed to stop underlying network tracking", error)
             }
     }
 
@@ -198,7 +198,7 @@ internal class UnderlyingNetworkCoordinator(
         val applied =
             runCatching { applyNetworks(orderedNetworks.toTypedArray()) }
                 .onFailure { error ->
-                    Log.w(TAG, "Failed to apply underlying networks ($reason)", error)
+                    PrivacySafeLog.warning(TAG, "Failed to apply underlying networks", error, debugDetail = reason)
                 }.getOrDefault(false)
         if (!applied) return
 

@@ -60,6 +60,52 @@ class RuntimeTelemetryObserverTest {
     }
 
     @Test
+    fun startIsIdempotent() = runBlocking {
+        val serviceState = MutableStateFlow(ServiceState.RUNNING)
+        val appForeground = MutableStateFlow(true)
+        val trafficCalls = AtomicInteger()
+        val memoryCalls = AtomicInteger()
+        val proxyCalls = AtomicInteger()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val observer = RuntimeTelemetryObserver(
+            scope = scope,
+            serviceState = serviceState,
+            appForeground = appForeground,
+            fetchTraffic = {
+                trafficCalls.incrementAndGet()
+                rs.chimera.android.backend.model.TrafficSnapshot(1, 2, 0)
+            },
+            fetchMemory = {
+                memoryCalls.incrementAndGet()
+                MemoryInfo(3, 4)
+            },
+            fetchProxyGroups = {
+                proxyCalls.incrementAndGet()
+                emptyList()
+            },
+            recordError = { _, _, error -> throw AssertionError(error) },
+            clearError = {},
+            initialTrafficDelayMs = 0,
+            trafficPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+        )
+
+        try {
+            observer.start()
+            observer.start()
+            waitUntil { trafficCalls.get() > 0 && memoryCalls.get() > 0 && proxyCalls.get() > 0 }
+            delay(TEST_SETTLE_MS)
+
+            assertEquals(1, trafficCalls.get())
+            assertEquals(1, memoryCalls.get())
+            assertEquals(1, proxyCalls.get())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun highFrequencyTrafficDoesNotForceLowFrequencyPolls() = runBlocking {
         val serviceState = MutableStateFlow(ServiceState.RUNNING)
         val appForeground = MutableStateFlow(true)

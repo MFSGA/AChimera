@@ -1,19 +1,23 @@
 package rs.chimera.android
 
 import android.content.Context
-import android.util.Log
+import android.content.pm.ApplicationInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import rs.chimera.android.backend.AppForegroundState
 import rs.chimera.android.service.RuntimeLogStore
 import rs.chimera.android.ui.preferences.AppPreferences
+import rs.chimera.android.util.PrivacySafeLog
 import uniffi.chimera_ffi.ChimeraException
 import java.io.File
 
 class ChimeraApplication : android.app.Application() {
     override fun onCreate() {
         super.onCreate()
+        PrivacySafeLog.configure(
+            debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0,
+        )
         AppPreferences.apply(this)
         setupUncaughtExceptionHandler()
         AppForegroundState.register(this)
@@ -86,15 +90,30 @@ private fun setupUncaughtExceptionHandler() {
     Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
         try {
             if (throwable is ChimeraException) {
-                Log.e("Chimera", "Uncaught ChimeraException on thread ${thread.name}: ${throwable.message}")
-                System.err.println("Uncaught ChimeraException on thread ${thread.name}: ${throwable.message}")
+                PrivacySafeLog.errorDetail(
+                    tag = "Chimera",
+                    message = "Uncaught ChimeraException",
+                    debugDetail = "thread=${thread.name} message=${throwable.message.orEmpty()}",
+                )
             } else {
-                Log.e("Chimera", "Uncaught exception on thread ${thread.name}", throwable)
+                PrivacySafeLog.error(
+                    tag = "Chimera",
+                    message = "Uncaught exception",
+                    error = throwable,
+                    debugDetail = "thread=${thread.name}",
+                )
             }
         } catch (error: Exception) {
-            Log.e("Chimera", "Error in exception handler", error)
+            PrivacySafeLog.error(
+                tag = "Chimera",
+                message = "Error in exception handler",
+                error = error,
+            )
         } finally {
-            defaultHandler?.uncaughtException(thread, throwable)
+            defaultHandler?.uncaughtException(
+                thread,
+                PrivacySafeLog.crashThrowable(throwable),
+            )
         }
     }
 }

@@ -41,6 +41,7 @@ import rs.chimera.android.service.TunService
 import rs.chimera.android.service.VpnDesiredStateReason
 import rs.chimera.android.service.VpnDesiredStateStore
 import rs.chimera.android.service.VpnRuntimeRegistry
+import rs.chimera.android.util.PrivacySafeLog
 import uniffi.chimera_ffi.ClashController
 import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
@@ -115,19 +116,19 @@ class ChimeraBackendImpl : ChimeraBackend {
     init {
         runCatching { profileStagingStore.recoverImports() }
             .onFailure { error ->
-                Log.e(TAG, "Failed to recover staged profile imports", error)
+                PrivacySafeLog.error(TAG, "Failed to recover staged profile imports", error)
             }
         runCatching { profileStagingStore.recoverBackups() }
             .onFailure { error ->
-                Log.e(TAG, "Failed to recover staged profile backups", error)
+                PrivacySafeLog.error(TAG, "Failed to recover staged profile backups", error)
             }
         runCatching { profileStagingStore.recoverDeletions() }
             .onFailure { error ->
-                Log.e(TAG, "Failed to recover staged profile deletions", error)
+                PrivacySafeLog.error(TAG, "Failed to recover staged profile deletions", error)
             }
         runCatching { ProfileDownloadRecoveryPolicy.cleanup(Global.application.filesDir) }
             .onFailure { error ->
-                Log.e(TAG, "Failed to recover staged profile downloads", error)
+                PrivacySafeLog.error(TAG, "Failed to recover staged profile downloads", error)
             }
         refreshActiveProfile()
         backendScope.launch {
@@ -595,7 +596,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     private fun refreshProfileAutoUpdateSchedule(profiles: List<ProfileSummary>) {
         runCatching { profileAutoUpdateScheduler.refresh(profiles) }
             .onFailure { error ->
-                Log.e(TAG, "Failed to synchronize automatic profile update schedule", error)
+                PrivacySafeLog.error(TAG, "Failed to synchronize automatic profile update schedule", error)
             }
     }
 
@@ -604,7 +605,7 @@ class ChimeraBackendImpl : ChimeraBackend {
             loadProfiles = ::listProfiles,
             refreshSchedule = ::refreshProfileAutoUpdateSchedule,
             onFailure = { error ->
-                Log.e(TAG, "Failed to refresh profile list after catalog mutation", error)
+                PrivacySafeLog.error(TAG, "Failed to refresh profile list after catalog mutation", error)
             },
         )
     }

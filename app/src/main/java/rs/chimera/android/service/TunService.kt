@@ -26,6 +26,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
+import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.ffi.ProfileOverride
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
@@ -100,7 +101,7 @@ class TunService : VpnService(), VpnRuntimeControl {
                 throw error
             } catch (error: Exception) {
                 recordDesiredStop(VpnDesiredStateReason.START_FAILED)
-                Log.e(TAG, "Error in runVpn", error)
+                PrivacySafeLog.error(TAG, "Error in runVpn", error)
                 appendRuntimeLog("service runVpn failed", error)
                 val detail =
                     error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
@@ -172,7 +173,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     private fun recordDesiredStop(reason: VpnDesiredStateReason) {
         runCatching { desiredStateStore.markStopped(reason) }
             .onFailure { error ->
-                Log.w(TAG, "Failed to persist desired VPN stop state", error)
+                PrivacySafeLog.warning(TAG, "Failed to persist desired VPN stop state", error)
                 appendRuntimeLog("failed to persist desired vpn stop state", error)
             }
         VpnRuntimeRegistry.requestStop()
@@ -268,7 +269,7 @@ class TunService : VpnService(), VpnRuntimeControl {
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
-                    Log.w(TAG, "Failed to reset core after network handoff", error)
+                    PrivacySafeLog.warning(TAG, "Failed to reset core after network handoff", error)
                     appendRuntimeLog("failed to reset core after network handoff", error)
                 }
             }
@@ -284,7 +285,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         if (fd < 0) return
         runCatching { ParcelFileDescriptor.adoptFd(fd).close() }
             .onFailure { error ->
-                Log.w(TAG, "Failed to close detached TUN fd: $fd", error)
+                PrivacySafeLog.warning(TAG, "Failed to close detached TUN fd", error, debugDetail = "fd=$fd")
                 appendRuntimeLog("failed to close detached tun fd: $fd", error)
             }
     }
@@ -348,7 +349,7 @@ class TunService : VpnService(), VpnRuntimeControl {
                 settings.allowedApps.forEach { appPackageName ->
                     runCatching { builder.addAllowedApplication(appPackageName) }
                         .onFailure { error ->
-                            Log.w(TAG, "Failed to add allowed app: $appPackageName", error)
+                            PrivacySafeLog.warning(TAG, "Failed to add allowed app", error, debugDetail = appPackageName)
                         }
                 }
             }
@@ -368,7 +369,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     ) {
         runCatching { builder.addDisallowedApplication(appPackageName) }
             .onFailure { error ->
-                Log.w(TAG, "Failed to add disallowed app: $appPackageName", error)
+                PrivacySafeLog.warning(TAG, "Failed to add disallowed app", error, debugDetail = appPackageName)
                 appendRuntimeLog("failed to add disallowed app: $appPackageName", error)
             }
     }
@@ -390,7 +391,7 @@ class TunService : VpnService(), VpnRuntimeControl {
                     }
                 }
             }.onFailure { error ->
-                Log.w(TAG, "Runtime asset unavailable: $name", error)
+                PrivacySafeLog.warning(TAG, "Runtime asset unavailable", error, debugDetail = name)
                 appendRuntimeLog("runtime asset unavailable: $name", error)
             }
         }
@@ -461,7 +462,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         networkCoordinator = null
         if (stopCore) {
             shutdownClash().exceptionOrNull()?.let { error ->
-                Log.w(TAG, "Failed to stop Rust core cleanly", error)
+                PrivacySafeLog.warning(TAG, "Failed to stop Rust core cleanly", error)
                 appendRuntimeLog("failed to stop rust core cleanly", error)
             }
         }
@@ -474,13 +475,13 @@ class TunService : VpnService(), VpnRuntimeControl {
                     stopForeground(true)
                 }
             }.onFailure { error ->
-                Log.w(TAG, "Failed to stop foreground service", error)
+                PrivacySafeLog.warning(TAG, "Failed to stop foreground service", error)
                 appendRuntimeLog("failed to stop foreground service", error)
             }
         }
         runCatching { vpnInterface?.close() }
             .onFailure { error ->
-                Log.w(TAG, "Failed to close VPN interface", error)
+                PrivacySafeLog.warning(TAG, "Failed to close VPN interface", error)
                 appendRuntimeLog("failed to close vpn interface", error)
             }
         vpnInterface = null
@@ -536,7 +537,7 @@ class TunService : VpnService(), VpnRuntimeControl {
                 )
                 if (!cleanedUp) return@withLock
 
-                Log.e(TAG, "Rust core stopped unexpectedly: $message")
+                PrivacySafeLog.errorDetail(TAG, "Rust core stopped unexpectedly", message)
                 appendRuntimeLog("rust core stopped unexpectedly: $message")
                 NotificationHelper.notifyFailed(this@TunService, message)
                 stopSelf()

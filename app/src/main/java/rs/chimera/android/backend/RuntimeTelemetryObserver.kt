@@ -38,7 +38,12 @@ internal class RuntimeTelemetryObserver(
     private val _proxyGroups = MutableStateFlow<List<ProxyGroupSnapshot>>(emptyList())
     val proxyGroups: StateFlow<List<ProxyGroupSnapshot>> = _proxyGroups.asStateFlow()
 
+    private var started = false
+
+    @Synchronized
     fun start() {
+        if (started) return
+        started = true
         observeTraffic()
         observeMemory()
         observeProxyGroups()

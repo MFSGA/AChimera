@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ServiceState
+import rs.chimera.android.util.PrivacySafeLog
 
 /** Keeps one persisted daily job in sync with the profile catalog. */
 internal class ProfileAutoUpdateScheduler(
@@ -97,7 +98,7 @@ class ProfileAutoUpdateJobService : JobService() {
                         "failures=${summary.failures.size} restartedVpn=${summary.restartedVpn}",
                 )
             }.onFailure { error ->
-                Log.e(TAG, "Automatic profile update job failed", error)
+                PrivacySafeLog.error(TAG, "Automatic profile update job failed", error)
             }
             jobFinished(
                 params,

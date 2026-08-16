@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import android.util.Log
+import rs.chimera.android.util.PrivacySafeLog
 import androidx.core.content.ContextCompat
 import rs.chimera.android.Global
 
@@ -46,7 +47,7 @@ class VpnRecoveryReceiver : BroadcastReceiver() {
             Log.i(TAG, "Requested VPN recovery after $action")
         }.onFailure { error ->
             VpnRuntimeRegistry.requestStop()
-            Log.e(TAG, "Unable to restore VPN after $action", error)
+            PrivacySafeLog.error(TAG, "Unable to restore VPN", error, debugDetail = action)
         }
     }
 
@@ -57,7 +58,7 @@ class VpnRecoveryReceiver : BroadcastReceiver() {
     ) {
         runCatching { store.markStopped(reason) }
             .onFailure { error ->
-                Log.w(TAG, "Unable to persist blocked VPN recovery after $action", error)
+                PrivacySafeLog.warning(TAG, "Unable to persist blocked VPN recovery", error, debugDetail = action)
             }
         VpnRuntimeRegistry.requestStop()
     }
