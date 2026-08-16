@@ -15,6 +15,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         ToggleStatus,
         OpenProxy,
         OpenProfiles,
+        OpenConnections,
         OpenLogs,
         OpenSettings,
         OpenWatfaq,
@@ -41,6 +42,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.cardStatus.setOnClickListener { request(Request.ToggleStatus) }
         binding.cardProxy.setOnClickListener { request(Request.OpenProxy) }
         binding.cardProfiles.setOnClickListener { request(Request.OpenProfiles) }
+        binding.cardConnections.setOnClickListener { request(Request.OpenConnections) }
         binding.cardLogs.setOnClickListener { request(Request.OpenLogs) }
         binding.cardSettings.setOnClickListener { request(Request.OpenSettings) }
         cardHelp.setOnClickListener { request(Request.OpenHelp) }
@@ -48,7 +50,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.buttonOpenWatfaq.setOnClickListener { request(Request.OpenWatfaq) }
 
         setProfileName(null)
-        setMode(context.getString(R.string.proxy_mode_rule))
+        setMode(context.getString(R.string.not_available))
         setServiceState(ServiceState.STOPPED)
     }
 

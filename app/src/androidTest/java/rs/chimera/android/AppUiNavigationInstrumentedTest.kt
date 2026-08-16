@@ -6,6 +6,9 @@ import android.content.Context
 import android.os.Build
 import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -16,6 +19,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import rs.chimera.android.ui.metacubex.activity.MetaConnectionsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
@@ -77,6 +81,15 @@ class AppUiNavigationInstrumentedTest {
                 current = waitForSingleActiveActivity<MainActivity>()
                 assertEquals(UiVariant.WATFAQ, AppPreferences.uiVariant(context))
             }
+        }
+    }
+
+    @Test
+    fun metaConnectionsEntryOpensConnectionsScreen() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use {
+            waitForResumedActivity<MetaMainActivity>()
+            onView(withId(R.id.card_connections)).perform(click())
+            waitForResumedActivity<MetaConnectionsActivity>()
         }
     }
 

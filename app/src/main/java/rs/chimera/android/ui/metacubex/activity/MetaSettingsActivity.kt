@@ -21,6 +21,7 @@ import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
 import rs.chimera.android.ui.preferences.UiVariant
+import rs.chimera.android.util.runCatchingPreservingCancellation
 
 class MetaSettingsActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -71,7 +72,7 @@ class MetaSettingsActivity : AppCompatActivity() {
     }
 
     private suspend fun saveSettings(patch: SettingsPatch) {
-        runCatching { backend.updateSettings(patch) }
+        runCatchingPreservingCancellation { backend.updateSettings(patch) }
             .onSuccess {
                 design.render(loadState())
                 design.showToast(getString(R.string.cmfa_settings_saved))
@@ -135,7 +136,7 @@ class MetaSettingsActivity : AppCompatActivity() {
 
     private fun showRuleDiagnostics() {
         lifecycleScope.launch {
-            runCatching { backend.listRules() }
+            runCatchingPreservingCancellation { backend.listRules() }
                 .onSuccess { rules ->
                     val message = formatRuleDiagnostics(
                         rules = rules,
@@ -163,7 +164,7 @@ class MetaSettingsActivity : AppCompatActivity() {
 
     private fun showProxyProviders() {
         lifecycleScope.launch {
-            runCatching { backend.listProxyProviders() }
+            runCatchingPreservingCancellation { backend.listProxyProviders() }
                 .onSuccess { providers ->
                     if (providers.isEmpty()) {
                         design.showToast(getString(R.string.proxy_providers_empty))
@@ -200,7 +201,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             .setTitle(name)
             .setItems(actions) { _, which ->
                 lifecycleScope.launch {
-                    val result = runCatching {
+                    val result = runCatchingPreservingCancellation {
                         if (which == 0) {
                             backend.updateProxyProvider(name)
                         } else {
@@ -275,7 +276,7 @@ class MetaSettingsActivity : AppCompatActivity() {
 
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
                 lifecycleScope.launch {
-                    runCatching { backend.queryDns(name, recordType) }
+                    runCatchingPreservingCancellation { backend.queryDns(name, recordType) }
                         .onSuccess { result ->
                             dialog.dismiss()
                             AlertDialog.Builder(this@MetaSettingsActivity)

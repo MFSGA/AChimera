@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/action_mode_rule"
+            android:title="@string/proxy_mode_rule"
+            app:showAsAction="never" />
+        <item
+            android:id="@+id/action_mode_global"
+            android:title="@string/proxy_mode_global"
+            app:showAsAction="never" />
+        <item
+            android:id="@+id/action_mode_direct"
+            android:title="@string/proxy_mode_direct"
+            app:showAsAction="never" />
+    </group>
+</menu>

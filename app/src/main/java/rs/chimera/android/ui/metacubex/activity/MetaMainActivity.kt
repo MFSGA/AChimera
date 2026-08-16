@@ -58,6 +58,9 @@ class MetaMainActivity : AppCompatActivity() {
                 launch {
                     backend.serviceState.collect { state ->
                         design.setServiceState(state)
+                        if (state != ServiceState.RUNNING) {
+                            design.setMode(getString(R.string.not_available))
+                        }
                     }
                 }
                 launch {
@@ -78,7 +81,10 @@ class MetaMainActivity : AppCompatActivity() {
                 launch {
                     backend.proxyGroups.collect { groups ->
                         if (backend.serviceState.value == ServiceState.RUNNING) {
-                            val mode = groups.firstOrNull()?.mode
+                            val mode = MetaMainModePolicy.visibleMode(
+                                backend.serviceState.value,
+                                groups.firstOrNull()?.mode,
+                            )
                             design.setMode(
                                 mode?.let { getString(modeLabelRes(it)) }
                                     ?: getString(R.string.not_available),
@@ -105,6 +111,9 @@ class MetaMainActivity : AppCompatActivity() {
             }
             MainDesign.Request.OpenProfiles -> {
                 startActivity(Intent(this, MetaProfilesDesignActivity::class.java))
+            }
+            MainDesign.Request.OpenConnections -> {
+                startActivity(Intent(this, MetaConnectionsActivity::class.java))
             }
             MainDesign.Request.OpenLogs -> {
                 startActivity(Intent(this, MetaLogsDesignActivity::class.java))

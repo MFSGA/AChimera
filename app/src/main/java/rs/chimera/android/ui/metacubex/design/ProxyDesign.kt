@@ -17,6 +17,7 @@ import rs.chimera.android.databinding.MetaDesignProxyBinding
 import rs.chimera.android.ui.metacubex.adapter.ProxyAdapter
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
+import uniffi.chimera_ffi.Mode
 
 class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     data class GroupPage(
@@ -27,6 +28,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     sealed class Request {
         data class SelectProxy(val groupName: String, val proxyName: String) : Request()
         data class DelayTest(val groupName: String, val proxyNames: List<String>) : Request()
+        data class SwitchMode(val mode: Mode) : Request()
         data object Refresh : Request()
         data object NavigateBack : Request()
     }
@@ -52,6 +54,17 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     init {
         binding.toolbar.setNavigationOnClickListener {
             request(Request.NavigateBack)
+        }
+        binding.toolbar.inflateMenu(R.menu.meta_proxy_menu)
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            val mode = when (item.itemId) {
+                R.id.action_mode_rule -> Mode.RULE
+                R.id.action_mode_global -> Mode.GLOBAL
+                R.id.action_mode_direct -> Mode.DIRECT
+                else -> return@setOnMenuItemClickListener false
+            }
+            if (interactionEnabled) request(Request.SwitchMode(mode))
+            true
         }
         binding.fabDelayTest.setOnClickListener {
             val group = groups.getOrNull(currentGroupIndex) ?: return@setOnClickListener
@@ -142,6 +155,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
 
         currentGroupIndex = currentGroupIndex.coerceIn(0, groups.lastIndex)
+        updateModeSelection(snapshots.firstOrNull()?.mode)
         pagerAdapter.submitPages(groups.map { it.proxies })
         content.visibility = View.VISIBLE
         stateContainer.visibility = View.GONE
@@ -170,6 +184,10 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         setInteractionEnabled(!selecting && !testing)
     }
 
+    fun setMode(mode: Mode) {
+        updateModeSelection(mode)
+    }
+
     private fun showState(
         title: String,
         message: String,
@@ -189,7 +207,20 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         interactionEnabled = enabled
         binding.viewPager.isUserInputEnabled = enabled
         binding.fabDelayTest.isEnabled = enabled
+        MODE_MENU_IDS.forEach { id -> binding.toolbar.menu.findItem(id)?.isEnabled = enabled }
         content.alpha = if (enabled) 1f else 0.65f
+    }
+
+    private fun updateModeSelection(mode: Mode?) {
+        val selectedId = when (mode) {
+            Mode.RULE -> R.id.action_mode_rule
+            Mode.GLOBAL -> R.id.action_mode_global
+            Mode.DIRECT -> R.id.action_mode_direct
+            null -> null
+        }
+        MODE_MENU_IDS.forEach { id ->
+            binding.toolbar.menu.findItem(id)?.isChecked = id == selectedId
+        }
     }
 
     private fun request(request: Request) {
@@ -226,5 +257,13 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
         inner class PageHolder(val recyclerView: RecyclerView) :
             RecyclerView.ViewHolder(recyclerView)
+    }
+
+    private companion object {
+        val MODE_MENU_IDS = listOf(
+            R.id.action_mode_rule,
+            R.id.action_mode_global,
+            R.id.action_mode_direct,
+        )
     }
 }

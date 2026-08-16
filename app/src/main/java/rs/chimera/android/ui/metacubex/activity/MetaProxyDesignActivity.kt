@@ -14,6 +14,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
+import rs.chimera.android.util.runCatchingPreservingCancellation
 
 class MetaProxyDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -107,6 +108,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
         when (request) {
             is ProxyDesign.Request.SelectProxy -> selectProxy(request)
             is ProxyDesign.Request.DelayTest -> testGroupDelay(request)
+            is ProxyDesign.Request.SwitchMode -> switchMode(request)
             ProxyDesign.Request.Refresh -> refreshGroups(showLoading = true)
             ProxyDesign.Request.NavigateBack -> finish()
         }
@@ -121,22 +123,25 @@ class MetaProxyDesignActivity : AppCompatActivity() {
 
         refreshing = true
         if (showLoading) design.showLoading()
-        runCatching {
-            withContext(Dispatchers.IO) { backend.listProxyGroups() }
-        }.onSuccess { snapshots ->
-            initialLoadComplete = true
-            val proxyError = backend.runtimeError.value
-                ?.takeIf { it.source == BackendRuntimeErrorSource.PROXY_GROUPS }
-            if (snapshots.isEmpty() && proxyError != null) {
-                design.showError(proxyError.message)
-            } else {
-                design.setGroups(snapshots)
+        try {
+            runCatchingPreservingCancellation {
+                withContext(Dispatchers.IO) { backend.listProxyGroups() }
+            }.onSuccess { snapshots ->
+                initialLoadComplete = true
+                val proxyError = backend.runtimeError.value
+                    ?.takeIf { it.source == BackendRuntimeErrorSource.PROXY_GROUPS }
+                if (snapshots.isEmpty() && proxyError != null) {
+                    design.showError(proxyError.message)
+                } else {
+                    design.setGroups(snapshots)
+                }
+            }.onFailure { error ->
+                initialLoadComplete = true
+                design.showError(error.message ?: getString(R.string.proxy_refresh_failed))
             }
-        }.onFailure { error ->
-            initialLoadComplete = true
-            design.showError(error.message ?: getString(R.string.proxy_refresh_failed))
+        } finally {
+            refreshing = false
         }
-        refreshing = false
     }
 
     private suspend fun selectProxy(request: ProxyDesign.Request.SelectProxy) {
@@ -144,33 +149,66 @@ class MetaProxyDesignActivity : AppCompatActivity() {
 
         selecting = true
         design.setSelecting(true)
-        runCatching {
-            withContext(Dispatchers.IO) {
-                backend.selectProxy(request.groupName, request.proxyName)
-                backend.listProxyGroups()
+        try {
+            runCatchingPreservingCancellation {
+                withContext(Dispatchers.IO) {
+                    backend.selectProxy(request.groupName, request.proxyName)
+                    backend.listProxyGroups()
+                }
+            }.onSuccess { snapshots ->
+                initialLoadComplete = true
+                design.setGroups(snapshots)
+                val selected = snapshots
+                    .firstOrNull { it.name == request.groupName }
+                    ?.selected == request.proxyName
+                val message = if (selected) {
+                    getString(R.string.proxy_select_success, request.proxyName)
+                } else {
+                    getString(R.string.proxy_select_not_applied, request.proxyName)
+                }
+                design.showToast(message)
+            }.onFailure { error ->
+                design.showToast(
+                    getString(
+                        R.string.proxy_select_failed,
+                        error.message ?: getString(R.string.profile_unknown_error),
+                    ),
+                )
             }
-        }.onSuccess { snapshots ->
-            initialLoadComplete = true
-            design.setGroups(snapshots)
-            val selected = snapshots
-                .firstOrNull { it.name == request.groupName }
-                ?.selected == request.proxyName
-            val message = if (selected) {
-                getString(R.string.proxy_select_success, request.proxyName)
-            } else {
-                getString(R.string.proxy_select_not_applied, request.proxyName)
-            }
-            design.showToast(message)
-        }.onFailure { error ->
-            design.showToast(
-                getString(
-                    R.string.proxy_select_failed,
-                    error.message ?: getString(R.string.profile_unknown_error),
-                ),
-            )
+        } finally {
+            selecting = false
+            design.setSelecting(false)
         }
-        selecting = false
-        design.setSelecting(false)
+    }
+
+    private suspend fun switchMode(request: ProxyDesign.Request.SwitchMode) {
+        if (selecting || testing || refreshing) return
+        if (backend.serviceState.value != ServiceState.RUNNING) {
+            design.showNotRunning()
+            return
+        }
+
+        selecting = true
+        design.setSelecting(true)
+        try {
+            val result = runCatchingPreservingCancellation {
+                withContext(Dispatchers.IO) { backend.setMode(request.mode) }
+            }
+            result.onSuccess {
+                design.setMode(request.mode)
+                refreshGroups()
+            }.onFailure { error ->
+                design.showToast(
+                    getString(
+                        R.string.proxy_mode_switch_failed,
+                        error.message ?: getString(R.string.profile_unknown_error),
+                    ),
+                )
+            }
+        } finally {
+            selecting = false
+            design.setSelecting(false)
+        }
     }
 
     private suspend fun testGroupDelay(request: ProxyDesign.Request.DelayTest) {
@@ -181,7 +219,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
         try {
             request.proxyNames.forEachIndexed { index, proxyName ->
                 design.setDelayTestProgress(index + 1, request.proxyNames.size)
-                val result = runCatching {
+                val result = runCatchingPreservingCancellation {
                     withContext(Dispatchers.IO) {
                         backend.testProxyDelay(proxyName)
                     }

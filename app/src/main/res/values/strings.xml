@@ -168,6 +168,7 @@
     <string name="proxy_mode_rule">Rule</string>
     <string name="proxy_mode_global">Global</string>
     <string name="proxy_mode_direct">Direct</string>
+    <string name="proxy_mode_switch_failed">Failed to switch proxy mode: %1$s</string>
     <string name="proxy_loading_title">Loading nodes</string>
     <string name="proxy_loading_message">Reading proxy groups from the running core.</string>
     <string name="proxy_empty_message">The active profile does not expose any selectable proxy groups.</string>

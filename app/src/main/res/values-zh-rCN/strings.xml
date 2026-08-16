@@ -168,6 +168,7 @@
     <string name="proxy_mode_rule">规则</string>
     <string name="proxy_mode_global">全局</string>
     <string name="proxy_mode_direct">直连</string>
+    <string name="proxy_mode_switch_failed">切换代理模式失败：%1$s</string>
     <string name="proxy_loading_title">正在加载节点</string>
     <string name="proxy_loading_message">正在从运行中的核心读取代理组。</string>
     <string name="proxy_empty_message">当前配置没有提供可选择的代理组。</string>
