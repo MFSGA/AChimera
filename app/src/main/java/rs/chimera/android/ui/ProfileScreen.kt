@@ -419,9 +419,9 @@ fun ProfileScreen(
             ProfileItem(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 profile = profile,
-                onActivate = { vm.activateProfile(profile) },
-                onDelete = { vm.deleteProfile(profile) },
-                onRename = { vm.renameProfile(profile, it) },
+                onActivate = { vm.activateProfile(context, profile) },
+                onDelete = { vm.deleteProfile(context, profile) },
+                onRename = { vm.renameProfile(context, profile, it) },
                 onUpdate = if (profile.type == ProfileType.REMOTE) {
                     { vm.updateRemoteProfile(context, profile) }
                 } else {

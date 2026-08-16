@@ -9,6 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
@@ -42,6 +43,8 @@ class ProfileViewModel : ViewModel() {
 
     var downloadProgress by mutableStateOf<DownloadProgress?>(null)
         private set
+
+    private val downloadOperations = LatestOperationGate()
 
     var savedFilePath by mutableStateOf<String?>(null)
         private set
@@ -115,14 +118,17 @@ class ProfileViewModel : ViewModel() {
             isImporting = true
             try {
                 backend.importLocalProfile(uri, profileName)
-                refreshFromBackend()
-                val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
-                    ?: selectedFile?.name?.substringBeforeLast('.')
-                    ?: "profile"
-                statusMessage = context.getString(
-                    rs.chimera.android.R.string.profile_import_success,
-                    resolvedName,
-                )
+                if (refreshFromBackendSafely()) {
+                    val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
+                        ?: selectedFile?.name?.substringBeforeLast('.')
+                        ?: "profile"
+                    statusMessage = context.getString(
+                        rs.chimera.android.R.string.profile_import_success,
+                        resolvedName,
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 statusMessage = context.getString(
                     rs.chimera.android.R.string.profile_import_error,
@@ -148,6 +154,7 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             isDownloading = true
             downloadProgress = null
+            val generation = downloadOperations.next()
             try {
                 backend.importRemoteProfile(
                     RemoteProfileRequest(
@@ -158,15 +165,22 @@ class ProfileViewModel : ViewModel() {
                         proxyUrl = proxyUrl,
                     ),
                 ) { progress ->
-                    viewModelScope.launch { downloadProgress = progress }
+                    viewModelScope.launch {
+                        if (isDownloading && downloadOperations.isCurrent(generation)) {
+                            downloadProgress = progress
+                        }
+                    }
                 }
-                refreshFromBackend()
-                val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
-                    ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
-                statusMessage = context.getString(
-                    rs.chimera.android.R.string.profile_import_success,
-                    resolvedName,
-                )
+                if (refreshFromBackendSafely()) {
+                    val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
+                        ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
+                    statusMessage = context.getString(
+                        rs.chimera.android.R.string.profile_import_success,
+                        resolvedName,
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 statusMessage = context.getString(
                     rs.chimera.android.R.string.profile_import_error,
@@ -179,27 +193,24 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    fun activateProfile(profile: Profile) {
-        viewModelScope.launch {
+    fun activateProfile(context: Context, profile: Profile) {
+        runProfileMutation(context, rs.chimera.android.R.string.profile_activate_error) {
             backend.activateProfile(profile.id)
-            refreshFromBackend()
         }
     }
 
-    fun deleteProfile(profile: Profile) {
-        viewModelScope.launch {
+    fun deleteProfile(context: Context, profile: Profile) {
+        runProfileMutation(context, rs.chimera.android.R.string.profile_delete_error) {
             backend.deleteProfile(profile.id)
-            refreshFromBackend()
         }
     }
 
-    fun renameProfile(profile: Profile, newName: String) {
+    fun renameProfile(context: Context, profile: Profile, newName: String) {
         val trimmedName = newName.trim()
         if (trimmedName.isEmpty()) return
 
-        viewModelScope.launch {
+        runProfileMutation(context, rs.chimera.android.R.string.profile_rename_error) {
             backend.renameProfile(profile.id, trimmedName)
-            refreshFromBackend()
         }
     }
 
@@ -214,15 +225,23 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             isDownloading = true
             downloadProgress = null
+            val generation = downloadOperations.next()
             try {
                 backend.updateRemoteProfile(profile.id) { progress ->
-                    viewModelScope.launch { downloadProgress = progress }
+                    viewModelScope.launch {
+                        if (isDownloading && downloadOperations.isCurrent(generation)) {
+                            downloadProgress = progress
+                        }
+                    }
                 }
-                refreshFromBackend()
-                statusMessage = context.getString(
-                    rs.chimera.android.R.string.profile_update_success,
-                    profile.name,
-                )
+                if (refreshFromBackendSafely()) {
+                    statusMessage = context.getString(
+                        rs.chimera.android.R.string.profile_update_success,
+                        profile.name,
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 statusMessage = context.getString(
                     rs.chimera.android.R.string.profile_update_error,
@@ -254,6 +273,8 @@ class ProfileViewModel : ViewModel() {
                 val content = backend.verifyProfile(targetPath).getOrThrow()
                 verificationSucceeded = true
                 verificationResult = content
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 verificationSucceeded = false
                 verificationResult = context.getString(
@@ -266,18 +287,51 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    private fun refreshFromBackend() {
+    private fun runProfileMutation(
+        context: Context,
+        errorMessageRes: Int,
+        operation: suspend () -> Unit,
+    ) {
+        statusMessage = null
         viewModelScope.launch {
-            val backendProfiles = backend.listProfiles()
-            profiles.clear()
-            profiles.addAll(backendProfiles.map { it.toProfile() })
-            activeProfile = profiles.firstOrNull { it.isActive }
-            savedFilePath = activeProfile?.filePath
+            try {
+                operation()
+                refreshFromBackendSafely()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage = context.getString(
+                    errorMessageRes,
+                    error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
+                )
+            }
         }
     }
 
+    private suspend fun refreshFromBackend() {
+        val backendProfiles = backend.listProfiles()
+        profiles.clear()
+        profiles.addAll(backendProfiles.map { it.toProfile() })
+        activeProfile = profiles.firstOrNull { it.isActive }
+        savedFilePath = activeProfile?.filePath
+    }
+
+    private suspend fun refreshFromBackendSafely(): Boolean =
+        try {
+            refreshFromBackend()
+            true
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            statusMessage = Global.application.getString(
+                rs.chimera.android.R.string.profile_list_error,
+                error.message ?: Global.application.getString(rs.chimera.android.R.string.profile_unknown_error),
+            )
+            false
+        }
+
     private fun loadProfiles() {
-        refreshFromBackend()
+        viewModelScope.launch { refreshFromBackendSafely() }
     }
 
     private fun queryDisplayName(

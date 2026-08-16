@@ -12,6 +12,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
@@ -23,7 +25,7 @@ import rs.chimera.android.ui.metacubex.design.ProfilesDesign
 class MetaProfilesDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private lateinit var design: ProfilesDesign
-    private var loadingProfiles = false
+    private val profileLoadMutex = Mutex()
     private var operationInProgress = false
 
     private val filePickerLauncher = registerForActivityResult(
@@ -61,26 +63,25 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun loadProfiles(showLoading: Boolean = false) {
-        if (loadingProfiles) return
-        loadingProfiles = true
-        if (showLoading) design.showLoading()
-        try {
-            val profiles = withContext(Dispatchers.IO) { backend.listProfiles() }
-            design.submitList(profiles)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            design.showError(
-                getString(
-                    R.string.profile_list_error,
-                    error.message ?: getString(R.string.profile_unknown_error),
-                ),
-            )
-        } finally {
-            loadingProfiles = false
+    private suspend fun loadProfiles(showLoading: Boolean = false): Boolean =
+        profileLoadMutex.withLock {
+            if (showLoading) design.showLoading()
+            try {
+                val profiles = withContext(Dispatchers.IO) { backend.listProfiles() }
+                design.submitList(profiles)
+                true
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                design.showError(
+                    getString(
+                        R.string.profile_list_error,
+                        error.message ?: getString(R.string.profile_unknown_error),
+                    ),
+                )
+                false
+            }
         }
-    }
 
     private suspend fun handleRequest(request: ProfilesDesign.Request) {
         when (request) {
@@ -152,7 +153,6 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             val result = withContext(Dispatchers.IO) {
                 backend.verifyProfile(profile.filePath).getOrThrow()
             }
-            loadProfiles()
             AlertDialog.Builder(this)
                 .setTitle(R.string.profile_verification_title_success)
                 .setMessage(result)
@@ -161,7 +161,6 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            loadProfiles()
             AlertDialog.Builder(this)
                 .setTitle(R.string.profile_verification_title_failure)
                 .setMessage(
@@ -290,8 +289,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         design.showOperation(progressMessage)
         try {
             withContext(Dispatchers.IO) { operation() }
-            loadProfiles()
-            design.showToast(successMessage)
+            if (loadProfiles()) design.showToast(successMessage)
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
@@ -323,12 +321,10 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             return
         }
 
+        operationInProgress = true
+        design.showOperation(getString(R.string.profile_refreshing))
         var failed = 0
-        performOperation(
-            progressMessage = getString(R.string.profile_refreshing),
-            successMessage = getString(R.string.profile_refresh_result, profiles.size, 0),
-            errorMessageRes = R.string.profile_update_error,
-        ) {
+        try {
             profiles.forEach { profile ->
                 try {
                     backend.updateRemoteProfile(profile.id)
@@ -338,9 +334,13 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                     failed++
                 }
             }
-            check(failed == 0) {
-                getString(R.string.profile_refresh_result, profiles.size - failed, failed)
+            if (loadProfiles()) {
+                design.showToast(
+                    getString(R.string.profile_refresh_result, profiles.size - failed, failed),
+                )
             }
+        } finally {
+            operationInProgress = false
         }
     }
 
