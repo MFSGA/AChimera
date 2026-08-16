@@ -16,6 +16,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.RuleSnapshot
+import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.service.PortPreference
@@ -78,7 +79,7 @@ class SettingsViewModel(
         private set
 
     var mixedPort: UShort by mutableStateOf(
-        PortPreference.parse(prefs.all["mixed_port"]) ?: DEFAULT_MIXED_PORT,
+        PortPreference.parse(prefs.all["mixed_port"]) ?: SettingsDefaults.MIXED_PORT,
     )
         private set
 
@@ -119,6 +120,20 @@ class SettingsViewModel(
     fun updateIpv6Enabled(enabled: Boolean) {
         updateRuntimeSetting(SettingsPatch(ipv6 = enabled)) {
             ipv6Enabled = enabled
+        }
+    }
+
+    fun resetRuntimeSettings() {
+        updateRuntimeSetting(SettingsDefaults.resetPatch()) {
+            allowLan = false
+            fakeIpEnabled = false
+            ipv6Enabled = false
+            mixedPort = SettingsDefaults.MIXED_PORT
+            httpPort = null
+            socksPort = null
+            appFilterMode = AppFilterMode.ALL
+            allowedApps = emptySet()
+            disallowedApps = emptySet()
         }
     }
 
@@ -223,7 +238,7 @@ class SettingsViewModel(
         allowLan = prefs.getBoolean("allow_lan", false)
         fakeIpEnabled = prefs.getBoolean("fake_ip", false)
         ipv6Enabled = prefs.getBoolean("ipv6", false)
-        mixedPort = PortPreference.parse(prefs.all["mixed_port"]) ?: DEFAULT_MIXED_PORT
+        mixedPort = PortPreference.parse(prefs.all["mixed_port"]) ?: SettingsDefaults.MIXED_PORT
         httpPort = PortPreference.parse(prefs.all["http_port"])
         socksPort = PortPreference.parse(prefs.all["socks_port"])
         appFilterMode = AppFilterModePreference.parse(prefs.getString("app_filter_mode", null))
@@ -233,9 +248,5 @@ class SettingsViewModel(
 
     private fun loadAppSet(key: String): Set<String> {
         return prefs.getStringSet(key, emptySet()) ?: emptySet()
-    }
-
-    private companion object {
-        val DEFAULT_MIXED_PORT: UShort = 7890u
     }
 }

@@ -117,6 +117,10 @@
     <string name="settings_ipv6">Enable IPv6</string>
     <string name="settings_ipv6_desc">Allow network connections using IPv6.</string>
     <string name="settings_app_filter">App Filter</string>
+    <string name="settings_reset_defaults">Reset runtime settings</string>
+    <string name="settings_reset_defaults_summary">Restore network, listener, DNS, IPv6, and app-routing settings to defaults.</string>
+    <string name="settings_reset_defaults_title">Reset runtime settings?</string>
+    <string name="settings_reset_defaults_message">This restores runtime settings to defaults and may restart the VPN.</string>
     <string name="settings_app_filter_desc">Select allowed or disallowed apps.</string>
     <string name="settings_notification_permission">Notification Permission</string>
     <string name="settings_notification_permission_required">Notification permission is required to show the foreground service notification.</string>

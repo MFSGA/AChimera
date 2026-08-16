@@ -117,6 +117,10 @@
     <string name="settings_ipv6">启用 IPv6</string>
     <string name="settings_ipv6_desc">允许使用 IPv6 进行网络连接。</string>
     <string name="settings_app_filter">应用过滤</string>
+    <string name="settings_reset_defaults">重置运行设置</string>
+    <string name="settings_reset_defaults_summary">将网络、监听端口、DNS、IPv6 和应用分流恢复为默认值。</string>
+    <string name="settings_reset_defaults_title">重置运行设置？</string>
+    <string name="settings_reset_defaults_message">这会恢复运行设置为默认值，并可能重启 VPN。</string>
     <string name="settings_app_filter_desc">选择允许或禁止联网的应用。</string>
     <string name="settings_notification_permission">通知权限</string>
     <string name="settings_notification_permission_required">显示前台服务通知需要授予通知权限。</string>

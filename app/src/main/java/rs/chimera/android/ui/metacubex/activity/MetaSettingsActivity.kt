@@ -14,6 +14,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.service.PortPreference
 import rs.chimera.android.ui.format
@@ -67,6 +68,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.OpenAccessControl -> {
                 startActivity(Intent(this, MetaAccessControlActivity::class.java))
             }
+            SettingsDesign.Request.ResetRuntimeSettings -> showResetRuntimeSettingsDialog()
             SettingsDesign.Request.ChooseLanguage -> showLanguageDialog()
             SettingsDesign.Request.ChooseAppearance -> showAppearanceDialog()
             SettingsDesign.Request.ChooseUiVariant -> showUiVariantDialog()
@@ -97,6 +99,17 @@ class MetaSettingsActivity : AppCompatActivity() {
                     ),
                 )
             }
+    }
+
+    private fun showResetRuntimeSettingsDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.settings_reset_defaults_title)
+            .setMessage(R.string.settings_reset_defaults_message)
+            .setPositiveButton(R.string.settings_reset_defaults) { _, _ ->
+                lifecycleScope.launch { saveSettings(SettingsDefaults.resetPatch()) }
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun showPortDialog() {
@@ -413,7 +426,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             allowLan = prefs.getBoolean("allow_lan", false),
             fakeIp = prefs.getBoolean("fake_ip", false),
             ipv6 = prefs.getBoolean("ipv6", false),
-            mixedPort = readPort("mixed_port") ?: DEFAULT_MIXED_PORT,
+            mixedPort = readPort("mixed_port") ?: SettingsDefaults.MIXED_PORT.toInt(),
             httpPort = readPort("http_port"),
             socksPort = readPort("socks_port"),
             language = languageLabel(AppPreferences.language(this)),
@@ -427,7 +440,6 @@ class MetaSettingsActivity : AppCompatActivity() {
     private fun readPort(key: String): Int? = PortPreference.parse(prefs.all[key])?.toInt()
 
     private companion object {
-        const val DEFAULT_MIXED_PORT = 7890
         const val DEFAULT_DNS_QUERY_NAME = "example.com"
         const val DEFAULT_DNS_RECORD_TYPE = "A"
     }

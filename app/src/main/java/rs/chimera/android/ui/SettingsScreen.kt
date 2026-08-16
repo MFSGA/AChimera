@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
 import rs.chimera.android.ui.components.ListenerPortsDialog
+import rs.chimera.android.ui.components.SettingsResetDialog
 import rs.chimera.android.ui.components.TextInfoDialog
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.UiVariant
@@ -76,8 +78,9 @@ fun SettingsScreen(
     var showDnsDialog by remember { mutableStateOf(false) }
     var showRulesDialog by remember { mutableStateOf(false) }
     var showProvidersDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
     val vpnSystemPresentation = viewModel.vpnSystemStatus.resolvePresentation()
-    val vpnSystemSummary = vpnSystemStatusSummary(vpnSystemPresentation)
+    val vpnSystemSummary = vpnSystemPresentation.format(context)
 
     viewModel.runtimeSettingError?.let { error ->
         val details = error.ifBlank { stringResource(R.string.profile_unknown_error) }
@@ -98,6 +101,16 @@ fun SettingsScreen(
             title = stringResource(R.string.about_title),
             content = stringResource(R.string.settings_known_issues),
             onDismiss = { showInfoDialog = false },
+        )
+    }
+
+    if (showResetDialog) {
+        SettingsResetDialog(
+            onDismiss = { showResetDialog = false },
+            onConfirm = {
+                showResetDialog = false
+                viewModel.resetRuntimeSettings()
+            },
         )
     }
 
@@ -245,6 +258,12 @@ fun SettingsScreen(
                         checked = viewModel.ipv6Enabled,
                         onCheckedChange = viewModel::updateIpv6Enabled,
                     )
+                    SettingsItem(
+                        icon = Icons.Default.Refresh,
+                        title = stringResource(R.string.settings_reset_defaults),
+                        subtitle = stringResource(R.string.settings_reset_defaults_summary),
+                        onClick = { showResetDialog = true },
+                    )
                 }
             }
 
@@ -354,33 +373,6 @@ private fun SectionHeader(
         fontWeight = FontWeight.SemiBold,
         modifier = modifier.padding(vertical = 4.dp),
     )
-}
-
-@Composable
-private fun vpnSystemStatusSummary(presentation: VpnSystemStatusPresentation): String {
-    if (presentation.mode == VpnSystemStatusDisplayMode.UNOBSERVED) {
-        return stringResource(R.string.vpn_system_status_unobserved)
-    }
-    val alwaysOnLabel = stringResource(
-        if (presentation.alwaysOn) R.string.status_enabled else R.string.status_disabled,
-    )
-    val lockdownLabel = stringResource(
-        if (presentation.lockdown) R.string.status_enabled else R.string.status_disabled,
-    )
-    val summary = stringResource(
-        if (presentation.mode == VpnSystemStatusDisplayMode.CURRENT) {
-            R.string.vpn_system_status_current
-        } else {
-            R.string.vpn_system_status_last_observed
-        },
-        alwaysOnLabel,
-        lockdownLabel,
-    )
-    return if (presentation.lockdown) {
-        stringResource(R.string.vpn_system_status_lockdown_warning, summary)
-    } else {
-        summary
-    }
 }
 
 @Composable

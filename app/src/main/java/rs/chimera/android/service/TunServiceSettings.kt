@@ -2,6 +2,7 @@ package rs.chimera.android.service
 
 import android.content.Context
 import android.content.SharedPreferences
+import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.ffi.ProfileOverride
 
 internal data class TunServiceSettings(
@@ -20,11 +21,12 @@ internal object TunServiceSettingsLoader {
     fun load(context: Context): TunServiceSettings {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         return TunServiceSettings(
-            appFilterMode = prefs.getString("app_filter_mode", "ALL") ?: "ALL",
+            appFilterMode = prefs.getString("app_filter_mode", SettingsDefaults.APP_FILTER_MODE)
+                ?: SettingsDefaults.APP_FILTER_MODE,
             allowedApps = prefs.getStringSet("allowed_apps", emptySet()) ?: emptySet(),
             disallowedApps = prefs.getStringSet("disallowed_apps", emptySet()) ?: emptySet(),
             allowLan = prefs.getBoolean("allow_lan", false),
-            mixedPort = prefs.getPort("mixed_port", 7890u),
+            mixedPort = prefs.getPort("mixed_port", SettingsDefaults.MIXED_PORT),
             httpPort = prefs.getOptionalPort("http_port"),
             socksPort = prefs.getOptionalPort("socks_port"),
             fakeIp = prefs.getBoolean("fake_ip", false),
