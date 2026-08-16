@@ -39,7 +39,7 @@ internal class ProfileCatalogStore(
         val json = JSONArray(value)
         return ProfileCatalogDocument(
             json = json,
-            entries = json.toCatalogEntries(),
+            entries = ProfileCatalogValidationPolicy.validate(json.toCatalogEntries()),
         )
     }
 
@@ -124,7 +124,7 @@ internal class ProfileCatalogStore(
         val activeProfile = jsonArray.findActive()
         commitUpdate(backup = backup) {
             putString(PROFILES_LIST_KEY, jsonArray.toString())
-            activeProfile?.getString("filePath")?.let { putString(PROFILE_PATH_KEY, it) }
+            setActivePath(activeProfile?.getString("filePath"))
         }
         activeProfile?.optString("id") == id
     }
@@ -163,7 +163,11 @@ internal class ProfileCatalogStore(
             .firstOrNull { it.optBoolean("isActive", false) }
 
     private fun SharedPreferences.Editor.setActivePath(activePath: String?) {
-        if (activePath == null) remove(PROFILE_PATH_KEY) else putString(PROFILE_PATH_KEY, activePath)
+        ProfileActivePathPolicy.persist(
+            activePath = activePath,
+            put = { putString(PROFILE_PATH_KEY, it) },
+            remove = { remove(PROFILE_PATH_KEY) },
+        )
     }
 
     private fun commitPreferences(update: SharedPreferences.Editor.() -> Unit) {
