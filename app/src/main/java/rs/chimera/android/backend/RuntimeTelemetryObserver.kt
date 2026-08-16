@@ -14,6 +14,7 @@ import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.TrafficSnapshot
+import rs.chimera.android.util.runCatchingPreservingCancellation
 
 internal class RuntimeTelemetryObserver(
     private val scope: CoroutineScope,
@@ -59,7 +60,7 @@ internal class RuntimeTelemetryObserver(
 
                     delay(initialTrafficDelayMs)
                     while (true) {
-                        runCatching { fetchConnections() }
+                        runCatchingPreservingCancellation { fetchConnections() }
                             .onSuccess { snapshot ->
                                 clearError(BackendRuntimeErrorSource.TRAFFIC)
                                 _traffic.value = TrafficSnapshot(
@@ -93,7 +94,7 @@ internal class RuntimeTelemetryObserver(
                     if (!shouldPoll) return@collectLatest
 
                     while (true) {
-                        runCatching { fetchMemory() }
+                        runCatchingPreservingCancellation { fetchMemory() }
                             .onSuccess { memory ->
                                 clearError(BackendRuntimeErrorSource.MEMORY)
                                 _memoryInfo.value = memory
@@ -122,7 +123,7 @@ internal class RuntimeTelemetryObserver(
                     if (!shouldPoll) return@collectLatest
 
                     while (true) {
-                        runCatching { fetchProxyGroups() }
+                        runCatchingPreservingCancellation { fetchProxyGroups() }
                             .onSuccess { groups ->
                                 clearError(BackendRuntimeErrorSource.PROXY_GROUPS)
                                 _proxyGroups.value = groups

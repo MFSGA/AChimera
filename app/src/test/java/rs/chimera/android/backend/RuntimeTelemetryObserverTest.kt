@@ -1,5 +1,6 @@
 package rs.chimera.android.backend
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -53,6 +54,34 @@ class RuntimeTelemetryObserverTest {
             val callsAfterBackground = connectionCalls.get()
             delay(TEST_SETTLE_MS)
             assertEquals(callsAfterBackground, connectionCalls.get())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun fetchCancellationDoesNotPublishRuntimeErrors() = runBlocking {
+        val serviceState = MutableStateFlow(ServiceState.RUNNING)
+        val appForeground = MutableStateFlow(true)
+        val recordedErrors = AtomicInteger()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val observer = RuntimeTelemetryObserver(
+            scope = scope,
+            serviceState = serviceState,
+            appForeground = appForeground,
+            fetchConnections = { throw CancellationException("connections cancelled") },
+            fetchMemory = { throw CancellationException("memory cancelled") },
+            fetchProxyGroups = { throw CancellationException("proxies cancelled") },
+            recordError = { _, _, _ -> recordedErrors.incrementAndGet() },
+            clearError = {},
+            initialTrafficDelayMs = 0,
+            pollIntervalMs = TEST_POLL_INTERVAL_MS,
+        )
+
+        try {
+            observer.start()
+            delay(TEST_SETTLE_MS)
+            assertEquals(0, recordedErrors.get())
         } finally {
             scope.cancel()
         }
