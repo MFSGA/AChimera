@@ -118,10 +118,7 @@ class ChimeraBackendImpl : ChimeraBackend {
             }
         refreshActiveProfile()
         backendScope.launch {
-            runCatching { listProfiles() }
-                .onFailure { error ->
-                    Log.e(TAG, "Failed to synchronize automatic profile update schedule", error)
-                }
+            synchronizeProfileAutoUpdateSchedule()
         }
         runtimeTelemetry.start()
     }
@@ -341,7 +338,9 @@ class ChimeraBackendImpl : ChimeraBackend {
                 },
             )
             Global.restoreProfilePath()
-            profileAutoUpdateStateStore.clear(id)
+            if (!profileAutoUpdateStateStore.clear(id)) {
+                Log.w(TAG, "Failed to clear auto-update state for deleted profile $id")
+            }
             refreshActiveProfile()
         }
     }
@@ -438,7 +437,9 @@ class ChimeraBackendImpl : ChimeraBackend {
                 clearBackupTransaction = profileStagingStore::clearUpdatePending,
             )
         }
-        profileAutoUpdateStateStore.clear(id)
+        if (!profileAutoUpdateStateStore.clear(id)) {
+            Log.w(TAG, "Failed to clear auto-update state for updated profile $id")
+        }
         try {
             if (updatedActiveProfile) Global.restoreProfilePath()
         } finally {
@@ -572,10 +573,13 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     private suspend fun synchronizeProfileAutoUpdateSchedule() {
-        runCatching { listProfiles() }
-            .onFailure { error ->
+        ProfileAutoUpdateScheduleSync.run(
+            loadProfiles = ::listProfiles,
+            refreshSchedule = ::refreshProfileAutoUpdateSchedule,
+            onFailure = { error ->
                 Log.e(TAG, "Failed to refresh profile list after catalog mutation", error)
-            }
+            },
+        )
     }
 
     private fun recordRuntimeError(

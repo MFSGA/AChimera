@@ -1,7 +1,6 @@
 package rs.chimera.android.backend
 
 import android.content.Context
-import androidx.core.content.edit
 
 internal class ProfileAutoUpdateStateStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -15,23 +14,23 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
         )
 
     fun write(id: String, state: ProfileAutoUpdateState) {
-        prefs.edit(commit = true) {
-            if (state.lastAttempt == null) remove(key(id, LAST_ATTEMPT))
-            else putLong(key(id, LAST_ATTEMPT), state.lastAttempt)
-            putInt(key(id, FAILURE_COUNT), state.failureCount.coerceAtLeast(0))
-            if (state.nextAttemptAt == null) remove(key(id, NEXT_ATTEMPT))
-            else putLong(key(id, NEXT_ATTEMPT), state.nextAttemptAt)
-            if (state.lastError == null) remove(key(id, LAST_ERROR))
-            else putString(key(id, LAST_ERROR), state.lastError)
-        }
+        val editor = prefs.edit()
+        if (state.lastAttempt == null) editor.remove(key(id, LAST_ATTEMPT))
+        else editor.putLong(key(id, LAST_ATTEMPT), state.lastAttempt)
+        editor.putInt(key(id, FAILURE_COUNT), state.failureCount.coerceAtLeast(0))
+        if (state.nextAttemptAt == null) editor.remove(key(id, NEXT_ATTEMPT))
+        else editor.putLong(key(id, NEXT_ATTEMPT), state.nextAttemptAt)
+        if (state.lastError == null) editor.remove(key(id, LAST_ERROR))
+        else editor.putString(key(id, LAST_ERROR), state.lastError)
+        ProfilePersistencePolicy.commit(persist = editor::commit)
     }
 
-    fun clear(id: String) {
-        prefs.edit(commit = true) {
-            listOf(LAST_ATTEMPT, FAILURE_COUNT, NEXT_ATTEMPT, LAST_ERROR).forEach { suffix ->
-                remove(key(id, suffix))
-            }
+    fun clear(id: String): Boolean {
+        val editor = prefs.edit()
+        listOf(LAST_ATTEMPT, FAILURE_COUNT, NEXT_ATTEMPT, LAST_ERROR).forEach { suffix ->
+            editor.remove(key(id, suffix))
         }
+        return editor.commit()
     }
 
     private fun key(id: String, suffix: String): String = "$id:$suffix"

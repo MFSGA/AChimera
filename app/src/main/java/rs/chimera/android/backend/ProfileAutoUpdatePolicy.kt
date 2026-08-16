@@ -1,5 +1,6 @@
 package rs.chimera.android.backend
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
@@ -92,7 +93,17 @@ internal class ProfileAutoUpdateRunner(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
     suspend fun run(): ProfileAutoUpdateResult {
-        val allProfiles = operations.listProfiles()
+        val allProfiles = runCatching { operations.listProfiles() }
+            .getOrElse { error ->
+                error.throwIfCancellation()
+                return ProfileAutoUpdateResult(
+                    attempted = 0,
+                    updated = 0,
+                    deferred = 0,
+                    failures = listOf("list:${error::class.java.simpleName}"),
+                    restartedVpn = false,
+                )
+            }
         val profiles = ProfileAutoUpdatePolicy.eligibleProfiles(allProfiles, now())
         val failures = mutableListOf<String>()
         var updated = 0
@@ -102,13 +113,19 @@ internal class ProfileAutoUpdateRunner(
             val attemptedAt = now()
             try {
                 operations.updateRemoteProfile(profile.id)
-                operations.recordAutoUpdateState(
-                    profile.id,
-                    ProfileAutoUpdatePolicy.successState(attemptedAt),
-                )
                 updated += 1
                 activeProfileUpdated = activeProfileUpdated || profile.isActive
+                runCatching {
+                    operations.recordAutoUpdateState(
+                        profile.id,
+                        ProfileAutoUpdatePolicy.successState(attemptedAt),
+                    )
+                }.onFailure { error ->
+                    error.throwIfCancellation()
+                    failures += "state:${profile.id}:${error::class.java.simpleName}"
+                }
             } catch (error: Exception) {
+                error.throwIfCancellation()
                 runCatching {
                     operations.recordAutoUpdateState(
                         profile.id,
@@ -118,6 +135,9 @@ internal class ProfileAutoUpdateRunner(
                             error = error,
                         ),
                     )
+                }.onFailure { stateError ->
+                    stateError.throwIfCancellation()
+                    failures += "state:${profile.id}:${stateError::class.java.simpleName}"
                 }
                 failures += "${profile.id}:${error::class.java.simpleName}"
             }
@@ -128,6 +148,7 @@ internal class ProfileAutoUpdateRunner(
             runCatching { operations.restartVpn() }
                 .onSuccess { restartedVpn = true }
                 .onFailure { error ->
+                    error.throwIfCancellation()
                     failures += "restart:${error::class.java.simpleName}"
                 }
         }
@@ -141,4 +162,8 @@ internal class ProfileAutoUpdateRunner(
             restartedVpn = restartedVpn,
         )
     }
+}
+
+private fun Throwable.throwIfCancellation() {
+    if (this is CancellationException) throw this
 }

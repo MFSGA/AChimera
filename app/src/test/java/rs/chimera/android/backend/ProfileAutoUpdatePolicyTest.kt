@@ -1,5 +1,6 @@
 package rs.chimera.android.backend
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -38,6 +39,37 @@ class ProfileAutoUpdatePolicyTest {
                 profiles.filterNot { it.id == "eligible" || it.id == "deferred" },
             ),
         )
+    }
+
+    @Test
+    fun runnerPropagatesProfileListCancellation() = runBlocking {
+        val operations = FakeOperations(
+            profiles = emptyList(),
+            cancelListProfiles = true,
+        )
+
+        val error = runCatching {
+            ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+        }.exceptionOrNull()
+
+        assertTrue(error is CancellationException)
+    }
+
+    @Test
+    fun runnerReportsProfileListFailureAsRetryableResult() = runBlocking {
+        val operations = FakeOperations(
+            profiles = emptyList(),
+            failListProfiles = true,
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertEquals(0, result.attempted)
+        assertEquals(0, result.updated)
+        assertEquals(0, result.deferred)
+        assertEquals(listOf("list:IllegalStateException"), result.failures)
+        assertFalse(result.restartedVpn)
+        assertTrue(result.shouldRetry)
     }
 
     @Test
@@ -104,6 +136,89 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
+    fun activeProfileUpdateReportsRestartFailureAndRetries() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            initialState = ServiceState.RUNNING,
+            failRestart = true,
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertEquals(1, result.updated)
+        assertEquals(0, operations.states.getValue("active").failureCount)
+        assertEquals(1, operations.restartCount)
+        assertFalse(result.restartedVpn)
+        assertEquals(listOf("restart:IllegalStateException"), result.failures)
+        assertTrue(result.shouldRetry)
+    }
+
+    @Test
+    fun activeProfileUpdateDoesNotRestartVpnAfterServiceStops() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            initialState = ServiceState.RUNNING,
+            stopServiceAfterUpdate = true,
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertEquals(1, result.updated)
+        assertEquals(0, operations.restartCount)
+        assertFalse(result.restartedVpn)
+        assertFalse(result.shouldRetry)
+    }
+
+    @Test
+    fun runnerPropagatesUpdateCancellationWithoutWritingFailureState() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            cancelledUpdates = setOf("active"),
+            initialState = ServiceState.RUNNING,
+        )
+
+        val error = runCatching {
+            ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+        }.exceptionOrNull()
+
+        assertTrue(error is CancellationException)
+        assertTrue(operations.states.isEmpty())
+        assertEquals(0, operations.restartCount)
+    }
+
+    @Test
+    fun runnerPropagatesStateWriteCancellation() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            cancelledStateWrites = setOf("active"),
+            initialState = ServiceState.RUNNING,
+        )
+
+        val error = runCatching {
+            ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+        }.exceptionOrNull()
+
+        assertTrue(error is CancellationException)
+        assertEquals(0, operations.restartCount)
+    }
+
+    @Test
+    fun runnerPropagatesRestartCancellation() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            initialState = ServiceState.RUNNING,
+            cancelRestart = true,
+        )
+
+        val error = runCatching {
+            ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+        }.exceptionOrNull()
+
+        assertTrue(error is CancellationException)
+        assertEquals(1, operations.restartCount)
+    }
+
+    @Test
     fun failedActiveProfileDoesNotRestartVpn() = runBlocking {
         val operations = FakeOperations(
             profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
@@ -115,6 +230,49 @@ class ProfileAutoUpdatePolicyTest {
 
         assertEquals(0, operations.restartCount)
         assertFalse(result.restartedVpn)
+        assertTrue(result.shouldRetry)
+    }
+
+    @Test
+    fun successfulActiveUpdateStillRestartsVpnWhenStatePersistenceFails() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            failedStateWrites = setOf("active"),
+            initialState = ServiceState.RUNNING,
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertEquals(1, result.updated)
+        assertEquals(1, operations.restartCount)
+        assertTrue(result.restartedVpn)
+        assertEquals(listOf("state:active:IllegalStateException"), result.failures)
+        assertTrue(result.shouldRetry)
+    }
+
+    @Test
+    fun failedUpdateReportsStatePersistenceFailureAndContinuesLaterProfiles() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(
+                remoteProfile(id = "failed", autoUpdate = true),
+                remoteProfile(id = "last", autoUpdate = true),
+            ),
+            failedUpdates = setOf("failed"),
+            failedStateWrites = setOf("failed"),
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertEquals(listOf("failed", "last"), operations.updatedIds)
+        assertEquals(1, result.updated)
+        assertEquals(
+            listOf(
+                "state:failed:IllegalStateException",
+                "failed:IllegalStateException",
+            ),
+            result.failures,
+        )
+        assertEquals(0, operations.states.getValue("last").failureCount)
         assertTrue(result.shouldRetry)
     }
 
@@ -154,7 +312,15 @@ class ProfileAutoUpdatePolicyTest {
     private class FakeOperations(
         private val profiles: List<ProfileSummary>,
         private val failedUpdates: Set<String> = emptySet(),
+        private val failedStateWrites: Set<String> = emptySet(),
+        private val cancelledUpdates: Set<String> = emptySet(),
+        private val cancelledStateWrites: Set<String> = emptySet(),
         initialState: ServiceState = ServiceState.STOPPED,
+        private val failRestart: Boolean = false,
+        private val failListProfiles: Boolean = false,
+        private val cancelListProfiles: Boolean = false,
+        private val stopServiceAfterUpdate: Boolean = false,
+        private val cancelRestart: Boolean = false,
     ) : ProfileAutoUpdateOperations {
         override val serviceState = MutableStateFlow(initialState)
         val updatedIds = mutableListOf<String>()
@@ -162,22 +328,32 @@ class ProfileAutoUpdatePolicyTest {
         var restartCount = 0
             private set
 
-        override suspend fun listProfiles(): List<ProfileSummary> = profiles
+        override suspend fun listProfiles(): List<ProfileSummary> {
+            if (cancelListProfiles) throw CancellationException("list cancelled")
+            check(!failListProfiles) { "list failed" }
+            return profiles
+        }
 
         override suspend fun updateRemoteProfile(id: String) {
             updatedIds += id
+            if (id in cancelledUpdates) throw CancellationException("update cancelled: $id")
             check(id !in failedUpdates) { "update failed: $id" }
+            if (stopServiceAfterUpdate) serviceState.value = ServiceState.STOPPED
         }
 
         override suspend fun recordAutoUpdateState(
             id: String,
             state: ProfileAutoUpdateState,
         ) {
+            if (id in cancelledStateWrites) throw CancellationException("state write cancelled: $id")
+            check(id !in failedStateWrites) { "state write failed: $id" }
             states[id] = state
         }
 
         override suspend fun restartVpn() {
             restartCount += 1
+            if (cancelRestart) throw CancellationException("restart cancelled")
+            check(!failRestart) { "restart failed" }
         }
     }
 

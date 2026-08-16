@@ -7,6 +7,7 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.Context
 import android.util.Log
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,20 +35,19 @@ internal class ProfileAutoUpdateScheduler(
     }
 
     private fun schedule() {
-        val result = scheduler.schedule(
-            JobInfo.Builder(JOB_ID, componentName)
-                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
-                .setPersisted(true)
-                .setPeriodic(INTERVAL_MILLIS)
-                .setBackoffCriteria(
-                    ProfileAutoUpdatePolicy.BASE_RETRY_DELAY_MILLIS,
-                    JobInfo.BACKOFF_POLICY_EXPONENTIAL,
-                )
-                .build(),
-        )
-        check(result == JobScheduler.RESULT_SUCCESS) {
-            "Unable to schedule automatic profile updates"
+        val job = JobInfo.Builder(JOB_ID, componentName)
+            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+            .setPersisted(true)
+            .setPeriodic(INTERVAL_MILLIS)
+            .setBackoffCriteria(
+                ProfileAutoUpdatePolicy.BASE_RETRY_DELAY_MILLIS,
+                JobInfo.BACKOFF_POLICY_EXPONENTIAL,
+            )
+            .build()
+        val scheduled = ProfileAutoUpdateScheduleRetry.run {
+            scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS
         }
+        check(scheduled) { "Unable to schedule automatic profile updates" }
     }
 
     internal companion object {
@@ -64,7 +64,7 @@ class ProfileAutoUpdateJobService : JobService() {
         scope.launch {
             val backend = BackendProvider.provide()
             val stateStore = ProfileAutoUpdateStateStore(applicationContext)
-            val result = runCatching {
+            val result = runProfileAutoUpdateJob {
                 ProfileAutoUpdateRunner(
                     object : ProfileAutoUpdateOperations {
                         override val serviceState: StateFlow<ServiceState> = backend.serviceState
@@ -124,3 +124,14 @@ class ProfileAutoUpdateJobService : JobService() {
         const val TAG = "ProfileAutoUpdate"
     }
 }
+
+internal suspend fun runProfileAutoUpdateJob(
+    block: suspend () -> ProfileAutoUpdateResult,
+): Result<ProfileAutoUpdateResult> =
+    try {
+        Result.success(block())
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Throwable) {
+        Result.failure(error)
+    }
