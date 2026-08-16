@@ -274,14 +274,13 @@ private fun ConnectionCard(
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val metadata = connection.metadata
-    val destinationHost = connection.host.ifEmpty { metadata["destinationIp"].orEmpty() }
-    val destinationIp = metadata["destinationIp"]?.takeIf { it.isNotBlank() }
+    val destinationHost = connection.host.ifEmpty { connection.destinationIp }
+    val destinationIp = connection.destinationIp.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.not_available)
-    val sourceIp = metadata["sourceIp"]?.takeIf { it.isNotBlank() } ?: "?"
-    val sourcePort = metadata["sourcePort"]?.takeIf { it.isNotBlank() } ?: "?"
-    val destinationPort = metadata["destinationPort"]?.takeIf { it.isNotBlank() } ?: "?"
-    val network = metadata["network"]?.takeIf { it.isNotBlank() } ?: "?"
+    val sourceIp = connection.sourceIp.takeIf { it.isNotBlank() } ?: "?"
+    val sourcePort = connection.sourcePort.takeIf { it.isNotBlank() } ?: "?"
+    val destinationPort = connection.destinationPort.takeIf { it.isNotBlank() } ?: "?"
+    val network = connection.network.takeIf { it.isNotBlank() } ?: "?"
 
     Card(
         modifier = modifier.fillMaxWidth(),

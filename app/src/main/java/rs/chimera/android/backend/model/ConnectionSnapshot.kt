@@ -9,7 +9,11 @@ data class ConnectionSnapshot(
     val startTime: Long,
     val chains: List<String>,
     val rule: String?,
-    val metadata: Map<String, String>,
+    val network: String,
+    val sourceIp: String,
+    val destinationIp: String,
+    val sourcePort: String,
+    val destinationPort: String,
 )
 
 data class ConnectionsSnapshot(

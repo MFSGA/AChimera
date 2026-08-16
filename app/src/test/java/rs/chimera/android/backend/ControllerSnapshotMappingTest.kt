@@ -126,12 +126,11 @@ class ControllerSnapshotMappingTest {
         assertEquals(456L, connection.startTime)
         assertEquals(listOf("AUTO", "A"), connection.chains)
         assertEquals("MATCH", connection.rule)
-        assertEquals("tcp", connection.metadata["network"])
-        assertEquals("HTTP", connection.metadata["type"])
-        assertEquals("10.0.0.2", connection.metadata["sourceIp"])
-        assertEquals("", connection.metadata["destinationIp"])
-        assertEquals("1234", connection.metadata["sourcePort"])
-        assertEquals("443", connection.metadata["destinationPort"])
+        assertEquals("tcp", connection.network)
+        assertEquals("10.0.0.2", connection.sourceIp)
+        assertEquals("", connection.destinationIp)
+        assertEquals("1234", connection.sourcePort)
+        assertEquals("443", connection.destinationPort)
     }
 
     @Test
@@ -164,6 +163,6 @@ class ControllerSnapshotMappingTest {
         val mapped = response.toConnectionsSnapshot().connections.single()
 
         assertEquals(0L, mapped.startTime)
-        assertEquals("", mapped.metadata["sourcePort"])
+        assertEquals("", mapped.sourcePort)
     }
 }
