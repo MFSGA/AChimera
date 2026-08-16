@@ -61,6 +61,15 @@
             android:name="rs.chimera.android.ui.metacubex.activity.MetaAccessControlActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <receiver
+            android:name="rs.chimera.android.service.VpnRecoveryReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
         <service
             android:name="rs.chimera.android.backend.ProfileAutoUpdateJobService"
             android:exported="false"

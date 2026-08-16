@@ -1,9 +1,19 @@
 package rs.chimera.android.service
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class VpnRecoveryPolicyTest {
+    @Test
+    fun recoveryReceiverAcceptsOnlySystemRecoveryActions() {
+        assertTrue(VpnRecoveryBroadcastPolicy.isSupported("android.intent.action.BOOT_COMPLETED"))
+        assertTrue(VpnRecoveryBroadcastPolicy.isSupported("android.intent.action.MY_PACKAGE_REPLACED"))
+        assertFalse(VpnRecoveryBroadcastPolicy.isSupported("android.intent.action.MAIN"))
+        assertFalse(VpnRecoveryBroadcastPolicy.isSupported(null))
+    }
+
     @Test
     fun stoppedDesiredStateIsNeverRecovered() {
         assertEquals(
