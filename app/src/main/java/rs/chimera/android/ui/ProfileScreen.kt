@@ -14,11 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -40,6 +38,7 @@ import rs.chimera.android.R
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
 import rs.chimera.android.ui.components.ProfileCard
+import rs.chimera.android.ui.components.RemoteProfileDialog
 import rs.chimera.android.viewmodel.ProfileViewModel
 
 @Composable
@@ -151,130 +150,36 @@ fun ProfileScreen(
     }
 
     if (showRemoteDialog) {
-        AlertDialog(
-            onDismissRequest = {
-                if (!vm.isDownloading) {
-                    showRemoteDialog = false
-                    remoteProfileName = ""
-                    remoteProfileUrl = defaultRemoteUrl
-                    remoteAutoUpdate = false
-                    remoteUserAgent = ""
-                    remoteProxyUrl = ""
-                }
+        RemoteProfileDialog(
+            profileName = remoteProfileName,
+            profileUrl = remoteProfileUrl,
+            autoUpdate = remoteAutoUpdate,
+            userAgent = remoteUserAgent,
+            proxyUrl = remoteProxyUrl,
+            isDownloading = vm.isDownloading,
+            downloadProgress = vm.downloadProgress,
+            onProfileNameChange = { remoteProfileName = it },
+            onProfileUrlChange = { remoteProfileUrl = it },
+            onAutoUpdateChange = { remoteAutoUpdate = it },
+            onUserAgentChange = { remoteUserAgent = it },
+            onProxyUrlChange = { remoteProxyUrl = it },
+            onConfirm = {
+                vm.addRemoteProfile(
+                    context = context,
+                    profileName = remoteProfileName.ifBlank { null },
+                    url = remoteProfileUrl.trim(),
+                    autoUpdate = remoteAutoUpdate,
+                    userAgent = remoteUserAgent.ifBlank { null },
+                    proxyUrl = remoteProxyUrl.ifBlank { null },
+                )
             },
-            title = { Text(text = stringResource(id = R.string.profile_remote_dialog_title)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    if (vm.isDownloading) {
-                        Text(
-                            text = stringResource(id = R.string.profile_downloading),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                        vm.downloadProgress?.let { progress ->
-                            if (progress.total > 0uL) {
-                                val ratio = progress.downloaded.toFloat() / progress.total.toFloat()
-                                LinearProgressIndicator(
-                                    progress = { ratio.coerceIn(0f, 1f) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                )
-                                Text(
-                                    text = stringResource(
-                                        id = R.string.profile_download_progress,
-                                        progress.downloaded.toString(),
-                                        progress.total.toString(),
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                            } else {
-                                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                            }
-                        } ?: LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-
-                    OutlinedTextField(
-                        value = remoteProfileName,
-                        onValueChange = { remoteProfileName = it },
-                        label = { Text(text = stringResource(id = R.string.profile_name_label)) },
-                        placeholder = { Text(text = stringResource(id = R.string.profile_remote_name_hint)) },
-                        singleLine = true,
-                        enabled = !vm.isDownloading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = remoteProfileUrl,
-                        onValueChange = { remoteProfileUrl = it },
-                        label = { Text(text = stringResource(id = R.string.profile_import_url)) },
-                        placeholder = { Text(text = stringResource(id = R.string.profile_url_hint)) },
-                        singleLine = true,
-                        enabled = !vm.isDownloading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = remoteUserAgent,
-                        onValueChange = { remoteUserAgent = it },
-                        label = { Text(text = stringResource(id = R.string.profile_user_agent_label)) },
-                        placeholder = { Text(text = stringResource(id = R.string.profile_user_agent_hint)) },
-                        singleLine = true,
-                        enabled = !vm.isDownloading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    OutlinedTextField(
-                        value = remoteProxyUrl,
-                        onValueChange = { remoteProxyUrl = it },
-                        label = { Text(text = stringResource(id = R.string.profile_proxy_label)) },
-                        placeholder = { Text(text = stringResource(id = R.string.profile_proxy_hint)) },
-                        singleLine = true,
-                        enabled = !vm.isDownloading,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Checkbox(
-                            checked = remoteAutoUpdate,
-                            onCheckedChange = { remoteAutoUpdate = it },
-                            enabled = !vm.isDownloading,
-                        )
-                        Text(
-                            text = stringResource(id = R.string.profile_auto_update),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    enabled = remoteProfileUrl.isNotBlank() && !vm.isDownloading,
-                    onClick = {
-                        vm.addRemoteProfile(
-                            context = context,
-                            profileName = remoteProfileName.ifBlank { null },
-                            url = remoteProfileUrl.trim(),
-                            autoUpdate = remoteAutoUpdate,
-                            userAgent = remoteUserAgent.ifBlank { null },
-                            proxyUrl = remoteProxyUrl.ifBlank { null },
-                        )
-                    },
-                ) {
-                    Text(text = stringResource(id = R.string.profile_download_file))
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    enabled = !vm.isDownloading,
-                    onClick = {
-                        showRemoteDialog = false
-                        remoteProfileName = ""
-                        remoteProfileUrl = defaultRemoteUrl
-                        remoteAutoUpdate = false
-                        remoteUserAgent = ""
-                        remoteProxyUrl = ""
-                    },
-                ) {
-                    Text(text = stringResource(id = android.R.string.cancel))
-                }
+            onDismiss = {
+                showRemoteDialog = false
+                remoteProfileName = ""
+                remoteProfileUrl = defaultRemoteUrl
+                remoteAutoUpdate = false
+                remoteUserAgent = ""
+                remoteProxyUrl = ""
             },
         )
     }
