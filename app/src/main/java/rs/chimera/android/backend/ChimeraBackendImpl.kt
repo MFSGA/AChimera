@@ -264,6 +264,21 @@ class ChimeraBackendImpl(
         }
     }
 
+    override suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings) {
+        profileUpdateCoordinator.withLock(id) {
+            val normalized = ProfileRemotePolicy.normalizeSettings(settings)
+            val current = profileCatalogStore.readRemoteProfile(id)
+            profileCatalogStore.updateRemoteProfileSettings(id, normalized)
+            if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized) &&
+                !profileAutoUpdateStateStore.clear(id)
+            ) {
+                Log.w(TAG, "Failed to clear auto-update state for edited profile $id")
+            }
+            refreshActiveProfile()
+            synchronizeProfileAutoUpdateSchedule()
+        }
+    }
+
     private suspend fun updateRemoteProfileLocked(
         id: String,
         onProgress: (ProfileDownloadProgress) -> Unit,

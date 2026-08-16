@@ -113,4 +113,49 @@ class ProfileRemotePolicyTest {
             )
         }
     }
+
+    @Test
+    fun retryStateIsInvalidatedByRemoteUpdateInputsButNotNameOnlyChanges() {
+        val current = RemoteProfileCatalogEntry(
+            type = "REMOTE",
+            url = "https://example.com/config.yaml",
+            autoUpdate = true,
+            userAgent = "Chimera",
+            proxyUrl = "http://127.0.0.1:7890",
+            filePath = "/tmp/profile.yaml",
+        )
+        val unchangedInputs = RemoteProfileSettings(
+            name = "Renamed",
+            url = current.url!!,
+            autoUpdate = current.autoUpdate,
+            userAgent = current.userAgent,
+            proxyUrl = current.proxyUrl,
+        )
+
+        assertFalse(ProfileRemotePolicy.invalidatesAutoUpdateState(current, unchangedInputs))
+        assertTrue(
+            ProfileRemotePolicy.invalidatesAutoUpdateState(
+                current,
+                unchangedInputs.copy(autoUpdate = false),
+            ),
+        )
+        assertTrue(
+            ProfileRemotePolicy.invalidatesAutoUpdateState(
+                current,
+                unchangedInputs.copy(url = "https://example.com/new.yaml"),
+            ),
+        )
+        assertTrue(
+            ProfileRemotePolicy.invalidatesAutoUpdateState(
+                current,
+                unchangedInputs.copy(userAgent = null),
+            ),
+        )
+        assertTrue(
+            ProfileRemotePolicy.invalidatesAutoUpdateState(
+                current,
+                unchangedInputs.copy(proxyUrl = null),
+            ),
+        )
+    }
 }

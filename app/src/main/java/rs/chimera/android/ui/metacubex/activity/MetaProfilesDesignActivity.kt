@@ -4,8 +4,6 @@ import android.app.AlertDialog
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.text.InputType
-import android.view.View
 import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -20,7 +18,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
-import rs.chimera.android.backend.ProfileRemotePolicy
+import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
+import rs.chimera.android.backend.applyUpdatedProfileToRunningVpn
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
@@ -188,6 +187,39 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         }
     }
 
+    private fun showRemoteSettingsDialog(profile: ProfileSummary) {
+        showMetaRemoteProfileDialog(
+            context = this,
+            titleRes = R.string.profile_edit_settings,
+            positiveButtonRes = R.string.save,
+            initialName = profile.name,
+            initialUrl = profile.url.orEmpty(),
+            initialAutoUpdate = profile.autoUpdate,
+            initialUserAgent = profile.userAgent.orEmpty(),
+            initialProxyUrl = profile.proxyUrl.orEmpty(),
+            requireName = true,
+        ) { form ->
+            lifecycleScope.launch {
+                performOperation(
+                    progressMessage = getString(R.string.profile_edit_settings),
+                    successMessage = getString(R.string.profile_settings_saved),
+                    errorMessageRes = R.string.profile_settings_error,
+                ) {
+                    backend.updateRemoteProfileSettings(
+                        profile.id,
+                        RemoteProfileSettings(
+                            name = requireNotNull(form.name),
+                            url = form.url,
+                            autoUpdate = form.autoUpdate,
+                            userAgent = form.userAgent,
+                            proxyUrl = form.proxyUrl,
+                        ),
+                    )
+                }
+            }
+        }
+    }
+
     private fun showRenameDialog(profileId: String, currentName: String) {
         val input = EditText(this).apply {
             setText(currentName)
@@ -251,41 +283,30 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private fun showUrlImportDialog() {
-        val input = EditText(this).apply {
-            setText(getString(R.string.profile_url_scheme_prefix))
-            inputType = InputType.TYPE_CLASS_TEXT or
-                InputType.TYPE_TEXT_VARIATION_URI or
-                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-            }
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(R.string.profile_import_url)
-            .setView(input)
-            .setPositiveButton(android.R.string.ok, null)
-            .setNegativeButton(android.R.string.cancel, null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val url = input.text.toString().trim()
-                if (!ProfileRemotePolicy.isValidUrl(url)) {
-                    input.error = getString(R.string.profile_url_invalid)
-                    return@setOnClickListener
-                }
-                dialog.dismiss()
-                lifecycleScope.launch {
-                    performOperation(
-                        progressMessage = getString(R.string.profile_importing),
-                        successMessage = getString(R.string.profile_import_success, url),
-                        errorMessageRes = R.string.profile_import_error,
-                    ) {
-                        backend.importRemoteProfile(RemoteProfileRequest(null, url))
-                    }
+        showMetaRemoteProfileDialog(
+            context = this,
+            titleRes = R.string.profile_import_url,
+            initialUrl = getString(R.string.profile_url_scheme_prefix),
+            requireName = false,
+        ) { form ->
+            lifecycleScope.launch {
+                performOperation(
+                    progressMessage = getString(R.string.profile_importing),
+                    successMessage = getString(R.string.profile_import_success, form.name ?: form.url),
+                    errorMessageRes = R.string.profile_import_error,
+                ) {
+                    backend.importRemoteProfile(
+                        RemoteProfileRequest(
+                            name = form.name,
+                            url = form.url,
+                            autoUpdate = form.autoUpdate,
+                            userAgent = form.userAgent,
+                            proxyUrl = form.proxyUrl,
+                        ),
+                    )
                 }
             }
         }
-        dialog.show()
     }
 
     private suspend fun importLocalProfile(uri: Uri) {

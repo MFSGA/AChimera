@@ -1,7 +1,14 @@
 mod controller;
+mod controller_models;
+mod controller_provider_dns;
+mod controller_transport;
+mod core_lifecycle;
+mod core_state;
+mod jni_bridge;
 pub mod log;
 #[cfg(test)]
 mod protocol_compat_tests;
+mod runtime_config;
 pub mod util;
 #[cfg(test)]
 mod util_tests;
@@ -9,89 +16,33 @@ mod util_tests;
 #[global_allocator]
 static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 
+#[cfg(test)]
+use clash_lib::config::def::{Config as ConfigDef, Port};
 use clash_lib::{
-    Config as ClashConfig, SocketProtector,
-    app::outbound::manager::OutboundManager,
-    config::{
-        def::{Config as ConfigDef, DNSMode, Port},
-        internal::proxy::{OutboundProxyProtocol, XhttpDownloadSettings, XhttpOpt},
-    },
-    set_socket_protector, shutdown as clash_shutdown, start,
+    Config as ClashConfig, SocketProtector, config::def::DNSMode, set_socket_protector,
+    shutdown as clash_shutdown, start,
 };
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
-use jni::objects::{Global, JObject, JString, JValue};
+use jni::objects::{JString, JValue};
 use jni::signature::{JavaType, MethodSignature, Primitive};
-use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jstring};
-use jni::{EnvUnowned, JavaVM, Outcome, jni_str};
+use jni::{EnvUnowned, Outcome, jni_str};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, Once, OnceLock};
+use std::sync::{Arc, Once, OnceLock};
 use std::time::Duration;
-#[cfg(unix)]
-use tokio::net::UnixStream;
-use tokio::runtime::Runtime;
 use tokio::sync::broadcast;
-use tokio::task::JoinHandle;
-use tokio::time::{Instant, sleep};
 use tracing::{error, info};
 use tracing_subscriber::filter::LevelFilter;
 
-static INSTANCE: OnceLock<ClashInstance> = OnceLock::new();
 static SOCKET_PROTECTOR_INSTALLED: OnceLock<()> = OnceLock::new();
 static INIT: Once = Once::new();
 
-const CORE_START_TIMEOUT: Duration = Duration::from_secs(10);
-const CORE_STOP_TIMEOUT: Duration = Duration::from_secs(5);
-const CORE_READY_POLL_INTERVAL: Duration = Duration::from_millis(50);
-
-struct ClashInstance {
-    jvm: JavaVM,
-    chimera_ffi: Global<JObject<'static>>,
-    rt: OnceLock<Runtime>,
-    core_state: Mutex<Option<CoreState>>,
-    last_error: Mutex<Option<String>>,
-    core_running: AtomicBool,
-}
-
-impl ClashInstance {
-    fn runtime(&self) -> &Runtime {
-        self.rt.get_or_init(|| {
-            let jvm = self.jvm.clone();
-            let mut builder = tokio::runtime::Builder::new_multi_thread();
-            builder.enable_all();
-            builder.on_thread_start(move || {
-                let _ = jvm.attach_current_thread(|_| Ok::<(), jni::errors::Error>(()));
-            });
-            builder
-                .build()
-                .expect("failed to create chimera tokio runtime")
-        })
-    }
-}
-
-fn instance() -> &'static ClashInstance {
-    INSTANCE.get().expect("ClashInstance not initialized")
-}
-
-use log::init_logger;
-
-struct CoreState {
-    worker: JoinHandle<Result<(), String>>,
-    notify_exit: Arc<AtomicBool>,
-    metadata: CoreMetadata,
-}
-
-#[derive(Clone)]
-struct CoreMetadata {
-    profile_name: String,
-    tun_fd: i32,
-    work_dir: PathBuf,
-    log_path: PathBuf,
-    socket_path: PathBuf,
-}
+use core_state::{
+    CoreMetadata, CoreState, INSTANCE, clear_last_error, instance, runtime, set_last_error,
+};
 
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum ChimeraError {
@@ -183,243 +134,19 @@ fn install_socket_protector() {
     let _ = SOCKET_PROTECTOR_INSTALLED.set(());
 }
 
-fn runtime() -> &'static Runtime {
-    instance().runtime()
-}
-
-fn set_last_error(message: impl Into<String>) {
-    let message = message.into();
-    error!("{message}");
-    if let Ok(mut guard) = instance().last_error.lock() {
-        *guard = Some(message);
-    }
-}
-
-fn clear_last_error() {
-    if let Ok(mut guard) = instance().last_error.lock() {
-        *guard = None;
-    }
-}
-
 fn runtime_error(message: impl Into<String>) -> ChimeraError {
     ChimeraError::Runtime {
         details: message.into(),
     }
 }
 
-fn validate_port(name: &str, port: u16) -> Result<(), String> {
-    if port == 0 {
-        return Err(format!("{name} port must be between 1 and 65535"));
-    }
-    Ok(())
-}
-
-fn apply_listener_defaults(config: &mut ConfigDef, over: &ProfileOverride) -> Result<u16, String> {
-    config.allow_lan = Some(over.allow_lan);
-
-    let mixed_port = if let Some(Port(port)) = config.mixed_port {
-        port
-    } else {
-        validate_port("mixed", over.mixed_port)?;
-        config.mixed_port = Some(Port(over.mixed_port));
-        over.mixed_port
-    };
-
-    if config.port.is_none()
-        && let Some(port) = over.http_port
-    {
-        validate_port("http", port)?;
-        config.port = Some(Port(port));
-    }
-    if config.socks_port.is_none()
-        && let Some(port) = over.socks_port
-    {
-        validate_port("socks", port)?;
-        config.socks_port = Some(Port(port));
-    }
-
-    Ok(mixed_port)
-}
-
-fn validate_xhttp_endpoint(settings: &XhttpDownloadSettings, label: &str) -> Result<(), String> {
-    if settings.address.is_empty() {
-        return Err(format!("xhttp {label} address must not be empty"));
-    }
-    if settings.port == 0 {
-        return Err(format!("xhttp {label} port must be greater than zero"));
-    }
-    if settings.network != "xhttp" {
-        return Err(format!(
-            "xhttp {label} network must be xhttp, got {}",
-            settings.network
-        ));
-    }
-    if let Some(security) = settings.security.as_deref()
-        && !matches!(security, "none" | "tls" | "reality")
-    {
-        return Err(format!("unsupported xhttp {label} security: {security}"));
-    }
-    if matches!(
-        settings
-            .xhttp_settings
-            .as_ref()
-            .and_then(|settings| settings.path.as_deref()),
-        Some("")
-    ) {
-        return Err(format!("xhttp {label} path must not be empty"));
-    }
-    Ok(())
-}
-
-fn validate_xhttp_options(options: &XhttpOpt) -> Result<(), String> {
-    if matches!(options.path.as_deref(), Some("")) {
-        return Err("xhttp path must not be empty".to_string());
-    }
-    if let Some(mode) = options.mode.as_deref()
-        && !matches!(
-            mode,
-            "stream-one" | "stream-up" | "packet-up" | "split" | "auto"
-        )
-    {
-        return Err(format!("unsupported xhttp mode: {mode}"));
-    }
-    for (name, value) in [
-        ("max_each_post_bytes", options.max_each_post_bytes),
-        ("max_buffered_posts", options.max_buffered_posts),
-    ] {
-        if matches!(value, Some(0)) {
-            return Err(format!("xhttp {name} must be greater than zero"));
-        }
-    }
-    if matches!(options.session_ttl, Some(0)) {
-        return Err("xhttp session_ttl must be greater than zero".to_string());
-    }
-    if matches!(
-        options
-            .extra
-            .as_ref()
-            .and_then(|extra| extra.sc_max_each_post_bytes),
-        Some(0)
-    ) {
-        return Err("xhttp extra sc_max_each_post_bytes must be greater than zero".to_string());
-    }
-    if matches!(
-        options
-            .extra
-            .as_ref()
-            .and_then(|extra| extra.sc_min_posts_interval_ms),
-        Some(0)
-    ) {
-        return Err("xhttp extra sc_min_posts_interval_ms must be greater than zero".to_string());
-    }
-    if let Some(settings) = options.upload_settings.as_ref() {
-        validate_xhttp_endpoint(settings, "upload_settings")?;
-    }
-    if let Some(settings) = options
-        .extra
-        .as_ref()
-        .and_then(|extra| extra.download_settings.as_ref())
-        .or(options.download_settings.as_ref())
-    {
-        validate_xhttp_endpoint(settings, "download_settings")?;
-    }
-    Ok(())
-}
-
-fn validate_proxy_options(proxy: &OutboundProxyProtocol) -> Result<(), String> {
-    match proxy {
-        OutboundProxyProtocol::Vless(proxy) => match proxy.network.as_deref().unwrap_or("tcp") {
-            "tcp" => Ok(()),
-            "ws" if proxy.ws_opts.is_none() => Err("ws_opts is required for vless ws".to_string()),
-            "ws" => Ok(()),
-            "xhttp" => proxy
-                .xhttp_opts
-                .as_ref()
-                .ok_or_else(|| "xhttp_opts is required for vless xhttp".to_string())
-                .and_then(validate_xhttp_options),
-            other => Err(format!("unsupported vless network: {other}")),
-        },
-        OutboundProxyProtocol::Trojan(proxy) => match proxy.network.as_deref() {
-            None => Ok(()),
-            Some("ws") if proxy.ws_opts.is_none() => {
-                Err("ws_opts is required for trojan ws".to_string())
-            }
-            Some("ws") => Ok(()),
-            Some(other) => Err(format!("unsupported trojan network: {other}")),
-        },
-        OutboundProxyProtocol::Hysteria2(proxy)
-            if proxy.obfs.is_some() && proxy.obfs_password.is_none() =>
-        {
-            Err("hysteria2 `obfs-password` is required when `obfs` is set".to_string())
-        }
-        _ => Ok(()),
-    }
-}
-
-fn proxy_identity(proxy: &OutboundProxyProtocol) -> (&str, &'static str) {
-    match proxy {
-        OutboundProxyProtocol::Direct(proxy) => (&proxy.name, "direct"),
-        OutboundProxyProtocol::Reject(proxy) => (&proxy.name, "reject"),
-        OutboundProxyProtocol::Socks5(proxy) => (&proxy.common_opts.name, "socks5"),
-        OutboundProxyProtocol::Vless(proxy) => (&proxy.common_opts.name, "vless"),
-        OutboundProxyProtocol::Trojan(proxy) => (&proxy.common_opts.name, "trojan"),
-        OutboundProxyProtocol::Hysteria2(proxy) => (&proxy.name, "hysteria2"),
-        #[allow(unreachable_patterns)]
-        _ => ("<unknown>", "unknown"),
-    }
-}
-
-fn validate_runtime_proxy_handlers(proxies: Vec<OutboundProxyProtocol>) -> Result<(), String> {
-    clash_lib::setup_default_crypto_provider();
-    for proxy in proxies {
-        let (name, protocol) = proxy_identity(&proxy);
-        let name = name.to_owned();
-        validate_proxy_options(&proxy)
-            .map_err(|error| format!("proxy `{name}` ({protocol}): {error}"))?;
-        if OutboundManager::load_plain_outbounds(vec![proxy]).is_empty() {
-            return Err(format!(
-                "proxy `{name}` ({protocol}) parsed successfully, but its runtime handler could not be constructed; verify protocol options and enabled clash-lib features"
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn validate_profile_runtime_handlers(profile_path: &Path) -> Result<(), String> {
-    let mut config = ConfigDef::try_from(profile_path.to_path_buf()).map_err(|error| {
-        format!(
-            "failed to parse profile {} for runtime validation: {error}",
-            profile_path.display()
-        )
-    })?;
-    validate_runtime_proxy_handlers(config.proxy.take().unwrap_or_default()).map_err(|error| {
-        format!(
-            "failed to validate runtime proxies {}: {error}",
-            profile_path.display()
-        )
-    })
-}
-
-fn load_runtime_config(
-    profile_path: &Path,
-    over: &ProfileOverride,
-) -> Result<(clash_lib::config::RuntimeConfig, u16), String> {
-    let mut config_def = ConfigDef::try_from(profile_path.to_path_buf()).map_err(|error| {
-        format!(
-            "failed to parse profile {}: {error}",
-            profile_path.display()
-        )
-    })?;
-    let mixed_port = apply_listener_defaults(&mut config_def, over)?;
-    validate_profile_runtime_handlers(profile_path)?;
-    let config = config_def.try_into().map_err(|error| {
-        format!(
-            "failed to build runtime config {}: {error}",
-            profile_path.display()
-        )
-    })?;
-    Ok((config, mixed_port))
-}
+use core_lifecycle::{
+    CORE_START_TIMEOUT, CORE_STOP_TIMEOUT, should_notify_core_stopped, wait_for_core_ready,
+    wait_for_worker_shutdown,
+};
+#[cfg(test)]
+use runtime_config::{apply_listener_defaults, validate_runtime_proxy_handlers};
+use runtime_config::{load_runtime_config, validate_profile_runtime_handlers};
 
 fn log_line(log_path: &Path, message: &str) {
     info!("{message}");
@@ -440,10 +167,6 @@ fn extract_jstring(
         Outcome::Err(error) => Err(format!("failed to read JNI string {field_name}: {error}")),
         Outcome::Panic(_) => Err(format!("failed to read JNI string {field_name}: JNI panic")),
     }
-}
-
-fn should_notify_core_stopped(notify_exit: &AtomicBool) -> bool {
-    notify_exit.load(Ordering::SeqCst)
 }
 
 fn notify_core_stopped(message: &str) {
@@ -468,85 +191,6 @@ fn notify_core_stopped(message: &str) {
 
     if let Err(error) = result {
         error!("failed to notify Android about core exit: {error}");
-    }
-}
-
-#[cfg(unix)]
-async fn controller_is_ready(socket_path: &Path) -> std::io::Result<()> {
-    UnixStream::connect(socket_path).await.map(|_| ())
-}
-
-#[cfg(not(unix))]
-async fn controller_is_ready(socket_path: &Path) -> std::io::Result<()> {
-    if socket_path.exists() {
-        Ok(())
-    } else {
-        Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "controller socket is not available",
-        ))
-    }
-}
-
-fn describe_worker_exit(result: Result<Result<(), String>, tokio::task::JoinError>) -> String {
-    match result {
-        Ok(Ok(())) => "clash core exited before becoming ready".to_string(),
-        Ok(Err(error)) => error,
-        Err(error) if error.is_cancelled() => {
-            "clash core startup task was cancelled before becoming ready".to_string()
-        }
-        Err(error) => format!("clash core startup task failed: {error}"),
-    }
-}
-
-async fn wait_for_core_ready(
-    socket_path: &Path,
-    worker: &mut JoinHandle<Result<(), String>>,
-    ready: &AtomicBool,
-    timeout: Duration,
-) -> Result<(), String> {
-    let deadline = Instant::now() + timeout;
-
-    loop {
-        let connect_error = match controller_is_ready(socket_path).await {
-            Ok(()) => {
-                ready.store(true, Ordering::SeqCst);
-                return Ok(());
-            }
-            Err(error) => error,
-        };
-
-        let now = Instant::now();
-        if now >= deadline {
-            return Err(format!(
-                "timed out waiting for clash controller {}: {connect_error}",
-                socket_path.display(),
-            ));
-        }
-
-        let delay = CORE_READY_POLL_INTERVAL.min(deadline.saturating_duration_since(now));
-        tokio::select! {
-            result = &mut *worker => return Err(describe_worker_exit(result)),
-            _ = sleep(delay) => {}
-        }
-    }
-}
-
-async fn wait_for_worker_shutdown(
-    mut worker: JoinHandle<Result<(), String>>,
-    timeout: Duration,
-) -> Result<(), String> {
-    match tokio::time::timeout(timeout, &mut worker).await {
-        Ok(Ok(Ok(()))) | Ok(Ok(Err(_))) => Ok(()),
-        Ok(Err(error)) => Err(format!("clash core worker join failed: {error}")),
-        Err(_) => {
-            worker.abort();
-            let _ = worker.await;
-            Err(format!(
-                "timed out waiting for clash core shutdown after {} ms",
-                timeout.as_millis(),
-            ))
-        }
     }
 }
 
@@ -1017,6 +661,7 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStop(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::time::sleep;
 
     fn profile_override() -> ProfileOverride {
         ProfileOverride {

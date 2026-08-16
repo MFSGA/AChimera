@@ -16,6 +16,7 @@ internal data class ProfileCatalogDocument(
 internal data class RemoteProfileCatalogEntry(
     val type: String,
     val url: String?,
+    val autoUpdate: Boolean,
     val userAgent: String?,
     val proxyUrl: String?,
     val filePath: String,
@@ -59,6 +60,7 @@ internal class ProfileCatalogStore(
         RemoteProfileCatalogEntry(
             type = profile.optString("type", "LOCAL"),
             url = profile.optString("url").takeIf { it.isNotBlank() },
+            autoUpdate = profile.optBoolean("autoUpdate", false),
             userAgent = profile.optString("userAgent").takeIf { it.isNotBlank() },
             proxyUrl = profile.optString("proxyUrl").takeIf { it.isNotBlank() },
             filePath = profile.getString("filePath"),

@@ -22,6 +22,15 @@ internal object ProfileRemotePolicy {
             "Profile proxy URL must use http or https",
         )
 
+    fun invalidatesAutoUpdateState(
+        current: RemoteProfileCatalogEntry,
+        updated: RemoteProfileSettings,
+    ): Boolean =
+        current.url != updated.url ||
+            current.autoUpdate != updated.autoUpdate ||
+            current.userAgent != updated.userAgent ||
+            current.proxyUrl != updated.proxyUrl
+
     fun requireValidUrl(value: String): URI =
         parseHttpUrl(value) ?: throw IllegalArgumentException(
             "Remote profile URL must use http or https",
