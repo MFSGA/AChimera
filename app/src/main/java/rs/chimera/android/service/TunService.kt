@@ -586,10 +586,8 @@ class TunService : VpnService(), VpnRuntimeControl {
                     append(error.message ?: error.javaClass.simpleName)
                 }
             }
-
         runCatching {
-            file.parentFile?.mkdirs()
-            file.appendText("$line\n")
+            RuntimeLogStore.shared.append(file, line)
         }
     }
 }

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import rs.chimera.android.backend.AppForegroundState
+import rs.chimera.android.service.RuntimeLogStore
 import rs.chimera.android.ui.preferences.AppPreferences
 import uniffi.chimera_ffi.ChimeraException
 import java.io.File
@@ -72,17 +73,11 @@ object Global : CoroutineScope by CoroutineScope(Dispatchers.IO) {
     private const val RUNTIME_LOG_FILE_NAME = "chimera-rs.log"
 }
 
-internal fun readRuntimeLogTail(file: File, maxLines: Int): String {
-    require(maxLines >= 0) { "maxLines must not be negative" }
-    if (!file.exists()) return ""
-    check(file.isFile) { "Runtime log path is not a file: ${file.absolutePath}" }
-    return file.useLines { lines -> lines.toList().takeLast(maxLines).joinToString("\n") }
-}
+internal fun readRuntimeLogTail(file: File, maxLines: Int): String =
+    RuntimeLogStore.shared.readTail(file, maxLines)
 
 internal fun clearRuntimeLog(file: File) {
-    if (!file.exists()) return
-    check(file.isFile) { "Runtime log path is not a file: ${file.absolutePath}" }
-    file.writeText("")
+    RuntimeLogStore.shared.clear(file)
 }
 
 private fun setupUncaughtExceptionHandler() {
