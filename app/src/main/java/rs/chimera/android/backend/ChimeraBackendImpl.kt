@@ -2,7 +2,6 @@ package rs.chimera.android.backend
 
 import android.content.Context
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.util.Log
 import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
@@ -35,10 +34,6 @@ import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.UUID
 
 class ChimeraBackendImpl : ChimeraBackend {
     private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -55,6 +50,12 @@ class ChimeraBackendImpl : ChimeraBackend {
         filesDir = Global.application.filesDir,
         catalogCoordinator = profileCatalogCoordinator,
         catalogStore = profileCatalogStore,
+    )
+    private val profileImportOperations = ProfileImportOperations(
+        context = Global.application,
+        profileCatalogStore = profileCatalogStore,
+        profileStagingStore = profileStagingStore,
+        proxyPort = { Global.proxyPort },
     )
 
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
@@ -163,55 +164,8 @@ class ChimeraBackendImpl : ChimeraBackend {
     }
 
     override suspend fun importLocalProfile(uri: Uri, name: String?) {
-        val context = Global.application
-        val fileName = queryDisplayName(context, uri)
-        val safeName = name?.trim()?.takeIf { it.isNotEmpty() }
-            ?: fileName.substringBeforeLast('.')
-        val id = UUID.randomUUID().toString()
-        val destinationFile = File(
-            context.filesDir,
-            ProfileRemotePolicy.storageFileName(id, fileName),
-        )
-        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
-
-        withContext(Dispatchers.IO) {
-            ProfileFilePolicy.writeOrRollback(stagedFile) { target ->
-                val input = context.contentResolver.openInputStream(uri)
-                    ?: throw IllegalStateException("Unable to open selected profile")
-                input.use {
-                    target.outputStream().use { output ->
-                        ProfileImportPolicy.copyWithLimit(it, output)
-                    }
-                }
-            }
-        }
-
-        val profileJson = org.json.JSONObject()
-        profileJson.put("id", id)
-        profileJson.put("name", safeName)
-        profileJson.put("filePath", destinationFile.absolutePath)
-        profileJson.put("createdAt", System.currentTimeMillis())
-        profileJson.put("isActive", false)
-        profileJson.put("fileSize", stagedFile.length())
-        profileJson.put("type", rs.chimera.android.model.ProfileType.LOCAL.name)
-
-        val becameActive = ProfileImportTransactionPolicy.run(
-            stagedFile = stagedFile,
-            destinationFile = destinationFile,
-            beginImportTransaction = profileStagingStore::markImportPending,
-            persistMetadata = { file ->
-                profileJson.put("filePath", file.absolutePath)
-                profileJson.put("fileSize", file.length())
-                profileCatalogStore.append(profileJson, pendingImport = file)
-            },
-            clearImportTransaction = profileStagingStore::clearImportPending,
-        )
-        if (becameActive) {
-            try {
-                Global.restoreProfilePath()
-            } finally {
-                refreshActiveProfile()
-            }
+        if (profileImportOperations.importLocalProfile(uri, name)) {
+            restoreImportedActiveProfile()
         }
     }
 
@@ -219,52 +173,8 @@ class ChimeraBackendImpl : ChimeraBackend {
         request: RemoteProfileRequest,
         onProgress: (DownloadProgress) -> Unit,
     ) {
-        ProfileRemotePolicy.requireValidUrl(request.url)
-        val context = Global.application
-        val resolvedName = request.name?.trim()?.takeIf { it.isNotEmpty() }
-            ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
-
-        val id = UUID.randomUUID().toString()
-        val destinationFile = File(
-            context.filesDir,
-            ProfileRemotePolicy.storageFileNameForUrl(id, request.url),
-        )
-        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
-        withContext(Dispatchers.IO) {
-            downloadProfileToFile(stagedFile, request, onProgress)
-        }
-
-        val profileJson = org.json.JSONObject()
-        profileJson.put("id", id)
-        profileJson.put("name", resolvedName)
-        profileJson.put("filePath", destinationFile.absolutePath)
-        profileJson.put("createdAt", System.currentTimeMillis())
-        profileJson.put("isActive", false)
-        profileJson.put("fileSize", stagedFile.length())
-        profileJson.put("type", rs.chimera.android.model.ProfileType.REMOTE.name)
-        profileJson.put("url", request.url)
-        profileJson.put("lastUpdated", System.currentTimeMillis())
-        profileJson.put("autoUpdate", request.autoUpdate)
-        if (request.userAgent != null) profileJson.put("userAgent", request.userAgent)
-        if (request.proxyUrl != null) profileJson.put("proxyUrl", request.proxyUrl)
-
-        val becameActive = ProfileImportTransactionPolicy.run(
-            stagedFile = stagedFile,
-            destinationFile = destinationFile,
-            beginImportTransaction = profileStagingStore::markImportPending,
-            persistMetadata = { file ->
-                profileJson.put("filePath", file.absolutePath)
-                profileJson.put("fileSize", file.length())
-                profileCatalogStore.append(profileJson, pendingImport = file)
-            },
-            clearImportTransaction = profileStagingStore::clearImportPending,
-        )
-        if (becameActive) {
-            try {
-                Global.restoreProfilePath()
-            } finally {
-                refreshActiveProfile()
-            }
+        if (profileImportOperations.importRemoteProfile(request, onProgress)) {
+            restoreImportedActiveProfile()
         }
         synchronizeProfileAutoUpdateSchedule()
     }
@@ -405,12 +315,8 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun verifyProfile(filePath: String): Result<String> {
-        return runCatching {
-            ChimeraFfi.ensureInitialized()
-            verifyConfig(filePath)
-        }
-    }
+    override suspend fun verifyProfile(filePath: String): Result<String> =
+        profileImportOperations.verifyProfile(filePath)
 
     override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
         controllerOperations.listProxyGroups()
@@ -525,47 +431,11 @@ class ChimeraBackendImpl : ChimeraBackend {
         _activeProfile.value = runCatching(profileCatalogReader::readActiveProfile).getOrNull()
     }
 
-    private fun queryDisplayName(context: Context, uri: Uri): String {
-        return context.contentResolver.query(
-            uri,
-            arrayOf(OpenableColumns.DISPLAY_NAME),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
-        } ?: "remote-profile.yaml"
-    }
-
-    private suspend fun downloadProfileToFile(
-        file: File,
-        request: RemoteProfileRequest,
-        onProgress: (DownloadProgress) -> Unit,
-    ): File {
-        return try {
-            ChimeraFfi.ensureInitialized()
-            val result = downloadFileWithProgress(
-                url = request.url,
-                outputPath = file.absolutePath,
-                userAgent = request.userAgent,
-                proxyUrl = request.proxyUrl ?: Global.proxyPort?.let { "http://127.0.0.1:$it" },
-                progressCallback = object : DownloadProgressCallback {
-                    override fun onProgress(progress: DownloadProgress) {
-                        onProgress(progress)
-                    }
-                },
-            )
-
-            check(result.success) {
-                result.errorMessage ?: "Unknown download error"
-            }
-            ProfileImportPolicy.requireUsableDownloadedProfile(file)
-            verifyConfig(file.absolutePath)
-            file
-        } catch (error: Throwable) {
-            ProfileFilePolicy.deleteAfterFailure(file, error)
-            throw error
+    private fun restoreImportedActiveProfile() {
+        try {
+            Global.restoreProfilePath()
+        } finally {
+            refreshActiveProfile()
         }
     }
 
