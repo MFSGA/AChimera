@@ -25,6 +25,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
+import rs.chimera.android.util.runCatchingPreservingCancellation
 
 @Composable
 internal fun DnsDiagnosticsDialog(
@@ -94,7 +95,7 @@ internal fun DnsDiagnosticsDialog(
                         querying = true
                         result = null
                         errorMessage = null
-                        runCatching {
+                        runCatchingPreservingCancellation {
                             onQuery(name.trim(), recordType.trim().uppercase())
                         }.onSuccess { response ->
                             result = response

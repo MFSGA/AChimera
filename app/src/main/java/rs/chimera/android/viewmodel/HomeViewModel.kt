@@ -117,6 +117,8 @@ class HomeViewModel(
         viewModelScope.launch {
             try {
                 applyProxyGroups(backend.listProxyGroups())
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to fetch proxies", error)
             } finally {
@@ -142,6 +144,8 @@ class HomeViewModel(
                 backend.setMode(mode)
                 currentMode = mode
                 fetchProxies()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 currentMode = previousMode
                 errorMessage = formatError("Failed to switch proxy mode", error)
@@ -172,6 +176,8 @@ class HomeViewModel(
             try {
                 backend.selectProxy(groupName, proxyName)
                 fetchProxies()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to select proxy", error)
             }
@@ -182,19 +188,50 @@ class HomeViewModel(
         errorMessage = null
     }
 
-    fun startVpn(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>? = null) {
+    fun reportError(message: String) {
+        errorMessage = message
+    }
+
+    fun startVpn(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
         viewModelScope.launch {
-            when (val result = backend.prepareStartVpn()) {
-                is StartVpnResult.Prepared -> launcher?.launch(result.intent)
-                is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
-                is StartVpnResult.Error -> errorMessage = result.message
+            errorMessage = null
+            try {
+                when (val result = backend.prepareStartVpn()) {
+                    is StartVpnResult.Prepared -> launcher.launch(result.intent)
+                    is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
+                    is StartVpnResult.Error -> errorMessage = result.message
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage = formatError("Failed to start VPN", error)
+            }
+        }
+    }
+
+    fun startVpnAfterPermission() {
+        viewModelScope.launch {
+            errorMessage = null
+            try {
+                backend.startVpnAfterPermission()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage = formatError("Failed to start VPN", error)
             }
         }
     }
 
     fun stopVpn() {
         viewModelScope.launch {
-            backend.stopVpn()
+            errorMessage = null
+            try {
+                backend.stopVpn()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage = formatError("Failed to stop VPN", error)
+            }
         }
     }
 

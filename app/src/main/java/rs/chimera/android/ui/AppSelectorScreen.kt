@@ -68,6 +68,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
+import rs.chimera.android.util.runCatchingPreservingCancellation
 import rs.chimera.android.viewmodel.AppFilterMode
 import rs.chimera.android.viewmodel.SettingsViewModel
 
@@ -192,7 +193,7 @@ fun AppSelectorScreen(
 					if (!isSaving) {
 						isSaving = true
 						coroutineScope.launch {
-							runCatching {
+							runCatchingPreservingCancellation {
 								viewModel.saveAppFilter(tempFilterMode, selectedApps)
 							}.onSuccess {
 								onBack()

@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import rs.chimera.android.R
+import rs.chimera.android.util.runCatchingPreservingCancellation
 import rs.chimera.android.backend.model.RuleSnapshot
 
 @Composable
@@ -38,7 +39,7 @@ internal fun RuleDiagnosticsDialog(
         loading = true
         rules = null
         errorMessage = null
-        runCatching { onLoad() }
+        runCatchingPreservingCancellation { onLoad() }
             .onSuccess { result -> rules = result }
             .onFailure { error -> errorMessage = error.message ?: unknownError }
         loading = false

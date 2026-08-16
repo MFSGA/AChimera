@@ -92,7 +92,9 @@ fun HomeScreen(
         contract = ActivityResultContracts.StartActivityForResult(),
         onResult = { result ->
             if (result.resultCode == RESULT_OK) {
-                viewModel.startVpn()
+                viewModel.startVpnAfterPermission()
+            } else {
+                viewModel.reportError(context.getString(R.string.service_vpn_permission_denied))
             }
         },
     )

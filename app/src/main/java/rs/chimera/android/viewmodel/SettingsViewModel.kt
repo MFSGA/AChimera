@@ -7,7 +7,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
@@ -25,6 +28,7 @@ class SettingsViewModel(
 ) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val backend: ChimeraBackend = BackendProvider.provide()
+    private val settingsUpdateMutex = Mutex()
 
     var languagePreference: LanguagePreference by mutableStateOf(AppPreferences.language(application))
         private set
@@ -86,6 +90,8 @@ class SettingsViewModel(
     var appFilterMode: AppFilterMode by mutableStateOf(
         AppFilterModePreference.parse(prefs.getString("app_filter_mode", null)),
     )
+    var runtimeSettingError: String? by mutableStateOf(null)
+        private set
     var allowedApps: Set<String> by mutableStateOf(loadAppSet("allowed_apps"))
     var disallowedApps: Set<String> by mutableStateOf(loadAppSet("disallowed_apps"))
 
@@ -133,16 +139,26 @@ class SettingsViewModel(
     ) {
         val allowed = if (mode == AppFilterMode.ALLOWED) selectedApps else emptySet()
         val disallowed = if (mode == AppFilterMode.DISALLOWED) selectedApps else emptySet()
-        backend.updateSettings(
-            SettingsPatch(
-                appFilterMode = mode.name,
-                allowedApps = allowed,
-                disallowedApps = disallowed,
-            ),
-        )
-        appFilterMode = mode
-        allowedApps = allowed
-        disallowedApps = disallowed
+        settingsUpdateMutex.withLock {
+            try {
+                backend.updateSettings(
+                    SettingsPatch(
+                        appFilterMode = mode.name,
+                        allowedApps = allowed,
+                        disallowedApps = disallowed,
+                    ),
+                )
+                appFilterMode = mode
+                allowedApps = allowed
+                disallowedApps = disallowed
+            } catch (error: CancellationException) {
+                reloadPersistedSettings()
+                throw error
+            } catch (error: Exception) {
+                reloadPersistedSettings()
+                throw error
+            }
+        }
     }
 
     suspend fun listRules(): List<RuleSnapshot> = backend.listRules()
@@ -160,6 +176,10 @@ class SettingsViewModel(
     suspend fun queryDns(name: String, recordType: String): String =
         backend.queryDns(name, recordType)
 
+    fun dismissRuntimeSettingError() {
+        runtimeSettingError = null
+    }
+
     fun getAppFilterSummary(): String {
         val context = getApplication<Application>().applicationContext
         return when (appFilterMode) {
@@ -174,9 +194,32 @@ class SettingsViewModel(
         onUpdated: () -> Unit,
     ) {
         viewModelScope.launch {
-            backend.updateSettings(patch)
-            onUpdated()
+            settingsUpdateMutex.withLock {
+                try {
+                    backend.updateSettings(patch)
+                    onUpdated()
+                    runtimeSettingError = null
+                } catch (error: CancellationException) {
+                    reloadPersistedSettings()
+                    throw error
+                } catch (error: Exception) {
+                    reloadPersistedSettings()
+                    runtimeSettingError = error.message.orEmpty()
+                }
+            }
         }
+    }
+
+    private fun reloadPersistedSettings() {
+        allowLan = prefs.getBoolean("allow_lan", false)
+        fakeIpEnabled = prefs.getBoolean("fake_ip", false)
+        ipv6Enabled = prefs.getBoolean("ipv6", false)
+        mixedPort = PortPreference.parse(prefs.all["mixed_port"]) ?: DEFAULT_MIXED_PORT
+        httpPort = PortPreference.parse(prefs.all["http_port"])
+        socksPort = PortPreference.parse(prefs.all["socks_port"])
+        appFilterMode = AppFilterModePreference.parse(prefs.getString("app_filter_mode", null))
+        allowedApps = loadAppSet("allowed_apps")
+        disallowedApps = loadAppSet("disallowed_apps")
     }
 
     private fun loadAppSet(key: String): Set<String> {

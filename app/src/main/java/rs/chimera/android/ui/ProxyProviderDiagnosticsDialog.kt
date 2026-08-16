@@ -26,6 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
+import rs.chimera.android.util.runCatchingPreservingCancellation
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 
 @Composable
@@ -51,7 +52,7 @@ internal fun ProxyProviderDiagnosticsDialog(
         loading = true
         providers = null
         errorMessage = null
-        runCatching { onLoad() }
+        runCatchingPreservingCancellation { onLoad() }
             .onSuccess { providers = it }
             .onFailure { error -> errorMessage = error.message ?: unknownError }
         loading = false
@@ -66,7 +67,7 @@ internal fun ProxyProviderDiagnosticsDialog(
         activeAction = key
         actionMessage = null
         scope.launch {
-            runCatching { action() }
+            runCatchingPreservingCancellation { action() }
                 .onSuccess {
                     actionMessage = successMessage
                     reloadGeneration += 1

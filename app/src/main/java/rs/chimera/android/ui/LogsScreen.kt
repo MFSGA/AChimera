@@ -50,6 +50,7 @@ import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.util.runCatchingPreservingCancellation
 
 private const val MAX_LOG_LINES = 400
 private const val LOG_REFRESH_INTERVAL_MS = 5_000L
@@ -74,7 +75,7 @@ fun LogsScreen(
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             while (isActive) {
                 if (!refreshPaused) {
-                    runCatching { backend.readRuntimeLogs(MAX_LOG_LINES) }
+                    runCatchingPreservingCancellation { backend.readRuntimeLogs(MAX_LOG_LINES) }
                         .onSuccess { latest ->
                             errorMessage = null
                             if (latest != logContent) logContent = latest
@@ -124,7 +125,7 @@ fun LogsScreen(
                         enabled = logContent.isNotBlank(),
                         onClick = {
                             coroutineScope.launch {
-                                runCatching { backend.clearRuntimeLogs() }
+                                runCatchingPreservingCancellation { backend.clearRuntimeLogs() }
                                     .onSuccess {
                                         logContent = ""
                                         errorMessage = null
