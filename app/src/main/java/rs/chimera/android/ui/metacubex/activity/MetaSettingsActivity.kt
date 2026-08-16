@@ -26,6 +26,7 @@ import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
 import rs.chimera.android.ui.preferences.UiVariant
+import java.util.Locale
 import rs.chimera.android.util.runCatchingPreservingCancellation
 import rs.chimera.android.util.toUserVisibleMessage
 
@@ -451,7 +452,7 @@ class MetaSettingsActivity : AppCompatActivity() {
         EditText(this).apply {
             hint = getString(labelRes)
             inputType = InputType.TYPE_CLASS_NUMBER
-            setText(value?.toString().orEmpty())
+            setText(value?.let { String.format(Locale.ROOT, "%d", it) }.orEmpty())
             setSelectAllOnFocus(true)
         }
 

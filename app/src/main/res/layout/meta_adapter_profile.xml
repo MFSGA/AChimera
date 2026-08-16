@@ -86,7 +86,7 @@
                 android:layout_height="32dp"
                 android:src="@android:drawable/ic_menu_more"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Menu"
+                android:contentDescription="@string/profile_menu_content_description"
                 android:onClick="@{menu}" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

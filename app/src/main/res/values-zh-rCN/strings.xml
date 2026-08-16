@@ -247,6 +247,7 @@
     <string name="profile_update_success">已更新 %1$s</string>
     <string name="profile_update_error">更新失败：%1$s</string>
     <string name="profile_rename">重命名</string>
+    <string name="profile_menu_content_description">配置菜单</string>
     <string name="profile_details">详情</string>
     <string name="profile_details_name">名称：%1$s</string>
     <string name="profile_details_type">类型：%1$s</string>

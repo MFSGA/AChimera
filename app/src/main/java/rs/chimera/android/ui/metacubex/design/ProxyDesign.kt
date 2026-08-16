@@ -231,8 +231,18 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         private var pages = listOf<List<ProxyAdapter.Item>>()
 
         fun submitPages(pages: List<List<ProxyAdapter.Item>>) {
+            val oldCount = this.pages.size
+            val newCount = pages.size
             this.pages = pages
-            notifyDataSetChanged()
+
+            val sharedCount = minOf(oldCount, newCount)
+            if (sharedCount > 0) {
+                notifyItemRangeChanged(0, sharedCount)
+            }
+            when {
+                newCount > oldCount -> notifyItemRangeInserted(oldCount, newCount - oldCount)
+                oldCount > newCount -> notifyItemRangeRemoved(newCount, oldCount - newCount)
+            }
         }
 
         override fun getItemCount(): Int = pages.size

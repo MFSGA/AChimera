@@ -252,7 +252,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
 
     private fun showUrlImportDialog() {
         val input = EditText(this).apply {
-            setText("https://")
+            setText(getString(R.string.profile_url_scheme_prefix))
             inputType = InputType.TYPE_CLASS_TEXT or
                 InputType.TYPE_TEXT_VARIATION_URI or
                 InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS

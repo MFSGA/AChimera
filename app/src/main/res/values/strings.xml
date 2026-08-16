@@ -227,6 +227,7 @@
     <string name="profile_active_badge">Active</string>
     <string name="profile_missing">No profile selected</string>
     <string name="profile_import_url">Import From URL</string>
+    <string name="profile_url_scheme_prefix" translatable="false">https://</string>
     <string name="profile_user_agent_label">User-Agent</string>
     <string name="profile_user_agent_hint">Optional custom client header</string>
     <string name="profile_proxy_label">HTTP Proxy</string>
@@ -250,6 +251,7 @@
     <string name="profile_update_success">Updated %1$s</string>
     <string name="profile_update_error">Update failed: %1$s</string>
     <string name="profile_rename">Rename</string>
+    <string name="profile_menu_content_description">Profile menu</string>
     <string name="profile_details">Details</string>
     <string name="profile_details_name">Name: %1$s</string>
     <string name="profile_details_type">Type: %1$s</string>

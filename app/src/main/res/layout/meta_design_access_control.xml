@@ -56,6 +56,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="@string/app_selector_search"
+            android:importantForAutofill="no"
             android:imeOptions="actionDone"
             android:inputType="text"
             android:maxLines="1" />
