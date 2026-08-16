@@ -32,16 +32,58 @@ class ControllerSnapshotMappingTest {
 
         val mapped = proxies.toProxyGroupSnapshots(Mode.GLOBAL)
 
-        assertEquals(2, mapped.size)
-        assertEquals("AUTO", mapped[0].name)
-        assertEquals(listOf("A", "B"), mapped[0].proxies)
-        assertEquals("A", mapped[0].selected)
-        assertEquals(Mode.GLOBAL, mapped[0].mode)
-        assertEquals("VLESS", mapped[0].proxyDetails.getValue("A").type)
-        assertEquals(45, mapped[0].proxyDetails.getValue("AUTO").history.single().delay)
-        assertEquals(123L, mapped[0].proxyDetails.getValue("AUTO").history.single().time)
-        assertEquals(0L, mapped[0].proxyDetails.getValue("A").history.single().time)
+        assertEquals(listOf("A", "AUTO"), mapped.map { it.name })
+        val auto = mapped.first { it.name == "AUTO" }
+        assertEquals(listOf("A", "B"), auto.proxies)
+        assertEquals("A", auto.selected)
+        assertEquals(Mode.GLOBAL, auto.mode)
+        assertEquals("VLESS", auto.proxyDetails.getValue("A").type)
+        assertEquals(45, auto.proxyDetails.getValue("AUTO").history.single().delay)
+        assertEquals(123L, auto.proxyDetails.getValue("AUTO").history.single().time)
+        assertEquals(0L, auto.proxyDetails.getValue("A").history.single().time)
         assertEquals(mapped[0].proxyDetails, mapped[1].proxyDetails)
+    }
+
+    @Test
+    fun directModeUsesSyntheticDirectGroup() {
+        val mapped = listOf(
+            Proxy(
+                name = "GLOBAL",
+                proxyType = "Selector",
+                all = listOf("A"),
+                now = "A",
+                history = emptyList(),
+            ),
+        ).toProxyGroupSnapshots(Mode.DIRECT)
+
+        assertEquals(listOf("DIRECT"), mapped.map { it.name })
+        assertEquals(emptyList<String>(), mapped.single().proxies)
+        assertNull(mapped.single().selected)
+        assertEquals("Direct", mapped.single().proxyDetails.getValue("DIRECT").type)
+    }
+
+    @Test
+    fun globalAndRuleModesFollowGlobalMemberOrderWithoutDuplicates() {
+        val proxies = listOf(
+            Proxy(
+                name = "GLOBAL",
+                proxyType = "Selector",
+                all = listOf("B", "A", "B"),
+                now = "B",
+                history = emptyList(),
+            ),
+            Proxy("Z", "VLESS", emptyList(), null, emptyList()),
+            Proxy("A", "VLESS", emptyList(), null, emptyList()),
+            Proxy("B", "Trojan", emptyList(), null, emptyList()),
+        )
+
+        val global = proxies.toProxyGroupSnapshots(Mode.GLOBAL)
+        val rule = proxies.toProxyGroupSnapshots(Mode.RULE)
+
+        assertEquals(listOf("GLOBAL", "B", "A", "Z"), global.map { it.name })
+        assertEquals(listOf("B", "A", "Z"), rule.map { it.name })
+        assertEquals(setOf("GLOBAL", "B", "A", "Z"), global.first().proxyDetails.keys)
+        assertEquals(setOf("B", "A", "Z"), rule.first().proxyDetails.keys)
     }
 
     @Test

@@ -150,43 +150,10 @@ impl ClashController {
 
     pub async fn get_proxies(&self) -> Result<Vec<Proxy>, ChimeraError> {
         debug!("controller get_proxies");
-        let mode = self.get_mode().await?.unwrap_or(Mode::Rule);
-
-        if matches!(mode, Mode::Direct) {
-            return Ok(vec![Proxy {
-                name: "DIRECT".to_string(),
-                proxy_type: "Direct".to_string(),
-                all: Vec::new(),
-                now: None,
-                history: Vec::new(),
-            }]);
-        }
-
-        let mut response: ProxiesResponse = self.request("GET", "/proxies", None).await?;
-
-        if let Some(global_group) = response.proxies.remove("GLOBAL") {
-            let mut sorted_proxies = Vec::new();
-
-            for name in &global_group.all {
-                if let Some(proxy) = response.proxies.get(name) {
-                    sorted_proxies.push(proxy.clone());
-                }
-            }
-
-            for (name, proxy) in &response.proxies {
-                if !global_group.all.contains(name) {
-                    sorted_proxies.push(proxy.clone());
-                }
-            }
-
-            if matches!(mode, Mode::Global) {
-                sorted_proxies.insert(0, global_group);
-            }
-
-            Ok(sorted_proxies)
-        } else {
-            Ok(response.proxies.values().cloned().collect())
-        }
+        let response: ProxiesResponse = self.request("GET", "/proxies", None).await?;
+        let mut proxies = response.proxies.into_values().collect::<Vec<_>>();
+        proxies.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(proxies)
     }
 
     pub async fn select_proxy(
@@ -577,6 +544,62 @@ mod tests {
                 "GET /memory HTTP/1.1".to_string(),
                 "GET /memory HTTP/1.1".to_string(),
             ],
+        );
+    }
+
+    #[tokio::test]
+    async fn get_proxies_uses_single_collection_request_and_sorts_results() {
+        let sequence = SOCKET_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let socket_path = std::env::temp_dir().join(format!(
+            "chimera-controller-proxies-test-{}-{sequence}.sock",
+            std::process::id(),
+        ));
+        let _ = std::fs::remove_file(&socket_path);
+        let listener = tokio::net::UnixListener::bind(&socket_path).unwrap();
+        let server_socket_path = socket_path.clone();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            let mut buffer = [0_u8; 512];
+            while !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                let count = stream.read(&mut buffer).await.unwrap();
+                assert!(count > 0, "client closed before sending the proxy request");
+                request.extend_from_slice(&buffer[..count]);
+            }
+            let request_line = String::from_utf8_lossy(&request)
+                .lines()
+                .next()
+                .unwrap_or_default()
+                .to_string();
+            let response_body = r#"{"proxies":{"zeta":{"name":"zeta","type":"Selector","all":[],"now":null,"history":[]},"alpha":{"name":"alpha","type":"Direct","all":[],"now":null,"history":[]}}}"#;
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                response_body.len(),
+                response_body,
+            );
+            stream.write_all(response.as_bytes()).await.unwrap();
+            let _ = std::fs::remove_file(server_socket_path);
+            request_line
+        });
+        let controller =
+            ClashController::for_socket_path(socket_path.to_string_lossy().to_string());
+
+        let proxies = tokio::time::timeout(Duration::from_secs(2), controller.get_proxies())
+            .await
+            .expect("proxy request timed out")
+            .unwrap();
+        let request = tokio::time::timeout(Duration::from_secs(2), server)
+            .await
+            .expect("proxy server did not finish")
+            .unwrap();
+
+        assert_eq!(request, "GET /proxies HTTP/1.1");
+        assert_eq!(
+            proxies
+                .iter()
+                .map(|proxy| proxy.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["alpha", "zeta"],
         );
     }
 

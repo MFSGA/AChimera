@@ -10,19 +10,49 @@ import uniffi.chimera_ffi.Mode
 import uniffi.chimera_ffi.Proxy
 
 internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnapshot> {
-    val proxyDetails = associate { proxy ->
-        proxy.name to ProxySnapshot(
-            name = proxy.name,
-            type = proxy.proxyType,
-            history = proxy.history.map { history ->
-                ProxyDelayHistory(
-                    delay = history.delay,
-                    time = history.time.toLongOrNull() ?: 0L,
-                )
-            },
+    if (mode == Mode.DIRECT) {
+        val direct = ProxySnapshot(
+            name = DIRECT_PROXY_NAME,
+            type = DIRECT_PROXY_TYPE,
+            history = emptyList(),
+        )
+        return listOf(
+            ProxyGroupSnapshot(
+                name = DIRECT_PROXY_NAME,
+                proxies = emptyList(),
+                selected = null,
+                mode = mode,
+                proxyDetails = mapOf(DIRECT_PROXY_NAME to direct),
+            ),
         )
     }
-    return map { proxy ->
+
+    val proxiesByName = associateBy(Proxy::name)
+    val globalGroup = proxiesByName[GLOBAL_PROXY_NAME]
+    val orderedProxies = if (globalGroup == null) {
+        sortedBy(Proxy::name)
+    } else {
+        buildList {
+            val addedNames = mutableSetOf<String>()
+            fun addOnce(proxy: Proxy) {
+                if (addedNames.add(proxy.name)) add(proxy)
+            }
+
+            if (mode == Mode.GLOBAL) addOnce(globalGroup)
+            globalGroup.all.forEach { name ->
+                proxiesByName[name]?.let(::addOnce)
+            }
+            this@toProxyGroupSnapshots
+                .asSequence()
+                .filter { it.name != GLOBAL_PROXY_NAME }
+                .sortedBy(Proxy::name)
+                .forEach(::addOnce)
+        }
+    }
+    val proxyDetails = orderedProxies.associate { proxy ->
+        proxy.name to proxy.toSnapshot()
+    }
+    return orderedProxies.map { proxy ->
         ProxyGroupSnapshot(
             name = proxy.name,
             proxies = proxy.all,
@@ -32,6 +62,22 @@ internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnaps
         )
     }
 }
+
+private fun Proxy.toSnapshot(): ProxySnapshot =
+    ProxySnapshot(
+        name = name,
+        type = proxyType,
+        history = history.map { entry ->
+            ProxyDelayHistory(
+                delay = entry.delay,
+                time = entry.time.toLongOrNull() ?: 0L,
+            )
+        },
+    )
+
+private const val GLOBAL_PROXY_NAME = "GLOBAL"
+private const val DIRECT_PROXY_NAME = "DIRECT"
+private const val DIRECT_PROXY_TYPE = "Direct"
 
 internal fun ConnectionsResponse.toConnectionsSnapshot(): ConnectionsSnapshot =
     ConnectionsSnapshot(
