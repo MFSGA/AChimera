@@ -79,6 +79,7 @@ internal class BackendVpnOperations(
             } catch (error: Exception) {
                 desiredStateError?.let(error::addSuppressed)
                 BackendRuntimeState.updateServiceError(error.toServiceError())
+                BackendRuntimeState.updateServiceState(ServiceState.ERROR)
                 throw error
             }
             if (desiredStateError != null && desiredStateStore.snapshot().shouldRun) {

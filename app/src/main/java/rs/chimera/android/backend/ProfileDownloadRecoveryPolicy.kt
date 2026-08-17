@@ -12,7 +12,9 @@ internal object ProfileDownloadRecoveryPolicy {
     }
 
     fun cleanup(directory: File) {
-        directory.listFiles().orEmpty()
+        val files = directory.listFiles()
+            ?: throw IllegalStateException("Failed to inspect staged profile downloads")
+        files
             .filter(::isManagedDownloadStage)
             .forEach { staged ->
                 check(staged.delete()) {

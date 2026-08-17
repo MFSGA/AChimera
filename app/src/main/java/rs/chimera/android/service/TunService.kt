@@ -51,8 +51,7 @@ class TunService : VpnService(), VpnRuntimeControl {
             Log.i(TAG, "Discarding cancelled VPN start request")
             appendRuntimeLog("discarded cancelled vpn start request")
             ensureForegroundService()
-            cleanup()
-            stopSelf()
+            requestLifecycleCleanup(stopService = true)
             return START_NOT_STICKY
         }
 
@@ -68,8 +67,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         ensureForegroundService()
         if (!VpnRuntimeRegistry.register(this)) {
             appendRuntimeLog("vpn start registration cancelled")
-            cleanup()
-            stopSelf()
+            requestLifecycleCleanup(stopService = true)
             return START_NOT_STICKY
         }
         publishVpnSystemStatus(serviceActive = true)
@@ -113,15 +111,13 @@ class TunService : VpnService(), VpnRuntimeControl {
 
     override fun onRevoke() {
         recordDesiredStop(VpnDesiredStateReason.PERMISSION_REVOKED)
-        cancelStartup()
-        cleanup()
+        requestLifecycleCleanup()
         super.onRevoke()
     }
 
     override fun onDestroy() {
         VpnRuntimeRegistry.requestStop()
-        cancelStartup()
-        cleanup()
+        requestLifecycleCleanup()
         super.onDestroy()
     }
 
@@ -319,6 +315,16 @@ class TunService : VpnService(), VpnRuntimeControl {
 
     private fun cancelStartup(): Job? =
         lifecycleGate.cancelStartup()
+
+    private fun requestLifecycleCleanup(stopService: Boolean = false) {
+        val startupJob = cancelStartup()
+        serviceScope.launch {
+            startupJob?.join()
+            runtimeMutex.withLock {
+                if (cleanup() && stopService) stopSelf()
+            }
+        }
+    }
 
     private fun cleanup(
         finalState: ServiceState = ServiceState.STOPPED,

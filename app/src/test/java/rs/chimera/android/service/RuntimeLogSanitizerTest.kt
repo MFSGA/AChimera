@@ -68,6 +68,19 @@ class RuntimeLogSanitizerTest {
     }
 
     @Test
+    fun `malformed urls still redact credentials and sensitive query`() {
+        val sanitized = RuntimeLogSanitizer.sanitizeText(
+            "download https://alice:secret@example.test/path?token=%ZZ#private-fragment",
+        )
+
+        assertTrue(sanitized.contains("https://***:***@example.test/path?token=***"))
+        assertFalse(sanitized.contains("alice"))
+        assertFalse(sanitized.contains("secret"))
+        assertFalse(sanitized.contains("private-fragment"))
+        assertFalse(sanitized.contains("%ZZ"))
+    }
+
+    @Test
     fun `inline credentials are redacted without changing ordinary values`() {
         assertEquals(
             "token=*** password: *** mode=direct api_key='***'",

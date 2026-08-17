@@ -3,7 +3,9 @@ package rs.chimera.android.backend
 import rs.chimera.android.backend.model.ProxyMode
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
@@ -24,7 +26,7 @@ internal class BackendControllerOperations(
 ) {
     private val controller by lazy { ClashController(socketPath) }
 
-    suspend fun fetchTraffic(): TrafficSnapshot =
+    suspend fun fetchTraffic(): TrafficSnapshot = withControllerContext {
         controller.getConnectionSummary().let { summary ->
             TrafficSnapshot(
                 downloadTotal = summary.downloadTotal,
@@ -32,18 +34,20 @@ internal class BackendControllerOperations(
                 connectionCount = summary.connectionCount,
             )
         }
+    }
 
-    suspend fun fetchMemory(): MemoryInfo =
+    suspend fun fetchMemory(): MemoryInfo = withControllerContext {
         controller.getMemory().let { response ->
             MemoryInfo(
                 inUse = response.inuse,
                 osLimit = response.oslimit,
             )
         }
+    }
 
-    suspend fun fetchProxyGroups(): List<ProxyGroupSnapshot> {
+    suspend fun fetchProxyGroups(): List<ProxyGroupSnapshot> = withControllerContext {
         val mode = controller.getMode() ?: Mode.RULE
-        return controller.getProxies().toProxyGroupSnapshots(mode)
+        controller.getProxies().toProxyGroupSnapshots(mode)
     }
 
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
@@ -90,9 +94,9 @@ internal class BackendControllerOperations(
         }
     }
 
-    suspend fun listRules(): List<RuleSnapshot> {
+    suspend fun listRules(): List<RuleSnapshot> = withControllerContext {
         requireProxyServiceRunning()
-        return controller.getRules().map { rule ->
+        controller.getRules().map { rule ->
             RuleSnapshot(
                 type = rule.ruleType,
                 proxy = rule.proxy,
@@ -101,9 +105,9 @@ internal class BackendControllerOperations(
         }
     }
 
-    suspend fun listProxyProviders(): List<ProxyProviderSnapshot> {
+    suspend fun listProxyProviders(): List<ProxyProviderSnapshot> = withControllerContext {
         requireProxyServiceRunning()
-        return controller.getProxyProviders().map { provider ->
+        controller.getProxyProviders().map { provider ->
             ProxyProviderSnapshot(
                 name = provider.name,
                 type = provider.providerType,
@@ -113,19 +117,19 @@ internal class BackendControllerOperations(
         }
     }
 
-    suspend fun updateProxyProvider(name: String) {
+    suspend fun updateProxyProvider(name: String) = withControllerContext {
         requireProxyServiceRunning()
         controller.updateProxyProvider(name)
     }
 
-    suspend fun healthcheckProxyProvider(name: String) {
+    suspend fun healthcheckProxyProvider(name: String) = withControllerContext {
         requireProxyServiceRunning()
         controller.healthcheckProxyProvider(name)
     }
 
-    suspend fun queryDns(name: String, recordType: String): String {
+    suspend fun queryDns(name: String, recordType: String): String = withControllerContext {
         requireProxyServiceRunning()
-        return controller.queryDns(name, recordType)
+        controller.queryDns(name, recordType)
     }
 
     private fun requireProxyServiceRunning() {
@@ -135,9 +139,9 @@ internal class BackendControllerOperations(
     private suspend fun <T> runProxyOperation(
         errorPrefix: String,
         operation: suspend () -> T,
-    ): T {
+    ): T = withControllerContext {
         requireProxyServiceRunning()
-        return try {
+        try {
             operation().also { clearRuntimeError(BackendRuntimeErrorSource.PROXY_GROUPS) }
         } catch (error: CancellationException) {
             throw error
@@ -154,9 +158,9 @@ internal class BackendControllerOperations(
     private suspend fun <T> runConnectionOperation(
         errorPrefix: String,
         operation: suspend () -> T,
-    ): T {
+    ): T = withControllerContext {
         requireProxyServiceRunning()
-        return try {
+        try {
             operation().also { clearRuntimeError(BackendRuntimeErrorSource.TRAFFIC) }
         } catch (error: CancellationException) {
             throw error
@@ -169,4 +173,7 @@ internal class BackendControllerOperations(
             throw error
         }
     }
+
+    private suspend fun <T> withControllerContext(operation: suspend () -> T): T =
+        withContext(Dispatchers.IO) { operation() }
 }

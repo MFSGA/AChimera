@@ -4,6 +4,7 @@ import java.nio.file.Files
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -54,5 +55,16 @@ class ProfileDownloadRecoveryPolicyTest {
         ProfileDownloadRecoveryPolicy.cleanup(directory)
 
         assertTrue(stagedDirectory.exists())
+    }
+
+    @Test
+    fun inspectionFailureIsReportedForLaterRecovery() {
+        val unreadableDirectory = object : java.io.File("unreadable-profile-downloads") {
+            override fun listFiles(): Array<java.io.File>? = null
+        }
+
+        assertThrows(IllegalStateException::class.java) {
+            ProfileDownloadRecoveryPolicy.cleanup(unreadableDirectory)
+        }
     }
 }
