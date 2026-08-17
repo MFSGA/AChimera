@@ -25,19 +25,8 @@ internal class VpnDesiredStateStore(
 ) {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun snapshot(): VpnDesiredStateSnapshot {
-        val reason = runCatching {
-            VpnDesiredStateReason.valueOf(
-                preferences.getString(KEY_REASON, null)
-                    ?: VpnDesiredStateReason.USER_STOP.name,
-            )
-        }.getOrDefault(VpnDesiredStateReason.USER_STOP)
-        return VpnDesiredStateSnapshot(
-            shouldRun = preferences.getBoolean(KEY_SHOULD_RUN, false),
-            updatedAt = preferences.getLong(KEY_UPDATED_AT, 0L),
-            reason = reason,
-        )
-    }
+    fun snapshot(): VpnDesiredStateSnapshot =
+        VpnDesiredStateSnapshotPolicy.parse(preferences.all)
 
     fun markRunning(reason: VpnDesiredStateReason = VpnDesiredStateReason.USER_START) {
         persist(shouldRun = true, reason = reason)
