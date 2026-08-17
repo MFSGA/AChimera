@@ -1,8 +1,10 @@
 package rs.chimera.android.backend
 
 import rs.chimera.android.backend.model.BackendRuntimeError
+import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ServiceState
+import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.service.RuntimeLogSanitizer
 
@@ -15,13 +17,16 @@ internal data class DiagnosticsBundleInput(
     val serviceError: String?,
     val vpnSystemStatus: VpnSystemStatus,
     val activeProfile: ProfileSummary?,
+    val traffic: TrafficSnapshot,
+    val memoryInfo: MemoryInfo,
+    val proxyGroupCount: Int,
     val runtimeError: BackendRuntimeError?,
     val runtimeLogs: String,
     val privatePathPrefixes: List<String> = emptyList(),
 )
 
 internal object DiagnosticsBundleBuilder {
-    private const val FORMAT_VERSION = 1
+    private const val FORMAT_VERSION = 2
     private const val NONE = "none"
     private const val APP_PRIVATE = "<app-private>"
 
@@ -48,6 +53,15 @@ internal object DiagnosticsBundleBuilder {
         appendLine()
         appendLine("[active_profile]")
         appendProfile(input)
+
+        appendLine()
+        appendLine("[runtime_metrics]")
+        appendLine("download_total_bytes=${input.traffic.downloadTotal}")
+        appendLine("upload_total_bytes=${input.traffic.uploadTotal}")
+        appendLine("connection_count=${input.traffic.connectionCount}")
+        appendLine("memory_in_use_bytes=${input.memoryInfo.inUse}")
+        appendLine("memory_os_limit_bytes=${input.memoryInfo.osLimit}")
+        appendLine("proxy_group_count=${input.proxyGroupCount}")
 
         appendLine()
         appendLine("[backend_runtime_error]")

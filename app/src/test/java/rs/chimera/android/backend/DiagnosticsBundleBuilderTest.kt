@@ -5,9 +5,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
+import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
 import rs.chimera.android.backend.model.ServiceState
+import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
 
 class DiagnosticsBundleBuilderTest {
@@ -41,6 +43,12 @@ class DiagnosticsBundleBuilderTest {
         assertTrue(bundle.contains("type=REMOTE"))
         assertTrue(bundle.contains("file_size_bytes=4096"))
         assertTrue(bundle.contains("auto_update_failures=2"))
+        assertTrue(bundle.contains("download_total_bytes=1234"))
+        assertTrue(bundle.contains("upload_total_bytes=567"))
+        assertTrue(bundle.contains("connection_count=3"))
+        assertTrue(bundle.contains("memory_in_use_bytes=8192"))
+        assertTrue(bundle.contains("memory_os_limit_bytes=16384"))
+        assertTrue(bundle.contains("proxy_group_count=4"))
         assertFalse(bundle.contains("private-profile-id"))
         assertFalse(bundle.contains("Alice private subscription"))
         assertFalse(bundle.contains("private.yaml"))
@@ -122,6 +130,16 @@ class DiagnosticsBundleBuilderTest {
             observedAt = 1_699_999_999_000L,
         ),
         activeProfile = activeProfile,
+        traffic = TrafficSnapshot(
+            downloadTotal = 1234L,
+            uploadTotal = 567L,
+            connectionCount = 3,
+        ),
+        memoryInfo = MemoryInfo(
+            inUse = 8192L,
+            osLimit = 16384L,
+        ),
+        proxyGroupCount = 4,
         runtimeError = runtimeError,
         runtimeLogs = runtimeLogs,
         privatePathPrefixes = privatePathPrefixes,
