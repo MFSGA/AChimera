@@ -385,12 +385,15 @@ class ChimeraBackendImpl(
     override suspend fun queryDns(name: String, recordType: String): String =
         controllerOperations.queryDns(name, recordType)
 
-    override suspend fun readRuntimeLogs(maxLines: Int): String {
-        return Global.readRuntimeLogTail(maxLines)
-    }
+    override suspend fun readRuntimeLogs(maxLines: Int): String =
+        withContext(Dispatchers.IO) {
+            Global.readRuntimeLogTail(maxLines)
+        }
 
     override suspend fun clearRuntimeLogs() {
-        Global.clearRuntimeLog()
+        withContext(Dispatchers.IO) {
+            Global.clearRuntimeLog()
+        }
     }
 
     override suspend fun buildDiagnosticsBundle(): String = withContext(Dispatchers.IO) {
