@@ -21,8 +21,6 @@ static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 use clash_lib::Config as ClashConfig;
 #[cfg(test)]
 use clash_lib::config::def::{Config as ConfigDef, Port};
-use jni::objects::JString;
-use jni::{EnvUnowned, Outcome};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -98,18 +96,6 @@ pub(crate) fn log_line(log_path: &Path, message: &str) {
         return;
     };
     let _ = writeln!(file, "[{message}]");
-}
-
-fn extract_jstring(
-    env: &mut EnvUnowned<'_>,
-    value: JString<'_>,
-    field_name: &str,
-) -> Result<String, String> {
-    match env.with_env(|env| value.try_to_string(env)).into_outcome() {
-        Outcome::Ok(value) => Ok(value),
-        Outcome::Err(error) => Err(format!("failed to read JNI string {field_name}: {error}")),
-        Outcome::Panic(_) => Err(format!("failed to read JNI string {field_name}: JNI panic")),
-    }
 }
 
 fn build_hello_message() -> String {

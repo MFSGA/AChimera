@@ -8,9 +8,7 @@ import rs.chimera.android.settings.SettingsRepository
 
 import android.content.Context
 import android.net.Uri
-import android.os.Build
 import android.util.Log
-import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -107,6 +105,18 @@ class ChimeraBackendImpl(
     override val traffic = runtimeTelemetry.traffic
     override val memoryInfo = runtimeTelemetry.memoryInfo
     override val proxyGroups = runtimeTelemetry.proxyGroups
+
+    private val diagnosticsOperations = BackendDiagnosticsOperations(
+        context = context,
+        serviceState = serviceState,
+        serviceError = serviceError,
+        vpnSystemStatus = vpnSystemStatus,
+        activeProfile = activeProfile,
+        traffic = traffic,
+        memoryInfo = memoryInfo,
+        proxyGroups = proxyGroups,
+        runtimeError = runtimeError,
+    )
 
     private val initialization = BackendInitialization(backendScope) {
         runCatching { profileStagingStore.recoverImports() }
@@ -409,38 +419,14 @@ class ChimeraBackendImpl(
         controllerOperations.queryDns(name, recordType)
 
     override suspend fun readRuntimeLogs(maxLines: Int): String =
-        withContext(Dispatchers.IO) {
-            Global.readRuntimeLogTail(maxLines)
-        }
+        diagnosticsOperations.readRuntimeLogs(maxLines)
 
     override suspend fun clearRuntimeLogs() {
-        withContext(Dispatchers.IO) {
-            Global.clearRuntimeLog()
-        }
+        diagnosticsOperations.clearRuntimeLogs()
     }
 
-    override suspend fun buildDiagnosticsBundle(): String = withContext(Dispatchers.IO) {
-        val application = Global.application
-        val packageInfo = application.packageManager.getPackageInfo(application.packageName, 0)
-        DiagnosticsBundleBuilder.build(
-            DiagnosticsBundleInput(
-                generatedAtEpochMillis = System.currentTimeMillis(),
-                appVersion = packageInfo.versionName.orEmpty(),
-                appVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo),
-                androidSdk = Build.VERSION.SDK_INT,
-                serviceState = serviceState.value,
-                serviceError = serviceError.value,
-                vpnSystemStatus = vpnSystemStatus.value,
-                activeProfile = activeProfile.value,
-                traffic = traffic.value,
-                memoryInfo = memoryInfo.value,
-                proxyGroupCount = proxyGroups.value.size,
-                runtimeError = runtimeError.value,
-                runtimeLogs = Global.readRuntimeLogTail(500),
-                privatePathPrefixes = listOf(application.applicationInfo.dataDir),
-            ),
-        )
-    }
+    override suspend fun buildDiagnosticsBundle(): String =
+        diagnosticsOperations.buildDiagnosticsBundle()
 
     override suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect =
         withContext(Dispatchers.IO) {

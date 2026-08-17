@@ -1,15 +1,10 @@
-use super::{
-    INIT, ProfileOverride, build_hello_message, extract_jstring, install_socket_protector,
-    start_core_internal, stop_core_internal,
-};
-use crate::core_state::{
-    ClashInstance, INSTANCE, clear_last_error, instance, runtime, set_last_error,
-};
+use super::{INIT, install_socket_protector};
+use crate::core_state::{ClashInstance, INSTANCE, clear_last_error, runtime, set_last_error};
 use crate::log::init_logger;
-use jni::objects::{JObject, JString};
-use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean, jint, jstring};
+use jni::objects::JObject;
+use jni::sys::{JNI_FALSE, JNI_TRUE, jboolean};
 use jni::{EnvUnowned, Outcome};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::{Mutex, OnceLock};
 use tracing::{error, info};
 use tracing_subscriber::filter::LevelFilter;
@@ -88,85 +83,4 @@ pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeSetup(
     clear_last_error();
     info!("native setup complete");
     JNI_TRUE
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeHello(
-    mut env: EnvUnowned<'_>,
-    _this: JObject<'_>,
-) -> jstring {
-    match env
-        .with_env(|env| env.new_string(build_hello_message()))
-        .into_outcome()
-    {
-        Outcome::Ok(value) => value.into_raw(),
-        _ => std::ptr::null_mut(),
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStart(
-    mut env: EnvUnowned<'_>,
-    _this: JObject<'_>,
-    profile_path: JString<'_>,
-    cache_dir: JString<'_>,
-    tun_fd: jint,
-    log_file_path: JString<'_>,
-) -> jboolean {
-    let profile_path = match extract_jstring(&mut env, profile_path, "profile_path") {
-        Ok(value) => value,
-        Err(error) => {
-            set_last_error(error);
-            return JNI_FALSE;
-        }
-    };
-    let cache_dir = match extract_jstring(&mut env, cache_dir, "cache_dir") {
-        Ok(value) => value,
-        Err(error) => {
-            set_last_error(error);
-            return JNI_FALSE;
-        }
-    };
-    let log_file_path = match extract_jstring(&mut env, log_file_path, "log_file_path") {
-        Ok(value) => value,
-        Err(error) => {
-            set_last_error(error);
-            return JNI_FALSE;
-        }
-    };
-
-    let over = ProfileOverride {
-        tun_fd,
-        log_file_path,
-        allow_lan: false,
-        mixed_port: 7890,
-        http_port: None,
-        socks_port: None,
-        fake_ip: false,
-        fake_ip_range: "198.18.0.2/16".to_string(),
-        ipv6: false,
-    };
-
-    match start_core_internal(profile_path, cache_dir, tun_fd, over) {
-        Ok(_) => JNI_TRUE,
-        Err(error) => {
-            set_last_error(error);
-            instance().core_running.store(false, Ordering::SeqCst);
-            JNI_FALSE
-        }
-    }
-}
-
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_rs_chimera_android_ffi_ChimeraFfi_nativeStop(
-    _env: EnvUnowned<'_>,
-    _this: JObject<'_>,
-) -> jboolean {
-    match stop_core_internal() {
-        Ok(()) => JNI_TRUE,
-        Err(error) => {
-            set_last_error(error);
-            JNI_FALSE
-        }
-    }
 }
