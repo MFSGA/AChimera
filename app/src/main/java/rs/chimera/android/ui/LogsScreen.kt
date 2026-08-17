@@ -1,6 +1,5 @@
 package rs.chimera.android.ui
 
-import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -50,6 +49,7 @@ import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.util.SensitiveClipboard
 import rs.chimera.android.util.runCatchingPreservingCancellation
 
 private const val MAX_LOG_LINES = 400
@@ -62,6 +62,7 @@ fun LogsScreen(
     onBack: (() -> Unit)? = null,
 ) {
     val clipboard = LocalClipboard.current
+    val clipboardLabel = stringResource(R.string.logs_screen)
     val backend = remember { BackendProvider.provide() }
     val coroutineScope = rememberCoroutineScope()
     val verticalScrollState = rememberScrollState()
@@ -114,7 +115,7 @@ fun LogsScreen(
                         onClick = {
                             coroutineScope.launch {
                                 clipboard.setClipEntry(
-                                    ClipEntry(ClipData.newPlainText("Chimera runtime log", logContent)),
+                                    ClipEntry(SensitiveClipboard.plainText(clipboardLabel, logContent)),
                                 )
                             }
                         },

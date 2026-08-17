@@ -1,8 +1,8 @@
 package rs.chimera.android.ui.metacubex.activity
 
 import android.app.AlertDialog
-import android.content.ClipData
 import android.content.ClipboardManager
+import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.ui.metacubex.design.LogsDesign
+import rs.chimera.android.util.SensitiveClipboard
 
 class MetaLogsDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -90,8 +91,12 @@ class MetaLogsDesignActivity : AppCompatActivity() {
     private fun copyLogs() {
         if (currentLog.isBlank()) return
         val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("Chimera runtime log", currentLog))
-        design.showToast(getString(R.string.logs_copied))
+        clipboard.setPrimaryClip(
+            SensitiveClipboard.plainText(getString(R.string.logs_screen), currentLog),
+        )
+        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
+            design.showToast(getString(R.string.logs_copied))
+        }
     }
 
     private fun confirmClear() {

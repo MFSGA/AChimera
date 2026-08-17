@@ -8,6 +8,8 @@ import android.util.Log
 import rs.chimera.android.util.PrivacySafeLog
 import androidx.core.content.ContextCompat
 import rs.chimera.android.Global
+import rs.chimera.android.backend.BackendRuntimeState
+import rs.chimera.android.backend.model.ServiceState
 
 internal object VpnRecoveryBroadcastPolicy {
     fun isSupported(action: String?): Boolean =
@@ -38,6 +40,7 @@ class VpnRecoveryReceiver : BroadcastReceiver() {
 
     private fun restore(context: Context, action: String) {
         VpnRuntimeRegistry.requestStart()
+        BackendRuntimeState.updateServiceState(ServiceState.STARTING)
         runCatching {
             ContextCompat.startForegroundService(
                 context,
@@ -47,6 +50,9 @@ class VpnRecoveryReceiver : BroadcastReceiver() {
             Log.i(TAG, "Requested VPN recovery after $action")
         }.onFailure { error ->
             VpnRuntimeRegistry.requestStop()
+            BackendRuntimeState.updateServiceError(
+                error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName,
+            )
             PrivacySafeLog.error(TAG, "Unable to restore VPN", error, debugDetail = action)
         }
     }
