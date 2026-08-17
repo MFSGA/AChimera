@@ -55,7 +55,7 @@ internal class BackendVpnOperations(
         }
     }
 
-    suspend fun stopVpn() {
+    suspend fun stopVpn() = withContext(Dispatchers.IO) {
         // Cancel a pending Android start immediately; persist again inside the command gate
         // so a start already holding the gate cannot overwrite the user's stop intent.
         VpnRuntimeRegistry.requestStop()
@@ -88,8 +88,10 @@ internal class BackendVpnOperations(
         }
     }
 
-    suspend fun restartVpn() = commands.restart {
-        VpnRuntimeRegistry.restartVpn()
+    suspend fun restartVpn() = withContext(Dispatchers.IO) {
+        commands.restart {
+            VpnRuntimeRegistry.restartVpn()
+        }
     }
 
     private fun Throwable.toServiceError(): String =

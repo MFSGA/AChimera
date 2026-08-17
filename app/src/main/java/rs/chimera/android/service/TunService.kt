@@ -455,18 +455,5 @@ class TunService : VpnService(), VpnRuntimeControl {
 
     private companion object {
         const val TAG = "ChimeraTunService"
-        const val TUN_GATEWAY_V4 = "10.0.0.1"
-        const val TUN_DNS_V4 = "10.0.0.2"
-        const val TUN_PREFIX_V4 = 30
-        const val TUN_GATEWAY_V6 = "fdfe:dcba:9876::1"
-        const val TUN_DNS_V6 = "fdfe:dcba:9876::2"
-        const val TUN_PREFIX_V6 = 126
-    }
-
-    private fun appendRuntimeLog(
-        message: String,
-        error: Throwable? = null,
-    ) {
-        TunRuntimeFiles.appendRuntimeLog(message, error)
     }
 }

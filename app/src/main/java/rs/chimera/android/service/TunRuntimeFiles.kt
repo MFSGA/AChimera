@@ -71,3 +71,10 @@ internal object TunRuntimeFiles {
 
     private const val TAG = "ChimeraTunService"
 }
+
+internal fun appendRuntimeLog(
+    message: String,
+    error: Throwable? = null,
+) {
+    TunRuntimeFiles.appendRuntimeLog(message, error)
+}
