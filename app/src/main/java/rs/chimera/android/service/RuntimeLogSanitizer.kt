@@ -18,6 +18,7 @@ internal object RuntimeLogSanitizer {
                     },
                 ) { match ->
                     "${match.groupValues[1]}${match.groupValues[2]}${match.groupValues[1]}${match.groupValues[3]}***"
+                }
                 },
             ) { match ->
                 sanitizeUrl(match.value)
@@ -132,7 +133,8 @@ internal object RuntimeLogSanitizer {
     }
 
     private val SENSITIVE_HEADER_PATTERN = Regex(
-        pattern = """(?im)\b(proxy-authorization|authorization|cookie|set-cookie|x-api-key|x-auth-token)\s*:\s*[^\r\n]+""",
+        pattern =
+            """(?im)\b(proxy-authorization|authorization|cookie|set-cookie|x-api-key|x-auth-token)\s*:\s*[^\r\n]+""",
     )
     private val URL_PATTERN = Regex(
         pattern = """(?i)\b(?:https?|socks5h?|socks)://[^\s"'<>]+""",
