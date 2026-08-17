@@ -35,6 +35,7 @@ import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.backend.model.ProfileDownloadProgress
+import rs.chimera.android.util.toUserVisibleMessage
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
@@ -462,11 +463,12 @@ class ChimeraBackendImpl(
         prefix: String,
         error: Throwable,
     ) {
-        _runtimeError.value = BackendRuntimeError(source, "$prefix: ${error.messageOrType()}")
+        val detail = error.toUserVisibleMessage(
+            Global.application,
+            rs.chimera.android.R.string.profile_unknown_error,
+        )
+        _runtimeError.value = BackendRuntimeError(source, "$prefix: $detail")
     }
-
-    private fun Throwable.messageOrType(): String =
-        message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
 
     private fun clearRuntimeError(source: BackendRuntimeErrorSource) {
         if (_runtimeError.value?.source == source) {

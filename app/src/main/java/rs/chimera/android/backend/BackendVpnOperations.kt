@@ -12,6 +12,7 @@ import rs.chimera.android.service.TunService
 import rs.chimera.android.service.VpnDesiredStateReason
 import rs.chimera.android.service.VpnDesiredStateStore
 import rs.chimera.android.service.VpnRuntimeRegistry
+import rs.chimera.android.util.toUserVisibleMessage
 
 internal class BackendVpnOperations(
     private val context: Context,
@@ -49,7 +50,7 @@ internal class BackendVpnOperations(
             runCatching { desiredStateStore.markStopped(VpnDesiredStateReason.START_FAILED) }
                 .onFailure(error::addSuppressed)
             VpnRuntimeRegistry.requestStop()
-            BackendRuntimeState.updateServiceError(error.messageOrType())
+            BackendRuntimeState.updateServiceError(error.toServiceError())
             throw error
         }
     }
@@ -64,7 +65,7 @@ internal class BackendVpnOperations(
                     .exceptionOrNull()
             if (!shouldStopRuntime) {
                 if (desiredStateError != null && desiredStateStore.snapshot().shouldRun) {
-                    BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
+                    BackendRuntimeState.updateServiceError(desiredStateError.toServiceError())
                     throw desiredStateError
                 }
                 return@stop
@@ -77,11 +78,11 @@ internal class BackendVpnOperations(
                 }
             } catch (error: Exception) {
                 desiredStateError?.let(error::addSuppressed)
-                BackendRuntimeState.updateServiceError(error.messageOrType())
+                BackendRuntimeState.updateServiceError(error.toServiceError())
                 throw error
             }
             if (desiredStateError != null && desiredStateStore.snapshot().shouldRun) {
-                BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
+                BackendRuntimeState.updateServiceError(desiredStateError.toServiceError())
                 throw desiredStateError
             }
         }
@@ -91,6 +92,6 @@ internal class BackendVpnOperations(
         VpnRuntimeRegistry.restartVpn()
     }
 
-    private fun Throwable.messageOrType(): String =
-        message?.takeIf { it.isNotBlank() } ?: javaClass.simpleName
+    private fun Throwable.toServiceError(): String =
+        toUserVisibleMessage(context, rs.chimera.android.R.string.profile_unknown_error)
 }

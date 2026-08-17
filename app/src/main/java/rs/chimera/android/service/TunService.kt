@@ -25,6 +25,7 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.util.sanitizeUserVisibleErrorText
+import rs.chimera.android.util.toUserVisibleMessage
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
 
@@ -84,8 +85,10 @@ class TunService : VpnService(), VpnRuntimeControl {
                 recordDesiredStop(VpnDesiredStateReason.START_FAILED)
                 PrivacySafeLog.error(TAG, "Error in runVpn", error)
                 appendRuntimeLog("service runVpn failed", error)
-                val detail =
-                    error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+                val detail = error.toUserVisibleMessage(
+                    this@TunService,
+                    rs.chimera.android.R.string.profile_unknown_error,
+                )
                 val cleanedUp = cleanup(
                     finalState = ServiceState.ERROR,
                     errorMessage = detail,
@@ -395,7 +398,10 @@ class TunService : VpnService(), VpnRuntimeControl {
             throw error
         } catch (error: Exception) {
             recordDesiredStop(VpnDesiredStateReason.RUNTIME_FAILED)
-            val detail = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
+            val detail = error.toUserVisibleMessage(
+                this@TunService,
+                rs.chimera.android.R.string.profile_unknown_error,
+            )
             runtimeMutex.withLock {
                 if (cleanup(finalState = ServiceState.ERROR, errorMessage = detail)) {
                     NotificationHelper.notifyFailed(this@TunService, detail)
