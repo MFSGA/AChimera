@@ -73,6 +73,7 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
     private var rendering = false
 
     init {
+        adapter.setNotifyOnChange(false)
         appList.adapter = adapter
         appList.choiceMode = ListView.CHOICE_MODE_MULTIPLE
         toolbar.setNavigationOnClickListener { request(Request.NavigateBack) }
@@ -127,10 +128,12 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         save.isEnabled = state.dirty && !state.saving
         save.setText(if (state.saving) R.string.app_selector_saving else R.string.save)
 
-        displayedApps = state.apps
-        adapter.clear()
-        adapter.addAll(state.apps.map { "${it.label}\n${it.packageName}" })
-        adapter.notifyDataSetChanged()
+        if (displayedApps != state.apps) {
+            displayedApps = state.apps
+            adapter.clear()
+            adapter.addAll(state.apps.map { "${it.label}\n${it.packageName}" })
+            adapter.notifyDataSetChanged()
+        }
         for (index in state.apps.indices) {
             appList.setItemChecked(index, state.apps[index].packageName in state.selected)
         }
