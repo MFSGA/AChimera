@@ -10,6 +10,7 @@ import rs.chimera.android.R
 import rs.chimera.android.backend.model.ConnectionSnapshot
 import rs.chimera.android.databinding.MetaAdapterConnectionBinding
 import rs.chimera.android.formatSize
+import rs.chimera.android.ui.formatConnectionEndpoint
 
 class ConnectionsAdapter(
     private val onClose: (String) -> Unit,
@@ -46,14 +47,13 @@ class ConnectionsAdapter(
             val connection = item.connection
             val context = binding.root.context
             val destinationIp = connection.destinationIp.ifBlank { context.getString(R.string.not_available) }
-            val destinationPort = connection.destinationPort.ifBlank { "?" }
-            val sourceIp = connection.sourceIp.ifBlank { "?" }
-            val sourcePort = connection.sourcePort.ifBlank { "?" }
+            val destinationEndpoint = formatConnectionEndpoint(destinationIp, connection.destinationPort)
+            val sourceEndpoint = formatConnectionEndpoint(connection.sourceIp, connection.sourcePort)
 
             binding.host.text = connection.host.ifBlank { destinationIp }
             binding.network.text = connection.network.ifBlank { "?" }.uppercase()
-            binding.destination.text = "$destinationIp:$destinationPort"
-            binding.source.text = context.getString(R.string.connections_source, "$sourceIp:$sourcePort")
+            binding.destination.text = destinationEndpoint
+            binding.source.text = context.getString(R.string.connections_source, sourceEndpoint)
             binding.process.apply {
                 text = connection.process.orEmpty()
                 visibility = if (connection.process.isNullOrBlank()) View.GONE else View.VISIBLE
@@ -69,7 +69,11 @@ class ConnectionsAdapter(
                 text = context.getString(R.string.connections_rule, connection.rule.orEmpty())
                 visibility = if (connection.rule.isNullOrBlank()) View.GONE else View.VISIBLE
             }
-            binding.traffic.text = "${context.getString(R.string.connections_download, formatSize(connection.download))}  ${context.getString(R.string.connections_upload, formatSize(connection.upload))}"
+            binding.traffic.text = context.getString(
+                R.string.connections_traffic_pair,
+                context.getString(R.string.connections_download, formatSize(connection.download)),
+                context.getString(R.string.connections_upload, formatSize(connection.upload)),
+            )
             binding.close.isEnabled = !item.closing
             binding.close.setOnClickListener { onClose(connection.id) }
         }

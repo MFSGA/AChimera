@@ -60,7 +60,7 @@ class MetaConnectionsActivity : AppCompatActivity() {
 
     private fun render(state: NativeState) {
         adapter.submitConnections(state.connections, state.closingIds)
-        binding.connectionCount.text = getString(R.string.connections_count) + ": ${state.connections.size}"
+        binding.connectionCount.text = getString(R.string.connections_count_value, state.connections.size)
         binding.downloadTotal.text = getString(R.string.connections_download, formatSize(state.downloadTotal))
         binding.uploadTotal.text = getString(R.string.connections_upload, formatSize(state.uploadTotal))
         binding.errorMessage.apply {

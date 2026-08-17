@@ -61,12 +61,14 @@
     <string name="connections_title">活跃连接</string>
     <string name="connections_summary">流量统计</string>
     <string name="connections_count">连接数</string>
+    <string name="connections_count_value">连接数：%1$d</string>
     <string name="connections_empty">暂无活跃连接。</string>
     <string name="connections_source">来源：%1$s</string>
     <string name="connections_chain">代理链：%1$s</string>
     <string name="connections_rule">规则：%1$s</string>
     <string name="connections_download">下行：%1$s</string>
     <string name="connections_upload">上行：%1$s</string>
+    <string name="connections_traffic_pair">%1$s  %2$s</string>
     <string name="connections_close">关闭连接</string>
     <string name="connections_close_all">关闭全部</string>
     <string name="connections_close_all_title">关闭全部连接？</string>

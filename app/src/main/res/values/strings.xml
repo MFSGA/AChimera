@@ -61,12 +61,14 @@
     <string name="connections_title">Connections</string>
     <string name="connections_summary">Traffic Summary</string>
     <string name="connections_count">Count</string>
+    <string name="connections_count_value">Count: %1$d</string>
     <string name="connections_empty">No active connections.</string>
     <string name="connections_source">Source: %1$s</string>
     <string name="connections_chain">Chain: %1$s</string>
     <string name="connections_rule">Rule: %1$s</string>
     <string name="connections_download">Down: %1$s</string>
     <string name="connections_upload">Up: %1$s</string>
+    <string name="connections_traffic_pair">%1$s  %2$s</string>
     <string name="connections_close">Close connection</string>
     <string name="connections_close_all">Close all</string>
     <string name="connections_close_all_title">Close all connections?</string>

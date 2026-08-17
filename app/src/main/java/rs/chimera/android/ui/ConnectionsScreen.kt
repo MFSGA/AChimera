@@ -277,9 +277,8 @@ private fun ConnectionCard(
     val destinationHost = connection.host.ifEmpty { connection.destinationIp }
     val destinationIp = connection.destinationIp.takeIf { it.isNotBlank() }
         ?: stringResource(R.string.not_available)
-    val sourceIp = connection.sourceIp.takeIf { it.isNotBlank() } ?: "?"
-    val sourcePort = connection.sourcePort.takeIf { it.isNotBlank() } ?: "?"
-    val destinationPort = connection.destinationPort.takeIf { it.isNotBlank() } ?: "?"
+    val sourceEndpoint = formatConnectionEndpoint(connection.sourceIp, connection.sourcePort)
+    val destinationEndpoint = formatConnectionEndpoint(destinationIp, connection.destinationPort)
     val network = connection.network.takeIf { it.isNotBlank() } ?: "?"
 
     Card(
@@ -329,14 +328,14 @@ private fun ConnectionCard(
             }
 
             Text(
-                text = "$destinationIp:$destinationPort",
+                text = destinationEndpoint,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
             )
             Text(
                 text = stringResource(
                     R.string.connections_source,
-                    "$sourceIp:$sourcePort",
+                    sourceEndpoint,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
