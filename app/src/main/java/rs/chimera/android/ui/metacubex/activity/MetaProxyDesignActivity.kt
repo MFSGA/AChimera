@@ -230,8 +230,9 @@ class MetaProxyDesignActivity : AppCompatActivity() {
             val message = if (failures == 0) {
                 getString(R.string.proxy_delay_complete, request.groupName)
             } else {
-                getString(
-                    R.string.proxy_delay_complete_with_failures,
+                resources.getQuantityString(
+                    R.plurals.proxy_delay_complete_with_failures,
+                    failures,
                     request.groupName,
                     failures,
                 )

@@ -197,8 +197,16 @@ class SettingsViewModel(
         val context = getApplication<Application>().applicationContext
         return when (appFilterMode) {
             AppFilterMode.ALL -> context.getString(R.string.app_selector_mode_all)
-            AppFilterMode.ALLOWED -> context.getString(R.string.app_selector_selected, allowedApps.size)
-            AppFilterMode.DISALLOWED -> context.getString(R.string.app_selector_selected, disallowedApps.size)
+            AppFilterMode.ALLOWED -> context.resources.getQuantityString(
+                R.plurals.app_selector_selected,
+                allowedApps.size,
+                allowedApps.size,
+            )
+            AppFilterMode.DISALLOWED -> context.resources.getQuantityString(
+                R.plurals.app_selector_selected,
+                disallowedApps.size,
+                disallowedApps.size,
+            )
         }
     }
 

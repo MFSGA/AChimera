@@ -318,15 +318,17 @@ class ProfileViewModel : ViewModel() {
                 )
                 if (refreshFromBackendSafely()) {
                     statusMessage = when (val runtimeApply = batch.runtimeApply) {
-                        is ProfileUpdateRuntimeApplyResult.Failed -> context.getString(
-                            rs.chimera.android.R.string.profile_refresh_reload_error,
+                        is ProfileUpdateRuntimeApplyResult.Failed -> context.resources.getQuantityString(
+                            rs.chimera.android.R.plurals.profile_refresh_reload_error,
+                            batch.succeeded,
                             batch.succeeded,
                             batch.failed,
                             runtimeApply.error.message
                                 ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
                         )
-                        else -> context.getString(
-                            rs.chimera.android.R.string.profile_refresh_result,
+                        else -> context.resources.getQuantityString(
+                            rs.chimera.android.R.plurals.profile_refresh_result,
+                            batch.succeeded,
                             batch.succeeded,
                             batch.failed,
                         )

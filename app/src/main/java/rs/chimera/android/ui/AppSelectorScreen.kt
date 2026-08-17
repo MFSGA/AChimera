@@ -56,6 +56,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -259,7 +260,11 @@ fun AppSelectorScreen(
 							)
 							if (tempFilterMode != AppFilterMode.ALL) {
 								Text(
-									text = stringResource(R.string.app_selector_selected, selectedApps.size),
+									text = pluralStringResource(
+										R.plurals.app_selector_selected,
+										selectedApps.size,
+										selectedApps.size,
+									),
 									style = MaterialTheme.typography.bodySmall,
 									color = MaterialTheme.colorScheme.primary,
 								)

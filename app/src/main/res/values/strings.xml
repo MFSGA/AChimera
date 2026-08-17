@@ -152,7 +152,10 @@
     <string name="proxy_providers_title">Proxy providers</string>
     <string name="proxy_providers_summary">Inspect, refresh, and health-check active proxy providers.</string>
     <string name="proxy_providers_empty">No proxy providers are configured.</string>
-    <string name="proxy_provider_summary">%1$s · %2$s · %3$s · %4$d proxies</string>
+    <plurals name="proxy_provider_summary">
+        <item quantity="one">%1$s · %2$s · %3$s · %4$d proxy</item>
+        <item quantity="other">%1$s · %2$s · %3$s · %4$d proxies</item>
+    </plurals>
     <string name="proxy_provider_update">Update</string>
     <string name="proxy_provider_healthcheck">Health check</string>
     <string name="proxy_provider_action_failed">Provider action failed: %1$s</string>
@@ -175,7 +178,7 @@
     <string name="selected">Selected</string>
     <string name="no_proxy_groups">No proxy groups found.</string>
     <string name="test_latency">Test Delay</string>
-    <string name="testing">Testing...</string>
+    <string name="testing">Testing…</string>
     <string name="timeout">Timeout</string>
     <string name="none">None</string>
     <string name="not_available">Unavailable</string>
@@ -192,7 +195,10 @@
     <string name="proxy_select_failed">Failed to select proxy: %1$s</string>
     <string name="proxy_delay_testing_progress">Testing %1$d/%2$d</string>
     <string name="proxy_delay_complete">Delay test completed for %1$s.</string>
-    <string name="proxy_delay_complete_with_failures">Delay test completed for %1$s; %2$d nodes failed.</string>
+    <plurals name="proxy_delay_complete_with_failures">
+        <item quantity="one">Delay test completed for %1$s; %2$d node failed.</item>
+        <item quantity="other">Delay test completed for %1$s; %2$d nodes failed.</item>
+    </plurals>
     <string name="profile_screen">Profile</string>
     <string name="no_profile">No profile selected</string>
     <string name="retry">Retry</string>
@@ -213,9 +219,9 @@
     <string name="profile_remote_name_hint">Leave blank to use timestamp</string>
     <string name="profile_local_button">Local Profile</string>
     <string name="profile_remote_button">Remote Profile</string>
-    <string name="profile_importing">Importing profile...</string>
+    <string name="profile_importing">Importing profile…</string>
     <string name="profile_verify">Verify Config</string>
-    <string name="profile_verifying">Verifying...</string>
+    <string name="profile_verifying">Verifying…</string>
     <string name="profile_verification_title_success">Verified Config</string>
     <string name="profile_verification_title_failure">Verification Failed</string>
     <string name="profile_verify_missing">No profile available to verify.</string>
@@ -236,11 +242,14 @@
     <string name="profile_auto_update">Enable auto update</string>
     <string name="profile_auto_update_waiting">Auto update: waiting for the first check</string>
     <string name="profile_auto_update_last_success">Auto update succeeded: %1$s</string>
-    <string name="profile_auto_update_retry">Auto update failed %1$d time(s). Retry after %2$s. %3$s</string>
+    <plurals name="profile_auto_update_retry">
+        <item quantity="one">Auto update failed %1$d time. Retry after %2$s. %3$s</item>
+        <item quantity="other">Auto update failed %1$d times. Retry after %2$s. %3$s</item>
+    </plurals>
     <string name="profile_url_hint">https://example.com/config.yaml</string>
     <string name="profile_default_test_url">http://10.0.2.2:5500/scripts/rVqZHZQSFdSN.yaml</string>
     <string name="profile_download_file">Download</string>
-    <string name="profile_downloading">Downloading profile...</string>
+    <string name="profile_downloading">Downloading profile…</string>
     <string name="profile_download_progress">%1$s / %2$s bytes</string>
     <string name="profile_url_invalid">Please enter a valid http(s) URL.</string>
     <string name="profile_save_file">Save File</string>
@@ -250,6 +259,11 @@
     <string name="profile_update">Update</string>
     <string name="profile_update_success">Updated %1$s</string>
     <string name="profile_update_error">Update failed: %1$s</string>
+    <string name="profile_update_reload_error">Profile updated, but VPN reload failed: %1$s</string>
+    <plurals name="profile_refresh_reload_error">
+        <item quantity="one">Updated %1$d profile (%2$d failed), but VPN reload failed: %3$s</item>
+        <item quantity="other">Updated %1$d profiles (%2$d failed), but VPN reload failed: %3$s</item>
+    </plurals>
     <string name="profile_rename">Rename</string>
     <string name="profile_menu_content_description">Profile menu</string>
     <string name="profile_details">Details</string>
@@ -271,7 +285,10 @@
     <string name="app_selector_mode_disallowed">Disallowed</string>
     <string name="save">Save</string>
     <string name="app_selector_mode">Filter Mode</string>
-    <string name="app_selector_selected">%1$d selected</string>
+    <plurals name="app_selector_selected">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
     <string name="app_selector_search">Search apps</string>
     <string name="app_selector_system_apps">Show system apps</string>
     <string name="app_selector_loading">Loading apps…</string>
@@ -303,5 +320,8 @@
     <string name="profile_delete_success">Deleted %1$s</string>
     <string name="profile_delete_error">Delete failed: %1$s</string>
     <string name="profile_no_remote_profiles">No remote profiles to update.</string>
-    <string name="profile_refresh_result">Remote profiles updated: %1$d succeeded, %2$d failed.</string>
+    <plurals name="profile_refresh_result">
+        <item quantity="one">Remote profiles updated: %1$d succeeded, %2$d failed.</item>
+        <item quantity="other">Remote profiles updated: %1$d succeeded, %2$d failed.</item>
+    </plurals>
 </resources>

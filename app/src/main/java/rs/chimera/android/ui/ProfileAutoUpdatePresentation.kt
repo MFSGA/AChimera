@@ -57,8 +57,9 @@ fun ProfileAutoUpdatePresentation.format(context: Context): String {
             val retryAt = nextAttemptAt?.let { dateFormat.format(Date(it)) }
                 ?: context.getString(R.string.not_available)
             val reason = error ?: context.getString(R.string.profile_unknown_error)
-            context.getString(
-                R.string.profile_auto_update_retry,
+            context.resources.getQuantityString(
+                R.plurals.profile_auto_update_retry,
+                failureCount,
                 failureCount,
                 retryAt,
                 reason,

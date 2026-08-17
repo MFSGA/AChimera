@@ -242,8 +242,9 @@ class MetaSettingsActivity : AppCompatActivity() {
                         .setTitle(R.string.proxy_providers_title)
                         .setItems(
                             providers.map { provider ->
-                                getString(
-                                    R.string.proxy_provider_summary,
+                                resources.getQuantityString(
+                                    R.plurals.proxy_provider_summary,
+                                    provider.proxyCount,
                                     provider.name,
                                     provider.type,
                                     provider.vehicleType,

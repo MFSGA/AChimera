@@ -118,7 +118,11 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         stateMessage.visibility = if (state.loading) View.GONE else View.VISIBLE
         stateMessage.text = state.loadError ?: context.getString(R.string.app_selector_empty)
         retry.visibility = if (state.loadError != null) View.VISIBLE else View.GONE
-        selectedCount.text = context.getString(R.string.app_selector_selected, state.selected.size)
+        selectedCount.text = context.resources.getQuantityString(
+            R.plurals.app_selector_selected,
+            state.selected.size,
+            state.selected.size,
+        )
 
         filterMode.isEnabled = !state.saving
         search.isEnabled = !state.saving

@@ -384,14 +384,16 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             )
             if (loadProfiles()) {
                 val message = when (val runtimeApply = batch.runtimeApply) {
-                    is ProfileUpdateRuntimeApplyResult.Failed -> getString(
-                        R.string.profile_refresh_reload_error,
+                    is ProfileUpdateRuntimeApplyResult.Failed -> resources.getQuantityString(
+                        R.plurals.profile_refresh_reload_error,
+                        batch.succeeded,
                         batch.succeeded,
                         batch.failed,
                         runtimeApply.error.message ?: getString(R.string.profile_unknown_error),
                     )
-                    else -> getString(
-                        R.string.profile_refresh_result,
+                    else -> resources.getQuantityString(
+                        R.plurals.profile_refresh_result,
+                        batch.succeeded,
                         batch.succeeded,
                         batch.failed,
                     )
