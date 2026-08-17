@@ -67,6 +67,10 @@ class ChimeraBackendImpl(
         profileStagingStore = profileStagingStore,
         proxyPort = { Global.proxyPort },
     )
+    private val profileStartupRecovery = ProfileStartupRecovery(
+        profileStagingStore = profileStagingStore,
+        filesDir = context.filesDir,
+    )
 
     override val runtimeStatus = BackendRuntimeState.status
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
@@ -120,22 +124,7 @@ class ChimeraBackendImpl(
     )
 
     private val initialization = BackendInitialization(backendScope) {
-        runCatching { profileStagingStore.recoverImports() }
-            .onFailure { error ->
-                PrivacySafeLog.error(TAG, "Failed to recover staged profile imports", error)
-            }
-        runCatching { profileStagingStore.recoverBackups() }
-            .onFailure { error ->
-                PrivacySafeLog.error(TAG, "Failed to recover staged profile backups", error)
-            }
-        runCatching { profileStagingStore.recoverDeletions() }
-            .onFailure { error ->
-                PrivacySafeLog.error(TAG, "Failed to recover staged profile deletions", error)
-            }
-        runCatching { ProfileDownloadRecoveryPolicy.cleanup(context.filesDir) }
-            .onFailure { error ->
-                PrivacySafeLog.error(TAG, "Failed to recover staged profile downloads", error)
-            }
+        profileStartupRecovery.recover()
         refreshActiveProfile()
     }
 
