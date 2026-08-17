@@ -292,12 +292,16 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             requireName = false,
         ) { form ->
             lifecycleScope.launch {
+                var resolvedName = form.name ?: form.url
                 performOperation(
                     progressMessage = getString(R.string.profile_importing),
-                    successMessage = getString(R.string.profile_import_success, form.name ?: form.url),
+                    successMessage = getString(R.string.profile_import_success, resolvedName),
                     errorMessageRes = R.string.profile_import_error,
+                    successMessageProvider = {
+                        getString(R.string.profile_import_success, resolvedName)
+                    },
                 ) {
-                    backend.importRemoteProfile(
+                    resolvedName = backend.importRemoteProfile(
                         RemoteProfileRequest(
                             name = form.name,
                             url = form.url,
@@ -312,12 +316,16 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private suspend fun importLocalProfile(uri: Uri) {
+        var resolvedName = uri.lastPathSegment ?: "profile"
         performOperation(
             progressMessage = getString(R.string.profile_importing),
-            successMessage = getString(R.string.profile_import_success, uri.lastPathSegment ?: "profile"),
+            successMessage = getString(R.string.profile_import_success, resolvedName),
             errorMessageRes = R.string.profile_import_error,
+            successMessageProvider = {
+                getString(R.string.profile_import_success, resolvedName)
+            },
         ) {
-            backend.importLocalProfile(uri, null)
+            resolvedName = backend.importLocalProfile(uri, null)
         }
     }
 

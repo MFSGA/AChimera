@@ -181,20 +181,24 @@ class ChimeraBackendImpl(
         }
     }
 
-    private suspend fun importLocalProfileReady(uri: Uri, name: String?) {
-        if (profileImportOperations.importLocalProfile(uri, name)) {
+    private suspend fun importLocalProfileReady(uri: Uri, name: String?): String {
+        val (isFirst, resolvedName) = profileImportOperations.importLocalProfile(uri, name)
+        if (isFirst) {
             restoreImportedActiveProfile()
         }
+        return resolvedName
     }
 
     private suspend fun importRemoteProfileReady(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
-    ) {
-        if (profileImportOperations.importRemoteProfile(request, onProgress)) {
+    ): String {
+        val (isFirst, resolvedName) = profileImportOperations.importRemoteProfile(request, onProgress)
+        if (isFirst) {
             restoreImportedActiveProfile()
         }
         synchronizeProfileAutoUpdateSchedule()
+        return resolvedName
     }
 
     private suspend fun deleteProfileReady(id: String) {
@@ -259,23 +263,27 @@ class ChimeraBackendImpl(
         id: String,
         onProgress: (ProfileDownloadProgress) -> Unit,
     ) {
-        profileUpdateCoordinator.withLock(id) {
-            updateRemoteProfileLocked(id, onProgress)
+        withContext(Dispatchers.IO) {
+            profileUpdateCoordinator.withLock(id) {
+                updateRemoteProfileLocked(id, onProgress)
+            }
         }
     }
 
     override suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings) {
-        profileUpdateCoordinator.withLock(id) {
-            val normalized = ProfileRemotePolicy.normalizeSettings(settings)
-            val current = profileCatalogStore.readRemoteProfile(id)
-            profileCatalogStore.updateRemoteProfileSettings(id, normalized)
-            if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized) &&
-                !profileAutoUpdateStateStore.clear(id)
-            ) {
-                Log.w(TAG, "Failed to clear auto-update state for edited profile $id")
+        withContext(Dispatchers.IO) {
+            profileUpdateCoordinator.withLock(id) {
+                val normalized = ProfileRemotePolicy.normalizeSettings(settings)
+                val current = profileCatalogStore.readRemoteProfile(id)
+                profileCatalogStore.updateRemoteProfileSettings(id, normalized)
+                if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized) &&
+                    !profileAutoUpdateStateStore.clear(id)
+                ) {
+                    Log.w(TAG, "Failed to clear auto-update state for edited profile $id")
+                }
+                refreshActiveProfile()
+                synchronizeProfileAutoUpdateSchedule()
             }
-            refreshActiveProfile()
-            synchronizeProfileAutoUpdateSchedule()
         }
     }
 
@@ -484,11 +492,13 @@ class ChimeraBackendImpl(
         _activeProfile.value = runCatching(profileCatalogReader::readActiveProfile).getOrNull()
     }
 
-    private fun restoreImportedActiveProfile() {
-        try {
-            Global.restoreProfilePath()
-        } finally {
-            refreshActiveProfile()
+    private suspend fun restoreImportedActiveProfile() {
+        withContext(Dispatchers.IO) {
+            try {
+                Global.restoreProfilePath()
+            } finally {
+                refreshActiveProfile()
+            }
         }
     }
 
@@ -528,13 +538,13 @@ class ChimeraBackendImpl(
             renameProfileReady(id, newName)
         }
 
-    override suspend fun importLocalProfile(uri: Uri, name: String?): Unit =
+    override suspend fun importLocalProfile(uri: Uri, name: String?): String =
         withContext(Dispatchers.IO) {
             awaitReady()
             importLocalProfileReady(uri, name)
         }
 
-    override suspend fun importRemoteProfile(request: RemoteProfileRequest, onProgress: (ProfileDownloadProgress) -> Unit): Unit =
+    override suspend fun importRemoteProfile(request: RemoteProfileRequest, onProgress: (ProfileDownloadProgress) -> Unit): String =
         withContext(Dispatchers.IO) {
             awaitReady()
             importRemoteProfileReady(request, onProgress)

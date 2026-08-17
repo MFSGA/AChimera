@@ -20,10 +20,8 @@ import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
+import rs.chimera.android.util.toUserVisibleMessage
 import rs.chimera.android.backend.model.ProfileDownloadProgress
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 data class FileInfo(
     val name: String,
@@ -127,11 +125,8 @@ class ProfileViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                backend.importLocalProfile(uri, profileName)
+                val resolvedName = backend.importLocalProfile(uri, profileName)
                 if (refreshFromBackendSafely()) {
-                    val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
-                        ?: selectedFile?.name?.substringBeforeLast('.')
-                        ?: "profile"
                     statusMessage = context.getString(
                         rs.chimera.android.R.string.profile_import_success,
                         resolvedName,
@@ -167,7 +162,7 @@ class ProfileViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                backend.importRemoteProfile(
+                val resolvedName = backend.importRemoteProfile(
                     RemoteProfileRequest(
                         name = profileName,
                         url = url,
@@ -183,8 +178,6 @@ class ProfileViewModel : ViewModel() {
                     }
                 }
                 if (refreshFromBackendSafely()) {
-                    val resolvedName = profileName?.trim()?.takeIf { it.isNotEmpty() }
-                        ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
                     statusMessage = context.getString(
                         rs.chimera.android.R.string.profile_import_success,
                         resolvedName,

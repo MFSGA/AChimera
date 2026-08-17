@@ -25,18 +25,17 @@ internal class ProfileImportOperations(
     private val profileStagingStore: ProfileStagingStore,
     private val proxyPort: () -> UShort?,
 ) {
-    suspend fun importLocalProfile(uri: Uri, name: String?): Boolean {
-        val fileName = queryDisplayName(uri)
-        val safeName = name?.trim()?.takeIf { it.isNotEmpty() }
-            ?: fileName.substringBeforeLast('.')
-        val id = UUID.randomUUID().toString()
-        val destinationFile = File(
-            context.filesDir,
-            ProfileRemotePolicy.storageFileName(id, fileName),
-        )
-        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
-
+    suspend fun importLocalProfile(uri: Uri, name: String?): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
+            val fileName = queryDisplayName(uri)
+            val safeName = ProfileImportPolicy.resolveLocalProfileName(name, fileName)
+            val id = UUID.randomUUID().toString()
+            val destinationFile = File(
+                context.filesDir,
+                ProfileRemotePolicy.storageFileName(id, fileName),
+            )
+            val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
+
             ProfileFilePolicy.writeOrRollback(stagedFile) { target ->
                 val input = context.contentResolver.openInputStream(uri)
                     ?: throw IllegalStateException("Unable to open selected profile")
@@ -46,34 +45,40 @@ internal class ProfileImportOperations(
                     }
                 }
             }
+            try {
+                verifyImportedProfile(stagedFile)
+            } catch (error: Throwable) {
+                ProfileFilePolicy.deleteAfterFailure(stagedFile, error)
+                throw error
+            }
+
+            val profileJson = JSONObject()
+            profileJson.put("id", id)
+            profileJson.put("name", safeName)
+            profileJson.put("filePath", destinationFile.absolutePath)
+            profileJson.put("createdAt", System.currentTimeMillis())
+            profileJson.put("isActive", false)
+            profileJson.put("fileSize", stagedFile.length())
+            profileJson.put("type", ProfileType.LOCAL.name)
+
+            val isFirst = ProfileImportTransactionPolicy.run(
+                stagedFile = stagedFile,
+                destinationFile = destinationFile,
+                beginImportTransaction = profileStagingStore::markImportPending,
+                persistMetadata = { file ->
+                    profileJson.put("filePath", file.absolutePath)
+                    profileJson.put("fileSize", file.length())
+                    profileCatalogStore.append(profileJson, pendingImport = file)
+                },
+                clearImportTransaction = profileStagingStore::clearImportPending,
+            )
+            isFirst to safeName
         }
-
-        val profileJson = JSONObject()
-        profileJson.put("id", id)
-        profileJson.put("name", safeName)
-        profileJson.put("filePath", destinationFile.absolutePath)
-        profileJson.put("createdAt", System.currentTimeMillis())
-        profileJson.put("isActive", false)
-        profileJson.put("fileSize", stagedFile.length())
-        profileJson.put("type", ProfileType.LOCAL.name)
-
-        return ProfileImportTransactionPolicy.run(
-            stagedFile = stagedFile,
-            destinationFile = destinationFile,
-            beginImportTransaction = profileStagingStore::markImportPending,
-            persistMetadata = { file ->
-                profileJson.put("filePath", file.absolutePath)
-                profileJson.put("fileSize", file.length())
-                profileCatalogStore.append(profileJson, pendingImport = file)
-            },
-            clearImportTransaction = profileStagingStore::clearImportPending,
-        )
-    }
 
     suspend fun importRemoteProfile(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
-    ): Boolean {
+    ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val normalizedRequest = ProfileRemotePolicy.normalizeRequest(request)
         val resolvedName = normalizedRequest.name
             ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
@@ -84,9 +89,7 @@ internal class ProfileImportOperations(
             ProfileRemotePolicy.storageFileNameForUrl(id, normalizedRequest.url),
         )
         val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
-        withContext(Dispatchers.IO) {
-            downloadProfileToFile(stagedFile, normalizedRequest, onProgress)
-        }
+        downloadProfileToFile(stagedFile, normalizedRequest, onProgress)
 
         val profileJson = JSONObject()
         profileJson.put("id", id)
@@ -99,10 +102,14 @@ internal class ProfileImportOperations(
         profileJson.put("url", normalizedRequest.url)
         profileJson.put("lastUpdated", System.currentTimeMillis())
         profileJson.put("autoUpdate", normalizedRequest.autoUpdate)
-        if (normalizedRequest.userAgent != null) profileJson.put("userAgent", normalizedRequest.userAgent)
-        if (normalizedRequest.proxyUrl != null) profileJson.put("proxyUrl", normalizedRequest.proxyUrl)
+        if (normalizedRequest.userAgent != null) {
+            profileJson.put("userAgent", normalizedRequest.userAgent)
+        }
+        if (normalizedRequest.proxyUrl != null) {
+            profileJson.put("proxyUrl", normalizedRequest.proxyUrl)
+        }
 
-        return ProfileImportTransactionPolicy.run(
+        val isFirst = ProfileImportTransactionPolicy.run(
             stagedFile = stagedFile,
             destinationFile = destinationFile,
             beginImportTransaction = profileStagingStore::markImportPending,
@@ -113,12 +120,15 @@ internal class ProfileImportOperations(
             },
             clearImportTransaction = profileStagingStore::clearImportPending,
         )
+        isFirst to resolvedName
     }
 
-    fun verifyProfile(filePath: String): Result<String> =
-        runCatching {
-            ChimeraFfi.ensureInitialized()
-            verifyConfig(filePath)
+    suspend fun verifyProfile(filePath: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                ChimeraFfi.ensureInitialized()
+                verifyConfig(filePath)
+            }
         }
 
     private fun queryDisplayName(uri: Uri): String {
@@ -132,6 +142,11 @@ internal class ProfileImportOperations(
             val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
             if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
         } ?: "remote-profile.yaml"
+    }
+
+    private fun verifyImportedProfile(file: File) {
+        ChimeraFfi.ensureInitialized()
+        verifyConfig(file.absolutePath)
     }
 
     private suspend fun downloadProfileToFile(
@@ -157,7 +172,7 @@ internal class ProfileImportOperations(
                 result.errorMessage ?: "Unknown download error"
             }
             ProfileImportPolicy.requireUsableDownloadedProfile(file)
-            verifyConfig(file.absolutePath)
+            verifyImportedProfile(file)
             file
         } catch (error: Throwable) {
             ProfileFilePolicy.deleteAfterFailure(file, error)

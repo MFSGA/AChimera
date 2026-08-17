@@ -8,6 +8,11 @@ import java.nio.charset.StandardCharsets
 internal object ProfileImportPolicy {
     const val MAX_PROFILE_BYTES: Long = 5L * 1024L * 1024L
 
+    fun resolveLocalProfileName(requestedName: String?, displayName: String): String =
+        requestedName?.trim()?.takeIf { it.isNotEmpty() }
+            ?: displayName.trim().substringBeforeLast('.').takeIf { it.isNotEmpty() }
+            ?: "profile"
+
     fun copyWithLimit(
         input: InputStream,
         output: OutputStream,

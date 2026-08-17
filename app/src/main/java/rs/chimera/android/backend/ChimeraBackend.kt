@@ -48,11 +48,11 @@ interface ChimeraBackend {
     suspend fun activateProfile(id: String)
     suspend fun deleteProfile(id: String)
     suspend fun renameProfile(id: String, newName: String)
-    suspend fun importLocalProfile(uri: Uri, name: String?)
+    suspend fun importLocalProfile(uri: Uri, name: String?): String
     suspend fun importRemoteProfile(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit = {},
-    )
+    ): String
     suspend fun updateRemoteProfile(
         id: String,
         onProgress: (ProfileDownloadProgress) -> Unit = {},

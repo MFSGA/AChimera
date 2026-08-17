@@ -10,6 +10,28 @@ import org.junit.Test
 
 class ProfileImportPolicyTest {
     @Test
+    fun resolveLocalProfileNamePrefersRequestedName() {
+        assertEquals(
+            "Work",
+            ProfileImportPolicy.resolveLocalProfileName("  Work  ", "config.yaml"),
+        )
+    }
+
+    @Test
+    fun resolveLocalProfileNameUsesDisplayNameWithoutExtension() {
+        assertEquals(
+            "config",
+            ProfileImportPolicy.resolveLocalProfileName(null, " config.yaml "),
+        )
+    }
+
+    @Test
+    fun resolveLocalProfileNameFallsBackForHiddenOrBlankDisplayName() {
+        assertEquals("profile", ProfileImportPolicy.resolveLocalProfileName(null, ".yaml"))
+        assertEquals("profile", ProfileImportPolicy.resolveLocalProfileName("   ", "   "))
+    }
+
+    @Test
     fun copyWithLimitCopiesAcceptedProfile() {
         val content = "mixed-port: 7890\n".toByteArray()
         val output = ByteArrayOutputStream()
