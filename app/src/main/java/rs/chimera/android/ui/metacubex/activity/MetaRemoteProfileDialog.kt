@@ -2,6 +2,9 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.app.AlertDialog
 import android.content.Context
+import android.os.Build
+import android.text.InputType
+import android.view.View
 import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -41,14 +44,17 @@ internal fun showMetaRemoteProfileDialog(
     val urlInput = EditText(context).apply {
         hint = context.getString(R.string.profile_url_hint)
         setText(initialUrl)
+        configureSensitiveRemoteInput()
     }
     val userAgentInput = EditText(context).apply {
         hint = context.getString(R.string.profile_user_agent_hint)
         setText(initialUserAgent)
+        configureSensitiveRemoteInput()
     }
     val proxyInput = EditText(context).apply {
         hint = context.getString(R.string.profile_proxy_hint)
         setText(initialProxyUrl)
+        configureSensitiveRemoteInput()
     }
     val autoUpdateInput = CheckBox(context).apply {
         text = context.getString(R.string.profile_auto_update)
@@ -96,4 +102,13 @@ internal fun showMetaRemoteProfileDialog(
         }
     }
     dialog.show()
+}
+
+private fun EditText.configureSensitiveRemoteInput() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+    }
+    inputType = InputType.TYPE_CLASS_TEXT or
+        InputType.TYPE_TEXT_VARIATION_URI or
+        InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
 }
