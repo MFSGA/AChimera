@@ -237,14 +237,14 @@ fun ProfileScreen(
             ) {
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
-                    enabled = !vm.isRefreshingRemoteProfiles,
+                    enabled = !vm.isProfileOperationInProgress,
                     onClick = { launcher.launch(arrayOf("*/*")) },
                 ) {
                     Text(text = stringResource(id = R.string.profile_local_button))
                 }
                 Button(
                     modifier = Modifier.weight(1f),
-                    enabled = !vm.isRefreshingRemoteProfiles,
+                    enabled = !vm.isProfileOperationInProgress,
                     onClick = { showRemoteDialog = true },
                 ) {
                     Text(text = stringResource(id = R.string.profile_remote_button))
@@ -258,7 +258,7 @@ fun ProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp),
-                    enabled = !vm.isImporting && !vm.isDownloading && !vm.isRefreshingRemoteProfiles,
+                    enabled = !vm.isProfileOperationInProgress,
                     onClick = { vm.updateAllRemoteProfiles(context) },
                 ) {
                     Text(
@@ -334,6 +334,7 @@ fun ProfileScreen(
             ProfileItem(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 profile = profile,
+                mutationEnabled = !vm.isProfileOperationInProgress,
                 onActivate = { vm.activateProfile(context, profile) },
                 onDelete = { vm.deleteProfile(context, profile) },
                 onRename = { vm.renameProfile(context, profile, it) },
@@ -351,6 +352,7 @@ fun ProfileScreen(
 private fun ProfileItem(
     modifier: Modifier = Modifier,
     profile: Profile,
+    mutationEnabled: Boolean,
     onActivate: () -> Unit,
     onDelete: () -> Unit,
     onRename: (String) -> Unit,
@@ -376,6 +378,7 @@ private fun ProfileItem(
             },
             confirmButton = {
                 TextButton(
+                    enabled = mutationEnabled,
                     onClick = {
                         onRename(renameValue)
                         showRenameDialog = false
@@ -400,6 +403,7 @@ private fun ProfileItem(
     ProfileCard(
         modifier = modifier,
         profile = profile,
+        mutationEnabled = mutationEnabled,
         onActivate = onActivate,
         onDelete = onDelete,
         onRenameRequest = { showRenameDialog = true },

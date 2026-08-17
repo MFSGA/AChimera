@@ -34,6 +34,7 @@ data class FileInfo(
 class ProfileViewModel : ViewModel() {
     private val prefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val backend: ChimeraBackend = BackendProvider.provide()
+    private val profileOperationGate = ProfileOperationGate()
 
     var selectedFile by mutableStateOf<FileInfo?>(null)
         private set
@@ -45,6 +46,9 @@ class ProfileViewModel : ViewModel() {
         private set
 
     var isRefreshingRemoteProfiles by mutableStateOf(false)
+        private set
+
+    var isProfileOperationInProgress by mutableStateOf(false)
         private set
 
     var downloadProgress by mutableStateOf<ProfileDownloadProgress?>(null)
@@ -118,10 +122,10 @@ class ProfileViewModel : ViewModel() {
         uri: Uri,
         profileName: String? = null,
     ) {
-        if (isImporting) return
+        if (!tryBeginProfileOperation()) return
+        isImporting = true
 
         viewModelScope.launch {
-            isImporting = true
             try {
                 backend.importLocalProfile(uri, profileName)
                 if (refreshFromBackendSafely()) {
@@ -143,6 +147,7 @@ class ProfileViewModel : ViewModel() {
             } finally {
                 isImporting = false
                 selectedFile = null
+                endProfileOperation()
             }
         }
     }
@@ -155,12 +160,12 @@ class ProfileViewModel : ViewModel() {
         userAgent: String? = null,
         proxyUrl: String? = null,
     ) {
-        if (isDownloading) return
+        if (!tryBeginProfileOperation()) return
+        isDownloading = true
+        downloadProgress = null
+        val generation = downloadOperations.next()
 
         viewModelScope.launch {
-            isDownloading = true
-            downloadProgress = null
-            val generation = downloadOperations.next()
             try {
                 backend.importRemoteProfile(
                     RemoteProfileRequest(
@@ -195,6 +200,7 @@ class ProfileViewModel : ViewModel() {
             } finally {
                 isDownloading = false
                 downloadProgress = null
+                endProfileOperation()
             }
         }
     }
@@ -220,18 +226,43 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
+    fun updateRemoteProfileSettings(
+        context: Context,
+        profile: Profile,
+        settings: RemoteProfileSettings,
+    ) {
+        if (profile.type != ProfileType.REMOTE || !tryBeginProfileOperation()) return
+        statusMessage = null
+        viewModelScope.launch {
+            try {
+                backend.updateRemoteProfileSettings(profile.id, settings)
+                if (refreshFromBackendSafely()) {
+                    statusMessage = context.getString(rs.chimera.android.R.string.profile_settings_saved)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage = context.getString(
+                    rs.chimera.android.R.string.profile_settings_error,
+                    error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
+                )
+            } finally {
+                endProfileOperation()
+            }
+        }
+    }
+
     fun updateRemoteProfile(
         context: Context,
         profile: Profile,
     ) {
-        if (isDownloading || profile.type != ProfileType.REMOTE || profile.url.isNullOrBlank()) {
-            return
-        }
+        if (profile.type != ProfileType.REMOTE || profile.url.isNullOrBlank()) return
+        if (!tryBeginProfileOperation()) return
+        isDownloading = true
+        downloadProgress = null
+        val generation = downloadOperations.next()
 
         viewModelScope.launch {
-            isDownloading = true
-            downloadProgress = null
-            val generation = downloadOperations.next()
             try {
                 backend.updateRemoteProfile(profile.id) { progress ->
                     viewModelScope.launch {
@@ -256,16 +287,17 @@ class ProfileViewModel : ViewModel() {
             } finally {
                 isDownloading = false
                 downloadProgress = null
+                endProfileOperation()
             }
         }
     }
 
     fun updateAllRemoteProfiles(context: Context) {
-        if (isImporting || isDownloading || isRefreshingRemoteProfiles) return
+        if (!tryBeginProfileOperation()) return
+        isRefreshingRemoteProfiles = true
+        statusMessage = null
 
         viewModelScope.launch {
-            isRefreshingRemoteProfiles = true
-            statusMessage = null
             try {
                 val remoteProfiles = backend.listProfiles().filter { it.isRemote }
                 if (remoteProfiles.isEmpty()) {
@@ -305,6 +337,7 @@ class ProfileViewModel : ViewModel() {
                 )
             } finally {
                 isRefreshingRemoteProfiles = false
+                endProfileOperation()
             }
         }
     }
@@ -347,6 +380,7 @@ class ProfileViewModel : ViewModel() {
         errorMessageRes: Int,
         operation: suspend () -> Unit,
     ) {
+        if (!tryBeginProfileOperation()) return
         statusMessage = null
         viewModelScope.launch {
             try {
@@ -359,8 +393,21 @@ class ProfileViewModel : ViewModel() {
                     errorMessageRes,
                     error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
                 )
+            } finally {
+                endProfileOperation()
             }
         }
+    }
+
+    private fun tryBeginProfileOperation(): Boolean {
+        if (!profileOperationGate.tryAcquire()) return false
+        isProfileOperationInProgress = true
+        return true
+    }
+
+    private fun endProfileOperation() {
+        isProfileOperationInProgress = false
+        profileOperationGate.release()
     }
 
     private suspend fun refreshFromBackend() {

@@ -51,6 +51,7 @@ import java.util.Locale
 internal fun ProfileCard(
     modifier: Modifier = Modifier,
     profile: Profile,
+    mutationEnabled: Boolean,
     onActivate: () -> Unit,
     onDelete: () -> Unit,
     onRenameRequest: () -> Unit,
@@ -166,6 +167,7 @@ internal fun ProfileCard(
                         if (!profile.isActive) {
                             DropdownMenuItem(
                                 text = { Text(text = stringResource(id = R.string.profile_activate)) },
+                                enabled = mutationEnabled,
                                 onClick = {
                                     onActivate()
                                     menuExpanded = false
@@ -185,9 +187,26 @@ internal fun ProfileCard(
                                 menuExpanded = false
                             },
                         )
+                        if (profile.type == ProfileType.REMOTE && onEditRemoteSettings != null) {
+                            DropdownMenuItem(
+                                text = { Text(text = stringResource(id = R.string.profile_edit_settings)) },
+                                enabled = mutationEnabled,
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = null,
+                                    )
+                                },
+                                onClick = {
+                                    onEditRemoteSettings()
+                                    menuExpanded = false
+                                },
+                            )
+                        }
                         if (profile.type == ProfileType.REMOTE && onUpdate != null) {
                             DropdownMenuItem(
                                 text = { Text(text = stringResource(id = R.string.profile_update)) },
+                                enabled = mutationEnabled,
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Refresh,
@@ -202,6 +221,7 @@ internal fun ProfileCard(
                         }
                         DropdownMenuItem(
                             text = { Text(text = stringResource(id = R.string.profile_rename)) },
+                            enabled = mutationEnabled,
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Edit,
@@ -215,6 +235,7 @@ internal fun ProfileCard(
                         )
                         DropdownMenuItem(
                             text = { Text(text = stringResource(id = R.string.profile_delete)) },
+                            enabled = mutationEnabled,
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Delete,
