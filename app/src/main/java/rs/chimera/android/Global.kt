@@ -50,15 +50,6 @@ object Global {
             .orEmpty()
     }
 
-    fun updateProfilePath(path: String) {
-        profilePath = path
-        application
-            .getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
-            .edit()
-            .putString(PROFILE_PATH_KEY, path)
-            .apply()
-    }
-
     fun restoreProfilePath(): String {
         profilePath = application
             .getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
