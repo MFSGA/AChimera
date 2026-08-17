@@ -161,8 +161,8 @@ fun AppSelectorScreen(
 		)
 	}
 
-	// Filter apps based on search and system apps toggle
-	val filteredApps =
+	// Filter apps based on search and system apps toggle.
+	val filteredApps = remember(apps, searchQuery, showSystemApps) {
 		apps.filter { app ->
 			val matchesSearch =
 				searchQuery.isEmpty() ||
@@ -171,6 +171,7 @@ fun AppSelectorScreen(
 			val matchesSystemFilter = showSystemApps || !app.isSystemApp
 			matchesSearch && matchesSystemFilter
 		}
+	}
 
 	Scaffold(
 		topBar = {
@@ -395,6 +396,10 @@ private fun AppListItem(
 	isSelected: Boolean,
 	onToggle: () -> Unit,
 ) {
+	val iconBitmap = remember(app.packageName, app.icon) {
+		app.icon.toBitmap(64, 64).asImageBitmap()
+	}
+
 	Card(
 		modifier =
 			Modifier
@@ -407,7 +412,7 @@ private fun AppListItem(
 			verticalAlignment = Alignment.CenterVertically,
 		) {
 			Image(
-				bitmap = app.icon.toBitmap(64, 64).asImageBitmap(),
+				bitmap = iconBitmap,
 				contentDescription = null,
 				modifier = Modifier.size(48.dp),
 			)
