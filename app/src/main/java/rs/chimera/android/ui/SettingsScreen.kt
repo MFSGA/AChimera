@@ -84,11 +84,10 @@ fun SettingsScreen(
     val vpnSystemSummary = vpnSystemPresentation.format(context)
 
     viewModel.runtimeSettingError?.let { error ->
-        val details = error.ifBlank { stringResource(R.string.profile_unknown_error) }
         AlertDialog(
             onDismissRequest = viewModel::dismissRuntimeSettingError,
             title = { Text(stringResource(R.string.settings_title)) },
-            text = { Text(stringResource(R.string.cmfa_settings_save_failed, details)) },
+            text = { Text(error) },
             confirmButton = {
                 TextButton(onClick = viewModel::dismissRuntimeSettingError) {
                     Text(stringResource(android.R.string.ok))

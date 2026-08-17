@@ -110,6 +110,7 @@
     <string name="cmfa_ports_summary">Mixed: %1$d · HTTP: %2$s · SOCKS: %3$s</string>
     <string name="cmfa_settings_saved">Settings saved. Restart VPN to apply listener changes.</string>
     <string name="cmfa_settings_save_failed">Failed to save settings: %1$s</string>
+    <string name="settings_saved_apply_failed">Settings were saved, but applying them to the running VPN failed: %1$s</string>
     <string name="settings_fake_ip">Enable Fake IP</string>
     <string name="settings_fake_ip_desc">Use virtual IP addresses for DNS resolution.</string>
     <string name="settings_ipv6">Enable IPv6</string>

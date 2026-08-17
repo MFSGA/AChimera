@@ -1,5 +1,6 @@
 package rs.chimera.android
 
+import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
@@ -18,7 +19,13 @@ class VpnPreconditionInstrumentedTest {
 
     @Before
     fun clearActiveProfile() {
-        Global.updateProfilePath("")
+        val persisted = context
+            .getSharedPreferences("file_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .remove("profile_path")
+            .commit()
+        check(persisted) { "Failed to clear active profile before test" }
+        Global.restoreProfilePath()
     }
 
     @Test

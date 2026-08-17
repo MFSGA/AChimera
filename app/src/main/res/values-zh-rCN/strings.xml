@@ -108,6 +108,7 @@
     <string name="cmfa_ports_summary">混合：%1$d · HTTP：%2$s · SOCKS：%3$s</string>
     <string name="cmfa_settings_saved">设置已保存。监听相关设置将在重启 VPN 后生效。</string>
     <string name="cmfa_settings_save_failed">保存设置失败：%1$s</string>
+    <string name="settings_saved_apply_failed">设置已保存，但应用到当前运行的 VPN 失败：%1$s</string>
     <string name="settings_fake_ip">启用 Fake IP</string>
     <string name="settings_fake_ip_desc">使用虚拟 IP 地址进行 DNS 解析。</string>
     <string name="settings_ipv6">启用 IPv6</string>
