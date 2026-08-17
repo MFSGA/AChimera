@@ -29,6 +29,9 @@ class HomeViewModel(
     var isVpnRunning by mutableStateOf(false)
         private set
 
+    var isVpnTransitioning by mutableStateOf(false)
+        private set
+
     var proxies by mutableStateOf(emptyArray<ProxyGroupSnapshot>())
         private set
 
@@ -66,6 +69,7 @@ class HomeViewModel(
         viewModelScope.launch {
             backend.serviceState.collectLatest { state ->
                 isVpnRunning = state == ServiceState.RUNNING
+                isVpnTransitioning = state == ServiceState.STARTING || state == ServiceState.STOPPING
                 if (!isVpnRunning) {
                     proxies = emptyArray()
                     delays.clear()

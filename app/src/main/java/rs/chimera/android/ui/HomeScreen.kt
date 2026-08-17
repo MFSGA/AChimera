@@ -177,6 +177,7 @@ fun HomeScreen(
         val download = viewModel.totalDownload
         val upload = viewModel.totalUpload
         val isVpnRunning = viewModel.isVpnRunning
+        val vpnActionEnabled = !viewModel.isVpnTransitioning
         val errorMessage = viewModel.errorMessage
 
         OverviewTab(
@@ -185,6 +186,7 @@ fun HomeScreen(
             download = download,
             upload = upload,
             isVpnRunning = isVpnRunning,
+            vpnActionEnabled = vpnActionEnabled,
             errorMessage = errorMessage,
             onDismissError = viewModel::clearError,
             onConnectionsClick = onConnectionsClick,
@@ -205,6 +207,7 @@ fun HomeScreen(
 @Composable
 private fun HomeHeroCard(
     isVpnRunning: Boolean,
+    actionEnabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -295,6 +298,7 @@ private fun HomeHeroCard(
                     )
                     FilledTonalButton(
                         onClick = onClick,
+                        enabled = actionEnabled,
                         shape = RoundedCornerShape(999.dp),
                     ) {
                         Text(
@@ -350,6 +354,7 @@ private fun OverviewTab(
     download: Long,
     upload: Long,
     isVpnRunning: Boolean,
+    vpnActionEnabled: Boolean,
     errorMessage: String?,
     onVpnToggle: () -> Unit,
     onDismissError: () -> Unit,
@@ -364,6 +369,7 @@ private fun OverviewTab(
         item(key = "hero") {
             HomeHeroCard(
                 isVpnRunning = isVpnRunning,
+                actionEnabled = vpnActionEnabled,
                 onClick = onVpnToggle,
             )
         }
