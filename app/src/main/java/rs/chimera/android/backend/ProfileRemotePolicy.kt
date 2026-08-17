@@ -3,6 +3,7 @@ package rs.chimera.android.backend
 import java.net.URI
 import java.util.Locale
 import rs.chimera.android.backend.model.RemoteProfileRequest
+import rs.chimera.android.backend.model.RemoteProfileSettings
 
 internal object ProfileRemotePolicy {
     fun isValidUrl(value: String): Boolean = parseHttpUrl(value) != null
@@ -15,12 +16,17 @@ internal object ProfileRemotePolicy {
             proxyUrl = normalizeProxyUrl(request.proxyUrl),
         )
 
-    fun isValidProxyUrl(value: String): Boolean = parseHttpUrl(value) != null
-
-    fun requireValidProxyUrl(value: String): URI =
-        parseHttpUrl(value) ?: throw IllegalArgumentException(
-            "Profile proxy URL must use http or https",
+    fun normalizeSettings(settings: RemoteProfileSettings): RemoteProfileSettings {
+        val name = settings.name.trim()
+        require(name.isNotEmpty()) { "Profile name is empty" }
+        val url = requireValidUrl(settings.url).toString()
+        return settings.copy(
+            name = name,
+            url = url,
+            userAgent = settings.userAgent?.trim()?.takeIf { it.isNotEmpty() },
+            proxyUrl = normalizeProxyUrl(settings.proxyUrl),
         )
+    }
 
     fun invalidatesAutoUpdateState(
         current: RemoteProfileCatalogEntry,
@@ -34,6 +40,13 @@ internal object ProfileRemotePolicy {
     fun requireValidUrl(value: String): URI =
         parseHttpUrl(value) ?: throw IllegalArgumentException(
             "Remote profile URL must use http or https",
+        )
+
+    fun isValidProxyUrl(value: String): Boolean = parseHttpUrl(value) != null
+
+    fun requireValidProxyUrl(value: String): URI =
+        parseHttpUrl(value) ?: throw IllegalArgumentException(
+            "Profile proxy URL must use http or https",
         )
 
     fun storageFileName(profileId: String, sourceName: String): String {

@@ -292,6 +292,7 @@
     <string name="profile_renaming">正在重命名配置…</string>
     <string name="profile_deleting">正在删除配置…</string>
     <string name="profile_refreshing">正在更新远程配置…</string>
+    <string name="profile_update_all_remote">更新全部远程配置</string>
     <string name="profile_rename_success">已重命名为 %1$s</string>
     <string name="profile_rename_error">重命名失败：%1$s</string>
     <string name="profile_delete_success">已删除 %1$s</string>

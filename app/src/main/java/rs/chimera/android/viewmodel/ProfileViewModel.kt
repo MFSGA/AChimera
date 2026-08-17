@@ -14,6 +14,9 @@ import kotlinx.coroutines.launch
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
+import rs.chimera.android.backend.applyUpdatedProfileToRunningVpn
+import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
@@ -39,6 +42,9 @@ class ProfileViewModel : ViewModel() {
         private set
 
     var isDownloading by mutableStateOf(false)
+        private set
+
+    var isRefreshingRemoteProfiles by mutableStateOf(false)
         private set
 
     var downloadProgress by mutableStateOf<ProfileDownloadProgress?>(null)
@@ -250,6 +256,55 @@ class ProfileViewModel : ViewModel() {
             } finally {
                 isDownloading = false
                 downloadProgress = null
+            }
+        }
+    }
+
+    fun updateAllRemoteProfiles(context: Context) {
+        if (isImporting || isDownloading || isRefreshingRemoteProfiles) return
+
+        viewModelScope.launch {
+            isRefreshingRemoteProfiles = true
+            statusMessage = null
+            try {
+                val remoteProfiles = backend.listProfiles().filter { it.isRemote }
+                if (remoteProfiles.isEmpty()) {
+                    statusMessage = context.getString(rs.chimera.android.R.string.profile_no_remote_profiles)
+                    return@launch
+                }
+
+                val batch = updateRemoteProfilesBatch(
+                    profileIds = remoteProfiles.map { it.id },
+                    updateProfile = { id -> backend.updateRemoteProfile(id) },
+                    activeProfileId = { backend.activeProfile.value?.id },
+                    serviceState = { backend.serviceState.value },
+                    restartVpn = backend::restartVpn,
+                )
+                if (refreshFromBackendSafely()) {
+                    statusMessage = when (val runtimeApply = batch.runtimeApply) {
+                        is ProfileUpdateRuntimeApplyResult.Failed -> context.getString(
+                            rs.chimera.android.R.string.profile_refresh_reload_error,
+                            batch.succeeded,
+                            batch.failed,
+                            runtimeApply.error.message
+                                ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
+                        )
+                        else -> context.getString(
+                            rs.chimera.android.R.string.profile_refresh_result,
+                            batch.succeeded,
+                            batch.failed,
+                        )
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                statusMessage = context.getString(
+                    rs.chimera.android.R.string.profile_list_error,
+                    error.message ?: context.getString(rs.chimera.android.R.string.profile_unknown_error),
+                )
+            } finally {
+                isRefreshingRemoteProfiles = false
             }
         }
     }

@@ -297,6 +297,7 @@
     <string name="profile_renaming">Renaming profile…</string>
     <string name="profile_deleting">Deleting profile…</string>
     <string name="profile_refreshing">Updating remote profiles…</string>
+    <string name="profile_update_all_remote">Update all remote profiles</string>
     <string name="profile_rename_success">Renamed to %1$s</string>
     <string name="profile_rename_error">Rename failed: %1$s</string>
     <string name="profile_delete_success">Deleted %1$s</string>

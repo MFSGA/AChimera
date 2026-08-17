@@ -237,15 +237,39 @@ fun ProfileScreen(
             ) {
                 FilledTonalButton(
                     modifier = Modifier.weight(1f),
+                    enabled = !vm.isRefreshingRemoteProfiles,
                     onClick = { launcher.launch(arrayOf("*/*")) },
                 ) {
                     Text(text = stringResource(id = R.string.profile_local_button))
                 }
                 Button(
                     modifier = Modifier.weight(1f),
+                    enabled = !vm.isRefreshingRemoteProfiles,
                     onClick = { showRemoteDialog = true },
                 ) {
                     Text(text = stringResource(id = R.string.profile_remote_button))
+                }
+            }
+        }
+
+        if (vm.profiles.any { it.type == ProfileType.REMOTE }) {
+            item {
+                FilledTonalButton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    enabled = !vm.isImporting && !vm.isDownloading && !vm.isRefreshingRemoteProfiles,
+                    onClick = { vm.updateAllRemoteProfiles(context) },
+                ) {
+                    Text(
+                        text = stringResource(
+                            id = if (vm.isRefreshingRemoteProfiles) {
+                                R.string.profile_refreshing
+                            } else {
+                                R.string.profile_update_all_remote
+                            },
+                        ),
+                    )
                 }
             }
         }
@@ -262,13 +286,13 @@ fun ProfileScreen(
                     )
                 }
 
-                if (vm.isImporting || vm.isDownloading) {
+                if (vm.isImporting || vm.isDownloading || vm.isRefreshingRemoteProfiles) {
                     InlineStatusCard(
                         message = stringResource(
-                            id = if (vm.isDownloading) {
-                                R.string.profile_downloading
-                            } else {
-                                R.string.profile_importing
+                            id = when {
+                                vm.isRefreshingRemoteProfiles -> R.string.profile_refreshing
+                                vm.isDownloading -> R.string.profile_downloading
+                                else -> R.string.profile_importing
                             },
                         ),
                         isError = false,

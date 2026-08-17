@@ -29,6 +29,9 @@ import android.view.View
 @Composable
 internal fun RemoteProfileDialog(
     profileName: String,
+    titleRes: Int = R.string.profile_remote_dialog_title,
+    confirmRes: Int = R.string.profile_download_file,
+    requireName: Boolean = false,
     profileUrl: String,
     autoUpdate: Boolean,
     userAgent: String,
@@ -50,7 +53,7 @@ internal fun RemoteProfileDialog(
         onDismissRequest = {
             if (!isDownloading) onDismiss()
         },
-        title = { Text(text = stringResource(id = R.string.profile_remote_dialog_title)) },
+        title = { Text(text = stringResource(id = titleRes)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SensitiveRemoteAutofillGuard()
@@ -150,10 +153,10 @@ internal fun RemoteProfileDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = urlValid && proxyValid && !isDownloading,
+                enabled = urlValid && proxyValid && (!requireName || profileName.isNotBlank()) && !isDownloading,
                 onClick = onConfirm,
             ) {
-                Text(text = stringResource(id = R.string.profile_download_file))
+                Text(text = stringResource(id = confirmRes))
             }
         },
         dismissButton = {

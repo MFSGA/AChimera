@@ -78,6 +78,11 @@ internal fun showMetaRemoteProfileDialog(
                 urlInput.error = context.getString(R.string.profile_url_invalid)
                 return@setOnClickListener
             }
+            val proxyUrl = proxyInput.text.toString().trim()
+            if (proxyUrl.isNotEmpty() && !ProfileRemotePolicy.isValidProxyUrl(proxyUrl)) {
+                proxyInput.error = context.getString(R.string.profile_proxy_invalid)
+                return@setOnClickListener
+            }
             dialog.dismiss()
             onSubmit(
                 MetaRemoteProfileForm(
@@ -85,7 +90,7 @@ internal fun showMetaRemoteProfileDialog(
                     url = url,
                     autoUpdate = autoUpdateInput.isChecked,
                     userAgent = userAgentInput.text.toString().trim().ifEmpty { null },
-                    proxyUrl = proxyInput.text.toString().trim().ifEmpty { null },
+                    proxyUrl = proxyUrl.ifEmpty { null },
                 ),
             )
         }

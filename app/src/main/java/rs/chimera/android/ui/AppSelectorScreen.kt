@@ -104,6 +104,8 @@ fun AppSelectorScreen(
 	val coroutineScope = rememberCoroutineScope()
 	var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
 	var isLoading by remember { mutableStateOf(true) }
+	var loadError by remember { mutableStateOf<String?>(null) }
+	var loadRequest by remember { mutableStateOf(0) }
 	var searchQuery by remember { mutableStateOf("") }
 	var showSystemApps by remember { mutableStateOf(false) }
 	var showModeDialog by remember { mutableStateOf(false) }
@@ -120,31 +122,35 @@ fun AppSelectorScreen(
 		)
 	}
 
-	// Load apps when screen opens
-	LaunchedEffect(Unit) {
-		coroutineScope.launch {
+	// Load apps when screen opens or when the user retries a failed load.
+	LaunchedEffect(loadRequest) {
+		isLoading = true
+		loadError = null
+		runCatchingPreservingCancellation {
 			withContext(Dispatchers.IO) {
 				val pm = context.packageManager
-				val installedApps = pm.getInstalledApplications(PackageManager.GET_META_DATA)
-				apps =
-					installedApps
-						.filter { it.packageName != context.packageName } // Exclude self
-						.mapNotNull { appInfo ->
-							try {
-								val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-								AppInfo(
-									packageName = appInfo.packageName,
-									appName = pm.getApplicationLabel(appInfo).toString(),
-									icon = pm.getApplicationIcon(appInfo),
-									isSystemApp = isSystem,
-								)
-							} catch (_: Exception) {
-								null
-							}
-						}.sortedBy { it.appName.lowercase() }
-				isLoading = false
+				pm.getInstalledApplications(PackageManager.GET_META_DATA)
+					.filter { it.packageName != context.packageName } // Exclude self
+					.mapNotNull { appInfo ->
+						try {
+							val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+							AppInfo(
+								packageName = appInfo.packageName,
+								appName = pm.getApplicationLabel(appInfo).toString(),
+								icon = pm.getApplicationIcon(appInfo),
+								isSystemApp = isSystem,
+							)
+						} catch (_: Exception) {
+							null
+						}
+					}.sortedBy { it.appName.lowercase() }
 			}
+		}.onSuccess { loadedApps ->
+			apps = loadedApps
+		}.onFailure { error ->
+			loadError = error.message.orEmpty()
 		}
+		isLoading = false
 	}
 
 	saveError?.let { error ->
@@ -308,6 +314,28 @@ fun AppSelectorScreen(
 						CircularProgressIndicator()
 						Spacer(modifier = Modifier.height(16.dp))
 						Text(stringResource(R.string.app_selector_loading))
+					}
+				}
+			} else if (loadError != null) {
+				Box(
+					modifier = Modifier.fillMaxSize(),
+					contentAlignment = Alignment.Center,
+				) {
+					Column(
+						horizontalAlignment = Alignment.CenterHorizontally,
+						verticalArrangement = Arrangement.spacedBy(8.dp),
+						modifier = Modifier.padding(24.dp),
+					) {
+						val details = loadError.orEmpty().ifBlank {
+							stringResource(R.string.profile_unknown_error)
+						}
+						Text(
+							text = stringResource(R.string.app_selector_load_error, details),
+							style = MaterialTheme.typography.bodyMedium,
+						)
+						TextButton(onClick = { loadRequest += 1 }) {
+							Text(stringResource(R.string.retry))
+						}
 					}
 				}
 			} else if (tempFilterMode != AppFilterMode.ALL) {

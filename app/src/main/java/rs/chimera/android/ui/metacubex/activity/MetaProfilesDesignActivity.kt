@@ -20,8 +20,10 @@ import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.applyUpdatedProfileToRunningVpn
+import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
+import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
 import rs.chimera.android.ui.profileDetailsText
 
@@ -364,21 +366,29 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
 
         operationInProgress = true
         design.showOperation(getString(R.string.profile_refreshing))
-        var failed = 0
         try {
-            profiles.forEach { profile ->
-                try {
-                    backend.updateRemoteProfile(profile.id)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    failed++
-                }
-            }
+            val batch = updateRemoteProfilesBatch(
+                profileIds = profiles.map { it.id },
+                updateProfile = { id -> backend.updateRemoteProfile(id) },
+                activeProfileId = { backend.activeProfile.value?.id },
+                serviceState = { backend.serviceState.value },
+                restartVpn = backend::restartVpn,
+            )
             if (loadProfiles()) {
-                design.showToast(
-                    getString(R.string.profile_refresh_result, profiles.size - failed, failed),
-                )
+                val message = when (val runtimeApply = batch.runtimeApply) {
+                    is ProfileUpdateRuntimeApplyResult.Failed -> getString(
+                        R.string.profile_refresh_reload_error,
+                        batch.succeeded,
+                        batch.failed,
+                        runtimeApply.error.message ?: getString(R.string.profile_unknown_error),
+                    )
+                    else -> getString(
+                        R.string.profile_refresh_result,
+                        batch.succeeded,
+                        batch.failed,
+                    )
+                }
+                design.showToast(message)
             }
         } finally {
             operationInProgress = false

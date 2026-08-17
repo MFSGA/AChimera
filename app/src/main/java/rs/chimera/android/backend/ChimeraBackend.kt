@@ -15,6 +15,7 @@ import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
+import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsApplyEffect
@@ -56,6 +57,7 @@ interface ChimeraBackend {
         id: String,
         onProgress: (ProfileDownloadProgress) -> Unit = {},
     )
+    suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings)
     suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)
