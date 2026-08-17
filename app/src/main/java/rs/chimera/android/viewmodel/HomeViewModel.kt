@@ -15,6 +15,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
@@ -26,6 +30,9 @@ import rs.chimera.android.backend.model.ProxyMode
 class HomeViewModel(
     private val backend: ChimeraBackend = BackendProvider.provide(),
 ) : ViewModel() {
+    private val proxyRefreshMutex = Mutex()
+    private val proxyDelaySemaphore = Semaphore(PROXY_DELAY_MAX_CONCURRENCY)
+
     var isVpnRunning by mutableStateOf(false)
         private set
 
@@ -110,24 +117,7 @@ class HomeViewModel(
     }
 
     fun fetchProxies() {
-        if (!isVpnRunning) {
-            proxies = emptyArray()
-            return
-        }
-
-        isRefreshing = true
-        errorMessage = null
-        viewModelScope.launch {
-            try {
-                applyProxyGroups(backend.listProxyGroups())
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                errorMessage = formatError("Failed to fetch proxies", error)
-            } finally {
-                isRefreshing = false
-            }
-        }
+        viewModelScope.launch { refreshProxies() }
     }
 
     fun fetchMode() {
@@ -146,7 +136,7 @@ class HomeViewModel(
             try {
                 backend.setMode(mode)
                 currentMode = mode
-                fetchProxies()
+                refreshProxies()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -165,7 +155,7 @@ class HomeViewModel(
             try {
                 errorMessage = null
                 val failures = proxyNames.map { name ->
-                    async { testProxyDelay(name) }
+                    async { proxyDelaySemaphore.withPermit { testProxyDelay(name) } }
                 }.awaitAll().filterNotNull()
                 failures.firstOrNull()?.let { error ->
                     errorMessage = formatError("Failed to test proxy delay", error)
@@ -184,7 +174,7 @@ class HomeViewModel(
             errorMessage = null
             try {
                 backend.selectProxy(groupName, proxyName)
-                fetchProxies()
+                refreshProxies()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -244,6 +234,25 @@ class HomeViewModel(
         }
     }
 
+    private suspend fun refreshProxies() = proxyRefreshMutex.withLock {
+        if (!isVpnRunning) {
+            proxies = emptyArray()
+            return@withLock
+        }
+
+        isRefreshing = true
+        errorMessage = null
+        try {
+            applyProxyGroups(backend.listProxyGroups())
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            errorMessage = formatError("Failed to fetch proxies", error)
+        } finally {
+            isRefreshing = false
+        }
+    }
+
     private suspend fun testProxyDelay(name: String): Exception? {
         delays[name] = "testing..."
         return try {
@@ -275,5 +284,9 @@ class HomeViewModel(
     ): String {
         val details = error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName
         return "$prefix: $details"
+    }
+
+    private companion object {
+        const val PROXY_DELAY_MAX_CONCURRENCY = 8
     }
 }

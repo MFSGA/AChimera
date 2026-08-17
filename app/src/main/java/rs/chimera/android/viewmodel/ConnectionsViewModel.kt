@@ -12,6 +12,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.ConnectionSnapshot
@@ -20,6 +22,7 @@ class ConnectionsViewModel(
     private val backend: ChimeraBackend = BackendProvider.provide(),
 ) : ViewModel() {
     private var observationJob: Job? = null
+    private val fetchMutex = Mutex()
 
     private var state = ConnectionsUiState()
 
@@ -97,7 +100,7 @@ class ConnectionsViewModel(
         super.onCleared()
     }
 
-    private suspend fun fetchConnectionsInternal() {
+    private suspend fun fetchConnectionsInternal() = fetchMutex.withLock {
         applyState(state.copy(errorMessage = null))
         try {
             val snapshot = backend.listConnections()

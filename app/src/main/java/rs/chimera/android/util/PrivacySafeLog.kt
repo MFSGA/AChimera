@@ -49,6 +49,18 @@ internal object PrivacySafeLog {
         }
     }
 
+    fun warningDetail(
+        tag: String,
+        message: String,
+        debugDetail: String?,
+    ) {
+        if (debugLoggingEnabled && !debugDetail.isNullOrBlank()) {
+            Log.w(tag, "$message: $debugDetail")
+        } else {
+            Log.w(tag, message)
+        }
+    }
+
     fun crashThrowable(error: Throwable): Throwable =
         if (debugLoggingEnabled) error else releaseCrashThrowable(error)
 

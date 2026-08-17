@@ -18,16 +18,10 @@ internal object TunRuntimeFiles {
                 Global.profilePath
             }.trim()
 
-        if (path.isEmpty()) {
-            throw IllegalStateException(context.getString(rs.chimera.android.R.string.service_profile_required))
-        }
-
-        val configFile = File(path)
-        if (!configFile.exists() || !configFile.isFile) {
-            throw IllegalStateException("Profile file not found: $path")
-        }
-
-        return path
+        return RuntimeProfilePathPolicy.requireAvailable(
+            rawPath = path,
+            unavailableMessage = context.getString(rs.chimera.android.R.string.service_profile_required),
+        )
     }
 
     fun copyRuntimeAssetsIfAvailable(

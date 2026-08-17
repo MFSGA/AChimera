@@ -26,9 +26,11 @@ object Global {
     lateinit var application: ChimeraApplication
         private set
 
+    @Volatile
     var profilePath: String = ""
         private set
 
+    @Volatile
     var proxyPort: UShort? = null
 
     fun runtimeLogFile(): File = File(application.cacheDir, RUNTIME_LOG_FILE_NAME)

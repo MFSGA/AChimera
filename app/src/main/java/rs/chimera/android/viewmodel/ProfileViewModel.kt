@@ -10,7 +10,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
@@ -33,6 +36,7 @@ class ProfileViewModel : ViewModel() {
     private val prefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
     private val backend: ChimeraBackend = BackendProvider.provide()
     private val profileOperationGate = ProfileOperationGate()
+    private val fileSelections = LatestOperationGate()
 
     var selectedFile by mutableStateOf<FileInfo?>(null)
         private set
@@ -53,6 +57,7 @@ class ProfileViewModel : ViewModel() {
         private set
 
     private val downloadOperations = LatestOperationGate()
+    private val downloadProgressUpdates = Channel<Pair<Long, ProfileDownloadProgress>>(Channel.CONFLATED)
 
     var savedFilePath by mutableStateOf<String?>(null)
         private set
@@ -74,6 +79,16 @@ class ProfileViewModel : ViewModel() {
     var activeProfile by mutableStateOf<Profile?>(null)
         private set
 
+    init {
+        viewModelScope.launch {
+            for ((generation, progress) in downloadProgressUpdates) {
+                if (isDownloading && downloadOperations.isCurrent(generation)) {
+                    downloadProgress = progress
+                }
+            }
+        }
+    }
+
     fun loadSavedFilePath() {
         savedFilePath = prefs.getString(PROFILE_PATH_KEY, null)
         loadProfiles()
@@ -83,26 +98,30 @@ class ProfileViewModel : ViewModel() {
         context: Context,
         uri: Uri,
     ) {
-        val fileSize = context.contentResolver.query(
-            uri,
-            arrayOf(OpenableColumns.SIZE),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
-            val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-            if (cursor.moveToFirst() && sizeIndex >= 0) cursor.getLong(sizeIndex) else 0L
-        } ?: 0L
-
-        selectedFile = FileInfo(
-            name = queryDisplayName(context, uri),
-            uri = uri,
-            size = fileSize,
-        )
-        statusMessage = null
+        val generation = fileSelections.next()
+        viewModelScope.launch {
+            try {
+                val fileInfo = withContext(Dispatchers.IO) { queryFileInfo(context, uri) }
+                if (fileSelections.isCurrent(generation)) {
+                    selectedFile = fileInfo
+                    statusMessage = null
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (fileSelections.isCurrent(generation)) {
+                    selectedFile = null
+                    statusMessage = error.toUserVisibleMessage(
+                        context,
+                        rs.chimera.android.R.string.profile_unknown_error,
+                    )
+                }
+            }
+        }
     }
 
     fun clearSelection() {
+        fileSelections.next()
         selectedFile = null
     }
 
@@ -171,11 +190,7 @@ class ProfileViewModel : ViewModel() {
                         proxyUrl = proxyUrl,
                     ),
                 ) { progress ->
-                    viewModelScope.launch {
-                        if (isDownloading && downloadOperations.isCurrent(generation)) {
-                            downloadProgress = progress
-                        }
-                    }
+                    downloadProgressUpdates.trySend(generation to progress)
                 }
                 if (refreshFromBackendSafely()) {
                     statusMessage = context.getString(
@@ -258,11 +273,7 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 backend.updateRemoteProfile(profile.id) { progress ->
-                    viewModelScope.launch {
-                        if (isDownloading && downloadOperations.isCurrent(generation)) {
-                            downloadProgress = progress
-                        }
-                    }
+                    downloadProgressUpdates.trySend(generation to progress)
                 }
                 if (refreshFromBackendSafely()) {
                     statusMessage = context.getString(
@@ -429,21 +440,25 @@ class ProfileViewModel : ViewModel() {
         viewModelScope.launch { refreshFromBackendSafely() }
     }
 
-    private fun queryDisplayName(
+    private fun queryFileInfo(
         context: Context,
         uri: Uri,
-    ): String {
-        return context.contentResolver.query(
-            uri,
-            arrayOf(OpenableColumns.DISPLAY_NAME),
-            null,
-            null,
-            null,
-        )?.use { cursor ->
-            val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (cursor.moveToFirst() && nameIndex >= 0) cursor.getString(nameIndex) else null
-        } ?: "profile"
-    }
+    ): FileInfo = context.contentResolver.query(
+        uri,
+        arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+        null,
+        null,
+        null,
+    )?.use { cursor ->
+        if (!cursor.moveToFirst()) return@use null
+        val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+        FileInfo(
+            name = nameIndex.takeIf { it >= 0 }?.let(cursor::getString)?.ifBlank { "profile" } ?: "profile",
+            uri = uri,
+            size = sizeIndex.takeIf { it >= 0 && !cursor.isNull(it) }?.let(cursor::getLong) ?: 0L,
+        )
+    } ?: FileInfo(name = "profile", uri = uri)
 
     private companion object {
         const val FILE_PREFS = "file_prefs"

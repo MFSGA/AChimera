@@ -239,7 +239,7 @@ class ChimeraBackendImpl(
             )
             Global.restoreProfilePath()
             if (!profileAutoUpdateStateStore.clear(id)) {
-                Log.w(TAG, "Failed to clear auto-update state for deleted profile $id")
+                PrivacySafeLog.warningDetail(TAG, "Failed to clear deleted auto-update state", "profileId=$id")
             }
             refreshActiveProfile()
         }
@@ -289,7 +289,7 @@ class ChimeraBackendImpl(
                 if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized) &&
                     !profileAutoUpdateStateStore.clear(id)
                 ) {
-                    Log.w(TAG, "Failed to clear auto-update state for edited profile $id")
+                    PrivacySafeLog.warningDetail(TAG, "Failed to clear edited auto-update state", "profileId=$id")
                 }
                 refreshActiveProfile()
                 synchronizeProfileAutoUpdateSchedule()
@@ -360,7 +360,7 @@ class ChimeraBackendImpl(
             )
         }
         if (!profileAutoUpdateStateStore.clear(id)) {
-            Log.w(TAG, "Failed to clear auto-update state for updated profile $id")
+            PrivacySafeLog.warningDetail(TAG, "Failed to clear updated auto-update state", "profileId=$id")
         }
         try {
             if (updatedActiveProfile) Global.restoreProfilePath()
