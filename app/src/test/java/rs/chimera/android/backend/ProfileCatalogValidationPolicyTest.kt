@@ -40,6 +40,6 @@ class ProfileCatalogValidationPolicyTest {
             )
         }
 
-        assertEquals("Profile catalog contains duplicate id: same", error.message)
+        assertEquals("Profile catalog contains duplicate id", error.message)
     }
 }

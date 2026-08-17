@@ -14,7 +14,7 @@ internal object ProfileCatalogValidationPolicy {
             .entries
             .firstOrNull { it.value > 1 }
             ?.key
-        check(duplicateId == null) { "Profile catalog contains duplicate id: $duplicateId" }
+        check(duplicateId == null) { "Profile catalog contains duplicate id" }
 
         return entries
     }
