@@ -49,8 +49,9 @@ class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
         stateContainer.visibility = View.GONE
         logScroll.visibility = View.VISIBLE
         logContent.text = log.ifBlank { context.getString(R.string.home_logs_empty) }
-        logStatus.text = context.getString(
-            if (paused) R.string.logs_status_paused else R.string.logs_status_live,
+        logStatus.text = context.resources.getQuantityString(
+            if (paused) R.plurals.logs_status_paused else R.plurals.logs_status_live,
+            lineCount,
             lineCount,
         )
         pauseSwitch.isChecked = paused

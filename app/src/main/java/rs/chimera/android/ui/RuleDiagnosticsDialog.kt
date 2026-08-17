@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import rs.chimera.android.R
@@ -34,6 +35,7 @@ internal fun RuleDiagnosticsDialog(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     val unknownError = stringResource(R.string.profile_unknown_error)
+    val resources = LocalResources.current
 
     LaunchedEffect(reloadGeneration) {
         loading = true
@@ -45,8 +47,12 @@ internal fun RuleDiagnosticsDialog(
         loading = false
     }
 
-    val totalLabel = stringResource(R.string.rules_diagnostics_count, rules?.size ?: 0)
-    val remainingTemplate = stringResource(R.string.rules_diagnostics_more)
+    val totalCount = rules?.size ?: 0
+    val totalLabel = resources.getQuantityString(
+        R.plurals.rules_diagnostics_count,
+        totalCount,
+        totalCount,
+    )
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.rules_diagnostics_title)) },
@@ -62,7 +68,11 @@ internal fun RuleDiagnosticsDialog(
                                 rules = result,
                                 totalLabel = totalLabel,
                                 remainingLabel = { count ->
-                                    remainingTemplate.format(count)
+                                    resources.getQuantityString(
+                                        R.plurals.rules_diagnostics_more,
+                                        count,
+                                        count,
+                                    )
                                 },
                             ),
                             modifier = Modifier

@@ -199,9 +199,17 @@ class MetaSettingsActivity : AppCompatActivity() {
                 .onSuccess { rules ->
                     val message = formatRuleDiagnostics(
                         rules = rules,
-                        totalLabel = getString(R.string.rules_diagnostics_count, rules.size),
+                        totalLabel = resources.getQuantityString(
+                            R.plurals.rules_diagnostics_count,
+                            rules.size,
+                            rules.size,
+                        ),
                         remainingLabel = { count ->
-                            getString(R.string.rules_diagnostics_more, count)
+                            resources.getQuantityString(
+                                R.plurals.rules_diagnostics_more,
+                                count,
+                                count,
+                            )
                         },
                     )
                     AlertDialog.Builder(this@MetaSettingsActivity)

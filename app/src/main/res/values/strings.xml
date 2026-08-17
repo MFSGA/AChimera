@@ -34,8 +34,14 @@
     <string name="logs_pause_title">Pause Refresh</string>
     <string name="logs_pause_hint">Refresh the log view every 5 seconds when enabled.</string>
     <string name="logs_loading">Loading runtime logs…</string>
-    <string name="logs_status_live">%1$d lines · Live</string>
-    <string name="logs_status_paused">%1$d lines · Paused</string>
+    <plurals name="logs_status_live">
+        <item quantity="one">%1$d line · Live</item>
+        <item quantity="other">%1$d lines · Live</item>
+    </plurals>
+    <plurals name="logs_status_paused">
+        <item quantity="one">%1$d line · Paused</item>
+        <item quantity="other">%1$d lines · Paused</item>
+    </plurals>
     <string name="logs_read_error">Failed to read logs: %1$s</string>
     <string name="logs_clear_confirm">Permanently clear the runtime log file?</string>
     <string name="logs_copied">Logs copied.</string>
@@ -152,8 +158,14 @@
     <string name="dns_diagnostics_result">DNS query result</string>
     <string name="rules_diagnostics_title">Rules</string>
     <string name="rules_diagnostics_summary">Inspect the active core rule order and targets.</string>
-    <string name="rules_diagnostics_count">%1$d rules</string>
-    <string name="rules_diagnostics_more">… %1$d more</string>
+    <plurals name="rules_diagnostics_count">
+        <item quantity="one">%1$d rule</item>
+        <item quantity="other">%1$d rules</item>
+    </plurals>
+    <plurals name="rules_diagnostics_more">
+        <item quantity="one">… %1$d more</item>
+        <item quantity="other">… %1$d more</item>
+    </plurals>
     <string name="rules_diagnostics_refresh">Refresh</string>
     <string name="proxy_providers_title">Proxy providers</string>
     <string name="proxy_providers_summary">Inspect, refresh, and health-check active proxy providers.</string>

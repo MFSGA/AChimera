@@ -34,8 +34,12 @@
     <string name="logs_pause_title">暂停刷新</string>
     <string name="logs_pause_hint">关闭暂停时，日志视图会每 5 秒刷新一次。</string>
     <string name="logs_loading">正在加载运行日志…</string>
-    <string name="logs_status_live">%1$d 行 · 实时</string>
-    <string name="logs_status_paused">%1$d 行 · 已暂停</string>
+    <plurals name="logs_status_live">
+        <item quantity="other">%1$d 行 · 实时</item>
+    </plurals>
+    <plurals name="logs_status_paused">
+        <item quantity="other">%1$d 行 · 已暂停</item>
+    </plurals>
     <string name="logs_read_error">读取日志失败：%1$s</string>
     <string name="logs_clear_confirm">确定永久清空运行日志文件吗？</string>
     <string name="logs_copied">日志已复制。</string>
@@ -152,8 +156,12 @@
     <string name="dns_diagnostics_result">DNS 查询结果</string>
     <string name="rules_diagnostics_title">规则</string>
     <string name="rules_diagnostics_summary">查看当前核心的规则顺序和目标。</string>
-    <string name="rules_diagnostics_count">共 %1$d 条规则</string>
-    <string name="rules_diagnostics_more">… 还有 %1$d 条</string>
+    <plurals name="rules_diagnostics_count">
+        <item quantity="other">共 %1$d 条规则</item>
+    </plurals>
+    <plurals name="rules_diagnostics_more">
+        <item quantity="other">… 还有 %1$d 条</item>
+    </plurals>
     <string name="rules_diagnostics_refresh">刷新</string>
     <string name="proxy_providers_title">代理提供器</string>
     <string name="proxy_providers_summary">查看、更新并健康检查当前代理提供器。</string>
