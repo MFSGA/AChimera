@@ -47,6 +47,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -105,7 +106,7 @@ fun AppSelectorScreen(
 	var apps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
 	var isLoading by remember { mutableStateOf(true) }
 	var loadError by remember { mutableStateOf<String?>(null) }
-	var loadRequest by remember { mutableStateOf(0) }
+	var loadRequest by remember { mutableIntStateOf(0) }
 	var searchQuery by remember { mutableStateOf("") }
 	var showSystemApps by remember { mutableStateOf(false) }
 	var showModeDialog by remember { mutableStateOf(false) }
