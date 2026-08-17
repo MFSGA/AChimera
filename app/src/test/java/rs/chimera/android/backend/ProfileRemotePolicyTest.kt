@@ -73,6 +73,17 @@ class ProfileRemotePolicyTest {
     }
 
     @Test
+    fun storageFileNameBoundsLongExtensions() {
+        assertEquals(
+            "profile.abcdefghijklmnop",
+            ProfileRemotePolicy.storageFileName(
+                "profile",
+                "config.abcdefghijklmnopqrstuvwxyz",
+            ),
+        )
+    }
+
+    @Test
     fun acceptsOnlyHttpAndHttpsProxyUrlsSupportedByCurrentDownloader() {
         assertTrue(ProfileRemotePolicy.isValidProxyUrl("http://127.0.0.1:7890"))
         assertTrue(ProfileRemotePolicy.isValidProxyUrl("https://user:pass@example.com:8443"))

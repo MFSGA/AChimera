@@ -54,6 +54,7 @@ internal object ProfileRemotePolicy {
             .substringAfterLast('.', "yaml")
             .replace(Regex("[^A-Za-z0-9]"), "")
             .lowercase(Locale.ROOT)
+            .take(MAX_EXTENSION_CHARS)
             .ifBlank { "yaml" }
         return "$profileId.$extension"
     }
@@ -71,6 +72,8 @@ internal object ProfileRemotePolicy {
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?.let { requireValidProxyUrl(it).toString() }
+
+    private const val MAX_EXTENSION_CHARS = 16
 
     private fun parseHttpUrl(value: String): URI? {
         val uri = runCatching { URI(value.trim()) }.getOrNull() ?: return null

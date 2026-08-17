@@ -28,6 +28,7 @@ pub(crate) struct DownloadLimits {
     pub connect_timeout: Duration,
     pub total_timeout: Duration,
     pub max_redirects: usize,
+    pub max_bytes: u64,
 }
 
 impl Default for DownloadLimits {
@@ -36,6 +37,7 @@ impl Default for DownloadLimits {
             connect_timeout: Duration::from_secs(DEFAULT_CONNECT_TIMEOUT_SECS),
             total_timeout: Duration::from_secs(DEFAULT_TOTAL_TIMEOUT_SECS),
             max_redirects: DEFAULT_MAX_REDIRECTS,
+            max_bytes: DEFAULT_MAX_DOWNLOAD_BYTES,
         }
     }
 }
@@ -114,6 +116,9 @@ pub(crate) async fn download_file_with_progress_and_limits(
     }
 
     let total_size = response.content_length().unwrap_or(0);
+    if total_size > limits.max_bytes {
+        return Err(download_size_error(limits.max_bytes));
+    }
     if let Some(callback) = progress_callback.as_ref() {
         callback.on_progress(DownloadProgress {
             downloaded: 0,
@@ -123,11 +128,15 @@ pub(crate) async fn download_file_with_progress_and_limits(
 
     let mut stream = response.bytes_stream();
     let mut downloaded = 0_u64;
-    let mut buffer = Vec::new();
+    let mut buffer = Vec::with_capacity(total_size as usize);
 
     while let Some(chunk) = stream.next().await {
         let chunk = chunk.map_err(|error| request_error("failed to read response chunk", error))?;
-        downloaded += chunk.len() as u64;
+        let next_downloaded = downloaded.saturating_add(chunk.len() as u64);
+        if next_downloaded > limits.max_bytes {
+            return Err(download_size_error(limits.max_bytes));
+        }
+        downloaded = next_downloaded;
         buffer.extend_from_slice(&chunk);
 
         if let Some(callback) = progress_callback.as_ref() {
@@ -177,6 +186,12 @@ fn download_request_error(error: reqwest::Error, limits: DownloadLimits) -> Chim
     ChimeraError::Runtime { details }
 }
 
+fn download_size_error(max_bytes: u64) -> ChimeraError {
+    ChimeraError::Runtime {
+        details: format!("download exceeds maximum size of {max_bytes} bytes"),
+    }
+}
+
 fn request_error(prefix: &str, error: impl std::fmt::Display) -> ChimeraError {
     ChimeraError::Runtime {
         details: format!("{prefix}: {error}"),
@@ -186,3 +201,5 @@ fn request_error(prefix: &str, error: impl std::fmt::Display) -> ChimeraError {
 const DEFAULT_CONNECT_TIMEOUT_SECS: u64 = 10;
 const DEFAULT_TOTAL_TIMEOUT_SECS: u64 = 60;
 const DEFAULT_MAX_REDIRECTS: usize = 5;
+// Keep aligned with ProfileImportPolicy.MAX_PROFILE_BYTES on Android.
+const DEFAULT_MAX_DOWNLOAD_BYTES: u64 = 5 * 1024 * 1024;

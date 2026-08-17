@@ -93,12 +93,71 @@ fn download_reports_total_request_timeout() {
 }
 
 #[test]
+fn download_rejects_known_oversized_response() {
+    let body = "x".repeat(32);
+    let (url, server) = spawn_server(1, move |_request_index, _path| ok_response(&body));
+    let output = unique_temp_path("oversized-known.yaml");
+    let mut limits = test_limits(Duration::from_secs(2), 1);
+    limits.max_bytes = 16;
+
+    let error = match runtime().block_on(download_file_with_progress_and_limits(
+        url,
+        output.to_string_lossy().into_owned(),
+        None,
+        None,
+        None,
+        limits,
+    )) {
+        Ok(_) => panic!("oversized response unexpectedly succeeded"),
+        Err(error) => error,
+    };
+
+    assert_eq!(
+        "download exceeds maximum size of 16 bytes",
+        error.to_string()
+    );
+    assert!(!output.exists());
+    assert_eq!(1, server.join().unwrap());
+}
+
+#[test]
+fn download_rejects_streamed_oversized_response_without_length() {
+    let body = "x".repeat(32);
+    let (url, server) = spawn_server(1, move |_request_index, _path| {
+        ok_response_without_length(&body)
+    });
+    let output = unique_temp_path("oversized-stream.yaml");
+    let mut limits = test_limits(Duration::from_secs(2), 1);
+    limits.max_bytes = 16;
+
+    let error = match runtime().block_on(download_file_with_progress_and_limits(
+        url,
+        output.to_string_lossy().into_owned(),
+        None,
+        None,
+        None,
+        limits,
+    )) {
+        Ok(_) => panic!("oversized streamed response unexpectedly succeeded"),
+        Err(error) => error,
+    };
+
+    assert_eq!(
+        "download exceeds maximum size of 16 bytes",
+        error.to_string()
+    );
+    assert!(!output.exists());
+    assert_eq!(1, server.join().unwrap());
+}
+
+#[test]
 fn default_download_limits_are_bounded() {
     let limits = DownloadLimits::default();
 
     assert_eq!(Duration::from_secs(10), limits.connect_timeout);
     assert_eq!(Duration::from_secs(60), limits.total_timeout);
     assert_eq!(5, limits.max_redirects);
+    assert_eq!(5 * 1024 * 1024, limits.max_bytes);
 }
 
 fn runtime() -> tokio::runtime::Runtime {
@@ -113,6 +172,7 @@ fn test_limits(total_timeout: Duration, max_redirects: usize) -> DownloadLimits 
         connect_timeout: Duration::from_secs(1),
         total_timeout,
         max_redirects,
+        max_bytes: 1024 * 1024,
     }
 }
 
@@ -180,6 +240,10 @@ fn ok_response(body: &str) -> String {
         "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/yaml\r\nConnection: close\r\n\r\n{body}",
         body.len()
     )
+}
+
+fn ok_response_without_length(body: &str) -> String {
+    format!("HTTP/1.1 200 OK\r\nContent-Type: text/yaml\r\nConnection: close\r\n\r\n{body}")
 }
 
 fn unique_temp_path(label: &str) -> PathBuf {

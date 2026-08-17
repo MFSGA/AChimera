@@ -3,6 +3,7 @@ package rs.chimera.android.service
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -78,5 +79,18 @@ class RuntimeLogStoreTest {
 
         assertEquals(0, file.length())
         assertEquals(32, store.backupFile(file, 1).length())
+    }
+
+    @Test
+    fun invalidLogPathDoesNotExposeParentDirectory() {
+        val store = RuntimeLogStore()
+        val directory = temporaryFolder.newFolder("runtime.log")
+
+        val error = assertThrows(IllegalStateException::class.java) {
+            store.readTail(directory, 1)
+        }
+
+        assertTrue(error.message.orEmpty().contains("runtime.log"))
+        assertFalse(error.message.orEmpty().contains(temporaryFolder.root.absolutePath))
     }
 }

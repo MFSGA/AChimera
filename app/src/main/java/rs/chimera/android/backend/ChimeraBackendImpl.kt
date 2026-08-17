@@ -160,20 +160,23 @@ class ChimeraBackendImpl(
         return profiles
     }
 
-    private suspend fun activateProfileReady(id: String) {
-        profileCatalogCoordinator.withLock {
-            val document = profileCatalogStore.readDocument()
-            val updatedProfiles = ProfileCatalogPolicy.activate(document.entries, id)
-                ?: throw IllegalArgumentException("Profile not found: $id")
-            val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
-            profileCatalogStore.commitCatalog(
-                catalog = profileCatalogStore.render(document, updatedProfiles),
-                activePath = activePath,
-            )
-            try {
-                Global.restoreProfilePath()
-            } finally {
-                refreshActiveProfile()
+    override suspend fun activateProfile(id: String) {
+        profileRecoveryReady.await()
+        withContext(Dispatchers.IO) {
+            profileCatalogCoordinator.withLock {
+                val document = profileCatalogStore.readDocument()
+                val updatedProfiles = ProfileCatalogPolicy.activate(document.entries, id)
+                    ?: throw IllegalArgumentException("Profile not found")
+                val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
+                profileCatalogStore.commitCatalog(
+                    catalog = profileCatalogStore.render(document, updatedProfiles),
+                    activePath = activePath,
+                )
+                try {
+                    Global.restoreProfilePath()
+                } finally {
+                    refreshActiveProfile()
+                }
             }
         }
         if (serviceState.value == ServiceState.RUNNING) {
@@ -212,7 +215,7 @@ class ChimeraBackendImpl(
         profileCatalogCoordinator.withLock {
             val document = profileCatalogStore.readDocument()
             val deletion = ProfileCatalogPolicy.delete(document.entries, id)
-                ?: throw IllegalArgumentException("Profile not found: $id")
+                ?: throw IllegalArgumentException("Profile not found")
             val activePath = ProfileCatalogPolicy.activePath(deletion.profiles)
             val originalCatalog = document.serialized
             val originalActivePath = ProfileCatalogPolicy.activePath(document.entries)
@@ -250,7 +253,7 @@ class ChimeraBackendImpl(
                 document.entries,
                 id,
                 normalizedName,
-            ) ?: throw IllegalArgumentException("Profile not found: $id")
+            ) ?: throw IllegalArgumentException("Profile not found")
             profileCatalogStore.commitCatalog(
                 catalog = profileCatalogStore.render(document, updatedProfiles),
                 activePath = ProfileCatalogPolicy.activePath(updatedProfiles),
@@ -292,7 +295,7 @@ class ChimeraBackendImpl(
         onProgress: (ProfileDownloadProgress) -> Unit,
     ) {
         val targetProfile = profileCatalogStore.readRemoteProfile(id)
-        require(targetProfile.type == "REMOTE") { "Profile is not remote: $id" }
+        require(targetProfile.type == "REMOTE") { "Profile is not remote" }
         val url = targetProfile.url
             ?: throw IllegalStateException("Remote profile URL is missing")
         ProfileRemotePolicy.requireValidUrl(url)

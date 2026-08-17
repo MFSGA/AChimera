@@ -112,13 +112,13 @@ internal class RuntimeLogStore(
 
     private fun readLines(file: File): List<String> {
         if (!file.exists()) return emptyList()
-        check(file.isFile) { "Runtime log path is not a file: ${file.absolutePath}" }
+        check(file.isFile) { "Runtime log path is not a file: ${file.name}" }
         return file.useLines { it.toList() }
     }
 
     private fun validateFilePath(file: File) {
         if (file.exists()) {
-            check(file.isFile) { "Runtime log path is not a file: ${file.absolutePath}" }
+            check(file.isFile) { "Runtime log path is not a file: ${file.name}" }
         }
     }
 

@@ -56,7 +56,7 @@ internal class ProfileCatalogStore(
 
     fun readRemoteProfile(id: String): RemoteProfileCatalogEntry = catalogCoordinator.withLock {
         val profile = readJson().findById(id)
-            ?: throw IllegalArgumentException("Profile not found: $id")
+            ?: throw IllegalArgumentException("Profile not found")
         RemoteProfileCatalogEntry(
             type = profile.optString("type", "LOCAL"),
             url = profile.optString("url").takeIf { it.isNotBlank() },
@@ -121,6 +121,19 @@ internal class ProfileCatalogStore(
         commitPreferences(update)
     }
 
+    fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings) =
+        catalogCoordinator.withLock {
+            val jsonArray = readJson()
+            val profile = jsonArray.findById(id)
+                ?: throw IllegalArgumentException("Profile not found")
+            require(profile.optString("type", "LOCAL") == "REMOTE") { "Profile is not remote" }
+            profile.put("name", settings.name)
+            profile.put("url", settings.url)
+            profile.put("autoUpdate", settings.autoUpdate)
+            settings.userAgent?.let { profile.put("userAgent", it) } ?: profile.remove("userAgent")
+            settings.proxyUrl?.let { profile.put("proxyUrl", it) } ?: profile.remove("proxyUrl")
+            commitPreferences { putString(PROFILES_LIST_KEY, jsonArray.toString()) }
+        }
     fun updateRemoteProfileMetadata(
         id: String,
         file: File,
@@ -129,7 +142,7 @@ internal class ProfileCatalogStore(
     ): Boolean = catalogCoordinator.withLock {
         val jsonArray = readJson()
         val profile = jsonArray.findById(id)
-            ?: throw IllegalStateException("Profile disappeared during update: $id")
+            ?: throw IllegalStateException("Profile disappeared during update")
         profile.put("filePath", file.absolutePath)
         profile.put("fileSize", file.length())
         profile.put("lastUpdated", updatedAt)
