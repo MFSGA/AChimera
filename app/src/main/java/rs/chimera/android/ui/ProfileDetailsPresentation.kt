@@ -64,7 +64,9 @@ private fun profileDetailsText(
         )
         add(context.getString(R.string.profile_details_path, filePath))
         add(context.getString(R.string.profile_details_size, formatSize(fileSize)))
-        add(context.getString(R.string.profile_details_created, formatter.format(Date(createdAt))))
+        if (createdAt > 0L) {
+            add(context.getString(R.string.profile_details_created, formatter.format(Date(createdAt))))
+        }
         url?.takeIf(String::isNotBlank)?.let {
             add(context.getString(R.string.profile_details_url, it))
         }

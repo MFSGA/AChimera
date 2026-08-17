@@ -160,6 +160,7 @@ internal class ProfileAutoUpdateRunner(
                         failures += "state:${profile.id}:${stateError::class.java.simpleName}"
                     }
                 }
+                }
                 failures += "${profile.id}:${error::class.java.simpleName}"
             }
         }

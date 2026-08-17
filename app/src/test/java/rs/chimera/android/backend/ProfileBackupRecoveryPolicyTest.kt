@@ -4,6 +4,7 @@ import java.nio.file.Files
 import java.util.UUID
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -69,6 +70,17 @@ class ProfileBackupRecoveryPolicyTest {
         ProfileBackupRecoveryPolicy.recover(directory)
 
         assertTrue(unmanaged.exists())
+    }
+
+    @Test
+    fun inspectionFailureDoesNotLookLikeEmptyRecoveryDirectory() {
+        val unreadableDirectory = object : java.io.File("unreadable-profile-backups") {
+            override fun listFiles(): Array<java.io.File>? = null
+        }
+
+        assertThrows(IllegalStateException::class.java) {
+            ProfileBackupRecoveryPolicy.recover(unreadableDirectory)
+        }
     }
 
     private fun managedBackup(directory: java.io.File, targetName: String) =

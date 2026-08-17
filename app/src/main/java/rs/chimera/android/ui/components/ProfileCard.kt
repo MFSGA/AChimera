@@ -119,11 +119,13 @@ internal fun ProfileCard(
                             )
                         }
                     }
-                    Text(
-                        text = dateFormatter.format(Date(profile.createdAt)),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
+                    if (profile.createdAt > 0L) {
+                        Text(
+                            text = dateFormatter.format(Date(profile.createdAt)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
                     Text(
                         text = profile.filePath,
                         style = MaterialTheme.typography.bodySmall,

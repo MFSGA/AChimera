@@ -182,6 +182,20 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
+    fun activeProfileUpdateDoesNotRestartVpnUntilServiceIsRunning() = runBlocking {
+        val operations = FakeOperations(
+            profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
+            initialState = ServiceState.STARTING,
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+
+        assertEquals(0, operations.restartCount)
+        assertFalse(result.restartedVpn)
+        assertFalse(result.shouldRetry)
+    }
+
+    @Test
     fun activeProfileUpdateReportsRestartFailureWithoutRedownloading() = runBlocking {
         val operations = FakeOperations(
             profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),

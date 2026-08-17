@@ -9,7 +9,9 @@ internal object ProfileBackupRecoveryPolicy {
         pendingBackupNames: Set<String> = emptySet(),
         restore: (File, File) -> Unit = ProfileFilePolicy::replaceAtomically,
     ) {
-        directory.listFiles().orEmpty()
+        val files = directory.listFiles()
+            ?: throw IllegalStateException("Failed to inspect staged profile backups")
+        files
             .mapNotNull { backup -> managedBackupTarget(backup)?.let { backup to it } }
             .forEach { (backup, target) ->
                 if (backup.name in pendingBackupNames) {
