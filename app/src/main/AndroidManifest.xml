@@ -61,6 +61,15 @@
             android:name="rs.chimera.android.ui.metacubex.activity.MetaAccessControlActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/diagnostics_file_paths" />
+        </provider>
         <receiver
             android:name="rs.chimera.android.service.VpnRecoveryReceiver"
             android:enabled="true"

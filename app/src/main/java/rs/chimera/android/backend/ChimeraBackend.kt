@@ -72,5 +72,6 @@ interface ChimeraBackend {
     suspend fun queryDns(name: String, recordType: String): String
     suspend fun readRuntimeLogs(maxLines: Int = 160): String
     suspend fun clearRuntimeLogs()
+    suspend fun buildDiagnosticsBundle(): String
     suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect
 }

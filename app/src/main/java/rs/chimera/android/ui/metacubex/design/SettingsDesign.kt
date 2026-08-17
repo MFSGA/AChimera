@@ -15,6 +15,7 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         data object NavigateBack : Request()
         data object EditPorts : Request()
         data object OpenLogs : Request()
+        data object ShareDiagnostics : Request()
         data object OpenDnsDiagnostics : Request()
         data object OpenRuleDiagnostics : Request()
         data object OpenProxyProviders : Request()
@@ -55,6 +56,7 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
     private val cardUiVariant = root.findViewById<MaterialCardView>(R.id.card_ui_variant)
     private val cardPorts = root.findViewById<MaterialCardView>(R.id.card_ports)
     private val cardLogs = root.findViewById<MaterialCardView>(R.id.card_logs)
+    private val cardDiagnostics = root.findViewById<MaterialCardView>(R.id.card_diagnostics)
     private val cardDns = root.findViewById<MaterialCardView>(R.id.card_dns)
     private val cardRules = root.findViewById<MaterialCardView>(R.id.card_rules)
     private val cardProviders = root.findViewById<MaterialCardView>(R.id.card_providers)
@@ -79,6 +81,7 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }
         cardPorts.setOnClickListener { request(Request.EditPorts) }
         cardLogs.setOnClickListener { request(Request.OpenLogs) }
+        cardDiagnostics.setOnClickListener { request(Request.ShareDiagnostics) }
         cardDns.setOnClickListener { request(Request.OpenDnsDiagnostics) }
         cardRules.setOnClickListener { request(Request.OpenRuleDiagnostics) }
         cardProviders.setOnClickListener { request(Request.OpenProxyProviders) }

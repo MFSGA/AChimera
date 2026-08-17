@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
+import rs.chimera.android.ui.components.DiagnosticsShareSetting
 import rs.chimera.android.ui.components.ListenerPortsDialog
 import rs.chimera.android.ui.components.SettingsResetDialog
 import rs.chimera.android.ui.components.TextInfoDialog
@@ -294,6 +295,8 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            item { DiagnosticsShareSetting() }
 
             item {
                 SectionHeader(text = stringResource(R.string.settings_about))

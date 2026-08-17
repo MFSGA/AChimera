@@ -8,7 +8,9 @@ import rs.chimera.android.settings.SettingsRepository
 
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
+import androidx.core.content.pm.PackageInfoCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -389,6 +391,26 @@ class ChimeraBackendImpl(
 
     override suspend fun clearRuntimeLogs() {
         Global.clearRuntimeLog()
+    }
+
+    override suspend fun buildDiagnosticsBundle(): String = withContext(Dispatchers.IO) {
+        val application = Global.application
+        val packageInfo = application.packageManager.getPackageInfo(application.packageName, 0)
+        DiagnosticsBundleBuilder.build(
+            DiagnosticsBundleInput(
+                generatedAtEpochMillis = System.currentTimeMillis(),
+                appVersion = packageInfo.versionName.orEmpty(),
+                appVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo),
+                androidSdk = Build.VERSION.SDK_INT,
+                serviceState = serviceState.value,
+                serviceError = serviceError.value,
+                vpnSystemStatus = vpnSystemStatus.value,
+                activeProfile = activeProfile.value,
+                runtimeError = runtimeError.value,
+                runtimeLogs = Global.readRuntimeLogTail(500),
+                privatePathPrefixes = listOf(application.applicationInfo.dataDir),
+            ),
+        )
     }
 
     override suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect =

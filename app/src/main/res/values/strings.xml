@@ -100,6 +100,10 @@
     <string name="ui_style_metacubex">MetaCubeX (View)</string>
     <string name="cmfa_settings_network">Network</string>
     <string name="cmfa_settings_diagnostics">Diagnostics</string>
+    <string name="diagnostics_share_title">Share diagnostics</string>
+    <string name="diagnostics_share_summary">Create a privacy-filtered support bundle with app/runtime status and recent logs.</string>
+    <string name="diagnostics_share_chooser">Share Chimera diagnostics</string>
+    <string name="diagnostics_share_failed">Could not prepare the diagnostics bundle.</string>
     <string name="settings_allow_lan">Allow LAN connections</string>
     <string name="settings_allow_lan_desc">Accept proxy connections from devices on the local network.</string>
     <string name="settings_listener_ports">Listener Ports</string>

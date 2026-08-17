@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import rs.chimera.android.R
 import rs.chimera.android.service.PortPreference
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.DiagnosticsShareCoordinator
 import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.ui.format
@@ -60,6 +61,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.OpenLogs -> {
                 startActivity(Intent(this, MetaLogsDesignActivity::class.java))
             }
+            SettingsDesign.Request.ShareDiagnostics -> shareDiagnostics()
             SettingsDesign.Request.OpenDnsDiagnostics -> showDnsDialog()
             SettingsDesign.Request.OpenRuleDiagnostics -> showRuleDiagnostics()
             SettingsDesign.Request.OpenProxyProviders -> showProxyProviders()
@@ -80,6 +82,25 @@ class MetaSettingsActivity : AppCompatActivity() {
             is SettingsDesign.Request.SetIpv6 -> {
                 saveSettings(SettingsPatch(ipv6 = request.enabled))
             }
+        }
+    }
+
+    private suspend fun shareDiagnostics() {
+        runCatchingPreservingCancellation {
+            DiagnosticsShareCoordinator.prepare(this, backend)
+        }.onSuccess { shareIntent ->
+            runCatching {
+                startActivity(
+                    Intent.createChooser(
+                        shareIntent,
+                        getString(R.string.diagnostics_share_chooser),
+                    ),
+                )
+            }.onFailure {
+                design.showToast(getString(R.string.diagnostics_share_failed))
+            }
+        }.onFailure {
+            design.showToast(getString(R.string.diagnostics_share_failed))
         }
     }
 

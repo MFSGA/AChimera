@@ -100,6 +100,10 @@
     <string name="ui_style_metacubex">MetaCubeX（View）</string>
     <string name="cmfa_settings_network">网络</string>
     <string name="cmfa_settings_diagnostics">诊断</string>
+    <string name="diagnostics_share_title">分享诊断信息</string>
+    <string name="diagnostics_share_summary">生成经过隐私过滤的支持包，包含应用/运行状态和近期日志。</string>
+    <string name="diagnostics_share_chooser">分享 Chimera 诊断信息</string>
+    <string name="diagnostics_share_failed">无法生成诊断支持包。</string>
     <string name="settings_allow_lan">允许局域网连接</string>
     <string name="settings_allow_lan_desc">允许局域网内其他设备连接本机代理端口。</string>
     <string name="settings_listener_ports">监听端口</string>
