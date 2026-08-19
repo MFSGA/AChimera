@@ -14,6 +14,7 @@ import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
+import rs.chimera.android.service.RuntimeLogSanitizer
 
 internal class BackendDiagnosticsOperations(
     private val context: Context,
@@ -28,7 +29,10 @@ internal class BackendDiagnosticsOperations(
 ) {
     suspend fun readRuntimeLogs(maxLines: Int): String =
         withContext(Dispatchers.IO) {
-            Global.readRuntimeLogTail(maxLines)
+            RuntimeLogSanitizer.sanitizePrivatePaths(
+                value = Global.readRuntimeLogTail(maxLines),
+                privatePathPrefixes = listOf(context.applicationInfo.dataDir),
+            )
         }
 
     suspend fun clearRuntimeLogs() {
