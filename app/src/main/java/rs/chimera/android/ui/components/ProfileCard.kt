@@ -265,7 +265,10 @@ internal fun ProfileCard(
                         fontWeight = FontWeight.SemiBold,
                     )
                 } else {
-                    FilledTonalButton(onClick = onActivate) {
+                    FilledTonalButton(
+                        enabled = mutationEnabled,
+                        onClick = onActivate,
+                    ) {
                         Text(text = stringResource(id = R.string.profile_activate))
                     }
                 }

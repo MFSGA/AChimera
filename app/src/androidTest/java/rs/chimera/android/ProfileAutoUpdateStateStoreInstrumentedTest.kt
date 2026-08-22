@@ -5,7 +5,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import rs.chimera.android.backend.ProfileAutoUpdateState
@@ -38,6 +40,29 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
 
         ProfileAutoUpdateStateStore(context).clear(id)
         assertEmpty(ProfileAutoUpdateStateStore(context).read(id))
+    }
+
+    @Test
+    fun runtimeApplyPendingClearsOnlyForMatchingRevision() {
+        val id = trackedId("runtime-apply-revision")
+        val expected = ProfileAutoUpdateState(
+            lastAttempt = 1_723_456_789_000L,
+            failureCount = 0,
+            nextAttemptAt = 1_723_543_189_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            profileRevision = 2_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, expected)
+
+        assertTrue(store.clearRuntimeApplyPending(id, expectedProfileRevision = 1_000L))
+        assertEquals(expected, store.read(id))
+
+        assertTrue(store.clearRuntimeApplyPending(id, expectedProfileRevision = 2_000L))
+        val cleared = store.read(id)
+        assertFalse(cleared.runtimeApplyPending)
+        assertEquals(expected.copy(runtimeApplyPending = false), cleared)
     }
 
     @Test

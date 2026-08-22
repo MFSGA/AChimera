@@ -223,7 +223,8 @@ fun ProfileScreen(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 profile = vm.activeProfile,
                 savedFilePath = vm.savedFilePath,
-                isVerifying = vm.isVerifying,
+                isVerifying = vm.verificationState.isVerifying,
+                verificationEnabled = !vm.isProfileOperationInProgress,
                 onVerify = { vm.verifyActiveProfile(context) },
             )
         }
@@ -282,7 +283,7 @@ fun ProfileScreen(
                 vm.statusMessage?.takeIf { it.isNotBlank() }?.let { message ->
                     InlineStatusCard(
                         message = message,
-                        isError = message.contains("failed", ignoreCase = true),
+                        isError = vm.statusMessageIsError,
                     )
                 }
 
@@ -301,19 +302,19 @@ fun ProfileScreen(
             }
         }
 
-        vm.verificationResult?.takeIf { it.isNotBlank() }?.let { result ->
+        vm.verificationState.result?.takeIf { it.isNotBlank() }?.let { result ->
             item {
                 VerificationCard(
                     modifier = Modifier.padding(horizontal = 16.dp),
                     title = stringResource(
-                        id = if (vm.verificationSucceeded == true) {
+                        id = if (vm.verificationState.succeeded == true) {
                             R.string.profile_verification_title_success
                         } else {
                             R.string.profile_verification_title_failure
                         },
                     ),
                     content = result,
-                    isSuccess = vm.verificationSucceeded == true,
+                    isSuccess = vm.verificationState.succeeded == true,
                     onDismiss = { vm.clearVerificationResult() },
                 )
             }

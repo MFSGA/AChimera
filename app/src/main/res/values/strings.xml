@@ -223,6 +223,8 @@
     <string name="profile_importing">Importing profile…</string>
     <string name="profile_verify">Verify Config</string>
     <string name="profile_verifying">Verifying…</string>
+    <string name="profile_operation_in_progress">Another profile operation is already in progress.</string>
+    <string name="profile_changed_retry">This profile changed. Reopen the menu and try again.</string>
     <string name="profile_verification_title_success">Verified Config</string>
     <string name="profile_verification_title_failure">Verification Failed</string>
     <string name="profile_verify_missing">No profile available to verify.</string>

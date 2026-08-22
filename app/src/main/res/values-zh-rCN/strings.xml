@@ -217,6 +217,8 @@
     <string name="profile_importing">正在导入配置…</string>
     <string name="profile_verify">验证配置</string>
     <string name="profile_verifying">验证中…</string>
+    <string name="profile_operation_in_progress">已有其他配置操作正在进行。</string>
+    <string name="profile_changed_retry">该配置已发生变化，请重新打开菜单后再试。</string>
     <string name="profile_verification_title_success">配置验证通过</string>
     <string name="profile_verification_title_failure">配置验证失败</string>
     <string name="profile_verify_missing">当前没有可验证的配置。</string>

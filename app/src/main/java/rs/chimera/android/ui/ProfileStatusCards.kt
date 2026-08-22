@@ -40,6 +40,7 @@ internal fun ActiveProfileCard(
     profile: Profile?,
     savedFilePath: String?,
     isVerifying: Boolean,
+    verificationEnabled: Boolean,
     onVerify: () -> Unit,
 ) {
     Card(
@@ -90,7 +91,7 @@ internal fun ActiveProfileCard(
             )
 
             FilledTonalButton(
-                enabled = profile != null && !isVerifying,
+                enabled = profile != null && verificationEnabled && !isVerifying,
                 onClick = onVerify,
             ) {
                 Text(
