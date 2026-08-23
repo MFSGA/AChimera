@@ -66,6 +66,286 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
     }
 
     @Test
+    fun runtimeApplyPendingMarkPreservesMatchingRevisionMetadata() {
+        val id = trackedId("runtime-apply-mark")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 2,
+            nextAttemptAt = 3_000L,
+            lastError = "IOException",
+            runtimeApplyPending = false,
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        val requested = current.copy(
+            lastAttempt = 9_000L,
+            failureCount = 0,
+            nextAttemptAt = 10_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+        )
+
+        assertTrue(store.markRuntimeApplyPending(id, requested))
+        assertEquals(current.copy(runtimeApplyPending = true), store.read(id))
+    }
+
+    @Test
+    fun staleRuntimeApplyMarkDoesNotOverwriteRefreshNowState() {
+        val id = trackedId("runtime-apply-stale-mark")
+        val refreshNow = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 0,
+            nextAttemptAt = 8_000L,
+            lastError = null,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, refreshNow)
+
+        val stalePending = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 0,
+            nextAttemptAt = 2_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            sourceFingerprint = "old-source",
+            profileRevision = 4_000L,
+        )
+
+        assertTrue(store.markRuntimeApplyPending(id, stalePending))
+        assertEquals(refreshNow, store.read(id))
+    }
+
+    @Test
+    fun staleRuntimeApplyMarkDoesNotOverwriteDifferentSource() {
+        val id = trackedId("runtime-apply-stale-source")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 5_000L,
+            failureCount = 2,
+            nextAttemptAt = 8_000L,
+            lastError = "new-source-error",
+            runtimeApplyPending = false,
+            sourceFingerprint = "source-b",
+            profileRevision = 6_000L,
+        )
+        val stalePending = ProfileAutoUpdateState(
+            lastAttempt = 7_000L,
+            failureCount = 0,
+            nextAttemptAt = 9_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
+            profileRevision = 7_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        assertTrue(store.markRuntimeApplyPending(id, stalePending))
+
+        assertEquals(current, store.read(id))
+    }
+
+    @Test
+    fun staleRuntimeApplyMarkDoesNotOverwriteNewerRevision() {
+        val id = trackedId("runtime-apply-stale-revision")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 5_000L,
+            failureCount = 1,
+            nextAttemptAt = 8_000L,
+            lastError = "newer",
+            runtimeApplyPending = false,
+            sourceFingerprint = "source-a",
+            profileRevision = 6_000L,
+        )
+        val stalePending = current.copy(
+            lastAttempt = 3_000L,
+            failureCount = 0,
+            nextAttemptAt = 4_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            profileRevision = 4_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        assertTrue(store.markRuntimeApplyPending(id, stalePending))
+
+        assertEquals(current, store.read(id))
+    }
+
+    @Test
+    fun legacyBindingPersistsOnlyWhenExpectedStateIsCurrent() {
+        val id = trackedId("legacy-bind-current")
+        val legacy = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 1,
+            nextAttemptAt = 3_000L,
+            lastError = "old",
+        )
+        val bound = legacy.copy(
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, legacy)
+
+        assertEquals(
+            bound,
+            store.bindLegacyStateIfCurrent(
+                id = id,
+                expectedLegacyState = legacy,
+                boundState = bound,
+            ),
+        )
+        assertEquals(bound, store.read(id))
+    }
+
+    @Test
+    fun staleLegacyBindingDoesNotOverwriteRefreshNowState() {
+        val id = trackedId("legacy-bind-stale")
+        val legacy = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 1,
+            nextAttemptAt = 3_000L,
+            lastError = "old",
+        )
+        val bound = legacy.copy(
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+        val refreshNow = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 0,
+            nextAttemptAt = 8_000L,
+            lastError = null,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, refreshNow)
+
+        assertNull(
+            store.bindLegacyStateIfCurrent(
+                id = id,
+                expectedLegacyState = legacy,
+                boundState = bound,
+            ),
+        )
+        assertEquals(refreshNow, store.read(id))
+    }
+
+    @Test
+    fun boundStateWriteReplacesMatchingOrOlderRevision() {
+        val id = trackedId("bound-write-current")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 1,
+            nextAttemptAt = 3_000L,
+            lastError = "old",
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+        val incoming = ProfileAutoUpdateState(
+            lastAttempt = 5_000L,
+            failureCount = 0,
+            nextAttemptAt = 6_000L,
+            lastError = null,
+            runtimeApplyPending = false,
+            sourceFingerprint = "source-a",
+            profileRevision = 5_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        store.writeBoundStateIfCurrent(id, incoming)
+
+        assertEquals(incoming, store.read(id))
+    }
+
+    @Test
+    fun staleBoundStateWriteDoesNotOverwriteNewerRevision() {
+        val id = trackedId("bound-write-stale-revision")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 5_000L,
+            failureCount = 2,
+            nextAttemptAt = 8_000L,
+            lastError = "newer",
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
+            profileRevision = 6_000L,
+        )
+        val stale = current.copy(
+            lastAttempt = 3_000L,
+            failureCount = 0,
+            nextAttemptAt = 4_000L,
+            lastError = null,
+            runtimeApplyPending = false,
+            profileRevision = 4_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        store.writeBoundStateIfCurrent(id, stale)
+
+        assertEquals(current, store.read(id))
+    }
+
+    @Test
+    fun staleBoundStateWriteDoesNotOverwriteRefreshNowState() {
+        val id = trackedId("bound-write-refresh-now")
+        val refreshNow = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 0,
+            nextAttemptAt = 8_000L,
+            lastError = null,
+        )
+        val stale = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 0,
+            nextAttemptAt = 3_000L,
+            lastError = null,
+            sourceFingerprint = "old-source",
+            profileRevision = 4_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, refreshNow)
+
+        store.writeBoundStateIfCurrent(id, stale)
+
+        assertEquals(refreshNow, store.read(id))
+    }
+
+    @Test
+    fun staleBoundStateWriteDoesNotOverwriteDifferentSource() {
+        val id = trackedId("bound-write-stale-source")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 5_000L,
+            failureCount = 1,
+            nextAttemptAt = 8_000L,
+            lastError = "new-source-error",
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-b",
+            profileRevision = 6_000L,
+        )
+        val stale = ProfileAutoUpdateState(
+            lastAttempt = 7_000L,
+            failureCount = 0,
+            nextAttemptAt = 9_000L,
+            lastError = null,
+            runtimeApplyPending = false,
+            sourceFingerprint = "source-a",
+            profileRevision = 7_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        store.writeBoundStateIfCurrent(id, stale)
+
+        assertEquals(current, store.read(id))
+    }
+
+    @Test
     fun invalidNegativeFailureCountIsNormalizedWhenPersisted() {
         val id = trackedId("negative")
 

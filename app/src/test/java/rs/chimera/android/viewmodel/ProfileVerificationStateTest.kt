@@ -27,4 +27,28 @@ class ProfileVerificationStateTest {
         assertEquals("verified", state.result)
         assertEquals(true, state.succeeded)
     }
+
+    @Test
+    fun profileMutationClearsPreviousVerificationResult() {
+        val state = ProfileVerificationState.completed(
+            result = "verified",
+            succeeded = true,
+        )
+
+        val cleared = state.clearForOperation(ProfileOperationKind.MUTATION)
+
+        assertFalse(cleared.isVerifying)
+        assertNull(cleared.result)
+        assertNull(cleared.succeeded)
+    }
+
+    @Test
+    fun verificationOperationKeepsStateUntilVerifyingStateIsPublished() {
+        val state = ProfileVerificationState.completed(
+            result = "verified",
+            succeeded = true,
+        )
+
+        assertEquals(state, state.clearForOperation(ProfileOperationKind.VERIFYING))
+    }
 }

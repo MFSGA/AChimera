@@ -38,6 +38,17 @@ class ProfileMutationGuardTest {
         )
     }
 
+    @Test
+    fun changedNameBlocksStaleMutation() {
+        val profile = remoteProfile()
+
+        assertFalse(
+            profile.matchesMutationSnapshot(
+                profile.toSummary().copy(name = "Renamed elsewhere"),
+            ),
+        )
+    }
+
     private fun remoteProfile() =
         Profile(
             id = "profile-id",

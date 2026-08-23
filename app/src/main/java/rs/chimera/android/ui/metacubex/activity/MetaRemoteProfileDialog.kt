@@ -30,7 +30,12 @@ internal fun showMetaRemoteProfileDialog(
     initialUserAgent: String = "",
     initialProxyUrl: String = "",
     requireName: Boolean,
-    onSubmit: (MetaRemoteProfileForm) -> Unit,
+    canSubmit: () -> Boolean = { true },
+    onSubmit: (
+        MetaRemoteProfileForm,
+        dismiss: () -> Unit,
+        setSubmitting: (Boolean) -> Unit,
+    ) -> Unit,
 ) {
     val container = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
@@ -73,7 +78,18 @@ internal fun showMetaRemoteProfileDialog(
         .setNegativeButton(android.R.string.cancel, null)
         .create()
     dialog.setOnShowListener {
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        fun setSubmitting(submitting: Boolean) {
+            dialog.setProfileSubmissionLocked(
+                submitting,
+                nameInput,
+                urlInput,
+                userAgentInput,
+                proxyInput,
+                autoUpdateInput,
+            )
+        }
+        positiveButton.setOnClickListener {
             val name = nameInput.text.toString().trim()
             val url = urlInput.text.toString().trim()
             if (requireName && name.isEmpty()) {
@@ -89,7 +105,9 @@ internal fun showMetaRemoteProfileDialog(
                 proxyInput.error = context.getString(R.string.profile_proxy_invalid)
                 return@setOnClickListener
             }
-            dialog.dismiss()
+            if (!canSubmit()) return@setOnClickListener
+
+            setSubmitting(true)
             onSubmit(
                 MetaRemoteProfileForm(
                     name = name.ifEmpty { null },
@@ -98,6 +116,8 @@ internal fun showMetaRemoteProfileDialog(
                     userAgent = userAgentInput.text.toString().trim().ifEmpty { null },
                     proxyUrl = proxyUrl.ifEmpty { null },
                 ),
+                dialog::dismiss,
+                ::setSubmitting,
             )
         }
     }

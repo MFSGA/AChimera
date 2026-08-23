@@ -5,6 +5,9 @@ internal data class ProfileVerificationState(
     val result: String? = null,
     val succeeded: Boolean? = null,
 ) {
+    fun clearForOperation(kind: ProfileOperationKind): ProfileVerificationState =
+        if (kind == ProfileOperationKind.VERIFYING) this else ProfileVerificationState()
+
     companion object {
         fun verifying(): ProfileVerificationState = ProfileVerificationState(isVerifying = true)
 
