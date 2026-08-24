@@ -3,6 +3,22 @@ package rs.chimera.android.backend
 import rs.chimera.android.backend.model.ProfileSummary
 
 internal object ProfileAutoUpdateLegacyBindingPolicy {
+    fun persistBestEffort(
+        boundState: ProfileAutoUpdateState,
+        persist: () -> ProfileAutoUpdateState?,
+    ): ProfileAutoUpdateState? =
+        try {
+            persist()
+        } catch (_: Exception) {
+            boundState
+        }
+
+    fun resolveCurrentStateAfterRejectedBinding(
+        profile: ProfileSummary,
+        currentState: ProfileAutoUpdateState,
+    ): ProfileAutoUpdateState? =
+        currentState.takeIf { ProfileAutoUpdatePolicy.stateMatchesSource(profile, it) }
+
     fun snapshotStillMatchesCurrentCatalog(
         snapshot: ProfileSummary,
         current: RemoteProfileCatalogEntry,

@@ -1,12 +1,91 @@
 package rs.chimera.android.backend
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
 
 class ProfileAutoUpdateLegacyBindingPolicyTest {
+    @Test
+    fun persistenceFailureKeepsBoundStateForCurrentRead() {
+        val boundState = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 0,
+            nextAttemptAt = 1_000L,
+            lastError = null,
+            sourceFingerprint = "source",
+            profileRevision = 100L,
+        )
+
+        val resolved = ProfileAutoUpdateLegacyBindingPolicy.persistBestEffort(boundState) {
+            throw IllegalStateException("preferences unavailable")
+        }
+
+        assertEquals(boundState, resolved)
+    }
+
+    @Test
+    fun concurrentStateChangeStillRejectsLegacyBinding() {
+        val boundState = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 0,
+            nextAttemptAt = 1_000L,
+            lastError = null,
+            sourceFingerprint = "source",
+            profileRevision = 100L,
+        )
+
+        val resolved = ProfileAutoUpdateLegacyBindingPolicy.persistBestEffort(boundState) { null }
+
+        assertNull(resolved)
+    }
+
+    @Test
+    fun rejectedBindingCanUseNewerMatchingState() {
+        val profile = remoteProfile()
+        val currentState = ProfileAutoUpdatePolicy.bindStateToSource(
+            profile = profile,
+            state = ProfileAutoUpdateState(
+                lastAttempt = 900L,
+                failureCount = 2,
+                nextAttemptAt = 1_200L,
+                lastError = "IOException",
+                runtimeApplyPending = true,
+            ),
+        )
+
+        val resolved = ProfileAutoUpdateLegacyBindingPolicy.resolveCurrentStateAfterRejectedBinding(
+            profile = profile,
+            currentState = currentState,
+        )
+
+        assertEquals(currentState, resolved)
+    }
+
+    @Test
+    fun rejectedBindingDoesNotUseStateForDifferentRevision() {
+        val profile = remoteProfile(lastUpdated = 100L)
+        val currentState = ProfileAutoUpdatePolicy.bindStateToSource(
+            profile = profile.copy(lastUpdated = 101L),
+            state = ProfileAutoUpdateState(
+                lastAttempt = 900L,
+                failureCount = 2,
+                nextAttemptAt = 1_200L,
+                lastError = "IOException",
+            ),
+        )
+
+        val resolved = ProfileAutoUpdateLegacyBindingPolicy.resolveCurrentStateAfterRejectedBinding(
+            profile = profile,
+            currentState = currentState,
+        )
+
+        assertNull(resolved)
+    }
+
     @Test
     fun matchingSnapshotCanBindLegacyState() {
         assertTrue(
