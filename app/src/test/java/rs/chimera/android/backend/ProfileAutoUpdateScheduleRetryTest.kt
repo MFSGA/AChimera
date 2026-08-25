@@ -1,5 +1,9 @@
 package rs.chimera.android.backend
 
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,8 +54,8 @@ class ProfileAutoUpdateScheduleRetryTest {
         var replacementAttempts = 0
         var restoreAttempts = 0
 
-        val result = ProfileAutoUpdateScheduleRetry.replace(
-            previous = Unit,
+        val result = ProfileAutoUpdateScheduleRetry.replaceCurrent(
+            loadPrevious = { Unit },
             cancelPrevious = { cancelled = true },
             scheduleReplacement = {
                 replacementAttempts += 1
@@ -73,8 +77,8 @@ class ProfileAutoUpdateScheduleRetryTest {
     fun secondRestoreAttemptCanRecoverPreviousJob() {
         var restoreAttempts = 0
 
-        val result = ProfileAutoUpdateScheduleRetry.replace(
-            previous = Unit,
+        val result = ProfileAutoUpdateScheduleRetry.replaceCurrent(
+            loadPrevious = { Unit },
             cancelPrevious = {},
             scheduleReplacement = { false },
             restorePrevious = {
@@ -91,8 +95,8 @@ class ProfileAutoUpdateScheduleRetryTest {
     fun successfulReplacementDoesNotRestorePreviousJob() {
         var restoreAttempts = 0
 
-        val result = ProfileAutoUpdateScheduleRetry.replace(
-            previous = Unit,
+        val result = ProfileAutoUpdateScheduleRetry.replaceCurrent(
+            loadPrevious = { Unit },
             cancelPrevious = {},
             scheduleReplacement = { true },
             restorePrevious = {
@@ -109,8 +113,8 @@ class ProfileAutoUpdateScheduleRetryTest {
     fun replacementFailureWithoutPreviousJobDoesNotRestore() {
         var restoreAttempts = 0
 
-        val result = ProfileAutoUpdateScheduleRetry.replace<Unit>(
-            previous = null,
+        val result = ProfileAutoUpdateScheduleRetry.replaceCurrent<Unit>(
+            loadPrevious = { null },
             cancelPrevious = {},
             scheduleReplacement = { false },
             restorePrevious = {
@@ -124,6 +128,58 @@ class ProfileAutoUpdateScheduleRetryTest {
     }
 
     @Test
+    fun concurrentReplacementLoadsPreviousInsideSerializedSection() {
+        val executor = Executors.newFixedThreadPool(2)
+        val firstScheduling = CountDownLatch(1)
+        val allowFirstScheduling = CountDownLatch(1)
+        val loadedPrevious = mutableListOf<String?>()
+        val stateLock = Any()
+        var current: String? = "original"
+
+        val first = executor.submit<Boolean> {
+            ProfileAutoUpdateScheduleRetry.replaceCurrent(
+                loadPrevious = {
+                    synchronized(stateLock) { current.also(loadedPrevious::add) }
+                },
+                cancelPrevious = { synchronized(stateLock) { current = null } },
+                scheduleReplacement = {
+                    firstScheduling.countDown()
+                    check(allowFirstScheduling.await(5, TimeUnit.SECONDS))
+                    synchronized(stateLock) { current = "first" }
+                    true
+                },
+                restorePrevious = {
+                    synchronized(stateLock) { current = it }
+                    true
+                },
+            )
+        }
+        assertTrue(firstScheduling.await(5, TimeUnit.SECONDS))
+
+        val second = executor.submit<Boolean> {
+            ProfileAutoUpdateScheduleRetry.replaceCurrent(
+                loadPrevious = {
+                    synchronized(stateLock) { current.also(loadedPrevious::add) }
+                },
+                cancelPrevious = { synchronized(stateLock) { current = null } },
+                scheduleReplacement = { false },
+                restorePrevious = {
+                    synchronized(stateLock) { current = it }
+                    true
+                },
+            )
+        }
+
+        allowFirstScheduling.countDown()
+        assertTrue(first.get(5, TimeUnit.SECONDS))
+        assertFalse(second.get(5, TimeUnit.SECONDS))
+        executor.shutdownNow()
+
+        assertEquals(listOf("original", "first"), loadedPrevious)
+        assertEquals("first", synchronized(stateLock) { current })
+    }
+
+    @Test
     fun restoreReceivesExactPreviousJobConfiguration() {
         val previous = PreviousJobConfiguration(
             extras = mapOf("marker" to "keep"),
@@ -133,8 +189,8 @@ class ProfileAutoUpdateScheduleRetryTest {
         )
         var restored: PreviousJobConfiguration? = null
 
-        val result = ProfileAutoUpdateScheduleRetry.replace(
-            previous = previous,
+        val result = ProfileAutoUpdateScheduleRetry.replaceCurrent(
+            loadPrevious = { previous },
             cancelPrevious = {},
             scheduleReplacement = { false },
             restorePrevious = {

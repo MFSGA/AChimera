@@ -5,4 +5,6 @@ import rs.chimera.android.backend.model.ProfileSummary
 internal fun resolveProfileVerificationTarget(
     profiles: List<ProfileSummary>,
     savedFilePath: String?,
-): String? = profiles.firstOrNull { it.isActive }?.filePath ?: savedFilePath
+): String? =
+    profiles.firstOrNull { it.isActive }?.filePath?.takeIf(String::isNotBlank)
+        ?: savedFilePath?.takeIf(String::isNotBlank)

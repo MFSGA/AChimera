@@ -26,6 +26,26 @@ class ProfileVerificationTargetTest {
         assertEquals("/profiles/saved.yaml", target)
     }
 
+    @Test
+    fun savedPathIsUsedWhenActiveProfilePathIsBlank() {
+        val target = resolveProfileVerificationTarget(
+            profiles = listOf(profile(id = "active", path = "   ", active = true)),
+            savedFilePath = "/profiles/saved.yaml",
+        )
+
+        assertEquals("/profiles/saved.yaml", target)
+    }
+
+    @Test
+    fun blankSavedPathIsNotReturned() {
+        val target = resolveProfileVerificationTarget(
+            profiles = emptyList(),
+            savedFilePath = "   ",
+        )
+
+        assertEquals(null, target)
+    }
+
     private fun profile(
         id: String,
         path: String,
