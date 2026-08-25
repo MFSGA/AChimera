@@ -93,28 +93,52 @@ class ProfileAutoUpdateScheduleSyncTest {
     }
 
     @Test
-    fun failedScheduleRequestsImmediateRecoveryWhenEnabled() {
-        assertTrue(
-            shouldRequestImmediateRefreshAfterScheduleSync(
-                ProfileAutoUpdateScheduleSyncResult.FAILED,
-            ),
+    fun currentFailureRunsRecoveryInsideGenerationBoundary() = runBlocking {
+        var recovered = false
+
+        val result = ProfileAutoUpdateScheduleSync.run(
+            loadProfiles = { error("catalog failed") },
+            refreshSchedule = {},
+            afterFailure = { recovered = true },
+            onFailure = {},
         )
-        assertTrue(
-            !shouldRequestImmediateRefreshAfterScheduleSync(
-                ProfileAutoUpdateScheduleSyncResult.FAILED,
-                enabled = false,
-            ),
+
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.FAILED, result)
+        assertTrue(recovered)
+    }
+
+    @Test
+    fun staleFailureDoesNotRunRecovery() = runBlocking {
+        val secondLoadStarted = CompletableDeferred<Unit>()
+        val releaseSecondLoad = CompletableDeferred<Unit>()
+        var attempts = 0
+        var staleRecoveryRan = false
+
+        val first = async {
+            ProfileAutoUpdateScheduleSync.run(
+                loadProfiles = {
+                    attempts += 1
+                    if (attempts == 1) error("transient catalog failure")
+                    secondLoadStarted.complete(Unit)
+                    releaseSecondLoad.await()
+                    error("persistent catalog failure")
+                },
+                refreshSchedule = {},
+                afterFailure = { staleRecoveryRan = true },
+                onFailure = {},
+            )
+        }
+        secondLoadStarted.await()
+
+        ProfileAutoUpdateScheduleSync.run(
+            loadProfiles = { emptyList() },
+            refreshSchedule = {},
+            onFailure = { error("unexpected newer failure: $it") },
         )
-        assertTrue(
-            !shouldRequestImmediateRefreshAfterScheduleSync(
-                ProfileAutoUpdateScheduleSyncResult.APPLIED,
-            ),
-        )
-        assertTrue(
-            !shouldRequestImmediateRefreshAfterScheduleSync(
-                ProfileAutoUpdateScheduleSyncResult.STALE,
-            ),
-        )
+        releaseSecondLoad.complete(Unit)
+
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.STALE, first.await())
+        assertTrue(!staleRecoveryRan)
     }
 
     @Test

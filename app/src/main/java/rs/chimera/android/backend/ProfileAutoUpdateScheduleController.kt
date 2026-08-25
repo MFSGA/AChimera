@@ -12,11 +12,13 @@ internal class ProfileAutoUpdateScheduleController(
 
     suspend fun synchronize(
         afterRefresh: () -> Unit = {},
+        afterFailure: () -> Unit = {},
     ): ProfileAutoUpdateScheduleSyncResult =
         ProfileAutoUpdateScheduleSync.run(
             loadProfiles = loadProfiles,
             refreshSchedule = scheduler::refresh,
             afterRefresh = afterRefresh,
+            afterFailure = afterFailure,
             onFailure = onFailure,
         )
 

@@ -23,11 +23,6 @@ internal enum class ProfileAutoUpdateScheduleSyncResult {
     STALE,
 }
 
-internal fun shouldRequestImmediateRefreshAfterScheduleSync(
-    syncResult: ProfileAutoUpdateScheduleSyncResult,
-    enabled: Boolean = true,
-): Boolean = enabled && syncResult == ProfileAutoUpdateScheduleSyncResult.FAILED
-
 internal object ProfileAutoUpdateScheduleSync {
     private val generation = ProfileAutoUpdateScheduleGeneration()
 
@@ -35,6 +30,7 @@ internal object ProfileAutoUpdateScheduleSync {
         loadProfiles: suspend () -> List<ProfileSummary>,
         refreshSchedule: (List<ProfileSummary>) -> Unit,
         afterRefresh: () -> Unit = {},
+        afterFailure: () -> Unit = {},
         onFailure: (Throwable) -> Unit,
     ): ProfileAutoUpdateScheduleSyncResult {
         val requestGeneration = generation.next()
@@ -60,7 +56,12 @@ internal object ProfileAutoUpdateScheduleSync {
                         }
                     },
                     onFailure = { error ->
-                        if (generation.runIfCurrent(requestGeneration) { onFailure(error) }) {
+                        if (
+                            generation.runIfCurrent(requestGeneration) {
+                                onFailure(error)
+                                afterFailure()
+                            }
+                        ) {
                             ProfileAutoUpdateScheduleSyncResult.FAILED
                         } else {
                             ProfileAutoUpdateScheduleSyncResult.STALE
@@ -69,7 +70,12 @@ internal object ProfileAutoUpdateScheduleSync {
                 )
             },
             onFailure = { error ->
-                if (generation.runIfCurrent(requestGeneration) { onFailure(error) }) {
+                if (
+                    generation.runIfCurrent(requestGeneration) {
+                        onFailure(error)
+                        afterFailure()
+                    }
+                ) {
                     ProfileAutoUpdateScheduleSyncResult.FAILED
                 } else {
                     ProfileAutoUpdateScheduleSyncResult.STALE
