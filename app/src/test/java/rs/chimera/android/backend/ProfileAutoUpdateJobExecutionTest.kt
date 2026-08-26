@@ -19,6 +19,18 @@ class ProfileAutoUpdateJobExecutionTest {
     }
 
     @Test
+    fun fatalErrorPropagatesInsteadOfRequestingRetry() = runBlocking {
+        val expected = AssertionError("fatal")
+        val error = runCatching {
+            runProfileAutoUpdateJob {
+                throw expected
+            }
+        }.exceptionOrNull()
+
+        assertTrue(error === expected)
+    }
+
+    @Test
     fun ordinaryFailureRequestsRetryThroughResult() = runBlocking {
         val result = runProfileAutoUpdateJob {
             throw IllegalStateException("catalog unavailable")

@@ -3,6 +3,15 @@ package rs.chimera.android.backend
 import rs.chimera.android.backend.model.ProfileSummary
 
 internal object ProfileAutoUpdateLegacyBindingPolicy {
+    fun readCurrentCatalogBestEffort(
+        read: () -> RemoteProfileCatalogEntry,
+    ): RemoteProfileCatalogEntry? =
+        try {
+            read()
+        } catch (_: Exception) {
+            null
+        }
+
     fun persistBestEffort(
         boundState: ProfileAutoUpdateState,
         persist: () -> ProfileAutoUpdateState?,

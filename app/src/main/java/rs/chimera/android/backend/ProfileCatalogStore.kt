@@ -13,6 +13,11 @@ internal data class ProfileCatalogDocument(
         get() = json.toString()
 }
 
+internal data class ProfileCatalogReadSnapshot(
+    val document: ProfileCatalogDocument,
+    val activePath: String?,
+)
+
 internal data class RemoteProfileCatalogEntry(
     val type: String,
     val url: String?,
@@ -53,6 +58,18 @@ internal class ProfileCatalogStore(
     }
 
     fun readActivePath(): String? = profilePrefs.getString(PROFILE_PATH_KEY, null)
+
+    fun readSnapshotOrNull(): ProfileCatalogReadSnapshot? =
+        readConsistentProfileCatalogSnapshot(
+            coordinator = catalogCoordinator,
+            readDocument = ::readDocumentOrNull,
+            readActivePath = ::readActivePath,
+        )?.let { (document, activePath) ->
+            ProfileCatalogReadSnapshot(
+                document = document,
+                activePath = activePath,
+            )
+        }
 
     fun readRemoteProfile(id: String): RemoteProfileCatalogEntry = catalogCoordinator.withLock {
         val profile = readJson().findById(id)

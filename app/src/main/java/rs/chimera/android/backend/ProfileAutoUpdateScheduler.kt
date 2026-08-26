@@ -133,6 +133,6 @@ internal suspend fun runProfileAutoUpdateJob(
         Result.success(block())
     } catch (error: CancellationException) {
         throw error
-    } catch (error: Throwable) {
+    } catch (error: Exception) {
         Result.failure(error)
     }

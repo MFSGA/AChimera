@@ -26,7 +26,7 @@ internal class ProfileStartupRecovery(
         message: String,
         action: () -> Unit,
     ) {
-        runCatching(action)
+        runProfileStartupRecoveryStep(action)
             .onFailure { error -> PrivacySafeLog.error(TAG, message, error) }
     }
 
@@ -34,3 +34,11 @@ internal class ProfileStartupRecovery(
         const val TAG = "ChimeraBackend"
     }
 }
+
+internal inline fun runProfileStartupRecoveryStep(action: () -> Unit): Result<Unit> =
+    try {
+        action()
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }

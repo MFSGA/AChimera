@@ -30,6 +30,7 @@ import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.DiagnosticsShareCoordinator
 import rs.chimera.android.util.runCatchingPreservingCancellation
+import rs.chimera.android.util.runCatchingRecoverable
 
 @Composable
 internal fun DiagnosticsShareSetting(modifier: Modifier = Modifier) {
@@ -50,7 +51,7 @@ internal fun DiagnosticsShareSetting(modifier: Modifier = Modifier) {
                         runCatchingPreservingCancellation {
                             DiagnosticsShareCoordinator.prepare(context, backend)
                         }.onSuccess { shareIntent ->
-                            runCatching {
+                            runCatchingRecoverable {
                                 context.startActivity(Intent.createChooser(shareIntent, chooserTitle))
                             }.onFailure {
                                 Toast.makeText(context, failureMessage, Toast.LENGTH_SHORT).show()

@@ -24,6 +24,7 @@ import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.util.PrivacySafeLog
+import rs.chimera.android.util.runCatchingRecoverable
 import rs.chimera.android.util.sanitizeUserVisibleErrorText
 import rs.chimera.android.util.toUserVisibleMessage
 import rs.chimera.android.ffi.initClash
@@ -151,7 +152,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     private fun recordDesiredStop(reason: VpnDesiredStateReason) {
-        runCatching { desiredStateStore.markStopped(reason) }
+        runCatchingRecoverable { desiredStateStore.markStopped(reason) }
             .onFailure { error ->
                 PrivacySafeLog.warning(TAG, "Failed to persist desired VPN stop state", error)
                 appendRuntimeLog("failed to persist desired vpn stop state", error)

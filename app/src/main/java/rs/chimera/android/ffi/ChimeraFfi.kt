@@ -9,7 +9,7 @@ import uniffi.chimera_ffi.shutdown
 import uniffi.chimera_ffi.uniffiEnsureInitialized
 
 object ChimeraFfi {
-    private val initResult = runCatching {
+    private val initResult = runCatchingNativeBoundary {
         System.loadLibrary("chimera_ffi")
         check(nativeSetup()) { "nativeSetup returned false" }
         uniffiEnsureInitialized()
@@ -46,7 +46,7 @@ object ChimeraFfi {
             return "FFI unavailable: $typeName"
         }
 
-        return runCatching { hello() }
+        return runCatchingNativeBoundary { hello() }
             .getOrElse { error ->
                 val typeName = error::class.simpleName ?: "UnknownError"
                 "FFI call failed: $typeName"
@@ -58,6 +58,6 @@ object ChimeraFfi {
             return Result.failure(error)
         }
 
-        return runCatching { shutdown() }
+        return runCatchingNativeBoundary { shutdown() }
     }
 }

@@ -10,6 +10,28 @@ import rs.chimera.android.backend.model.ProfileType
 
 class ProfileAutoUpdateLegacyBindingPolicyTest {
     @Test
+    fun catalogReadFailureIsIgnoredForLegacyRevalidation() {
+        val resolved = ProfileAutoUpdateLegacyBindingPolicy.readCurrentCatalogBestEffort {
+            throw IllegalStateException("catalog unavailable")
+        }
+
+        assertNull(resolved)
+    }
+
+    @Test
+    fun catalogReadFatalErrorPropagates() {
+        val expected = AssertionError("fatal catalog error")
+
+        val actual = runCatching {
+            ProfileAutoUpdateLegacyBindingPolicy.readCurrentCatalogBestEffort {
+                throw expected
+            }
+        }.exceptionOrNull()
+
+        assertTrue(actual === expected)
+    }
+
+    @Test
     fun persistenceFailureKeepsBoundStateForCurrentRead() {
         val boundState = ProfileAutoUpdateState(
             lastAttempt = null,

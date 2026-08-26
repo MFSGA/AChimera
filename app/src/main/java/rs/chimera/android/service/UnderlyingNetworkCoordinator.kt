@@ -5,6 +5,7 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import rs.chimera.android.util.PrivacySafeLog
+import rs.chimera.android.util.runCatchingRecoverable
 import java.util.concurrent.atomic.AtomicLong
 
 internal enum class UnderlyingNetworkTransport(val priority: Int) {
@@ -140,7 +141,7 @@ internal class UnderlyingNetworkCoordinator(
     fun start() {
         if (started) return
         started = true
-        runCatching {
+        runCatchingRecoverable {
             connectivityManager.registerNetworkCallback(request, callback)
         }.onFailure { error ->
             started = false
@@ -200,7 +201,7 @@ internal class UnderlyingNetworkCoordinator(
 
         val networksToApply = UnderlyingNetworkPolicy.explicitOrDefault(orderedNetworks)?.toTypedArray()
         val applied =
-            runCatching { applyNetworks(networksToApply) }
+            runCatchingRecoverable { applyNetworks(networksToApply) }
                 .onFailure { error ->
                     PrivacySafeLog.warning(TAG, "Failed to apply underlying networks", error, debugDetail = reason)
                 }.getOrDefault(false)

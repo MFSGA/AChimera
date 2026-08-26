@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.res.AssetManager
 import rs.chimera.android.Global
 import rs.chimera.android.util.PrivacySafeLog
+import rs.chimera.android.util.runCatchingRecoverable
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -29,7 +30,7 @@ internal object TunRuntimeFiles {
         cacheDir: File,
     ) {
         listOf("Country.mmdb", "geosite.dat").forEach { name ->
-            runCatching {
+            runCatchingRecoverable {
                 assets.open("clash-res/$name").use { input ->
                     val output = File(cacheDir, name)
                     output.deleteOnExit()

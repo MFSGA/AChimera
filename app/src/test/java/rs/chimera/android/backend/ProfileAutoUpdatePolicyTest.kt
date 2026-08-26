@@ -80,6 +80,21 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
+    fun runnerPropagatesFatalProfileListError() = runBlocking {
+        val expected = AssertionError("fatal list")
+        val operations = FakeOperations(
+            profiles = emptyList(),
+            fatalListError = expected,
+        )
+
+        val error = runCatching {
+            ProfileAutoUpdateRunner(operations, now = { 1_000 }).run()
+        }.exceptionOrNull()
+
+        assertTrue(error === expected)
+    }
+
+    @Test
     fun runnerReportsProfileListFailureAsRetryableResult() = runBlocking {
         val operations = FakeOperations(
             profiles = emptyList(),
@@ -381,6 +396,7 @@ class ProfileAutoUpdatePolicyTest {
         initialState: ServiceState = ServiceState.STOPPED,
         private val failRestart: Boolean = false,
         private val failListProfiles: Boolean = false,
+        private val fatalListError: Error? = null,
         private val cancelListProfiles: Boolean = false,
         private val stopServiceAfterUpdate: Boolean = false,
         private val cancelRestart: Boolean = false,
@@ -394,6 +410,7 @@ class ProfileAutoUpdatePolicyTest {
 
         override suspend fun listProfiles(): List<ProfileSummary> {
             if (cancelListProfiles) throw CancellationException("list cancelled")
+            fatalListError?.let { throw it }
             check(!failListProfiles) { "list failed" }
             return if (updatedIds.isNotEmpty()) profilesAfterUpdate ?: profiles else profiles
         }

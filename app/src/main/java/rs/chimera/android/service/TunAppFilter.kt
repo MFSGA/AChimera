@@ -2,6 +2,7 @@ package rs.chimera.android.service
 
 import android.net.VpnService
 import rs.chimera.android.util.PrivacySafeLog
+import rs.chimera.android.util.runCatchingRecoverable
 
 internal object TunAppFilter {
     fun apply(
@@ -12,7 +13,7 @@ internal object TunAppFilter {
         when (settings.appFilterMode) {
             "ALLOWED" -> {
                 settings.allowedApps.forEach { appPackageName ->
-                    runCatching { builder.addAllowedApplication(appPackageName) }
+                    runCatchingRecoverable { builder.addAllowedApplication(appPackageName) }
                         .onFailure { error ->
                             PrivacySafeLog.warning(
                                 TAG,
@@ -25,13 +26,13 @@ internal object TunAppFilter {
             }
 
             "DISALLOWED" -> {
-                addDisallowedApplicationSafely(builder, servicePackageName)
+                builder.addDisallowedApplication(servicePackageName)
                 settings.disallowedApps.forEach { appPackageName ->
                     addDisallowedApplicationSafely(builder, appPackageName)
                 }
             }
 
-            else -> addDisallowedApplicationSafely(builder, servicePackageName)
+            else -> builder.addDisallowedApplication(servicePackageName)
         }
     }
 
@@ -39,7 +40,7 @@ internal object TunAppFilter {
         builder: VpnService.Builder,
         appPackageName: String,
     ) {
-        runCatching { builder.addDisallowedApplication(appPackageName) }
+        runCatchingRecoverable { builder.addDisallowedApplication(appPackageName) }
             .onFailure { error ->
                 PrivacySafeLog.warning(
                     TAG,
