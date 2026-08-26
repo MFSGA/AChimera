@@ -2,6 +2,7 @@ package rs.chimera.android.backend
 
 import java.io.File
 import java.util.UUID
+import rs.chimera.android.util.runCatchingRecoverable
 
 internal object ProfileImportRecoveryPolicy {
     private const val STAGE_PREFIX = ".profile-import-"
@@ -46,6 +47,6 @@ internal object ProfileImportRecoveryPolicy {
     private fun isManagedStage(file: File): Boolean {
         if (!file.isFile || !file.name.startsWith(STAGE_PREFIX)) return false
         val uuid = file.name.removePrefix(STAGE_PREFIX).substringBefore('.')
-        return runCatching { UUID.fromString(uuid) }.isSuccess
+        return runCatchingRecoverable { UUID.fromString(uuid) }.isSuccess
     }
 }

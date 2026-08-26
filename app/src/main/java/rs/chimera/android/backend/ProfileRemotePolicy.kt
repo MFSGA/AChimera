@@ -4,6 +4,7 @@ import java.net.URI
 import java.util.Locale
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.util.runCatchingRecoverable
 
 internal object ProfileRemotePolicy {
     fun isValidUrl(value: String): Boolean = parseHttpUrl(value) != null
@@ -76,7 +77,7 @@ internal object ProfileRemotePolicy {
     private const val MAX_EXTENSION_CHARS = 16
 
     private fun parseHttpUrl(value: String): URI? {
-        val uri = runCatching { URI(value.trim()) }.getOrNull() ?: return null
+        val uri = runCatchingRecoverable { URI(value.trim()) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase(Locale.ROOT)
         return uri.takeIf {
             scheme in setOf("http", "https") && !uri.host.isNullOrBlank()

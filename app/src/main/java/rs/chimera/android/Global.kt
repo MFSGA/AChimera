@@ -58,6 +58,10 @@ object Global {
         return profilePath
     }
 
+    internal fun updateProfilePath(path: String?) {
+        profilePath = path.orEmpty()
+    }
+
     private const val FILE_PREFS = "file_prefs"
     private const val PROFILE_PATH_KEY = "profile_path"
     private const val RUNTIME_LOG_FILE_NAME = "chimera-rs.log"

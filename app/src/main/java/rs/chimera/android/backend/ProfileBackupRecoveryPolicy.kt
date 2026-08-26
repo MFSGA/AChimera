@@ -2,6 +2,7 @@ package rs.chimera.android.backend
 
 import java.io.File
 import java.util.UUID
+import rs.chimera.android.util.runCatchingRecoverable
 
 internal object ProfileBackupRecoveryPolicy {
     fun recover(
@@ -31,7 +32,7 @@ internal object ProfileBackupRecoveryPolicy {
         if (separator <= 0) return null
         val targetName = stem.substring(0, separator)
         val uuid = stem.substring(separator + 1)
-        if (runCatching { UUID.fromString(uuid) }.isFailure) return null
+        if (runCatchingRecoverable { UUID.fromString(uuid) }.isFailure) return null
         return file.parentFile?.resolve(targetName)
     }
 }

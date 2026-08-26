@@ -2,6 +2,7 @@ package rs.chimera.android.backend
 
 import java.io.File
 import java.util.UUID
+import rs.chimera.android.util.runCatchingRecoverable
 
 internal object ProfileDownloadRecoveryPolicy {
     fun createStage(destinationFile: File): File {
@@ -31,6 +32,6 @@ internal object ProfileDownloadRecoveryPolicy {
         val separator = stem.lastIndexOf('.')
         if (separator <= 0) return false
         val uuid = stem.substring(separator + 1)
-        return runCatching { UUID.fromString(uuid) }.isSuccess
+        return runCatchingRecoverable { UUID.fromString(uuid) }.isSuccess
     }
 }

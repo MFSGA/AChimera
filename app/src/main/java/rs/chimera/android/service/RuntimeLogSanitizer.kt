@@ -4,6 +4,7 @@ import java.io.File
 import java.net.URI
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
+import rs.chimera.android.util.runCatchingRecoverable
 
 internal object RuntimeLogSanitizer {
     fun profileLabel(path: String): String =
@@ -49,7 +50,7 @@ internal object RuntimeLogSanitizer {
     private fun sanitizeUrl(rawValue: String): String {
         val suffix = rawValue.takeLastWhile { it in TRAILING_URL_PUNCTUATION }
         val rawUrl = rawValue.dropLast(suffix.length)
-        val uri = runCatching { URI(rawUrl) }.getOrNull()
+        val uri = runCatchingRecoverable { URI(rawUrl) }.getOrNull()
             ?: return sanitizeMalformedUrl(rawUrl) + suffix
         val authority = uri.rawAuthority
             ?: return sanitizeMalformedUrl(rawUrl) + suffix
@@ -125,7 +126,7 @@ internal object RuntimeLogSanitizer {
     }
 
     private fun isSensitiveKey(rawKey: String): Boolean {
-        val decoded = runCatching {
+        val decoded = runCatchingRecoverable {
             URLDecoder.decode(rawKey, StandardCharsets.UTF_8.name())
         }.getOrDefault(rawKey)
         val normalized = decoded.lowercase().filter(Char::isLetterOrDigit)
