@@ -36,16 +36,52 @@ class ProfileMetadataCommitTest {
     }
 
     @Test
-    fun refreshStateWriteFailureIsReported() {
+    fun refreshStateWriteFailureIsRetriedBeforeClearingStaleState() {
         val failure = IllegalStateException("state store unavailable")
         val failures = mutableListOf<Throwable>()
+        var writeAttempts = 0
+        var cleared = false
 
         writeProfileRefreshStateBestEffort(
-            write = { throw failure },
+            write = {
+                writeAttempts += 1
+                if (writeAttempts == 1) throw failure
+            },
+            clearStaleState = {
+                cleared = true
+                true
+            },
             onFailure = failures::add,
         )
 
+        assertEquals(2, writeAttempts)
+        assertTrue(!cleared)
         assertEquals(listOf(failure), failures)
+    }
+
+    @Test
+    fun repeatedRefreshStateWriteFailureClearsStaleState() {
+        val firstFailure = IllegalStateException("state store unavailable")
+        val retryFailure = IllegalStateException("state store still unavailable")
+        val failures = mutableListOf<Throwable>()
+        var writeAttempts = 0
+        var cleared = false
+
+        writeProfileRefreshStateBestEffort(
+            write = {
+                writeAttempts += 1
+                throw if (writeAttempts == 1) firstFailure else retryFailure
+            },
+            clearStaleState = {
+                cleared = true
+                true
+            },
+            onFailure = failures::add,
+        )
+
+        assertEquals(2, writeAttempts)
+        assertTrue(cleared)
+        assertEquals(listOf(firstFailure, retryFailure), failures)
     }
 
     @Test
@@ -55,6 +91,34 @@ class ProfileMetadataCommitTest {
         val actual = runCatching {
             writeProfileRefreshStateBestEffort(
                 write = { throw expected },
+                clearStaleState = { true },
+                onFailure = { throw AssertionError("fatal error was downgraded", it) },
+            )
+        }.exceptionOrNull()
+
+        assertTrue(actual === expected)
+    }
+
+    @Test
+    fun staleStateClearFailureIsReportedWithoutEscaping() {
+        val failure = IllegalStateException("state store unavailable")
+        val failures = mutableListOf<Throwable>()
+
+        clearProfileAutoUpdateStateBestEffort(
+            clear = { throw failure },
+            onFailure = failures::add,
+        )
+
+        assertEquals(listOf(failure), failures)
+    }
+
+    @Test
+    fun staleStateClearFatalErrorPropagates() {
+        val expected = AssertionError("fatal state store error")
+
+        val actual = runCatching {
+            clearProfileAutoUpdateStateBestEffort(
+                clear = { throw expected },
                 onFailure = { throw AssertionError("fatal error was downgraded", it) },
             )
         }.exceptionOrNull()

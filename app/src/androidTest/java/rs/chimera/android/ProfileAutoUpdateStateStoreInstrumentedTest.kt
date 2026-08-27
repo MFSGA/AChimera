@@ -150,13 +150,20 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
 
         assertTrue(store.markRuntimeApplyPending(id, requested))
 
-        assertEquals(
-            current.copy(
-                runtimeApplyPending = true,
-                sourceFingerprint = "source-a",
-            ),
-            store.read(id),
+        val boundPending = current.copy(
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
         )
+        assertEquals(boundPending, store.read(id))
+
+        assertTrue(
+            store.clearRuntimeApplyPending(
+                id,
+                expectedProfileRevision = 4_000L,
+                expectedSourceFingerprint = "source-a",
+            ),
+        )
+        assertEquals(boundPending.copy(runtimeApplyPending = false), store.read(id))
     }
 
     @Test

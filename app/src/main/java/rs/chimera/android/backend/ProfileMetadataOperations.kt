@@ -23,10 +23,33 @@ internal fun requestImmediateProfileRefreshBestEffort(
 
 internal fun writeProfileRefreshStateBestEffort(
     write: () -> Unit,
+    clearStaleState: () -> Boolean,
     onFailure: (Throwable) -> Unit,
 ) {
     try {
         write()
+    } catch (firstError: Exception) {
+        onFailure(firstError)
+        try {
+            write()
+        } catch (retryError: Exception) {
+            onFailure(retryError)
+            clearProfileAutoUpdateStateBestEffort(
+                clear = clearStaleState,
+                onFailure = onFailure,
+            )
+        }
+    }
+}
+
+internal fun clearProfileAutoUpdateStateBestEffort(
+    clear: () -> Boolean,
+    onFailure: (Throwable) -> Unit,
+) {
+    try {
+        if (!clear()) {
+            onFailure(IllegalStateException("Failed to clear profile auto-update state"))
+        }
     } catch (error: Exception) {
         onFailure(error)
     }
@@ -100,19 +123,25 @@ internal class ProfileMetadataOperations(
                                         ProfileAutoUpdatePolicy.refreshNowState(System.currentTimeMillis()),
                                     )
                                 },
+                                clearStaleState = { profileAutoUpdateStateStore.clear(id) },
                                 onFailure = {
                                     PrivacySafeLog.warningDetail(
                                         TAG,
-                                        "Failed to schedule edited profile refresh",
+                                        "Failed to persist edited profile auto-update state",
                                         "profileId=$id",
                                     )
                                 },
                             )
-                        } else if (!profileAutoUpdateStateStore.clear(id)) {
-                            PrivacySafeLog.warningDetail(
-                                TAG,
-                                "Failed to clear edited auto-update state",
-                                "profileId=$id",
+                        } else {
+                            clearProfileAutoUpdateStateBestEffort(
+                                clear = { profileAutoUpdateStateStore.clear(id) },
+                                onFailure = {
+                                    PrivacySafeLog.warningDetail(
+                                        TAG,
+                                        "Failed to clear edited auto-update state",
+                                        "profileId=$id",
+                                    )
+                                },
                             )
                         }
                     }
