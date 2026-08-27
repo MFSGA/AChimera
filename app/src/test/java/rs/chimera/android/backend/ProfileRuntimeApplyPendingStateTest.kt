@@ -8,16 +8,23 @@ import rs.chimera.android.backend.model.ProfileType
 
 class ProfileRuntimeApplyPendingStateTest {
     @Test
-    fun pendingProfileReturnsCurrentRevision() {
+    fun pendingProfileReturnsCurrentRevisionAndSource() {
         val profile = profile(runtimeApplyPending = true, lastUpdated = 42L)
 
-        assertEquals("profile" to 42L, pendingRuntimeApplyRevision(profile))
+        assertEquals(
+            ProfileRuntimeApplyPendingToken(
+                profileId = "profile",
+                profileRevision = 42L,
+                sourceFingerprint = ProfileAutoUpdatePolicy.sourceFingerprint(profile),
+            ),
+            pendingRuntimeApplyToken(profile),
+        )
     }
 
     @Test
     fun nonPendingProfileHasNoRevisionToken() {
-        assertNull(pendingRuntimeApplyRevision(profile(runtimeApplyPending = false, lastUpdated = 42L)))
-        assertNull(pendingRuntimeApplyRevision(null))
+        assertNull(pendingRuntimeApplyToken(profile(runtimeApplyPending = false, lastUpdated = 42L)))
+        assertNull(pendingRuntimeApplyToken(null))
     }
 
     private fun profile(

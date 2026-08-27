@@ -30,6 +30,27 @@ class ProfileActiveProfileRefreshTest {
         }
     }
 
+    @Test
+    fun importedProfileSurvivesRecoverableRefreshFailure() {
+        val committed = profile("imported").copy(isActive = false)
+
+        val refreshed = refreshImportedActiveProfileValue(committed) {
+            error("catalog temporarily unavailable")
+        }
+
+        assertEquals(committed.copy(isActive = true), refreshed)
+    }
+
+    @Test
+    fun importedProfileUsesCanonicalRefreshWhenAvailable() {
+        val committed = profile("imported").copy(isActive = false)
+        val canonical = profile("imported").copy(name = "canonical")
+
+        val refreshed = refreshImportedActiveProfileValue(committed) { canonical }
+
+        assertEquals(canonical, refreshed)
+    }
+
     private fun profile(id: String) = ProfileSummary(
         id = id,
         name = id,

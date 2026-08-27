@@ -4,23 +4,38 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import rs.chimera.android.backend.model.ProfileSummary
 
-internal fun pendingRuntimeApplyRevision(profile: ProfileSummary?): Pair<String, Long>? =
+internal data class ProfileRuntimeApplyPendingToken(
+    val profileId: String,
+    val profileRevision: Long,
+    val sourceFingerprint: String,
+)
+
+internal fun pendingRuntimeApplyToken(profile: ProfileSummary?): ProfileRuntimeApplyPendingToken? =
     profile
         ?.takeIf { it.runtimeApplyPending }
-        ?.let { it.id to ProfileAutoUpdatePolicy.profileRevision(it) }
+        ?.let {
+            ProfileRuntimeApplyPendingToken(
+                profileId = it.id,
+                profileRevision = ProfileAutoUpdatePolicy.profileRevision(it),
+                sourceFingerprint = ProfileAutoUpdatePolicy.sourceFingerprint(it),
+            )
+        }
 
 internal class ProfileRuntimeApplyPendingState(
     private val readActiveProfile: () -> ProfileSummary?,
     private val stateStore: ProfileAutoUpdateStateStore,
     private val refreshActiveProfile: () -> Unit,
 ) {
-    fun readRevision(): Pair<String, Long>? = pendingRuntimeApplyRevision(readActiveProfile())
+    fun readToken(): ProfileRuntimeApplyPendingToken? = pendingRuntimeApplyToken(readActiveProfile())
 
-    suspend fun clear(
-        profileId: String,
-        expectedProfileRevision: Long,
-    ) = withContext(Dispatchers.IO) {
-        if (stateStore.clearRuntimeApplyPending(profileId, expectedProfileRevision)) {
+    suspend fun clear(token: ProfileRuntimeApplyPendingToken) = withContext(Dispatchers.IO) {
+        if (
+            stateStore.clearRuntimeApplyPending(
+                token.profileId,
+                token.profileRevision,
+                token.sourceFingerprint,
+            )
+        ) {
             refreshActiveProfile()
         }
     }

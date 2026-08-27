@@ -7,25 +7,41 @@ import org.junit.Test
 
 class ProfileDeletionPostCommitPolicyTest {
     @Test
-    fun restoreFailureDoesNotSkipRemainingPostCommitSteps() {
-        val expected = IllegalStateException("restore failed")
-        val failures = mutableListOf<Throwable>()
-        var clearCalls = 0
-        var refreshCalls = 0
+    fun committedActivePathUpdatesBeforeRemainingPostCommitSteps() {
+        val events = mutableListOf<String>()
+        var runtimePath: String? = "deleted"
 
         completeProfileDeletionPostCommit(
-            restoreActivePath = { throw expected },
+            activePath = "remaining",
+            updateRuntimePath = {
+                runtimePath = it
+                events += "path"
+            },
             clearAutoUpdateState = {
-                clearCalls += 1
+                events += "clear"
                 true
             },
-            refreshActiveProfile = { refreshCalls += 1 },
-            onFailure = failures::add,
+            refreshActiveProfile = { events += "refresh" },
+            onFailure = { fail("unexpected failure: $it") },
         )
 
-        assertEquals(1, clearCalls)
-        assertEquals(1, refreshCalls)
-        assertEquals(listOf(expected), failures)
+        assertEquals("remaining", runtimePath)
+        assertEquals(listOf("path", "clear", "refresh"), events)
+    }
+
+    @Test
+    fun emptyCatalogClearsRuntimePathBeforeRemainingPostCommitSteps() {
+        var runtimePath: String? = "deleted"
+
+        completeProfileDeletionPostCommit(
+            activePath = null,
+            updateRuntimePath = { runtimePath = it },
+            clearAutoUpdateState = { true },
+            refreshActiveProfile = {},
+            onFailure = { fail("unexpected failure: $it") },
+        )
+
+        assertEquals(null, runtimePath)
     }
 
     @Test
@@ -35,7 +51,8 @@ class ProfileDeletionPostCommitPolicyTest {
         var refreshCalls = 0
 
         completeProfileDeletionPostCommit(
-            restoreActivePath = {},
+            activePath = "remaining",
+            updateRuntimePath = {},
             clearAutoUpdateState = { throw expected },
             refreshActiveProfile = { refreshCalls += 1 },
             onFailure = failures::add,
@@ -51,7 +68,8 @@ class ProfileDeletionPostCommitPolicyTest {
         var refreshCalls = 0
 
         completeProfileDeletionPostCommit(
-            restoreActivePath = {},
+            activePath = "remaining",
+            updateRuntimePath = {},
             clearAutoUpdateState = { false },
             refreshActiveProfile = { refreshCalls += 1 },
             onFailure = failures::add,
@@ -63,18 +81,15 @@ class ProfileDeletionPostCommitPolicyTest {
     }
 
     @Test
-    fun fatalErrorStopsPostCommitCompletion() {
+    fun fatalStateClearStopsPostCommitCompletion() {
         val expected = AssertionError("fatal")
-        var clearCalls = 0
         var refreshCalls = 0
 
         try {
             completeProfileDeletionPostCommit(
-                restoreActivePath = { throw expected },
-                clearAutoUpdateState = {
-                    clearCalls += 1
-                    true
-                },
+                activePath = "remaining",
+                updateRuntimePath = {},
+                clearAutoUpdateState = { throw expected },
                 refreshActiveProfile = { refreshCalls += 1 },
                 onFailure = { fail("fatal errors must not be reported as recoverable failures") },
             )
@@ -83,7 +98,6 @@ class ProfileDeletionPostCommitPolicyTest {
             assertSame(expected, error)
         }
 
-        assertEquals(0, clearCalls)
         assertEquals(0, refreshCalls)
     }
 }

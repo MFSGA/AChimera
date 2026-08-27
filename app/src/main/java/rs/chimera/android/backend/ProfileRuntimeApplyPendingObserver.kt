@@ -9,8 +9,8 @@ internal class ProfileRuntimeApplyPendingObserver(
     private val scope: CoroutineScope,
     private val serviceState: StateFlow<ServiceState>,
     private val awaitReady: suspend () -> Unit,
-    private val readPendingApply: suspend () -> Pair<String, Long>?,
-    private val clearPendingApply: suspend (profileId: String, revision: Long) -> Unit,
+    private val readPendingApply: suspend () -> ProfileRuntimeApplyPendingToken?,
+    private val clearPendingApply: suspend (ProfileRuntimeApplyPendingToken) -> Unit,
 ) {
     fun start() {
         scope.launch {
@@ -22,8 +22,8 @@ internal class ProfileRuntimeApplyPendingObserver(
                 } else {
                     null
                 }
-                pendingTracker.onServiceState(state, pendingApply)?.let { (profileId, revision) ->
-                    clearPendingApply(profileId, revision)
+                pendingTracker.onServiceState(state, pendingApply)?.let { token ->
+                    clearPendingApply(token)
                 }
             }
         }

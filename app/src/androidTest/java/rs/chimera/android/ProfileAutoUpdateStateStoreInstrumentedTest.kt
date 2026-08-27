@@ -51,18 +51,56 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
             nextAttemptAt = 1_723_543_189_000L,
             lastError = null,
             runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
             profileRevision = 2_000L,
         )
         val store = ProfileAutoUpdateStateStore(context)
         store.write(id, expected)
 
-        assertTrue(store.clearRuntimeApplyPending(id, expectedProfileRevision = 1_000L))
+        assertTrue(
+            store.clearRuntimeApplyPending(
+                id,
+                expectedProfileRevision = 1_000L,
+                expectedSourceFingerprint = "source-a",
+            ),
+        )
         assertEquals(expected, store.read(id))
 
-        assertTrue(store.clearRuntimeApplyPending(id, expectedProfileRevision = 2_000L))
+        assertTrue(
+            store.clearRuntimeApplyPending(
+                id,
+                expectedProfileRevision = 2_000L,
+                expectedSourceFingerprint = "source-a",
+            ),
+        )
         val cleared = store.read(id)
         assertFalse(cleared.runtimeApplyPending)
         assertEquals(expected.copy(runtimeApplyPending = false), cleared)
+    }
+
+    @Test
+    fun runtimeApplyPendingClearRejectsDifferentSourceAtSameRevision() {
+        val id = trackedId("runtime-apply-source")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 0,
+            nextAttemptAt = 3_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-b",
+            profileRevision = 0L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        assertTrue(
+            store.clearRuntimeApplyPending(
+                id,
+                expectedProfileRevision = 0L,
+                expectedSourceFingerprint = "source-a",
+            ),
+        )
+        assertEquals(current, store.read(id))
     }
 
     @Test
@@ -90,6 +128,53 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
 
         assertTrue(store.markRuntimeApplyPending(id, requested))
         assertEquals(current.copy(runtimeApplyPending = true), store.read(id))
+    }
+
+    @Test
+    fun runtimeApplyPendingMarkBindsMatchingLegacyRevisionToSource() {
+        val id = trackedId("runtime-apply-bind-source")
+        val current = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 2,
+            nextAttemptAt = 3_000L,
+            lastError = "IOException",
+            runtimeApplyPending = false,
+            profileRevision = 4_000L,
+        )
+        val requested = current.copy(
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, current)
+
+        assertTrue(store.markRuntimeApplyPending(id, requested))
+
+        assertEquals(
+            current.copy(
+                runtimeApplyPending = true,
+                sourceFingerprint = "source-a",
+            ),
+            store.read(id),
+        )
+    }
+
+    @Test
+    fun unboundRuntimeApplyMarkDoesNotCreatePendingState() {
+        val id = trackedId("runtime-apply-unbound-mark")
+        val store = ProfileAutoUpdateStateStore(context)
+        val unboundPending = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 0,
+            nextAttemptAt = 3_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            profileRevision = 4_000L,
+        )
+
+        assertTrue(store.markRuntimeApplyPending(id, unboundPending))
+
+        assertEmpty(store.read(id))
     }
 
     @Test

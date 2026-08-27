@@ -6,7 +6,7 @@ import rs.chimera.android.util.runCatchingRecoverable
 
 internal suspend fun completeRemoteProfileUpdateCommit(
     clearAutoUpdateState: () -> Boolean,
-    restoreActivePath: () -> Unit,
+    synchronizeRuntimePath: () -> Unit,
     refreshActiveProfile: () -> Unit,
     afterCommit: suspend () -> Unit,
     onMaintenanceFailure: (Throwable) -> Unit,
@@ -19,7 +19,7 @@ internal suspend fun completeRemoteProfileUpdateCommit(
         }
         .onFailure(onMaintenanceFailure)
 
-    runCatchingRecoverable(restoreActivePath).onFailure(onMaintenanceFailure)
+    synchronizeRuntimePath()
     runCatchingRecoverable(refreshActiveProfile).onFailure(onMaintenanceFailure)
     afterCommit()
 }

@@ -68,12 +68,28 @@ class ProfileAutoUpdateScheduleSyncTest {
         val result = ProfileAutoUpdateScheduleSync.run(
             loadProfiles = { listOf(remoteProfile()) },
             refreshSchedule = { error("schedule failed") },
-            afterRefresh = { afterRefreshRan = true },
+            afterRefresh = { _ -> afterRefreshRan = true },
             onFailure = {},
         )
 
         assertEquals(ProfileAutoUpdateScheduleSyncResult.FAILED, result)
         assertTrue(!afterRefreshRan)
+    }
+
+    @Test
+    fun afterRefreshReceivesAppliedCatalogSnapshot() = runBlocking {
+        val pendingProfile = remoteProfile(runtimeApplyPending = true)
+        var observedProfiles = emptyList<ProfileSummary>()
+
+        val result = ProfileAutoUpdateScheduleSync.run(
+            loadProfiles = { listOf(pendingProfile) },
+            refreshSchedule = {},
+            afterRefresh = { observedProfiles = it },
+            onFailure = { error("unexpected failure: $it") },
+        )
+
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.APPLIED, result)
+        assertEquals(listOf(pendingProfile), observedProfiles)
     }
 
     @Test
@@ -99,6 +115,22 @@ class ProfileAutoUpdateScheduleSyncTest {
         val result = ProfileAutoUpdateScheduleSync.run(
             loadProfiles = { error("catalog failed") },
             refreshSchedule = {},
+            afterFailure = { recovered = true },
+            onFailure = {},
+        )
+
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.FAILED, result)
+        assertTrue(recovered)
+    }
+
+    @Test
+    fun afterRefreshFailureRunsRecoveryInsideGenerationBoundary() = runBlocking {
+        var recovered = false
+
+        val result = ProfileAutoUpdateScheduleSync.run(
+            loadProfiles = { listOf(remoteProfile(runtimeApplyPending = true)) },
+            refreshSchedule = {},
+            afterRefresh = { error("immediate schedule failed") },
             afterFailure = { recovered = true },
             onFailure = {},
         )
@@ -205,7 +237,7 @@ class ProfileAutoUpdateScheduleSyncTest {
                     listOf(remoteProfile())
                 },
                 refreshSchedule = {},
-                afterRefresh = { staleAfterRefreshRan = true },
+                afterRefresh = { _ -> staleAfterRefreshRan = true },
                 onFailure = { error("unexpected first failure: $it") },
             )
         }
@@ -221,6 +253,70 @@ class ProfileAutoUpdateScheduleSyncTest {
 
         assertEquals(ProfileAutoUpdateScheduleSyncResult.STALE, staleResult)
         assertTrue(!staleAfterRefreshRan)
+    }
+
+    @Test
+    fun staleMaintenanceFailureDoesNotReportCurrentFailure() = runBlocking {
+        val firstLoadStarted = CompletableDeferred<Unit>()
+        val releaseFirstLoad = CompletableDeferred<Unit>()
+        var staleFailureReported = false
+
+        val first = async {
+            ProfileAutoUpdateScheduleSync.runMaintenance(
+                loadProfiles = {
+                    firstLoadStarted.complete(Unit)
+                    releaseFirstLoad.await()
+                    error("stale maintenance failure")
+                },
+                refreshSchedule = { error("stale maintenance must not apply") },
+                onFailure = { staleFailureReported = true },
+            )
+        }
+        firstLoadStarted.await()
+
+        val second = ProfileAutoUpdateScheduleSync.runMaintenance(
+            loadProfiles = { listOf(remoteProfile()) },
+            refreshSchedule = {},
+            onFailure = { error("unexpected second failure: $it") },
+        )
+        releaseFirstLoad.complete(Unit)
+
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.APPLIED, second)
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.STALE, first.await())
+        assertTrue(!staleFailureReported)
+    }
+
+    @Test
+    fun staleMaintenanceDoesNotOverwriteNewerMaintenance() = runBlocking {
+        val firstLoadStarted = CompletableDeferred<Unit>()
+        val releaseFirstLoad = CompletableDeferred<Unit>()
+        val refreshed = mutableListOf<List<ProfileSummary>>()
+        val oldProfiles = emptyList<ProfileSummary>()
+        val newProfiles = listOf(remoteProfile())
+
+        val first = async {
+            ProfileAutoUpdateScheduleSync.runMaintenance(
+                loadProfiles = {
+                    firstLoadStarted.complete(Unit)
+                    releaseFirstLoad.await()
+                    oldProfiles
+                },
+                refreshSchedule = { refreshed += it },
+                onFailure = { error("unexpected first failure: $it") },
+            )
+        }
+        firstLoadStarted.await()
+
+        val second = ProfileAutoUpdateScheduleSync.runMaintenance(
+            loadProfiles = { newProfiles },
+            refreshSchedule = { refreshed += it },
+            onFailure = { error("unexpected second failure: $it") },
+        )
+        releaseFirstLoad.complete(Unit)
+
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.APPLIED, second)
+        assertEquals(ProfileAutoUpdateScheduleSyncResult.STALE, first.await())
+        assertEquals(listOf(newProfiles), refreshed)
     }
 
     @Test
@@ -255,7 +351,7 @@ class ProfileAutoUpdateScheduleSyncTest {
         assertEquals(listOf(newProfiles), refreshed)
     }
 
-    private fun remoteProfile() = ProfileSummary(
+    private fun remoteProfile(runtimeApplyPending: Boolean = false) = ProfileSummary(
         id = "remote",
         name = "remote",
         filePath = "/profiles/remote.yaml",
@@ -266,5 +362,6 @@ class ProfileAutoUpdateScheduleSyncTest {
         fileSize = 1,
         url = "https://example.test/profile.yaml",
         autoUpdate = true,
+        runtimeApplyPending = runtimeApplyPending,
     )
 }

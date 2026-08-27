@@ -11,7 +11,7 @@ internal class ProfileAutoUpdateScheduleController(
     private val scheduler = ProfileAutoUpdateScheduler(context)
 
     suspend fun synchronize(
-        afterRefresh: () -> Unit = {},
+        afterRefresh: (List<ProfileSummary>) -> Unit = {},
         afterFailure: () -> Unit = {},
     ): ProfileAutoUpdateScheduleSyncResult =
         ProfileAutoUpdateScheduleSync.run(
