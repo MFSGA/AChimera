@@ -146,6 +146,16 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.executePendingBindings()
     }
 
+    fun setMemory(inUse: String?, limit: String?) {
+        binding.textMemory.text = if (inUse == null || limit == null) {
+            context.getString(R.string.not_available)
+        } else {
+            context.getString(R.string.stat_memory_limit, limit).let { limitText ->
+                "$inUse · $limitText"
+            }
+        }
+    }
+
     fun request(request: Request) {
         requests.trySend(request)
     }

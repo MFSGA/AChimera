@@ -78,6 +78,15 @@ class MetaMainActivity : AppCompatActivity() {
                     }
                 }
                 launch {
+                    backend.memoryInfo.collect { memory ->
+                        val available = memory.inUse > 0L || memory.osLimit > 0L
+                        design.setMemory(
+                            inUse = memory.takeIf { available }?.let { formatSize(it.inUse) },
+                            limit = memory.takeIf { available }?.let { formatSize(it.osLimit) },
+                        )
+                    }
+                }
+                launch {
                     backend.proxyGroups.collect { groups ->
                         if (backend.serviceState.value == ServiceState.RUNNING) {
                             val mode = MetaMainModePolicy.visibleMode(
