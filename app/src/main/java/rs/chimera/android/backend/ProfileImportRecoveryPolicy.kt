@@ -32,9 +32,7 @@ internal object ProfileImportRecoveryPolicy {
         }
 
         pendingDestinationNames.forEach { destinationName ->
-            require(destinationName.isNotBlank() && File(destinationName).name == destinationName) {
-                "Invalid pending profile import destination"
-            }
+            if (destinationName.isBlank() || File(destinationName).name != destinationName) return@forEach
             val destination = directory.resolve(destinationName)
             if (destination.absolutePath !in referencedPaths && destination.exists()) {
                 check(destination.delete()) {

@@ -59,6 +59,29 @@ class ProfileImportTransactionPolicyTest {
     }
 
     @Test
+    fun fatalImportJournalCleanupErrorPropagates() {
+        val directory = Files.createTempDirectory("profile-import").toFile()
+        val staged = directory.resolve("staged.yaml").apply { writeText("profile") }
+        val destination = directory.resolve("profile.yaml")
+        val metadataError = IllegalStateException("catalog failed")
+        val fatal = AssertionError("journal cleanup failed")
+
+        val actual = runCatching {
+            ProfileImportTransactionPolicy.run(
+                stagedFile = staged,
+                destinationFile = destination,
+                beginImportTransaction = {},
+                persistMetadata = { throw metadataError },
+                clearImportTransaction = { throw fatal },
+            )
+        }.exceptionOrNull()
+
+        assertSame(fatal, actual)
+        assertFalse(staged.exists())
+        assertFalse(destination.exists())
+    }
+
+    @Test
     fun journalFailureDeletesStagedFile() {
         val directory = Files.createTempDirectory("profile-import").toFile()
         val staged = directory.resolve("staged.yaml").apply { writeText("profile") }

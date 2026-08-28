@@ -36,40 +36,40 @@ internal class ProfileStagingStore(
     fun recoverImports() {
         catalogCoordinator.withLock {
             val referencedPaths = referencedProfilePaths()
-            val pendingDestinationNames = profilePrefs.all.keys
-                .filter { it.startsWith(PROFILE_IMPORT_PENDING_PREFIX) }
-                .mapTo(mutableSetOf()) { it.removePrefix(PROFILE_IMPORT_PENDING_PREFIX) }
+            val pendingMarkers = profileImportPendingMarkers(profilePrefs.all)
 
             ProfileImportRecoveryPolicy.recover(
                 directory = filesDir,
                 referencedPaths = referencedPaths,
-                pendingDestinationNames = pendingDestinationNames,
+                pendingDestinationNames = pendingMarkers.names,
             )
 
-            if (pendingDestinationNames.isNotEmpty()) {
+            val markerKeysToClear = pendingMarkers.invalidKeys +
+                pendingMarkers.names.map(::profileImportPendingKey)
+            if (markerKeysToClear.isNotEmpty()) {
                 commitPreferences {
-                    pendingDestinationNames.forEach { name -> remove(profileImportPendingKey(name)) }
+                    markerKeysToClear.forEach(::remove)
                 }
             }
         }
     }
 
     fun recoverBackups() {
-        val pendingBackupNames = profilePrefs.all.keys
-            .filter { it.startsWith(PROFILE_UPDATE_PENDING_PREFIX) }
-            .mapTo(mutableSetOf()) { it.removePrefix(PROFILE_UPDATE_PENDING_PREFIX) }
+        val pendingMarkers = profileUpdatePendingMarkers(profilePrefs.all)
 
         ProfileBackupRecoveryPolicy.recover(
             directory = filesDir,
-            pendingBackupNames = pendingBackupNames,
+            pendingBackupNames = pendingMarkers.names,
         )
 
-        val stalePendingBackups = pendingBackupNames.filterNot { name ->
-            filesDir.resolve(name).isFile
-        }
-        if (stalePendingBackups.isNotEmpty()) {
+        val stalePendingKeys = pendingMarkers.invalidKeys + pendingMarkers.names
+            .filterNot { name ->
+                ProfileBackupRecoveryPolicy.isManagedBackupName(name) && filesDir.resolve(name).isFile
+            }
+            .map(::profileUpdatePendingKey)
+        if (stalePendingKeys.isNotEmpty()) {
             commitPreferences {
-                stalePendingBackups.forEach { name -> remove(profileUpdatePendingKey(name)) }
+                stalePendingKeys.forEach(::remove)
             }
         }
     }
@@ -100,5 +100,5 @@ internal fun profileImportPendingKey(destinationName: String): String =
 internal fun profileUpdatePendingKey(backupName: String): String =
     "$PROFILE_UPDATE_PENDING_PREFIX$backupName"
 
-private const val PROFILE_IMPORT_PENDING_PREFIX = "profile_import_pending:"
-private const val PROFILE_UPDATE_PENDING_PREFIX = "profile_update_pending:"
+internal const val PROFILE_IMPORT_PENDING_PREFIX = "profile_import_pending:"
+internal const val PROFILE_UPDATE_PENDING_PREFIX = "profile_update_pending:"

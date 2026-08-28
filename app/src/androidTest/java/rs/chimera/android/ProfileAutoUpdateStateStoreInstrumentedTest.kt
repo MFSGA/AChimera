@@ -350,8 +350,9 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
         val store = ProfileAutoUpdateStateStore(context)
         store.write(id, current)
 
-        store.writeBoundStateIfCurrent(id, incoming)
+        val retained = store.writeBoundStateIfCurrent(id, incoming)
 
+        assertEquals(incoming, retained)
         assertEquals(incoming, store.read(id))
     }
 
@@ -378,8 +379,9 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
         val store = ProfileAutoUpdateStateStore(context)
         store.write(id, current)
 
-        store.writeBoundStateIfCurrent(id, stale)
+        val retained = store.writeBoundStateIfCurrent(id, stale)
 
+        assertEquals(current, retained)
         assertEquals(current, store.read(id))
     }
 
@@ -403,8 +405,9 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
         val store = ProfileAutoUpdateStateStore(context)
         store.write(id, refreshNow)
 
-        store.writeBoundStateIfCurrent(id, stale)
+        val retained = store.writeBoundStateIfCurrent(id, stale)
 
+        assertEquals(refreshNow, retained)
         assertEquals(refreshNow, store.read(id))
     }
 

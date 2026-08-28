@@ -1,7 +1,6 @@
 package rs.chimera.android.backend
 
 import java.io.File
-import java.util.UUID
 
 internal object ProfileUpdateTransactionPolicy {
     suspend fun <T> run(
@@ -13,11 +12,13 @@ internal object ProfileUpdateTransactionPolicy {
         restore: (File, File) -> Unit = ProfileFilePolicy::replaceAtomically,
     ): T {
         val hadOriginal = destinationFile.isFile
-        val backup = destinationFile.parentFile?.let { parent ->
-            File(parent, ".${destinationFile.name}.${UUID.randomUUID()}.backup")
+        val backup = if (hadOriginal) {
+            ProfileBackupRecoveryPolicy.createBackupFile(destinationFile)
+        } else {
+            null
         }
         if (hadOriginal) {
-            checkNotNull(backup) { "Profile update destination has no parent directory" }
+            checkNotNull(backup)
             destinationFile.copyTo(backup, overwrite = false)
             try {
                 beginBackupTransaction(backup)
@@ -33,8 +34,11 @@ internal object ProfileUpdateTransactionPolicy {
             backup?.let { transactionBackup ->
                 ProfileFilePolicy.deleteAfterFailure(transactionBackup, error)
                 if (!transactionBackup.exists()) {
-                    runCatching { clearBackupTransaction(transactionBackup) }
-                        .onFailure(error::addSuppressed)
+                    try {
+                        clearBackupTransaction(transactionBackup)
+                    } catch (cleanupError: Exception) {
+                        error.addSuppressed(cleanupError)
+                    }
                 }
             }
             throw error
@@ -49,7 +53,7 @@ internal object ProfileUpdateTransactionPolicy {
                     .onFailure(error::addSuppressed)
             }
             var rollbackSucceeded = false
-            runCatching {
+            try {
                 if (hadOriginal) {
                     restore(checkNotNull(backup), destinationFile)
                 } else {
@@ -57,12 +61,16 @@ internal object ProfileUpdateTransactionPolicy {
                         "Failed to remove uncommitted profile update: ${destinationFile.name}"
                     }
                 }
-            }.onSuccess {
                 rollbackSucceeded = true
-            }.onFailure(error::addSuppressed)
+            } catch (rollbackError: Exception) {
+                error.addSuppressed(rollbackError)
+            }
             if (backup != null && rollbackSucceeded) {
-                runCatching { clearBackupTransaction(backup) }
-                    .onFailure(error::addSuppressed)
+                try {
+                    clearBackupTransaction(backup)
+                } catch (cleanupError: Exception) {
+                    error.addSuppressed(cleanupError)
+                }
             }
             throw error
         }

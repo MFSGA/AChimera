@@ -61,6 +61,22 @@ class ProfileImportRecoveryPolicyTest {
     }
 
     @Test
+    fun ignoresInvalidPendingDestinationAndContinuesRecovery() {
+        val directory = Files.createTempDirectory("profile-import-recovery").toFile()
+        val orphan = directory.resolve("profile.yaml").apply { writeText("orphan") }
+        val outside = checkNotNull(directory.parentFile).resolve("outside-profile.yaml").apply { writeText("keep") }
+
+        ProfileImportRecoveryPolicy.recover(
+            directory = directory,
+            referencedPaths = emptySet(),
+            pendingDestinationNames = setOf("../${outside.name}", orphan.name),
+        )
+
+        assertTrue(outside.exists())
+        assertFalse(orphan.exists())
+    }
+
+    @Test
     fun leavesUnmanagedFilesUntouched() {
         val directory = Files.createTempDirectory("profile-import-recovery").toFile()
         val visible = directory.resolve("profile.yaml").apply { writeText("visible") }

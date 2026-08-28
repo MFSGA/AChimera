@@ -108,19 +108,30 @@ internal class ProfileMetadataOperations(
             profileUpdateCoordinator.withLock(id) {
                 val normalized = ProfileRemotePolicy.normalizeSettings(settings)
                 val current = profileCatalogStore.readRemoteProfile(id)
+                val invalidatesAutoUpdateState =
+                    ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized)
                 completeProfileMetadataCommit {
                     profileCatalogStore.updateRemoteProfileSettings(
                         id,
                         normalized,
                         resetLastUpdated = ProfileRemotePolicy.shouldResetLastUpdated(current, normalized),
+                        requireBoundAutoUpdateState = invalidatesAutoUpdateState,
                     )
-                    if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized)) {
+                    if (invalidatesAutoUpdateState) {
                         if (normalized.autoUpdate) {
                             writeProfileRefreshStateBestEffort(
                                 write = {
                                     profileAutoUpdateStateStore.write(
                                         id,
-                                        ProfileAutoUpdatePolicy.refreshNowState(System.currentTimeMillis()),
+                                        ProfileAutoUpdatePolicy.refreshNowState(System.currentTimeMillis()).copy(
+                                            sourceFingerprint = ProfileAutoUpdatePolicy.sourceFingerprint(
+                                                autoUpdate = normalized.autoUpdate,
+                                                url = normalized.url,
+                                                userAgent = normalized.userAgent,
+                                                proxyUrl = normalized.proxyUrl,
+                                            ),
+                                            profileRevision = 0L,
+                                        ),
                                     )
                                 },
                                 clearStaleState = { profileAutoUpdateStateStore.clear(id) },
@@ -158,8 +169,7 @@ internal class ProfileMetadataOperations(
                     )
                     val scheduleActions = profileMetadataScheduleActions(
                         autoUpdateEnabled = normalized.autoUpdate,
-                        invalidatesAutoUpdateState =
-                            ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized),
+                        invalidatesAutoUpdateState = invalidatesAutoUpdateState,
                     )
                     val requestImmediateRefresh = {
                         requestImmediateProfileRefreshBestEffort(

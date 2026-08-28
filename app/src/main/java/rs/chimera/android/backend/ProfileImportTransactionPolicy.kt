@@ -27,8 +27,11 @@ internal object ProfileImportTransactionPolicy {
             ProfileFilePolicy.deleteAfterFailure(stagedFile, error)
             ProfileFilePolicy.deleteAfterFailure(destinationFile, error)
             if (!stagedFile.exists() && !destinationFile.exists()) {
-                runCatching { clearImportTransaction(destinationFile) }
-                    .onFailure(error::addSuppressed)
+                try {
+                    clearImportTransaction(destinationFile)
+                } catch (cleanupError: Exception) {
+                    error.addSuppressed(cleanupError)
+                }
             }
             throw error
         }

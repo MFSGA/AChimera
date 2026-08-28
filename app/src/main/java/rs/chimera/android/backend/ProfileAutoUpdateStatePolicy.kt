@@ -34,8 +34,13 @@ internal object ProfileAutoUpdatePolicy {
 
     fun shouldSchedule(profiles: List<ProfileSummary>): Boolean = profiles.any(::isConfigured)
 
-    fun stateMatchesSource(profile: ProfileSummary, state: ProfileAutoUpdateState): Boolean =
-        (state.sourceFingerprint == null || state.sourceFingerprint == sourceFingerprint(profile)) &&
+    fun stateMatchesSource(
+        profile: ProfileSummary,
+        state: ProfileAutoUpdateState,
+        requireBoundState: Boolean = false,
+    ): Boolean =
+        (!requireBoundState || (state.sourceFingerprint != null && state.profileRevision != null)) &&
+            (state.sourceFingerprint == null || state.sourceFingerprint == sourceFingerprint(profile)) &&
             (state.profileRevision == null || state.profileRevision == profileRevision(profile))
 
     fun bindStateToSource(
