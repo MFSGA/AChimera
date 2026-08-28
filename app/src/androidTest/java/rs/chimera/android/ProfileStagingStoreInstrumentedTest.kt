@@ -12,6 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import rs.chimera.android.backend.ProfileBackupRecoveryPolicy
 import rs.chimera.android.backend.ProfileCatalogCoordinator
 import rs.chimera.android.backend.ProfileCatalogStore
 import rs.chimera.android.backend.ProfileStagingStore
@@ -115,6 +116,87 @@ class ProfileStagingStoreInstrumentedTest {
 
     @Test
     fun multiplePendingBackupsRestoreNewestAndClearAllMarkers() {
+        val target = directory.resolve("profile.yaml").apply { writeText("uncommitted-latest") }
+        val olderBackup = directory.resolve(".${target.name}.${UUID.randomUUID()}.backup").apply {
+            writeText("older-committed")
+            assertTrue(setLastModified(1_000L))
+        }
+        val newerBackup = directory.resolve(".${target.name}.${UUID.randomUUID()}.backup").apply {
+            writeText("newer-committed")
+            assertTrue(setLastModified(2_000L))
+        }
+        val olderKey = profileUpdatePendingKey(olderBackup.name)
+        val newerKey = profileUpdatePendingKey(newerBackup.name)
+        prefs.edit()
+            .putBoolean(olderKey, true)
+            .putBoolean(newerKey, true)
+            .commit()
+
+        stagingStore.recoverBackups()
+
+        assertEquals("newer-committed", target.readText())
+        assertFalse(olderBackup.exists())
+        assertFalse(newerBackup.exists())
+        assertFalse(prefs.contains(olderKey))
+        assertFalse(prefs.contains(newerKey))
+    }
+
+    @Test
+    fun persistedBackupOrderWinsWhenPendingMtimesMatch() {
+        val target = directory.resolve("profile.yaml").apply { writeText("uncommitted-latest") }
+        val olderBackup = directory.resolve(".${target.name}.${UUID.randomUUID()}.100.backup").apply {
+            writeText("older-committed")
+            assertTrue(setLastModified(5_000L))
+        }
+        val newerBackup = directory.resolve(".${target.name}.${UUID.randomUUID()}.101.backup").apply {
+            writeText("newer-committed")
+            assertTrue(setLastModified(5_000L))
+        }
+        val olderKey = profileUpdatePendingKey(olderBackup.name)
+        val newerKey = profileUpdatePendingKey(newerBackup.name)
+        prefs.edit()
+            .putBoolean(olderKey, true)
+            .putBoolean(newerKey, true)
+            .commit()
+
+        stagingStore.recoverBackups()
+
+        assertEquals("newer-committed", target.readText())
+        assertFalse(olderBackup.exists())
+        assertFalse(newerBackup.exists())
+        assertFalse(prefs.contains(olderKey))
+        assertFalse(prefs.contains(newerKey))
+    }
+
+    @Test
+    fun orderedBackupCreatedAfterLegacyBackupWinsMixedRecovery() {
+        val target = directory.resolve("profile.yaml").apply { writeText("current") }
+        val legacyBackup = directory.resolve(".${target.name}.${UUID.randomUUID()}.backup").apply {
+            writeText("legacy-committed")
+            assertTrue(setLastModified(System.currentTimeMillis() + 5_000L))
+        }
+        val orderedBackup = ProfileBackupRecoveryPolicy.createBackupFile(target).apply {
+            writeText("newer-committed")
+            assertTrue(setLastModified(legacyBackup.lastModified()))
+        }
+        val legacyKey = profileUpdatePendingKey(legacyBackup.name)
+        val orderedKey = profileUpdatePendingKey(orderedBackup.name)
+        prefs.edit()
+            .putBoolean(legacyKey, true)
+            .putBoolean(orderedKey, true)
+            .commit()
+
+        stagingStore.recoverBackups()
+
+        assertEquals("newer-committed", target.readText())
+        assertFalse(legacyBackup.exists())
+        assertFalse(orderedBackup.exists())
+        assertFalse(prefs.contains(legacyKey))
+        assertFalse(prefs.contains(orderedKey))
+    }
+
+    @Test
+    fun legacyBackupStillRestoresByModificationTime() {
         val target = directory.resolve("profile.yaml").apply { writeText("uncommitted-latest") }
         val olderBackup = directory.resolve(".${target.name}.${UUID.randomUUID()}.backup").apply {
             writeText("older-committed")

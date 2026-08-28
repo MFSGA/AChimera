@@ -11,7 +11,21 @@ internal object ProfileAutoUpdateStateWritePolicy {
 
         val currentSource = current.sourceFingerprint ?: return false
         val currentRevision = current.profileRevision ?: return false
-        return currentSource == incomingSource && currentRevision <= incomingRevision
+        if (currentSource != incomingSource || currentRevision > incomingRevision) return false
+        if (currentRevision < incomingRevision) return true
+
+        val currentAttempt = current.lastAttempt
+        if (currentAttempt == null) {
+            if (incoming.lastAttempt != null) return false
+            val currentNextAttempt = current.nextAttemptAt ?: return true
+            val incomingNextAttempt = incoming.nextAttemptAt ?: return false
+            return currentNextAttempt <= incomingNextAttempt
+        }
+        val incomingAttempt = incoming.lastAttempt ?: return false
+        if (current.runtimeApplyPending && !incoming.runtimeApplyPending) {
+            return false
+        }
+        return currentAttempt <= incomingAttempt
     }
 
     private fun ProfileAutoUpdateState.isEmptyUnboundState(): Boolean =

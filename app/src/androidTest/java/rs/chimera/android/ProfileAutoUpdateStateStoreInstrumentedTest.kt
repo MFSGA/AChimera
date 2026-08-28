@@ -25,6 +25,66 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
     }
 
     @Test
+    fun corruptPersistedTypesFallBackWithoutDroppingValidFields() {
+        val id = trackedId("corrupt-types")
+        context.getSharedPreferences("profile_auto_update", Context.MODE_PRIVATE)
+            .edit()
+            .putString("$id:last_attempt", "broken")
+            .putString("$id:failure_count", "broken")
+            .putLong("$id:next_attempt", 9_000L)
+            .putLong("$id:last_error", 1L)
+            .putString("$id:runtime_apply_pending", "broken")
+            .putString("$id:source_fingerprint", "source-a")
+            .putString("$id:profile_revision", "broken")
+            .commit()
+
+        val state = ProfileAutoUpdateStateStore(context).read(id)
+
+        assertNull(state.lastAttempt)
+        assertEquals(0, state.failureCount)
+        assertEquals(9_000L, state.nextAttemptAt)
+        assertNull(state.lastError)
+        assertFalse(state.runtimeApplyPending)
+        assertEquals("source-a", state.sourceFingerprint)
+        assertNull(state.profileRevision)
+    }
+
+    @Test
+    fun successfulWriteNormalizesCorruptPersistedTypes() {
+        val id = trackedId("normalize-corrupt-types")
+        val prefs = context.getSharedPreferences("profile_auto_update", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("$id:last_attempt", "broken")
+            .putString("$id:failure_count", "broken")
+            .putString("$id:next_attempt", "broken")
+            .putLong("$id:last_error", 1L)
+            .putString("$id:runtime_apply_pending", "broken")
+            .putLong("$id:source_fingerprint", 2L)
+            .putString("$id:profile_revision", "broken")
+            .commit()
+        val expected = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 2,
+            nextAttemptAt = 9_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+
+        ProfileAutoUpdateStateStore(context).write(id, expected)
+
+        assertEquals(expected, ProfileAutoUpdateStateStore(context).read(id))
+        assertFalse(prefs.contains("$id:last_attempt"))
+        assertEquals(2, prefs.getInt("$id:failure_count", -1))
+        assertEquals(9_000L, prefs.getLong("$id:next_attempt", -1L))
+        assertFalse(prefs.contains("$id:last_error"))
+        assertTrue(prefs.getBoolean("$id:runtime_apply_pending", false))
+        assertEquals("source-a", prefs.getString("$id:source_fingerprint", null))
+        assertEquals(4_000L, prefs.getLong("$id:profile_revision", -1L))
+    }
+
+    @Test
     fun statePersistsAcrossStoreInstancesAndCanBeCleared() {
         val id = trackedId("persisted")
         val expected = ProfileAutoUpdateState(
@@ -207,6 +267,34 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
         )
 
         assertTrue(store.markRuntimeApplyPending(id, stalePending))
+        assertEquals(refreshNow, store.read(id))
+    }
+
+    @Test
+    fun staleRuntimeApplyMarkDoesNotOverwriteBoundRefreshNowState() {
+        val id = trackedId("runtime-apply-stale-bound-refresh")
+        val refreshNow = ProfileAutoUpdateState(
+            lastAttempt = null,
+            failureCount = 0,
+            nextAttemptAt = 8_000L,
+            lastError = null,
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+        val stalePending = ProfileAutoUpdateState(
+            lastAttempt = 2_000L,
+            failureCount = 0,
+            nextAttemptAt = 6_000L,
+            lastError = null,
+            runtimeApplyPending = true,
+            sourceFingerprint = "source-a",
+            profileRevision = 4_000L,
+        )
+        val store = ProfileAutoUpdateStateStore(context)
+        store.write(id, refreshNow)
+
+        assertTrue(store.markRuntimeApplyPending(id, stalePending))
+
         assertEquals(refreshNow, store.read(id))
     }
 

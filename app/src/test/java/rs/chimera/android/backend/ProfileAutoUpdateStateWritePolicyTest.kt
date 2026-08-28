@@ -31,6 +31,78 @@ class ProfileAutoUpdateStateWritePolicyTest {
     }
 
     @Test
+    fun sameRevisionRejectsOlderAttempt() {
+        assertFalse(
+            ProfileAutoUpdateStateWritePolicy.canReplace(
+                boundState(revision = 2_000L, attemptedAt = 3_000L),
+                boundState(revision = 2_000L, attemptedAt = 2_000L),
+            ),
+        )
+    }
+
+    @Test
+    fun sameRevisionAcceptsNewerAttempt() {
+        assertTrue(
+            ProfileAutoUpdateStateWritePolicy.canReplace(
+                boundState(revision = 2_000L, attemptedAt = 2_000L),
+                boundState(revision = 2_000L, attemptedAt = 3_000L),
+            ),
+        )
+    }
+
+    @Test
+    fun boundRefreshNowRejectsEqualRevisionCompletion() {
+        val refreshNow = boundState(revision = 0L, attemptedAt = null).copy(nextAttemptAt = 3_000L)
+
+        assertFalse(
+            ProfileAutoUpdateStateWritePolicy.canReplace(
+                refreshNow,
+                boundState(revision = 0L, attemptedAt = 2_000L),
+            ),
+        )
+    }
+
+    @Test
+    fun boundRefreshNowRejectsOlderRefreshNowState() {
+        val current = boundState(revision = 0L, attemptedAt = null).copy(nextAttemptAt = 3_000L)
+        val incoming = boundState(revision = 0L, attemptedAt = null).copy(nextAttemptAt = 2_000L)
+
+        assertFalse(ProfileAutoUpdateStateWritePolicy.canReplace(current, incoming))
+    }
+
+    @Test
+    fun boundRefreshNowAcceptsNewerRefreshNowState() {
+        val current = boundState(revision = 0L, attemptedAt = null).copy(nextAttemptAt = 2_000L)
+        val incoming = boundState(revision = 0L, attemptedAt = null).copy(nextAttemptAt = 3_000L)
+
+        assertTrue(ProfileAutoUpdateStateWritePolicy.canReplace(current, incoming))
+    }
+
+    @Test
+    fun sameRevisionAttemptPreservesRuntimeApplyPending() {
+        val current = boundState(revision = 2_000L, attemptedAt = 3_000L).copy(runtimeApplyPending = true)
+        val incoming = boundState(revision = 2_000L, attemptedAt = 3_000L)
+
+        assertFalse(ProfileAutoUpdateStateWritePolicy.canReplace(current, incoming))
+    }
+
+    @Test
+    fun sameRevisionNewerAttemptPreservesRuntimeApplyPending() {
+        val current = boundState(revision = 2_000L, attemptedAt = 2_000L).copy(runtimeApplyPending = true)
+        val incoming = boundState(revision = 2_000L, attemptedAt = 3_000L)
+
+        assertFalse(ProfileAutoUpdateStateWritePolicy.canReplace(current, incoming))
+    }
+
+    @Test
+    fun sameRevisionAttemptCanSetRuntimeApplyPending() {
+        val current = boundState(revision = 2_000L, attemptedAt = 3_000L)
+        val incoming = current.copy(runtimeApplyPending = true)
+
+        assertTrue(ProfileAutoUpdateStateWritePolicy.canReplace(current, incoming))
+    }
+
+    @Test
     fun differentSourceRejectsStaleCompletion() {
         assertFalse(
             ProfileAutoUpdateStateWritePolicy.canReplace(
@@ -67,8 +139,9 @@ class ProfileAutoUpdateStateWritePolicyTest {
     private fun boundState(
         revision: Long,
         source: String = "source-a",
+        attemptedAt: Long? = 1_000L,
     ) = ProfileAutoUpdateState(
-        lastAttempt = 1_000L,
+        lastAttempt = attemptedAt,
         failureCount = 0,
         nextAttemptAt = 2_000L,
         lastError = null,
