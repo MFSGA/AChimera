@@ -5,6 +5,11 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import android.view.LayoutInflater
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
@@ -17,12 +22,15 @@ import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import rs.chimera.android.ui.metacubex.activity.MetaConnectionsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
+import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.UiVariant
@@ -32,6 +40,9 @@ class AppUiNavigationInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context: Context
         get() = instrumentation.targetContext
+
+    @get:Rule
+    val composeRule = createEmptyComposeRule()
 
     @Before
     fun setUp() {
@@ -96,11 +107,46 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
+    fun metaConnectionsLayoutStartsWithCloseAllDisabled() {
+        val root = LayoutInflater.from(context).inflate(R.layout.meta_design_connections, null)
+
+        assertFalse(root.findViewById<android.view.View>(R.id.close_all).isEnabled)
+    }
+
+    @Test
     fun metaConnectionsEntryOpensConnectionsScreen() {
         ActivityScenario.launch(MetaMainActivity::class.java).use {
             waitForResumedActivity<MetaMainActivity>()
             onView(withId(R.id.card_connections)).perform(click())
             waitForResumedActivity<MetaConnectionsActivity>()
+        }
+    }
+
+    @Test
+    fun watfaqConnectionsEntryOpensConnectionsScreen() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitForResumedActivity<MainActivity>()
+            composeRule.onNodeWithText(context.getString(R.string.stat_connections)).performClick()
+            composeRule.onNodeWithText(context.getString(R.string.connections_title)).assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun metaSettingsEntryOpensSettingsScreen() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use {
+            waitForResumedActivity<MetaMainActivity>()
+            onView(withId(R.id.card_settings)).perform(click())
+            waitForResumedActivity<MetaSettingsActivity>()
+            onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+        }
+    }
+
+    @Test
+    fun watfaqSettingsEntryOpensSettingsScreen() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitForResumedActivity<MainActivity>()
+            composeRule.onNodeWithText(context.getString(R.string.settings_screen)).performClick()
+            composeRule.onNodeWithText(context.getString(R.string.settings_title)).assertIsDisplayed()
         }
     }
 

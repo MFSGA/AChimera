@@ -87,10 +87,8 @@ internal fun ConnectionsResponse.toConnectionsSnapshot(): ConnectionsSnapshot =
             ConnectionSnapshot(
                 id = connection.id,
                 host = connection.metadata.host,
-                process = null,
                 upload = connection.upload,
                 download = connection.download,
-                startTime = connection.start.toLongOrNull() ?: 0L,
                 chains = connection.chains,
                 rule = connection.rule,
                 network = connection.metadata.network,

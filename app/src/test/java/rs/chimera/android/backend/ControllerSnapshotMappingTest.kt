@@ -120,10 +120,8 @@ class ControllerSnapshotMappingTest {
         assertEquals(200L, mapped.uploadTotal)
         assertEquals("connection-1", connection.id)
         assertEquals("example.com", connection.host)
-        assertNull(connection.process)
         assertEquals(11L, connection.upload)
         assertEquals(22L, connection.download)
-        assertEquals(456L, connection.startTime)
         assertEquals(listOf("AUTO", "A"), connection.chains)
         assertEquals("MATCH", connection.rule)
         assertEquals("tcp", connection.network)
@@ -134,7 +132,7 @@ class ControllerSnapshotMappingTest {
     }
 
     @Test
-    fun invalidConnectionStartFallsBackToZero() {
+    fun missingOptionalSourceMetadataMapsToEmptyStrings() {
         val response = ConnectionsResponse(
             downloadTotal = 0,
             uploadTotal = 0,
@@ -162,7 +160,6 @@ class ControllerSnapshotMappingTest {
 
         val mapped = response.toConnectionsSnapshot().connections.single()
 
-        assertEquals(0L, mapped.startTime)
         assertEquals("", mapped.sourcePort)
     }
 }

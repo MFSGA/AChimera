@@ -115,10 +115,8 @@ class ConnectionsStatePolicyTest {
                 ConnectionSnapshot(
                     id = "connection-1",
                     host = "example.com",
-                    process = null,
                     upload = 10,
                     download = 20,
-                    startTime = 1,
                     chains = listOf("Proxy"),
                     rule = "MATCH",
                     network = "tcp",

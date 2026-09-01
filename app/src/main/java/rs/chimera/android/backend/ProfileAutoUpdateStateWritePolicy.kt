@@ -14,6 +14,10 @@ internal object ProfileAutoUpdateStateWritePolicy {
         if (currentSource != incomingSource || currentRevision > incomingRevision) return false
         if (currentRevision < incomingRevision) return true
 
+        if (current.runtimeApplyPending && !incoming.runtimeApplyPending) {
+            return false
+        }
+
         val currentAttempt = current.lastAttempt
         if (currentAttempt == null) {
             if (incoming.lastAttempt != null) return false
@@ -22,9 +26,6 @@ internal object ProfileAutoUpdateStateWritePolicy {
             return currentNextAttempt <= incomingNextAttempt
         }
         val incomingAttempt = incoming.lastAttempt ?: return false
-        if (current.runtimeApplyPending && !incoming.runtimeApplyPending) {
-            return false
-        }
         return currentAttempt <= incomingAttempt
     }
 

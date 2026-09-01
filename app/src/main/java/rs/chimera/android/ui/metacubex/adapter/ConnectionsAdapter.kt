@@ -54,10 +54,6 @@ class ConnectionsAdapter(
             binding.network.text = connection.network.ifBlank { "?" }.uppercase()
             binding.destination.text = destinationEndpoint
             binding.source.text = context.getString(R.string.connections_source, sourceEndpoint)
-            binding.process.apply {
-                text = connection.process.orEmpty()
-                visibility = if (connection.process.isNullOrBlank()) View.GONE else View.VISIBLE
-            }
             binding.chain.apply {
                 text = context.getString(
                     R.string.connections_chain,

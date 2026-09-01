@@ -25,6 +25,7 @@ internal class BackendControllerOperations(
     private val clearRuntimeError: (BackendRuntimeErrorSource) -> Unit,
 ) {
     private val controller by lazy { ClashController(socketPath) }
+    private val proxyProviderOperations = ProxyProviderOperationCoordinator()
 
     suspend fun fetchTraffic(): TrafficSnapshot = withControllerContext {
         controller.getConnectionSummary().let { summary ->
@@ -117,14 +118,16 @@ internal class BackendControllerOperations(
         }
     }
 
-    suspend fun updateProxyProvider(name: String) = withControllerContext {
-        requireProxyServiceRunning()
-        controller.updateProxyProvider(name)
+    suspend fun updateProxyProvider(name: String) = proxyProviderOperations.withLock(name) {
+        runProxyOperation("Failed to update proxy provider") {
+            controller.updateProxyProvider(name)
+        }
     }
 
-    suspend fun healthcheckProxyProvider(name: String) = withControllerContext {
-        requireProxyServiceRunning()
-        controller.healthcheckProxyProvider(name)
+    suspend fun healthcheckProxyProvider(name: String) = proxyProviderOperations.withLock(name) {
+        runProxyOperation("Failed to healthcheck proxy provider") {
+            controller.healthcheckProxyProvider(name)
+        }
     }
 
     suspend fun queryDns(name: String, recordType: String): String = withControllerContext {

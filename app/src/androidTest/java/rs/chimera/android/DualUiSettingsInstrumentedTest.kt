@@ -115,6 +115,18 @@ class DualUiSettingsInstrumentedTest {
     }
 
     @Test
+    fun networkResetIsReachableFromBothSettingsRoots() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            openWatfaqSettings()
+            scrollWatfaqTo(context.getString(R.string.settings_reset_network)).assertIsDisplayed()
+        }
+
+        ActivityScenario.launch(MetaSettingsActivity::class.java).use {
+            onView(withId(R.id.card_reset_network)).perform(scrollTo()).check(matches(isDisplayed()))
+        }
+    }
+
+    @Test
     fun watfaqSettingChangeIsObservedByMetaCubeX() {
         ActivityScenario.launch(MainActivity::class.java).use {
             openWatfaqSettings()

@@ -79,6 +79,17 @@ class ProfileAutoUpdateStateWritePolicyTest {
     }
 
     @Test
+    fun boundRefreshNowPreservesRuntimeApplyPending() {
+        val current = boundState(revision = 0L, attemptedAt = null).copy(
+            nextAttemptAt = 2_000L,
+            runtimeApplyPending = true,
+        )
+        val incoming = boundState(revision = 0L, attemptedAt = null).copy(nextAttemptAt = 3_000L)
+
+        assertFalse(ProfileAutoUpdateStateWritePolicy.canReplace(current, incoming))
+    }
+
+    @Test
     fun sameRevisionAttemptPreservesRuntimeApplyPending() {
         val current = boundState(revision = 2_000L, attemptedAt = 3_000L).copy(runtimeApplyPending = true)
         val incoming = boundState(revision = 2_000L, attemptedAt = 3_000L)

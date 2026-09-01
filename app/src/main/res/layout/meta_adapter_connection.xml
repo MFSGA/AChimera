@@ -59,15 +59,6 @@
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
 
             <TextView
-                android:id="@+id/process"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                android:visibility="gone" />
-
-            <TextView
                 android:id="@+id/chain"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
