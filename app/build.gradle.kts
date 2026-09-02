@@ -6,14 +6,35 @@ plugins {
 }
 
 val baseVersionName = "0.7.2"
+
+fun hasReleaseTag(
+    baseVersionName: String,
+    tagsAtHead: String,
+): Boolean = tagsAtHead.lineSequence().any { it == "v$baseVersionName" }
+
+fun buildVersionName(
+    baseVersionName: String,
+    shortCommit: String,
+    isReleaseTag: Boolean,
+): String {
+    val suffix = if (isReleaseTag) "" else ".dev"
+    return "$baseVersionName$suffix.$shortCommit"
+}
+
+val Project.isReleaseTag: Boolean
+    get() = hasReleaseTag(
+        baseVersionName = baseVersionName,
+        tagsAtHead = exec("git tag --points-at HEAD v$baseVersionName"),
+    )
+
 val Project.verName: String
-    get() {
-        val commit = exec("git rev-parse --short HEAD")
-        return "$baseVersionName$versionNameSuffix.$commit"
-    }
+    get() = buildVersionName(
+        baseVersionName = baseVersionName,
+        shortCommit = exec("git rev-parse --short HEAD"),
+        isReleaseTag = isReleaseTag,
+    )
+
 val Project.verCode: Int get() = exec("git rev-list --count HEAD").toInt()
-val Project.isDevVersion: Boolean get() = exec("git tag -l v$baseVersionName").isEmpty()
-val Project.versionNameSuffix: String get() = if (isDevVersion) ".dev" else ""
 
 fun Project.exec(command: String): String = providers
         .exec {
@@ -23,6 +44,40 @@ fun Project.exec(command: String): String = providers
         .trim()
 
 fun env(key: String): String? = System.getenv(key).let { if (it.isNullOrEmpty()) null else it }
+
+val verifyVersionNamePolicy by tasks.registering {
+    group = "verification"
+    description = "Verifies development and release version-name behavior."
+
+    val sampleCommit = "abcdef0"
+    val checkoutWithoutReleaseTag = hasReleaseTag(baseVersionName, "")
+    val checkoutAtReleaseTag = hasReleaseTag(baseVersionName, "v$baseVersionName")
+    val developmentVersionName =
+        buildVersionName(baseVersionName, sampleCommit, isReleaseTag = false)
+    val releaseVersionName =
+        buildVersionName(baseVersionName, sampleCommit, isReleaseTag = true)
+    val expectedDevelopmentVersionName = "$baseVersionName.dev.$sampleCommit"
+    val expectedReleaseVersionName = "$baseVersionName.$sampleCommit"
+
+    doLast {
+        check(!checkoutWithoutReleaseTag) {
+            "A checkout without the base release tag must be treated as a development version."
+        }
+        check(checkoutAtReleaseTag) {
+            "A checkout at the base release tag must be treated as a release version."
+        }
+        check(developmentVersionName == expectedDevelopmentVersionName) {
+            "Development version names must include the .dev suffix."
+        }
+        check(releaseVersionName == expectedReleaseVersionName) {
+            "Release version names must not include the .dev suffix."
+        }
+    }
+}
+
+tasks.matching { it.name == "check" }.configureEach {
+    dependsOn(verifyVersionNamePolicy)
+}
 
 val fullAbiBuild =
     providers
