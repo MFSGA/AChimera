@@ -85,6 +85,7 @@ fun HomeScreen(
     onSwitchUi: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val vpnPermissionDeniedMessage = stringResource(R.string.service_vpn_permission_denied)
     var showRestartDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
@@ -94,7 +95,7 @@ fun HomeScreen(
             if (result.resultCode == RESULT_OK) {
                 viewModel.startVpnAfterPermission()
             } else {
-                viewModel.reportError(context.getString(R.string.service_vpn_permission_denied))
+                viewModel.reportError(vpnPermissionDeniedMessage)
             }
         },
     )

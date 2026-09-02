@@ -553,7 +553,8 @@ mod tests {
             let _ = std::fs::remove_file(server_socket_path);
             request_lines
         });
-        let controller = ClashController::for_socket_path(socket_path.to_string_lossy().to_string());
+        let controller =
+            ClashController::for_socket_path(socket_path.to_string_lossy().to_string());
 
         let first = tokio::time::timeout(Duration::from_secs(2), controller.get_memory())
             .await
