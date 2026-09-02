@@ -33,6 +33,24 @@ class ProfileRemoteUpdateCommitTest {
     }
 
     @Test
+    fun runtimePathFailureDoesNotSkipCommittedUpdateCallback() = runBlocking {
+        val expected = IllegalStateException("path failed")
+        val failures = mutableListOf<Throwable>()
+        var completed = false
+
+        completeRemoteProfileUpdateCommit(
+            clearAutoUpdateState = { true },
+            synchronizeRuntimePath = { throw expected },
+            refreshActiveProfile = {},
+            afterCommit = { completed = true },
+            onMaintenanceFailure = failures::add,
+        )
+
+        assertEquals(listOf(expected), failures)
+        assertTrue(completed)
+    }
+
+    @Test
     fun maintenanceFailureDoesNotSkipCommittedUpdateCallback() = runBlocking {
         val expected = IllegalStateException("refresh failed")
         val failures = mutableListOf<Throwable>()

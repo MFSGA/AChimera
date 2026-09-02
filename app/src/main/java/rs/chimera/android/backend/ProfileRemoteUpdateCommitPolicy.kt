@@ -19,7 +19,7 @@ internal suspend fun completeRemoteProfileUpdateCommit(
         }
         .onFailure(onMaintenanceFailure)
 
-    synchronizeRuntimePath()
+    runCatchingRecoverable(synchronizeRuntimePath).onFailure(onMaintenanceFailure)
     runCatchingRecoverable(refreshActiveProfile).onFailure(onMaintenanceFailure)
     afterCommit()
 }
