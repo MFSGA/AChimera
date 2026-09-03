@@ -37,6 +37,7 @@ internal class ProfileCatalogReader(
             id = profileId,
             name = getString("name"),
             filePath = getString("filePath"),
+            createdAt = getLong("createdAt"),
             type = if (typeName == "REMOTE") ProfileType.REMOTE else ProfileType.LOCAL,
             isActive = forceActive || getBoolean("isActive"),
             isRemote = typeName == "REMOTE",

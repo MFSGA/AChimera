@@ -9,6 +9,7 @@ data class ProfileSummary(
     val id: String,
     val name: String,
     val filePath: String,
+    val createdAt: Long = 0L,
     val type: ProfileType,
     val isActive: Boolean,
     val isRemote: Boolean,

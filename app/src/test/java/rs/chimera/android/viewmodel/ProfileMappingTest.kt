@@ -15,6 +15,7 @@ class ProfileMappingTest {
                 id = "remote-1",
                 name = "Remote",
                 filePath = "/profiles/remote.yaml",
+                createdAt = 42L,
                 type = BackendProfileType.REMOTE,
                 isActive = true,
                 isRemote = true,
@@ -27,6 +28,7 @@ class ProfileMappingTest {
             ).toProfile()
 
         assertEquals(ProfileType.REMOTE, profile.type)
+        assertEquals(42L, profile.createdAt)
         assertTrue(profile.isActive)
         assertEquals("https://example.com/profile.yaml", profile.url)
         assertTrue(profile.autoUpdate)

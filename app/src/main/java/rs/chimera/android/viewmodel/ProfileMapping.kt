@@ -9,6 +9,7 @@ internal fun ProfileSummary.toProfile(): Profile =
         id = id,
         name = name,
         filePath = filePath,
+        createdAt = createdAt,
         isActive = isActive,
         fileSize = fileSize,
         type = if (isRemote) ProfileType.REMOTE else ProfileType.LOCAL,
