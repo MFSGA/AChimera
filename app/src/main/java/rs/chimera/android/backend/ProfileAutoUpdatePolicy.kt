@@ -133,18 +133,32 @@ internal class ProfileAutoUpdateRunner(
             } catch (error: Exception) {
                 error.throwIfCancellation()
                 retryRequired = true
-                runCatching {
-                    operations.recordAutoUpdateState(
-                        profile.id,
-                        ProfileAutoUpdatePolicy.failureState(
-                            previousFailures = profile.autoUpdateFailures,
-                            attemptedAt = attemptedAt,
-                            error = error,
-                        ),
-                    )
-                }.onFailure { stateError ->
-                    stateError.throwIfCancellation()
-                    failures += "state:${profile.id}:${stateError::class.java.simpleName}"
+                val failureStillCurrent = runCatching {
+                    operations.listProfiles()
+                        .firstOrNull { it.id == profile.id }
+                        ?.let { currentProfile ->
+                            profile.hasSameAutoUpdateSource(currentProfile) &&
+                                currentProfile.lastUpdated == profile.lastUpdated
+                        } == true
+                }.getOrElse { listError ->
+                    listError.throwIfCancellation()
+                    failures += "list:${listError::class.java.simpleName}"
+                    false
+                }
+                if (failureStillCurrent) {
+                    runCatching {
+                        operations.recordAutoUpdateState(
+                            profile.id,
+                            ProfileAutoUpdatePolicy.failureState(
+                                previousFailures = profile.autoUpdateFailures,
+                                attemptedAt = attemptedAt,
+                                error = error,
+                            ),
+                        )
+                    }.onFailure { stateError ->
+                        stateError.throwIfCancellation()
+                        failures += "state:${profile.id}:${stateError::class.java.simpleName}"
+                    }
                 }
                 failures += "${profile.id}:${error::class.java.simpleName}"
             }
@@ -171,6 +185,12 @@ internal class ProfileAutoUpdateRunner(
         )
     }
 }
+
+private fun ProfileSummary.hasSameAutoUpdateSource(other: ProfileSummary): Boolean =
+    autoUpdate == other.autoUpdate &&
+        url == other.url &&
+        userAgent == other.userAgent &&
+        proxyUrl == other.proxyUrl
 
 private fun Throwable.throwIfCancellation() {
     if (this is CancellationException) throw this

@@ -122,6 +122,28 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
+    fun failedAutoUpdateDoesNotOverwriteNewerManualCommitState() = runBlocking {
+        val original = remoteProfile(
+            id = "remote",
+            autoUpdate = true,
+            lastUpdated = 1_000,
+            nextAutoUpdateAt = 3_000,
+        )
+        val operations = FakeOperations(
+            profiles = listOf(original),
+            profilesAfterUpdate = listOf(original.copy(lastUpdated = 2_000)),
+            failedUpdates = setOf("remote"),
+        )
+
+        val result = ProfileAutoUpdateRunner(operations, now = { 3_000 }).run()
+
+        assertEquals(listOf("remote"), operations.updatedIds)
+        assertTrue(operations.states.isEmpty())
+        assertEquals(listOf("remote:IllegalStateException"), result.failures)
+        assertTrue(result.shouldRetry)
+    }
+
+    @Test
     fun runnerDefersProfilesUntilRetryDeadline() = runBlocking {
         val operations = FakeOperations(
             profiles = listOf(
@@ -348,6 +370,7 @@ class ProfileAutoUpdatePolicyTest {
         private val cancelListProfiles: Boolean = false,
         private val stopServiceAfterUpdate: Boolean = false,
         private val cancelRestart: Boolean = false,
+        private val profilesAfterUpdate: List<ProfileSummary>? = null,
     ) : ProfileAutoUpdateOperations {
         override val serviceState = MutableStateFlow(initialState)
         val updatedIds = mutableListOf<String>()
@@ -358,7 +381,7 @@ class ProfileAutoUpdatePolicyTest {
         override suspend fun listProfiles(): List<ProfileSummary> {
             if (cancelListProfiles) throw CancellationException("list cancelled")
             check(!failListProfiles) { "list failed" }
-            return profiles
+            return if (updatedIds.isNotEmpty()) profilesAfterUpdate ?: profiles else profiles
         }
 
         override suspend fun updateRemoteProfile(id: String) {
