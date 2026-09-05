@@ -1,4 +1,23 @@
-# AChimera
+# AChimera — Android Client for Chimera Proxy
+
+> Experimental Android client built with Kotlin/Jetpack Compose and a Rust proxy core.
+
+## Chimera Ecosystem
+
+```text
+Chimera Desktop
+       ↕
+Chimera Client (Rust client core)
+       ↕ VLESS / REALITY
+Chimera Proxy Server (Rust server core)
+       ↕
+AChimera (Android client) · Proxy Wiki
+```
+
+- [Chimera](https://github.com/MFSGA/Chimera) — cross-platform desktop application
+- [Chimera Client](https://github.com/MFSGA/Chimera_Client) — Rust client core
+- [Chimera Proxy Server](https://github.com/MFSGA/Chimera_Service) — Rust server core
+- [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — documentation and deployment notes
 
 AChimera 是一个基于 Android + Kotlin/Jetpack Compose + Rust/UniFFI 的实验性代理客户端工程。当前仓库已经具备 Android 界面、VPN 服务入口、配置导入与校验、Rust 核心桥接、日志查看和节点面板等基础能力，目标是把移动端体验与底层网络核心拆分为清晰的多模块结构。
 当前应用名称为 `Chimera Lite`，包内同时包含 Android UI 层和通过 UniFFI 暴露给 Kotlin 的 Rust 核心。
