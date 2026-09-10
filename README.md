@@ -12,6 +12,10 @@ AChimera 是一个基于 Android + Kotlin/Jetpack Compose + Rust/UniFFI 的实�
 - `vless`
 - `tls+ws`
 
+## 应用架构
+
+两套界面的共享业务边界、设置数据源和 VPN 生命周期职责见 [应用架构说明](ARCHITECTURE.md)。
+
 ## 技术栈
 
 - Android SDK 36
