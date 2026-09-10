@@ -20,7 +20,7 @@ import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.metacubex.design.MainDesign
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
-import uniffi.chimera_ffi.Mode
+import rs.chimera.android.backend.model.ProxyMode
 
 class MetaMainActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -56,15 +56,14 @@ class MetaMainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    backend.serviceState.collect { state ->
+                    backend.runtimeStatus.collect { status ->
+                        val state = status.state
                         design.setServiceState(state)
+                        design.setServiceError(status.error)
                         if (state != ServiceState.RUNNING) {
                             design.setMode(getString(R.string.not_available))
                         }
                     }
-                }
-                launch {
-                    backend.serviceError.collect(design::setServiceError)
                 }
                 launch {
                     backend.activeProfile.collect { profile ->
@@ -225,10 +224,10 @@ class MetaMainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun modeLabelRes(mode: Mode): Int =
+    private fun modeLabelRes(mode: ProxyMode): Int =
         when (mode) {
-            Mode.RULE -> R.string.proxy_mode_rule
-            Mode.GLOBAL -> R.string.proxy_mode_global
-            Mode.DIRECT -> R.string.proxy_mode_direct
+            ProxyMode.RULE -> R.string.proxy_mode_rule
+            ProxyMode.GLOBAL -> R.string.proxy_mode_global
+            ProxyMode.DIRECT -> R.string.proxy_mode_direct
         }
 }

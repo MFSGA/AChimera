@@ -1,6 +1,5 @@
 package rs.chimera.android.ui.metacubex.activity
 
-import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -19,7 +18,6 @@ import rs.chimera.android.viewmodel.AppFilterMode
 
 class MetaAccessControlActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
-    private val prefs by lazy { getSharedPreferences("settings", Context.MODE_PRIVATE) }
     private lateinit var design: AccessControlDesign
     private var mode = AppFilterMode.ALL
     private var allowedApps = emptySet<String>()
@@ -37,8 +35,8 @@ class MetaAccessControlActivity : AppCompatActivity() {
         setTheme(R.style.Theme_Chimera_MetaCubeX)
 
         mode = loadMode()
-        allowedApps = prefs.getStringSet("allowed_apps", emptySet()).orEmpty().toSet()
-        disallowedApps = prefs.getStringSet("disallowed_apps", emptySet()).orEmpty().toSet()
+        allowedApps = backend.settings.value.allowedApps
+        disallowedApps = backend.settings.value.disallowedApps
         savedSelection = currentSelection()
 
         design = AccessControlDesign(this)
@@ -214,7 +212,7 @@ class MetaAccessControlActivity : AppCompatActivity() {
 
     private fun loadMode(): AppFilterMode =
         runCatching {
-            AppFilterMode.valueOf(prefs.getString("app_filter_mode", "ALL") ?: "ALL")
+            AppFilterMode.valueOf(backend.settings.value.appFilterMode)
         }.getOrDefault(AppFilterMode.ALL)
 
     private fun Set<String>.toggle(

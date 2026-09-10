@@ -17,7 +17,7 @@ import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
-import uniffi.chimera_ffi.DownloadProgress
+import rs.chimera.android.backend.model.ProfileDownloadProgress
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -41,7 +41,7 @@ class ProfileViewModel : ViewModel() {
     var isDownloading by mutableStateOf(false)
         private set
 
-    var downloadProgress by mutableStateOf<DownloadProgress?>(null)
+    var downloadProgress by mutableStateOf<ProfileDownloadProgress?>(null)
         private set
 
     private val downloadOperations = LatestOperationGate()

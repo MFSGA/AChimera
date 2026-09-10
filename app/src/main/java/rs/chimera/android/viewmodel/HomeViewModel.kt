@@ -1,8 +1,6 @@
 package rs.chimera.android.viewmodel
 
 import android.content.Intent
-import androidx.activity.compose.ManagedActivityResultLauncher
-import androidx.activity.result.ActivityResult
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -22,10 +20,8 @@ import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
-import uniffi.chimera_ffi.DelayHistory
-import uniffi.chimera_ffi.MemoryResponse
-import uniffi.chimera_ffi.Mode
-import uniffi.chimera_ffi.Proxy
+import rs.chimera.android.backend.model.MemoryInfo
+import rs.chimera.android.backend.model.ProxyMode
 
 class HomeViewModel(
     private val backend: ChimeraBackend = BackendProvider.provide(),
@@ -33,13 +29,13 @@ class HomeViewModel(
     var isVpnRunning by mutableStateOf(false)
         private set
 
-    var proxies by mutableStateOf(emptyArray<Proxy>())
+    var proxies by mutableStateOf(emptyArray<ProxyGroupSnapshot>())
         private set
 
     var isRefreshing by mutableStateOf(false)
         private set
 
-    var currentMode by mutableStateOf(Mode.RULE)
+    var currentMode by mutableStateOf(ProxyMode.RULE)
         private set
 
     var isModeUpdating by mutableStateOf(false)
@@ -50,7 +46,7 @@ class HomeViewModel(
 
     val delays = mutableStateMapOf<String, String>()
 
-    var memoryUsage by mutableStateOf<MemoryResponse?>(null)
+    var memoryUsage by mutableStateOf<MemoryInfo?>(null)
         private set
 
     var connectionCount by mutableIntStateOf(0)
@@ -73,7 +69,7 @@ class HomeViewModel(
                 if (!isVpnRunning) {
                     proxies = emptyArray()
                     delays.clear()
-                    currentMode = Mode.RULE
+                    currentMode = ProxyMode.RULE
                     isModeUpdating = false
                 }
             }
@@ -86,7 +82,7 @@ class HomeViewModel(
                 memoryUsage = if (memory.inUse == 0L && memory.osLimit == 0L) {
                     null
                 } else {
-                    MemoryResponse(memory.inUse, memory.osLimit)
+                    memory
                 }
             }
         }
@@ -98,8 +94,8 @@ class HomeViewModel(
             }
         }
         viewModelScope.launch {
-            combine(backend.serviceError, backend.runtimeError) { serviceError, runtimeError ->
-                HomeErrorPolicy.resolve(serviceError, runtimeError)
+            combine(backend.runtimeStatus, backend.runtimeError) { status, runtimeError ->
+                HomeErrorPolicy.resolve(status.error, runtimeError)
             }.collectLatest { error ->
                 errorMessage = error
             }
@@ -128,10 +124,10 @@ class HomeViewModel(
     }
 
     fun fetchMode() {
-        currentMode = backend.proxyGroups.value.firstOrNull()?.mode ?: Mode.RULE
+        currentMode = backend.proxyGroups.value.firstOrNull()?.mode ?: ProxyMode.RULE
     }
 
-    fun switchMode(mode: Mode) {
+    fun switchMode(mode: ProxyMode) {
         if (!isVpnRunning || isModeUpdating || currentMode == mode) {
             return
         }
@@ -192,12 +188,12 @@ class HomeViewModel(
         errorMessage = message
     }
 
-    fun startVpn(launcher: ManagedActivityResultLauncher<Intent, ActivityResult>) {
+    fun startVpn(requestPermission: (Intent) -> Unit) {
         viewModelScope.launch {
             errorMessage = null
             try {
                 when (val result = backend.prepareStartVpn()) {
-                    is StartVpnResult.Prepared -> launcher.launch(result.intent)
+                    is StartVpnResult.Prepared -> requestPermission(result.intent)
                     is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
                     is StartVpnResult.Error -> errorMessage = result.message
                 }
@@ -249,19 +245,8 @@ class HomeViewModel(
     }
 
     private fun applyProxyGroups(groups: List<ProxyGroupSnapshot>) {
-        currentMode = groups.firstOrNull()?.mode ?: Mode.RULE
-        proxies = groups.map { group ->
-            Proxy(
-                name = group.name,
-                proxyType = group.proxyDetails[group.name]?.type ?: "Selector",
-                all = group.proxies,
-                now = group.selected,
-                history = group.proxyDetails[group.name]
-                    ?.history
-                    .orEmpty()
-                    .map { DelayHistory(time = it.time.toString(), delay = it.delay) },
-            )
-        }.toTypedArray()
+        currentMode = groups.firstOrNull()?.mode ?: ProxyMode.RULE
+        proxies = groups.toTypedArray()
         groups.asSequence()
             .flatMap { it.proxyDetails.asSequence() }
             .forEach { (name, proxy) ->

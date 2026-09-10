@@ -4,7 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import rs.chimera.android.backend.model.ServiceState
-import uniffi.chimera_ffi.Mode
+import rs.chimera.android.backend.model.ProxyMode as Mode
 
 class MetaMainModePolicyTest {
     @Test

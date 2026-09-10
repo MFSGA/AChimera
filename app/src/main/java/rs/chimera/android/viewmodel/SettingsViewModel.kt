@@ -1,7 +1,6 @@
 package rs.chimera.android.viewmodel
 
 import android.app.Application
-import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -19,7 +18,6 @@ import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.VpnSystemStatus
-import rs.chimera.android.service.PortPreference
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
@@ -28,7 +26,6 @@ import rs.chimera.android.ui.preferences.UiVariant
 class SettingsViewModel(
     application: Application,
 ) : AndroidViewModel(application) {
-    private val prefs = application.getSharedPreferences("settings", Context.MODE_PRIVATE)
     private val backend: ChimeraBackend = BackendProvider.provide()
     private val settingsUpdateMutex = Mutex()
 
@@ -69,79 +66,54 @@ class SettingsViewModel(
         AppPreferences.updateUiVariant(getApplication(), variant)
     }
 
-    var allowLan: Boolean by mutableStateOf(prefs.getBoolean("allow_lan", false))
+    var allowLan: Boolean by mutableStateOf(backend.settings.value.allowLan)
         private set
 
-    var fakeIpEnabled: Boolean by mutableStateOf(prefs.getBoolean("fake_ip", false))
+    var fakeIpEnabled: Boolean by mutableStateOf(backend.settings.value.fakeIp)
         private set
 
-    var ipv6Enabled: Boolean by mutableStateOf(prefs.getBoolean("ipv6", false))
+    var ipv6Enabled: Boolean by mutableStateOf(backend.settings.value.ipv6)
         private set
 
     var mixedPort: UShort by mutableStateOf(
-        PortPreference.parse(prefs.all["mixed_port"]) ?: SettingsDefaults.MIXED_PORT,
+        backend.settings.value.mixedPort,
     )
         private set
 
-    var httpPort: UShort? by mutableStateOf(PortPreference.parse(prefs.all["http_port"]))
+    var httpPort: UShort? by mutableStateOf(backend.settings.value.httpPort)
         private set
 
-    var socksPort: UShort? by mutableStateOf(PortPreference.parse(prefs.all["socks_port"]))
+    var socksPort: UShort? by mutableStateOf(backend.settings.value.socksPort)
         private set
 
     var appFilterMode: AppFilterMode by mutableStateOf(
-        AppFilterModePreference.parse(prefs.getString("app_filter_mode", null)),
+        AppFilterModePreference.parse(backend.settings.value.appFilterMode),
     )
     var runtimeSettingError: String? by mutableStateOf(null)
         private set
-    var allowedApps: Set<String> by mutableStateOf(loadAppSet("allowed_apps"))
-    var disallowedApps: Set<String> by mutableStateOf(loadAppSet("disallowed_apps"))
+    var allowedApps: Set<String> by mutableStateOf(backend.settings.value.allowedApps)
+    var disallowedApps: Set<String> by mutableStateOf(backend.settings.value.disallowedApps)
     var vpnSystemStatus: VpnSystemStatus by mutableStateOf(backend.vpnSystemStatus.value)
         private set
 
     init {
         viewModelScope.launch {
+            backend.settings.collect { reloadPersistedSettings() }
+        }
+        viewModelScope.launch {
             backend.vpnSystemStatus.collect { status -> vpnSystemStatus = status }
         }
     }
 
-    fun updateAllowLan(enabled: Boolean) {
-        updateRuntimeSetting(SettingsPatch(allowLan = enabled)) {
-            allowLan = enabled
-        }
-    }
+    fun updateAllowLan(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(allowLan = enabled))
 
-    fun updateFakeIpEnabled(enabled: Boolean) {
-        updateRuntimeSetting(SettingsPatch(fakeIp = enabled)) {
-            fakeIpEnabled = enabled
-        }
-    }
+    fun updateFakeIpEnabled(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(fakeIp = enabled))
 
-    fun updateIpv6Enabled(enabled: Boolean) {
-        updateRuntimeSetting(SettingsPatch(ipv6 = enabled)) {
-            ipv6Enabled = enabled
-        }
-    }
+    fun updateIpv6Enabled(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(ipv6 = enabled))
 
-    fun resetRuntimeSettings() {
-        updateRuntimeSetting(SettingsDefaults.resetPatch()) {
-            allowLan = false
-            fakeIpEnabled = false
-            ipv6Enabled = false
-            mixedPort = SettingsDefaults.MIXED_PORT
-            httpPort = null
-            socksPort = null
-            appFilterMode = AppFilterMode.ALL
-            allowedApps = emptySet()
-            disallowedApps = emptySet()
-        }
-    }
+    fun resetRuntimeSettings() = updateRuntimeSetting(SettingsDefaults.resetPatch())
 
-    fun updateListenerPorts(
-        mixedPort: UShort,
-        httpPort: UShort?,
-        socksPort: UShort?,
-    ) {
+    fun updateListenerPorts(mixedPort: UShort, httpPort: UShort?, socksPort: UShort?) {
         updateRuntimeSetting(
             SettingsPatch(
                 mixedPort = mixedPort,
@@ -150,11 +122,7 @@ class SettingsViewModel(
                 clearHttpPort = httpPort == null,
                 clearSocksPort = socksPort == null,
             ),
-        ) {
-            this.mixedPort = mixedPort
-            this.httpPort = httpPort
-            this.socksPort = socksPort
-        }
+        )
     }
 
     suspend fun saveAppFilter(
@@ -172,9 +140,7 @@ class SettingsViewModel(
                         disallowedApps = disallowed,
                     ),
                 )
-                appFilterMode = mode
-                allowedApps = allowed
-                disallowedApps = disallowed
+                reloadPersistedSettings()
             } catch (error: CancellationException) {
                 reloadPersistedSettings()
                 throw error
@@ -215,13 +181,12 @@ class SettingsViewModel(
 
     private fun updateRuntimeSetting(
         patch: SettingsPatch,
-        onUpdated: () -> Unit,
     ) {
         viewModelScope.launch {
             settingsUpdateMutex.withLock {
                 try {
                     backend.updateSettings(patch)
-                    onUpdated()
+                    reloadPersistedSettings()
                     runtimeSettingError = null
                 } catch (error: CancellationException) {
                     reloadPersistedSettings()
@@ -235,18 +200,15 @@ class SettingsViewModel(
     }
 
     private fun reloadPersistedSettings() {
-        allowLan = prefs.getBoolean("allow_lan", false)
-        fakeIpEnabled = prefs.getBoolean("fake_ip", false)
-        ipv6Enabled = prefs.getBoolean("ipv6", false)
-        mixedPort = PortPreference.parse(prefs.all["mixed_port"]) ?: SettingsDefaults.MIXED_PORT
-        httpPort = PortPreference.parse(prefs.all["http_port"])
-        socksPort = PortPreference.parse(prefs.all["socks_port"])
-        appFilterMode = AppFilterModePreference.parse(prefs.getString("app_filter_mode", null))
-        allowedApps = loadAppSet("allowed_apps")
-        disallowedApps = loadAppSet("disallowed_apps")
-    }
-
-    private fun loadAppSet(key: String): Set<String> {
-        return prefs.getStringSet(key, emptySet()) ?: emptySet()
+        val settings = backend.settings.value
+        allowLan = settings.allowLan
+        fakeIpEnabled = settings.fakeIp
+        ipv6Enabled = settings.ipv6
+        mixedPort = settings.mixedPort
+        httpPort = settings.httpPort
+        socksPort = settings.socksPort
+        appFilterMode = AppFilterModePreference.parse(settings.appFilterMode)
+        allowedApps = settings.allowedApps
+        disallowedApps = settings.disallowedApps
     }
 }

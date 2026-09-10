@@ -60,7 +60,7 @@ import rs.chimera.android.formatSize
 import rs.chimera.android.ui.components.StatsCard
 import rs.chimera.android.ui.components.TextInfoDialog
 import rs.chimera.android.viewmodel.HomeViewModel
-import uniffi.chimera_ffi.MemoryResponse
+import rs.chimera.android.backend.model.MemoryInfo
 
 @Destination<RootGraph>(start = true)
 @Composable
@@ -192,7 +192,7 @@ fun HomeScreen(
                 if (isVpnRunning) {
                     viewModel.stopVpn()
                 } else {
-                    viewModel.startVpn(vpnPermissionLauncher)
+                    viewModel.startVpn { vpnPermissionLauncher.launch(it) }
                 }
             },
             modifier = Modifier
@@ -345,7 +345,7 @@ private fun StatusPill(
 
 @Composable
 private fun OverviewTab(
-    memory: MemoryResponse?,
+    memory: MemoryInfo?,
     connections: Int,
     download: Long,
     upload: Long,
@@ -411,9 +411,9 @@ private fun OverviewTab(
             ) {
                 StatsCard(
                     title = stringResource(R.string.stat_memory),
-                    value = memory?.let { formatSize(it.inuse) } ?: stringResource(R.string.not_available),
+                    value = memory?.let { formatSize(it.inUse) } ?: stringResource(R.string.not_available),
                     subtitle = memory?.let {
-                        stringResource(R.string.stat_memory_limit, formatSize(it.oslimit))
+                        stringResource(R.string.stat_memory_limit, formatSize(it.osLimit))
                     } ?: stringResource(R.string.refreshing),
                     modifier = Modifier.weight(1f),
                 )

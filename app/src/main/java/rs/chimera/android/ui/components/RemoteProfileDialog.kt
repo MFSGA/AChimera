@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import rs.chimera.android.R
-import uniffi.chimera_ffi.DownloadProgress
+import rs.chimera.android.backend.model.ProfileDownloadProgress
 
 @Composable
 internal fun RemoteProfileDialog(
@@ -27,7 +27,7 @@ internal fun RemoteProfileDialog(
     userAgent: String,
     proxyUrl: String,
     isDownloading: Boolean,
-    downloadProgress: DownloadProgress?,
+    downloadProgress: ProfileDownloadProgress?,
     onProfileNameChange: (String) -> Unit,
     onProfileUrlChange: (String) -> Unit,
     onAutoUpdateChange: (Boolean) -> Unit,

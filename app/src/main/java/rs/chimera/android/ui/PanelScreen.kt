@@ -61,8 +61,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
 import rs.chimera.android.viewmodel.HomeViewModel
-import uniffi.chimera_ffi.Mode
-import uniffi.chimera_ffi.Proxy
+import rs.chimera.android.backend.model.ProxyMode
+import rs.chimera.android.backend.model.ProxyGroupSnapshot
 
 private const val DELAY_EXCELLENT_MS = 300
 private const val DELAY_GOOD_MS = 600
@@ -75,7 +75,7 @@ fun PanelScreen(
     viewModel: HomeViewModel = viewModel(),
 ) {
     val groups = remember(viewModel.proxies) {
-        viewModel.proxies.filter { it.all.isNotEmpty() }
+        viewModel.proxies.filter { it.proxies.isNotEmpty() }
     }
 
     LaunchedEffect(viewModel.isVpnRunning) {
@@ -86,7 +86,7 @@ fun PanelScreen(
     }
 
     val proxyTypes = remember(viewModel.proxies) {
-        viewModel.proxies.associate { it.name to it.proxyType }
+        viewModel.proxies.associate { it.name to (it.proxyDetails[it.name]?.type ?: "Selector") }
     }
 
     Scaffold(
@@ -163,7 +163,7 @@ fun PanelScreen(
                             proxy = proxy,
                             delays = viewModel.delays,
                             proxyTypes = proxyTypes,
-                            onTestDelay = { viewModel.testGroupDelay(proxy.all) },
+                            onTestDelay = { viewModel.testGroupDelay(proxy.proxies) },
                             onSelect = { selected -> viewModel.selectProxy(proxy.name, selected) },
                         )
                     }
@@ -202,10 +202,10 @@ fun PanelScreen(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun PanelHeroCard(
-    currentMode: Mode,
+    currentMode: ProxyMode,
     isRunning: Boolean,
     isModeUpdating: Boolean,
-    onSwitchMode: (Mode) -> Unit,
+    onSwitchMode: (ProxyMode) -> Unit,
 ) {
     Card(
         modifier = Modifier
@@ -240,7 +240,7 @@ private fun PanelHeroCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                listOf(Mode.RULE, Mode.GLOBAL, Mode.DIRECT).forEach { mode ->
+                listOf(ProxyMode.RULE, ProxyMode.GLOBAL, ProxyMode.DIRECT).forEach { mode ->
                     OutlinedButton(
                         onClick = { onSwitchMode(mode) },
                         enabled = isRunning && !isModeUpdating && currentMode != mode,
@@ -256,7 +256,7 @@ private fun PanelHeroCard(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ProxyGroupCard(
-    proxy: Proxy,
+    proxy: ProxyGroupSnapshot,
     delays: Map<String, String>,
     proxyTypes: Map<String, String>,
     onTestDelay: () -> Unit,
@@ -302,7 +302,7 @@ private fun ProxyGroupCard(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = proxy.now ?: stringResource(id = R.string.none),
+                            text = proxy.selected ?: stringResource(id = R.string.none),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary,
                             maxLines = 1,
@@ -335,7 +335,7 @@ private fun ProxyGroupCard(
             }
 
             AnimatedVisibility(
-                visible = expanded && proxy.all.isNotEmpty(),
+                visible = expanded && proxy.proxies.isNotEmpty(),
                 enter = expandVertically(
                     animationSpec = spring(
                         dampingRatio = Spring.DampingRatioNoBouncy,
@@ -351,12 +351,12 @@ private fun ProxyGroupCard(
                     HorizontalDivider()
                     Spacer(modifier = Modifier.height(4.dp))
 
-                    proxy.all.chunked(PROXY_COLUMNS).forEach { rowItems ->
+                    proxy.proxies.chunked(PROXY_COLUMNS).forEach { rowItems ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             rowItems.forEach { option ->
                                 ProxyOptionChip(
                                     option = option,
-                                    isSelected = option == proxy.now,
+                                    isSelected = option == proxy.selected,
                                     delay = delays[option],
                                     type = proxyTypes[option],
                                     onSelect = { onSelect(option) },
@@ -522,10 +522,10 @@ private fun EmptyStateCard(
     }
 }
 
-private fun modeLabelRes(mode: Mode): Int = when (mode) {
-    Mode.RULE -> R.string.proxy_mode_rule
-    Mode.GLOBAL -> R.string.proxy_mode_global
-    Mode.DIRECT -> R.string.proxy_mode_direct
+private fun modeLabelRes(mode: ProxyMode): Int = when (mode) {
+    ProxyMode.RULE -> R.string.proxy_mode_rule
+    ProxyMode.GLOBAL -> R.string.proxy_mode_global
+    ProxyMode.DIRECT -> R.string.proxy_mode_direct
 }
 
 @Composable

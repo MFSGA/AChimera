@@ -1,6 +1,5 @@
 package rs.chimera.android.ui.metacubex.activity
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
@@ -13,10 +12,10 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
+import rs.chimera.android.service.PortPreference
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
-import rs.chimera.android.service.PortPreference
 import rs.chimera.android.ui.format
 import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
@@ -30,7 +29,6 @@ import rs.chimera.android.util.runCatchingPreservingCancellation
 
 class MetaSettingsActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
-    private val prefs by lazy { getSharedPreferences("settings", Context.MODE_PRIVATE) }
     private lateinit var design: SettingsDesign
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -48,9 +46,8 @@ class MetaSettingsActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                backend.vpnSystemStatus.collect {
-                    design.render(loadState())
-                }
+                launch { backend.vpnSystemStatus.collect { design.render(loadState()) } }
+                launch { backend.settings.collect { design.render(loadState()) } }
             }
         }
     }
@@ -421,14 +418,15 @@ class MetaSettingsActivity : AppCompatActivity() {
     }
 
     private fun loadState(): SettingsDesign.State {
+        val settings = backend.settings.value
         val vpnPresentation = backend.vpnSystemStatus.value.resolvePresentation()
         return SettingsDesign.State(
-            allowLan = prefs.getBoolean("allow_lan", false),
-            fakeIp = prefs.getBoolean("fake_ip", false),
-            ipv6 = prefs.getBoolean("ipv6", false),
-            mixedPort = readPort("mixed_port") ?: SettingsDefaults.MIXED_PORT.toInt(),
-            httpPort = readPort("http_port"),
-            socksPort = readPort("socks_port"),
+            allowLan = settings.allowLan,
+            fakeIp = settings.fakeIp,
+            ipv6 = settings.ipv6,
+            mixedPort = settings.mixedPort.toInt(),
+            httpPort = settings.httpPort?.toInt(),
+            socksPort = settings.socksPort?.toInt(),
             language = languageLabel(AppPreferences.language(this)),
             appearance = appearanceLabel(AppPreferences.appearance(this)),
             uiVariant = uiVariantLabel(AppPreferences.uiVariant(this)),
@@ -436,8 +434,6 @@ class MetaSettingsActivity : AppCompatActivity() {
             vpnSystemRestricted = vpnPresentation.restricted,
         )
     }
-
-    private fun readPort(key: String): Int? = PortPreference.parse(prefs.all[key])?.toInt()
 
     private companion object {
         const val DEFAULT_DNS_QUERY_NAME = "example.com"
