@@ -13,7 +13,7 @@ import org.junit.Test
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
-import uniffi.chimera_ffi.Mode
+import rs.chimera.android.backend.model.ProxyMode as Mode
 import java.util.concurrent.atomic.AtomicInteger
 
 class RuntimeTelemetryObserverTest {

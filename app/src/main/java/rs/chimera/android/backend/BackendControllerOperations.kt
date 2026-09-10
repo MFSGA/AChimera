@@ -1,5 +1,7 @@
 package rs.chimera.android.backend
 
+import rs.chimera.android.backend.model.ProxyMode
+
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
@@ -53,9 +55,9 @@ internal class BackendControllerOperations(
         }
     }
 
-    suspend fun setMode(mode: Mode) {
+    suspend fun setMode(mode: ProxyMode) {
         runProxyOperation("Failed to switch proxy mode") {
-            controller.setMode(mode)
+            controller.setMode(mode.toNativeMode())
         }
     }
 

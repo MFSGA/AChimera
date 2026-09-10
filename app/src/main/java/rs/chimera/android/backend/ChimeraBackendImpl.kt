@@ -1,9 +1,14 @@
 package rs.chimera.android.backend
 
+import kotlinx.coroutines.sync.Mutex
+
+import rs.chimera.android.backend.model.ProxyMode
+
+import rs.chimera.android.settings.SettingsRepository
+
 import android.content.Context
 import android.net.Uri
 import android.util.Log
-import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -29,35 +34,40 @@ import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.util.PrivacySafeLog
-import uniffi.chimera_ffi.DownloadProgress
+import rs.chimera.android.backend.model.ProfileDownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
 import java.io.File
 
-class ChimeraBackendImpl : ChimeraBackend {
+class ChimeraBackendImpl(
+    private val context: Context,
+    private val settingsRepository: SettingsRepository,
+) : ChimeraBackend {
+    override val settings = settingsRepository.settings
+    private val settingsUpdateMutex = Mutex()
     private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val profilePrefs = Global.application.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
-    private val settingsPrefs = Global.application.getSharedPreferences("settings", Context.MODE_PRIVATE)
-    private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(Global.application)
-    private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(Global.application)
+    private val profilePrefs = context.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
+    private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(context)
+    private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(context)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
     private val profileCatalogReader = ProfileCatalogReader(profileCatalogStore, profileAutoUpdateStateStore)
     private val profileStagingStore = ProfileStagingStore(
         profilePrefs = profilePrefs,
-        filesDir = Global.application.filesDir,
+        filesDir = context.filesDir,
         catalogCoordinator = profileCatalogCoordinator,
         catalogStore = profileCatalogStore,
     )
     private val profileImportOperations = ProfileImportOperations(
-        context = Global.application,
+        context = context,
         profileCatalogStore = profileCatalogStore,
         profileStagingStore = profileStagingStore,
         proxyPort = { Global.proxyPort },
     )
 
+    override val runtimeStatus = BackendRuntimeState.status
     override val serviceState: StateFlow<ServiceState> = BackendRuntimeState.serviceState
     override val serviceError: StateFlow<String?> = BackendRuntimeState.serviceError
     override val vpnSystemStatus: StateFlow<VpnSystemStatus> = BackendRuntimeState.vpnSystemStatus
@@ -69,15 +79,15 @@ class ChimeraBackendImpl : ChimeraBackend {
     override val runtimeError: StateFlow<BackendRuntimeError?> = _runtimeError.asStateFlow()
 
     private val vpnOperations = BackendVpnOperations(
-        context = Global.application,
+        context = context,
         serviceState = serviceState,
         profilePath = { Global.profilePath },
     )
     private val controllerOperations = BackendControllerOperations(
-        socketPath = "${Global.application.cacheDir}/clash.sock",
+        socketPath = "${context.cacheDir}/clash.sock",
         serviceState = serviceState,
         notRunningMessage = {
-            Global.application.getString(rs.chimera.android.R.string.panel_not_running_message)
+            context.getString(rs.chimera.android.R.string.panel_not_running_message)
         },
         recordRuntimeError = ::recordRuntimeError,
         clearRuntimeError = ::clearRuntimeError,
@@ -96,7 +106,7 @@ class ChimeraBackendImpl : ChimeraBackend {
     override val memoryInfo = runtimeTelemetry.memoryInfo
     override val proxyGroups = runtimeTelemetry.proxyGroups
 
-    init {
+    private val initialization = BackendInitialization(backendScope) {
         runCatching { profileStagingStore.recoverImports() }
             .onFailure { error ->
                 PrivacySafeLog.error(TAG, "Failed to recover staged profile imports", error)
@@ -109,40 +119,46 @@ class ChimeraBackendImpl : ChimeraBackend {
             .onFailure { error ->
                 PrivacySafeLog.error(TAG, "Failed to recover staged profile deletions", error)
             }
-        runCatching { ProfileDownloadRecoveryPolicy.cleanup(Global.application.filesDir) }
+        runCatching { ProfileDownloadRecoveryPolicy.cleanup(context.filesDir) }
             .onFailure { error ->
                 PrivacySafeLog.error(TAG, "Failed to recover staged profile downloads", error)
             }
         refreshActiveProfile()
+    }
+
+    init {
         backendScope.launch {
+            awaitReady()
             synchronizeProfileAutoUpdateSchedule()
         }
         runtimeTelemetry.start()
     }
 
-    override suspend fun prepareStartVpn(): StartVpnResult =
+    override suspend fun awaitReady() = initialization.awaitReady()
+
+    private suspend fun prepareStartVpnReady(): StartVpnResult =
         vpnOperations.prepareStartVpn()
 
-    override suspend fun startVpnAfterPermission() {
+    private suspend fun startVpnAfterPermissionReady() {
         vpnOperations.startVpnAfterPermission()
     }
 
-    override suspend fun stopVpn() {
+    override suspend fun stopVpn() = withContext(Dispatchers.IO) {
         vpnOperations.stopVpn()
     }
 
-    override suspend fun restartVpn() {
+    override suspend fun restartVpn() = withContext(Dispatchers.IO) {
         vpnOperations.restartVpn()
     }
 
-    override suspend fun listProfiles(): List<ProfileSummary> {
+    private suspend fun listProfilesReady(): List<ProfileSummary> {
         profileStagingStore.recoverDeletions()
         val profiles = profileCatalogReader.readProfiles()
         refreshProfileAutoUpdateSchedule(profiles)
         return profiles
     }
 
-    override suspend fun activateProfile(id: String) {
+    private suspend fun activateProfileReady(id: String) {
         profileCatalogCoordinator.withLock {
             val document = profileCatalogStore.readDocument()
             val updatedProfiles = ProfileCatalogPolicy.activate(document.entries, id)
@@ -163,15 +179,15 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun importLocalProfile(uri: Uri, name: String?) {
+    private suspend fun importLocalProfileReady(uri: Uri, name: String?) {
         if (profileImportOperations.importLocalProfile(uri, name)) {
             restoreImportedActiveProfile()
         }
     }
 
-    override suspend fun importRemoteProfile(
+    private suspend fun importRemoteProfileReady(
         request: RemoteProfileRequest,
-        onProgress: (DownloadProgress) -> Unit,
+        onProgress: (ProfileDownloadProgress) -> Unit,
     ) {
         if (profileImportOperations.importRemoteProfile(request, onProgress)) {
             restoreImportedActiveProfile()
@@ -179,7 +195,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         synchronizeProfileAutoUpdateSchedule()
     }
 
-    override suspend fun deleteProfile(id: String) {
+    private suspend fun deleteProfileReady(id: String) {
         profileUpdateCoordinator.withLock(id) {
             deleteProfileLocked(id)
         }
@@ -213,7 +229,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun renameProfile(id: String, newName: String) {
+    private suspend fun renameProfileReady(id: String, newName: String) {
         profileUpdateCoordinator.withLock(id) {
             renameProfileLocked(id, newName)
         }
@@ -237,9 +253,9 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun updateRemoteProfile(
+    private suspend fun updateRemoteProfileReady(
         id: String,
-        onProgress: (DownloadProgress) -> Unit,
+        onProgress: (ProfileDownloadProgress) -> Unit,
     ) {
         profileUpdateCoordinator.withLock(id) {
             updateRemoteProfileLocked(id, onProgress)
@@ -248,7 +264,7 @@ class ChimeraBackendImpl : ChimeraBackend {
 
     private suspend fun updateRemoteProfileLocked(
         id: String,
-        onProgress: (DownloadProgress) -> Unit,
+        onProgress: (ProfileDownloadProgress) -> Unit,
     ) {
         val targetProfile = profileCatalogStore.readRemoteProfile(id)
         require(targetProfile.type == "REMOTE") { "Profile is not remote: $id" }
@@ -276,8 +292,8 @@ class ChimeraBackendImpl : ChimeraBackend {
                             userAgent = userAgent,
                             proxyUrl = proxyUrl,
                             progressCallback = object : DownloadProgressCallback {
-                                override fun onProgress(progress: DownloadProgress) {
-                                    onProgress(progress)
+                                override fun onProgress(progress: uniffi.chimera_ffi.DownloadProgress) {
+                                    onProgress(ProfileDownloadProgress(progress.downloaded, progress.total))
                                 }
                             },
                         )
@@ -315,7 +331,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         }
     }
 
-    override suspend fun verifyProfile(filePath: String): Result<String> =
+    private suspend fun verifyProfileReady(filePath: String): Result<String> =
         profileImportOperations.verifyProfile(filePath)
 
     override suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
@@ -325,7 +341,7 @@ class ChimeraBackendImpl : ChimeraBackend {
         controllerOperations.selectProxy(groupName, proxyName)
     }
 
-    override suspend fun setMode(mode: uniffi.chimera_ffi.Mode) {
+    override suspend fun setMode(mode: ProxyMode) {
         controllerOperations.setMode(mode)
     }
 
@@ -372,26 +388,17 @@ class ChimeraBackendImpl : ChimeraBackend {
         Global.clearRuntimeLog()
     }
 
-    override suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect {
-        val applyEffect = patch.requiredApplyEffect()
-        settingsPrefs.edit {
-            patch.allowLan?.let { putBoolean("allow_lan", it) }
-            patch.mixedPort?.let { putInt("mixed_port", it.toInt()) }
-            if (patch.clearHttpPort) remove("http_port")
-            patch.httpPort?.let { putInt("http_port", it.toInt()) }
-            if (patch.clearSocksPort) remove("socks_port")
-            patch.socksPort?.let { putInt("socks_port", it.toInt()) }
-            patch.fakeIp?.let { putBoolean("fake_ip", it) }
-            patch.ipv6?.let { putBoolean("ipv6", it) }
-            patch.appFilterMode?.let { putString("app_filter_mode", it) }
-            patch.allowedApps?.let { putStringSet("allowed_apps", it) }
-            patch.disallowedApps?.let { putStringSet("disallowed_apps", it) }
+    override suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect =
+        withContext(Dispatchers.IO) {
+            settingsUpdateMutex.withLock {
+                val applyEffect = patch.requiredApplyEffect()
+                settingsRepository.update(patch)
+                if (applyEffect != SettingsApplyEffect.IMMEDIATE && serviceState.value == ServiceState.RUNNING) {
+                    restartVpn()
+                }
+                applyEffect
+            }
         }
-        if (applyEffect != SettingsApplyEffect.IMMEDIATE && serviceState.value == ServiceState.RUNNING) {
-            restartVpn()
-        }
-        return applyEffect
-    }
 
     private fun refreshProfileAutoUpdateSchedule(profiles: List<ProfileSummary>) {
         runCatching { profileAutoUpdateScheduler.refresh(profiles) }
@@ -438,6 +445,66 @@ class ChimeraBackendImpl : ChimeraBackend {
             refreshActiveProfile()
         }
     }
+
+    override suspend fun prepareStartVpn(): StartVpnResult =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            prepareStartVpnReady()
+        }
+
+    override suspend fun startVpnAfterPermission(): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            startVpnAfterPermissionReady()
+        }
+
+    override suspend fun activateProfile(id: String): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            activateProfileReady(id)
+        }
+
+    override suspend fun listProfiles(): List<ProfileSummary> =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            listProfilesReady()
+        }
+
+    override suspend fun deleteProfile(id: String): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            deleteProfileReady(id)
+        }
+
+    override suspend fun renameProfile(id: String, newName: String): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            renameProfileReady(id, newName)
+        }
+
+    override suspend fun importLocalProfile(uri: Uri, name: String?): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            importLocalProfileReady(uri, name)
+        }
+
+    override suspend fun importRemoteProfile(request: RemoteProfileRequest, onProgress: (ProfileDownloadProgress) -> Unit): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            importRemoteProfileReady(request, onProgress)
+        }
+
+    override suspend fun updateRemoteProfile(id: String, onProgress: (ProfileDownloadProgress) -> Unit): Unit =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            updateRemoteProfileReady(id, onProgress)
+        }
+
+    override suspend fun verifyProfile(filePath: String): Result<String> =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            verifyProfileReady(filePath)
+        }
 
     private companion object {
         const val TAG = "ChimeraBackend"

@@ -1,5 +1,11 @@
 package rs.chimera.android.backend
 
+import rs.chimera.android.backend.model.VpnRuntimeStatus
+
+import rs.chimera.android.backend.model.ProxyMode
+
+import rs.chimera.android.settings.RuntimeSettings
+
 import android.net.Uri
 import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.BackendRuntimeError
@@ -16,9 +22,13 @@ import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
-import uniffi.chimera_ffi.DownloadProgress
+import rs.chimera.android.backend.model.ProfileDownloadProgress
 
 interface ChimeraBackend {
+    suspend fun awaitReady()
+
+    val settings: StateFlow<RuntimeSettings>
+    val runtimeStatus: StateFlow<VpnRuntimeStatus>
     val serviceState: StateFlow<ServiceState>
     val serviceError: StateFlow<String?>
     val vpnSystemStatus: StateFlow<VpnSystemStatus>
@@ -40,16 +50,16 @@ interface ChimeraBackend {
     suspend fun importLocalProfile(uri: Uri, name: String?)
     suspend fun importRemoteProfile(
         request: RemoteProfileRequest,
-        onProgress: (DownloadProgress) -> Unit = {},
+        onProgress: (ProfileDownloadProgress) -> Unit = {},
     )
     suspend fun updateRemoteProfile(
         id: String,
-        onProgress: (DownloadProgress) -> Unit = {},
+        onProgress: (ProfileDownloadProgress) -> Unit = {},
     )
     suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)
-    suspend fun setMode(mode: uniffi.chimera_ffi.Mode)
+    suspend fun setMode(mode: ProxyMode)
     suspend fun resetNetwork()
     suspend fun testProxyDelay(proxyName: String): String
     suspend fun listConnections(): ConnectionsSnapshot

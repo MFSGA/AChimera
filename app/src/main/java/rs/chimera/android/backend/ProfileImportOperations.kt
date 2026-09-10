@@ -9,7 +9,7 @@ import org.json.JSONObject
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.model.ProfileType
-import uniffi.chimera_ffi.DownloadProgress
+import rs.chimera.android.backend.model.ProfileDownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
@@ -72,7 +72,7 @@ internal class ProfileImportOperations(
 
     suspend fun importRemoteProfile(
         request: RemoteProfileRequest,
-        onProgress: (DownloadProgress) -> Unit,
+        onProgress: (ProfileDownloadProgress) -> Unit,
     ): Boolean {
         ProfileRemotePolicy.requireValidUrl(request.url)
         val resolvedName = request.name?.trim()?.takeIf { it.isNotEmpty() }
@@ -137,7 +137,7 @@ internal class ProfileImportOperations(
     private suspend fun downloadProfileToFile(
         file: File,
         request: RemoteProfileRequest,
-        onProgress: (DownloadProgress) -> Unit,
+        onProgress: (ProfileDownloadProgress) -> Unit,
     ): File {
         return try {
             ChimeraFfi.ensureInitialized()
@@ -147,8 +147,8 @@ internal class ProfileImportOperations(
                 userAgent = request.userAgent,
                 proxyUrl = request.proxyUrl ?: proxyPort()?.let { "http://127.0.0.1:$it" },
                 progressCallback = object : DownloadProgressCallback {
-                    override fun onProgress(progress: DownloadProgress) {
-                        onProgress(progress)
+                    override fun onProgress(progress: uniffi.chimera_ffi.DownloadProgress) {
+                        onProgress(ProfileDownloadProgress(progress.downloaded, progress.total))
                     }
                 },
             )

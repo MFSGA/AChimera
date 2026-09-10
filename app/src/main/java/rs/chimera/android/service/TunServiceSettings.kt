@@ -1,38 +1,17 @@
 package rs.chimera.android.service
 
+import rs.chimera.android.settings.RuntimeSettings
+
+import rs.chimera.android.settings.SettingsProvider
+
 import android.content.Context
-import android.content.SharedPreferences
-import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.ffi.ProfileOverride
 
-internal data class TunServiceSettings(
-    val appFilterMode: String,
-    val allowedApps: Set<String>,
-    val disallowedApps: Set<String>,
-    val allowLan: Boolean,
-    val mixedPort: UShort,
-    val httpPort: UShort?,
-    val socksPort: UShort?,
-    val fakeIp: Boolean,
-    val ipv6: Boolean,
-)
+internal typealias TunServiceSettings = RuntimeSettings
 
 internal object TunServiceSettingsLoader {
-    fun load(context: Context): TunServiceSettings {
-        val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
-        return TunServiceSettings(
-            appFilterMode = prefs.getString("app_filter_mode", SettingsDefaults.APP_FILTER_MODE)
-                ?: SettingsDefaults.APP_FILTER_MODE,
-            allowedApps = prefs.getStringSet("allowed_apps", emptySet()) ?: emptySet(),
-            disallowedApps = prefs.getStringSet("disallowed_apps", emptySet()) ?: emptySet(),
-            allowLan = prefs.getBoolean("allow_lan", false),
-            mixedPort = prefs.getPort("mixed_port", SettingsDefaults.MIXED_PORT),
-            httpPort = prefs.getOptionalPort("http_port"),
-            socksPort = prefs.getOptionalPort("socks_port"),
-            fakeIp = prefs.getBoolean("fake_ip", false),
-            ipv6 = prefs.getBoolean("ipv6", false),
-        )
-    }
+    fun load(context: Context): TunServiceSettings =
+        SettingsProvider.provide(context).snapshot()
 
     fun createProfileOverride(
         currentTunFd: Int,
@@ -50,11 +29,3 @@ internal object TunServiceSettingsLoader {
             ipv6 = settings.ipv6,
         )
 }
-
-private fun SharedPreferences.getOptionalPort(key: String): UShort? =
-    PortPreference.parse(all[key])
-
-private fun SharedPreferences.getPort(
-    key: String,
-    defaultValue: UShort,
-): UShort = getOptionalPort(key) ?: defaultValue

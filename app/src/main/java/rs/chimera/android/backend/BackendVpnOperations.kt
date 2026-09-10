@@ -5,8 +5,6 @@ import android.content.Intent
 import android.net.VpnService
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.ffi.shutdownClash
@@ -20,7 +18,7 @@ internal class BackendVpnOperations(
     private val serviceState: StateFlow<ServiceState>,
     private val profilePath: () -> String,
 ) {
-    private val operationMutex = Mutex()
+    private val commands = VpnCommandGate { serviceState.value }
     private val desiredStateStore = VpnDesiredStateStore(context)
 
     fun prepareStartVpn(): StartVpnResult {
@@ -38,7 +36,7 @@ internal class BackendVpnOperations(
         }
     }
 
-    fun startVpnAfterPermission() {
+    suspend fun startVpnAfterPermission() = commands.start {
         desiredStateStore.markRunning()
         VpnRuntimeRegistry.requestStart()
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
@@ -57,11 +55,20 @@ internal class BackendVpnOperations(
     }
 
     suspend fun stopVpn() {
-        val desiredStateError =
-            runCatching { desiredStateStore.markStopped(VpnDesiredStateReason.USER_STOP) }
-                .exceptionOrNull()
+        // Cancel a pending Android start immediately; persist again inside the command gate
+        // so a start already holding the gate cannot overwrite the user's stop intent.
         VpnRuntimeRegistry.requestStop()
-        operationMutex.withLock {
+        commands.stop { shouldStopRuntime ->
+            val desiredStateError =
+                runCatching { desiredStateStore.markStopped(VpnDesiredStateReason.USER_STOP) }
+                    .exceptionOrNull()
+            if (!shouldStopRuntime) {
+                if (desiredStateError != null && desiredStateStore.snapshot().shouldRun) {
+                    BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
+                    throw desiredStateError
+                }
+                return@stop
+            }
             BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
             try {
                 if (!VpnRuntimeRegistry.stopVpn()) {
@@ -73,21 +80,15 @@ internal class BackendVpnOperations(
                 BackendRuntimeState.updateServiceError(error.messageOrType())
                 throw error
             }
-        }
-        if (desiredStateError != null && desiredStateStore.snapshot().shouldRun) {
-            BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
-            throw desiredStateError
+            if (desiredStateError != null && desiredStateStore.snapshot().shouldRun) {
+                BackendRuntimeState.updateServiceError(desiredStateError.messageOrType())
+                throw desiredStateError
+            }
         }
     }
 
-    suspend fun restartVpn() {
-        check(operationMutex.tryLock()) { "Another VPN operation is already in progress" }
-        try {
-            check(serviceState.value == ServiceState.RUNNING) { "VPN is not running" }
-            VpnRuntimeRegistry.restartVpn()
-        } finally {
-            operationMutex.unlock()
-        }
+    suspend fun restartVpn() = commands.restart {
+        VpnRuntimeRegistry.restartVpn()
     }
 
     private fun Throwable.messageOrType(): String =

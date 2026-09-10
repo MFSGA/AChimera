@@ -45,4 +45,15 @@ class BackendRuntimeStateTest {
         assertEquals(ServiceState.ERROR, BackendRuntimeState.serviceState.value)
         assertEquals("second failure", BackendRuntimeState.serviceError.value)
     }
+
+    @Test
+    fun statusPublishesStateAndErrorTogether() {
+        BackendRuntimeState.updateServiceError("core failed")
+        assertEquals(ServiceState.ERROR, BackendRuntimeState.status.value.state)
+        assertEquals("core failed", BackendRuntimeState.status.value.error)
+        BackendRuntimeState.updateServiceState(ServiceState.STARTING)
+        assertEquals(ServiceState.STARTING, BackendRuntimeState.status.value.state)
+        assertNull(BackendRuntimeState.status.value.error)
+        assertEquals(BackendRuntimeState.status.value.state, BackendRuntimeState.serviceState.value)
+    }
 }

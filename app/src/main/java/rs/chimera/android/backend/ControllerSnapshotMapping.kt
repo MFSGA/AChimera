@@ -1,5 +1,7 @@
 package rs.chimera.android.backend
 
+import rs.chimera.android.backend.model.ProxyMode
+
 import rs.chimera.android.backend.model.ConnectionSnapshot
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.ProxyDelayHistory
@@ -21,7 +23,7 @@ internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnaps
                 name = DIRECT_PROXY_NAME,
                 proxies = emptyList(),
                 selected = null,
-                mode = mode,
+                mode = mode.toProxyMode(),
                 proxyDetails = mapOf(DIRECT_PROXY_NAME to direct),
             ),
         )
@@ -57,7 +59,7 @@ internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnaps
             name = proxy.name,
             proxies = proxy.all,
             selected = proxy.now,
-            mode = mode,
+            mode = mode.toProxyMode(),
             proxyDetails = proxyDetails,
         )
     }
@@ -101,3 +103,15 @@ internal fun ConnectionsResponse.toConnectionsSnapshot(): ConnectionsSnapshot =
         downloadTotal = downloadTotal,
         uploadTotal = uploadTotal,
     )
+
+internal fun Mode.toProxyMode(): ProxyMode = when (this) {
+    Mode.RULE -> ProxyMode.RULE
+    Mode.GLOBAL -> ProxyMode.GLOBAL
+    Mode.DIRECT -> ProxyMode.DIRECT
+}
+
+internal fun ProxyMode.toNativeMode(): Mode = when (this) {
+    ProxyMode.RULE -> Mode.RULE
+    ProxyMode.GLOBAL -> Mode.GLOBAL
+    ProxyMode.DIRECT -> Mode.DIRECT
+}

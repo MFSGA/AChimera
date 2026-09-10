@@ -1,6 +1,6 @@
 package rs.chimera.android.backend.model
 
-import uniffi.chimera_ffi.Mode
+import rs.chimera.android.backend.model.ProxyMode
 
 data class ProxySnapshot(
     val name: String,
@@ -17,6 +17,6 @@ data class ProxyGroupSnapshot(
     val name: String,
     val proxies: List<String>,
     val selected: String?,
-    val mode: Mode,
+    val mode: ProxyMode,
     val proxyDetails: Map<String, ProxySnapshot>,
 )

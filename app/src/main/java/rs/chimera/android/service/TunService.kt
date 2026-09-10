@@ -160,6 +160,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     private suspend fun runVpn() {
+        backend.awaitReady()
         currentCoroutineContext().ensureActive()
         val profilePath = TunRuntimeFiles.resolveProfilePath(this)
         val settings = TunServiceSettingsLoader.load(this)

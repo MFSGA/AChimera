@@ -36,7 +36,7 @@ class ControllerSnapshotMappingTest {
         val auto = mapped.first { it.name == "AUTO" }
         assertEquals(listOf("A", "B"), auto.proxies)
         assertEquals("A", auto.selected)
-        assertEquals(Mode.GLOBAL, auto.mode)
+        assertEquals(rs.chimera.android.backend.model.ProxyMode.GLOBAL, auto.mode)
         assertEquals("VLESS", auto.proxyDetails.getValue("A").type)
         assertEquals(45, auto.proxyDetails.getValue("AUTO").history.single().delay)
         assertEquals(123L, auto.proxyDetails.getValue("AUTO").history.single().time)
