@@ -24,6 +24,7 @@ import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
 import rs.chimera.android.util.PrivacySafeLog
+import rs.chimera.android.util.sanitizeUserVisibleErrorText
 import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
 
@@ -406,21 +407,26 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     override fun onCoreStopped(message: String) {
-        recordDesiredStop(VpnDesiredStateReason.CORE_EXITED)
+        val detail = sanitizeUserVisibleErrorText(
+            value = message,
+            fallback = getString(rs.chimera.android.R.string.profile_unknown_error),
+            privatePathPrefixes = listOf(applicationInfo.dataDir),
+        )
         serviceScope.launch {
             runtimeMutex.withLock {
                 if (!lifecycleGate.canHandleUnexpectedCoreStop()) return@withLock
+                recordDesiredStop(VpnDesiredStateReason.CORE_EXITED)
 
                 val cleanedUp = cleanup(
                     finalState = ServiceState.ERROR,
                     stopCore = false,
-                    errorMessage = message,
+                    errorMessage = detail,
                 )
                 if (!cleanedUp) return@withLock
 
-                PrivacySafeLog.errorDetail(TAG, "Rust core stopped unexpectedly", message)
-                appendRuntimeLog("rust core stopped unexpectedly: $message")
-                NotificationHelper.notifyFailed(this@TunService, message)
+                PrivacySafeLog.errorDetail(TAG, "Rust core stopped unexpectedly", detail)
+                appendRuntimeLog("rust core stopped unexpectedly: $detail")
+                NotificationHelper.notifyFailed(this@TunService, detail)
                 stopSelf()
             }
         }

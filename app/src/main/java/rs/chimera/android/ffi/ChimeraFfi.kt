@@ -1,7 +1,9 @@
 package rs.chimera.android.ffi
 
+import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.service.VpnRuntimeRegistry
+import rs.chimera.android.util.sanitizeUserVisibleErrorText
 import uniffi.chimera_ffi.hello
 import uniffi.chimera_ffi.shutdown
 import uniffi.chimera_ffi.uniffiEnsureInitialized
@@ -28,7 +30,13 @@ object ChimeraFfi {
     fun onCoreStopped(message: String) {
         val detail = message.trim().ifEmpty { "Rust core stopped unexpectedly" }
         if (!VpnRuntimeRegistry.dispatchCoreStopped(detail)) {
-            BackendRuntimeState.updateServiceError(detail)
+            BackendRuntimeState.updateServiceError(
+                sanitizeUserVisibleErrorText(
+                    value = detail,
+                    fallback = "Rust core stopped unexpectedly",
+                    privatePathPrefixes = listOf(Global.application.applicationInfo.dataDir),
+                ),
+            )
         }
     }
 
