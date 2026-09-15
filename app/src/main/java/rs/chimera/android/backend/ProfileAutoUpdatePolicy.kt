@@ -24,8 +24,10 @@ internal object ProfileAutoUpdatePolicy {
         now: Long = System.currentTimeMillis(),
     ): List<ProfileSummary> =
         profiles.filter { profile ->
+            val nextAttemptAt = profile.nextAutoUpdateAt
+                ?: profile.lastUpdated?.let { it + UPDATE_INTERVAL_MILLIS }
             isConfigured(profile) &&
-                (profile.nextAutoUpdateAt == null || profile.nextAutoUpdateAt <= now)
+                (nextAttemptAt == null || nextAttemptAt <= now)
         }
 
     fun shouldSchedule(profiles: List<ProfileSummary>): Boolean = profiles.any(::isConfigured)

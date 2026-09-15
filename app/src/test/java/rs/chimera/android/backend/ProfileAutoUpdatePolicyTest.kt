@@ -42,6 +42,30 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
+    fun recentlyUpdatedProfileWaitsForFirstScheduledRefresh() {
+        val refreshedAt = 1_000L
+        val profile = remoteProfile(
+            id = "recent",
+            autoUpdate = true,
+            lastUpdated = refreshedAt,
+        )
+
+        assertTrue(
+            ProfileAutoUpdatePolicy.eligibleProfiles(
+                listOf(profile),
+                now = refreshedAt + ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS - 1,
+            ).isEmpty(),
+        )
+        assertEquals(
+            listOf(profile),
+            ProfileAutoUpdatePolicy.eligibleProfiles(
+                listOf(profile),
+                now = refreshedAt + ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS,
+            ),
+        )
+    }
+
+    @Test
     fun runnerPropagatesProfileListCancellation() = runBlocking {
         val operations = FakeOperations(
             profiles = emptyList(),
@@ -367,6 +391,7 @@ class ProfileAutoUpdatePolicyTest {
         active: Boolean = false,
         failures: Int = 0,
         nextAutoUpdateAt: Long? = null,
+        lastUpdated: Long? = null,
     ) = ProfileSummary(
         id = id,
         name = id,
@@ -374,7 +399,7 @@ class ProfileAutoUpdatePolicyTest {
         type = ProfileType.REMOTE,
         isActive = active,
         isRemote = true,
-        lastUpdated = null,
+        lastUpdated = lastUpdated,
         fileSize = 1,
         url = url,
         autoUpdate = autoUpdate,
