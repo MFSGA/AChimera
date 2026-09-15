@@ -117,6 +117,9 @@
     <string name="settings_ipv6">启用 IPv6</string>
     <string name="settings_ipv6_desc">允许使用 IPv6 进行网络连接。</string>
     <string name="settings_app_filter">应用过滤</string>
+    <string name="settings_reset_network">重置网络状态</string>
+    <string name="settings_reset_network_summary">清理内核运行中的网络状态，不修改已保存的设置。</string>
+    <string name="settings_reset_network_success">网络状态已重置。</string>
     <string name="settings_reset_defaults">重置运行设置</string>
     <string name="settings_reset_defaults_summary">将网络、监听端口、DNS、IPv6 和应用分流恢复为默认值。</string>
     <string name="settings_reset_defaults_title">重置运行设置？</string>

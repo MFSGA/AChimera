@@ -117,6 +117,9 @@
     <string name="settings_ipv6">Enable IPv6</string>
     <string name="settings_ipv6_desc">Allow network connections using IPv6.</string>
     <string name="settings_app_filter">App Filter</string>
+    <string name="settings_reset_network">Reset network state</string>
+    <string name="settings_reset_network_summary">Clear the core network state without changing saved settings.</string>
+    <string name="settings_reset_network_success">Network state reset.</string>
     <string name="settings_reset_defaults">Reset runtime settings</string>
     <string name="settings_reset_defaults_summary">Restore network, listener, DNS, IPv6, and app-routing settings to defaults.</string>
     <string name="settings_reset_defaults_title">Reset runtime settings?</string>

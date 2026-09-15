@@ -260,6 +260,13 @@ fun SettingsScreen(
                     )
                     SettingsItem(
                         icon = Icons.Default.Refresh,
+                        title = stringResource(R.string.settings_reset_network),
+                        subtitle = stringResource(R.string.settings_reset_network_summary),
+                        onClick = viewModel::resetNetwork,
+                        enabled = !viewModel.networkResetInProgress,
+                    )
+                    SettingsItem(
+                        icon = Icons.Default.Refresh,
                         title = stringResource(R.string.settings_reset_defaults),
                         subtitle = stringResource(R.string.settings_reset_defaults_summary),
                         onClick = { showResetDialog = true },
@@ -397,11 +404,12 @@ private fun SettingsItem(
     modifier: Modifier = Modifier,
     showChevron: Boolean = true,
     subtitleColor: Color? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

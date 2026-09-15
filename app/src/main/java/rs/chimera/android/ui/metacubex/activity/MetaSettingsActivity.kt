@@ -26,6 +26,7 @@ import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
 import rs.chimera.android.ui.preferences.UiVariant
 import rs.chimera.android.util.runCatchingPreservingCancellation
+import rs.chimera.android.util.toUserVisibleMessage
 
 class MetaSettingsActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -65,6 +66,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.OpenAccessControl -> {
                 startActivity(Intent(this, MetaAccessControlActivity::class.java))
             }
+            SettingsDesign.Request.ResetNetwork -> resetNetwork()
             SettingsDesign.Request.ResetRuntimeSettings -> showResetRuntimeSettingsDialog()
             SettingsDesign.Request.ChooseLanguage -> showLanguageDialog()
             SettingsDesign.Request.ChooseAppearance -> showAppearanceDialog()
@@ -96,6 +98,21 @@ class MetaSettingsActivity : AppCompatActivity() {
                     ),
                 )
             }
+    }
+
+    private suspend fun resetNetwork() {
+        try {
+            runCatchingPreservingCancellation { backend.resetNetwork() }
+                .onSuccess {
+                    design.showToast(getString(R.string.settings_reset_network_success))
+                }.onFailure { error ->
+                    design.showToast(
+                        error.toUserVisibleMessage(this@MetaSettingsActivity, R.string.profile_unknown_error),
+                    )
+                }
+        } finally {
+            design.setNetworkResetInProgress(false)
+        }
     }
 
     private fun showResetRuntimeSettingsDialog() {

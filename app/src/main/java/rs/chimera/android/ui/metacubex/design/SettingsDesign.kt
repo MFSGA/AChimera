@@ -19,6 +19,7 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         data object OpenRuleDiagnostics : Request()
         data object OpenProxyProviders : Request()
         data object OpenAccessControl : Request()
+        data object ResetNetwork : Request()
         data object ResetRuntimeSettings : Request()
         data object ChooseLanguage : Request()
         data object ChooseAppearance : Request()
@@ -58,6 +59,7 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
     private val cardRules = root.findViewById<MaterialCardView>(R.id.card_rules)
     private val cardProviders = root.findViewById<MaterialCardView>(R.id.card_providers)
     private val cardAccessControl = root.findViewById<MaterialCardView>(R.id.card_access_control)
+    private val cardResetNetwork = root.findViewById<MaterialCardView>(R.id.card_reset_network)
     private val cardResetSettings = root.findViewById<MaterialCardView>(R.id.card_reset_settings)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
@@ -81,6 +83,10 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         cardRules.setOnClickListener { request(Request.OpenRuleDiagnostics) }
         cardProviders.setOnClickListener { request(Request.OpenProxyProviders) }
         cardAccessControl.setOnClickListener { request(Request.OpenAccessControl) }
+        cardResetNetwork.setOnClickListener {
+            cardResetNetwork.isEnabled = false
+            request(Request.ResetNetwork)
+        }
         cardResetSettings.setOnClickListener { request(Request.ResetRuntimeSettings) }
         switchAllowLan.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAllowLan(checked))
@@ -93,6 +99,9 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
         }
     }
 
+    fun setNetworkResetInProgress(inProgress: Boolean) {
+        cardResetNetwork.isEnabled = !inProgress
+    }
     fun render(state: State) {
         rendering = true
         switchAllowLan.isChecked = state.allowLan

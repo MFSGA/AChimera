@@ -22,6 +22,7 @@ import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
 import rs.chimera.android.ui.preferences.UiVariant
+import rs.chimera.android.util.toUserVisibleMessage
 
 class SettingsViewModel(
     application: Application,
@@ -91,6 +92,8 @@ class SettingsViewModel(
     )
     var runtimeSettingError: String? by mutableStateOf(null)
         private set
+    var networkResetInProgress: Boolean by mutableStateOf(false)
+        private set
     var allowedApps: Set<String> by mutableStateOf(backend.settings.value.allowedApps)
     var disallowedApps: Set<String> by mutableStateOf(backend.settings.value.disallowedApps)
     var vpnSystemStatus: VpnSystemStatus by mutableStateOf(backend.vpnSystemStatus.value)
@@ -110,6 +113,26 @@ class SettingsViewModel(
     fun updateFakeIpEnabled(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(fakeIp = enabled))
 
     fun updateIpv6Enabled(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(ipv6 = enabled))
+
+    fun resetNetwork() {
+        if (networkResetInProgress) return
+        networkResetInProgress = true
+        viewModelScope.launch {
+            try {
+                backend.resetNetwork()
+                runtimeSettingError = null
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                runtimeSettingError = error.toUserVisibleMessage(
+                    getApplication(),
+                    R.string.profile_unknown_error,
+                )
+            } finally {
+                networkResetInProgress = false
+            }
+        }
+    }
 
     fun resetRuntimeSettings() = updateRuntimeSetting(SettingsDefaults.resetPatch())
 
