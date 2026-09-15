@@ -163,6 +163,7 @@ fun PanelScreen(
                             proxy = proxy,
                             delays = viewModel.delays,
                             proxyTypes = proxyTypes,
+                            isDelayTesting = viewModel.isDelayTesting,
                             onTestDelay = { viewModel.testGroupDelay(proxy.proxies) },
                             onSelect = { selected -> viewModel.selectProxy(proxy.name, selected) },
                         )
@@ -259,6 +260,7 @@ private fun ProxyGroupCard(
     proxy: ProxyGroupSnapshot,
     delays: Map<String, String>,
     proxyTypes: Map<String, String>,
+    isDelayTesting: Boolean,
     onTestDelay: () -> Unit,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
@@ -323,6 +325,7 @@ private fun ProxyGroupCard(
 
                 IconButton(
                     onClick = onTestDelay,
+                    enabled = !isDelayTesting && proxy.proxies.isNotEmpty(),
                     modifier = Modifier.size(40.dp),
                 ) {
                     Icon(

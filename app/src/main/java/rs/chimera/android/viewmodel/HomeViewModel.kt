@@ -44,6 +44,9 @@ class HomeViewModel(
     var isModeUpdating by mutableStateOf(false)
         private set
 
+    var isDelayTesting by mutableStateOf(false)
+        private set
+
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
@@ -156,13 +159,19 @@ class HomeViewModel(
     }
 
     fun testGroupDelay(proxyNames: List<String>) {
+        if (isDelayTesting || proxyNames.isEmpty()) return
+        isDelayTesting = true
         viewModelScope.launch {
-            errorMessage = null
-            val failures = proxyNames.map { name ->
-                async { testProxyDelay(name) }
-            }.awaitAll().filterNotNull()
-            failures.firstOrNull()?.let { error ->
-                errorMessage = formatError("Failed to test proxy delay", error)
+            try {
+                errorMessage = null
+                val failures = proxyNames.map { name ->
+                    async { testProxyDelay(name) }
+                }.awaitAll().filterNotNull()
+                failures.firstOrNull()?.let { error ->
+                    errorMessage = formatError("Failed to test proxy delay", error)
+                }
+            } finally {
+                isDelayTesting = false
             }
         }
     }
