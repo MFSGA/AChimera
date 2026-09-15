@@ -1,0 +1,136 @@
+name: Nightly Build
+
+# Nightly means a daily scheduled build; keep the compiler identical to CI.
+on:
+  schedule:
+    # 19:17 UTC / 03:17 Asia/Shanghai every day.
+    - cron: "17 19 * * *"
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+permissions:
+  contents: read
+
+env:
+  RUST_TOOLCHAIN: "1.97.1"
+  RUSTC_BOOTSTRAP: "1"
+  ANDROID_PLATFORM_VERSION: "36"
+  ANDROID_BUILD_TOOLS_VERSION: "36.0.0"
+  ANDROID_NDK_VERSION: "29.0.14206865"
+
+concurrency:
+  group: nightly-build
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Verify GitHub Action pins
+        run: python3 .github/check_action_pins.py
+
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: "temurin"
+          java-version: "25"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772 # v1
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+          targets: "x86_64-unknown-linux-gnu"
+          components: "rustfmt,clippy,rust-src"
+
+      - name: Add Rust Android targets
+        run: |
+          rustup target add aarch64-linux-android
+          rustup target add armv7-linux-androideabi
+          rustup target add i686-linux-android
+          rustup target add x86_64-linux-android
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@fc920bf0ec8de6ee65d409111f7ec508035751ba # v0.0.11
+
+      - name: Install Rust tooling
+        uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2
+        with:
+          tool: cargo-ndk,just
+
+      - name: Configure sccache and AWS-LC-RS
+        run: |
+          echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+          echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
+          echo "AWS_LC_SYS_PREBUILT_NASM=1" >> "$GITHUB_ENV"
+
+      - name: Cache Cargo dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-nightly-${{ hashFiles('uniffi/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-nightly-
+            ${{ runner.os }}-cargo-
+
+      - name: Configure Android SDK
+        run: |
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            echo "ANDROID_HOME is not set on runner."
+            exit 1
+          fi
+          sdkmanager_path="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$sdkmanager_path" ]; then
+            sdkmanager_path="$(find "${ANDROID_HOME}/cmdline-tools" -path '*/bin/sdkmanager' -type f -print -quit)"
+          fi
+          if [ -z "$sdkmanager_path" ] || [ ! -x "$sdkmanager_path" ]; then
+            echo "sdkmanager was not found under ANDROID_HOME=${ANDROID_HOME}."
+            exit 1
+          fi
+          "$sdkmanager_path" \
+            "platforms;android-${ANDROID_PLATFORM_VERSION}" \
+            "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
+            "ndk;${ANDROID_NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "sdk.dir=${ANDROID_HOME}" > local.properties
+
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path uniffi/Cargo.toml --all -- --check
+
+      - name: Run Rust Clippy
+        run: cargo clippy --manifest-path uniffi/Cargo.toml --workspace --all-targets --locked -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --manifest-path uniffi/Cargo.toml --workspace --locked
+
+      - name: Check Rust bindings
+        run: just check-bindings
+
+      - name: Run Android quality checks
+        run: ./gradlew ktlintCheck testDebugUnitTest lintDebug
+
+      - name: Build full-ABI debug APK
+        run: ./gradlew app:assembleDebug -Pchimera.fullAbi=true
+
+      - name: Upload nightly APKs
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: nightly-apks-${{ github.run_number }}
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
