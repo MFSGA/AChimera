@@ -25,13 +25,14 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
         ProfilePersistencePolicy.commitWithRetry(persist = editor::commit)
     }
 
-    fun clear(id: String): Boolean {
-        val editor = prefs.edit()
-        listOf(LAST_ATTEMPT, FAILURE_COUNT, NEXT_ATTEMPT, LAST_ERROR).forEach { suffix ->
-            editor.remove(key(id, suffix))
+    fun clear(id: String): Boolean =
+        ProfilePersistencePolicy.tryCommitWithRetry {
+            val editor = prefs.edit()
+            listOf(LAST_ATTEMPT, FAILURE_COUNT, NEXT_ATTEMPT, LAST_ERROR).forEach { suffix ->
+                editor.remove(key(id, suffix))
+            }
+            editor.commit()
         }
-        return editor.commit()
-    }
 
     private fun key(id: String, suffix: String): String = "$id:$suffix"
 
