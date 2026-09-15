@@ -518,8 +518,8 @@ dependencies = [
 
 [[package]]
 name = "chimera-dns"
-version = "0.25.1"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=239f8cdb1f64a07fa1994b4a6b7d4caac0840cf5#239f8cdb1f64a07fa1994b4a6b7d4caac0840cf5"
+version = "0.25.5"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=9d8a568a84769c37dfc541fa0f4443ba3a61cbba#9d8a568a84769c37dfc541fa0f4443ba3a61cbba"
 dependencies = [
  "async-trait",
  "futures",
@@ -634,8 +634,8 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clash-lib"
-version = "0.25.1"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=239f8cdb1f64a07fa1994b4a6b7d4caac0840cf5#239f8cdb1f64a07fa1994b4a6b7d4caac0840cf5"
+version = "0.25.5"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=9d8a568a84769c37dfc541fa0f4443ba3a61cbba#9d8a568a84769c37dfc541fa0f4443ba3a61cbba"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -696,6 +696,7 @@ dependencies = [
  "socket2",
  "subtle",
  "sysinfo",
+ "tempfile",
  "thiserror 2.0.18",
  "time",
  "tokio",
@@ -4848,8 +4849,8 @@ dependencies = [
 
 [[package]]
 name = "watfaq-netstack"
-version = "0.25.1"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=239f8cdb1f64a07fa1994b4a6b7d4caac0840cf5#239f8cdb1f64a07fa1994b4a6b7d4caac0840cf5"
+version = "0.25.5"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=9d8a568a84769c37dfc541fa0f4443ba3a61cbba#9d8a568a84769c37dfc541fa0f4443ba3a61cbba"
 dependencies = [
  "bytes",
  "etherparse",
