@@ -22,7 +22,7 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
         else editor.putLong(key(id, NEXT_ATTEMPT), state.nextAttemptAt)
         if (state.lastError == null) editor.remove(key(id, LAST_ERROR))
         else editor.putString(key(id, LAST_ERROR), state.lastError)
-        ProfilePersistencePolicy.commit(persist = editor::commit)
+        ProfilePersistencePolicy.commitWithRetry(persist = editor::commit)
     }
 
     fun clear(id: String): Boolean {
