@@ -314,7 +314,10 @@ class ChimeraBackendImpl(
                         id = id,
                         file = file,
                         backup = backup,
-                        updatedAt = System.currentTimeMillis(),
+                        updatedAt = nextRemoteProfileCommitTimestamp(
+                            previous = targetProfile.lastUpdated,
+                            now = System.currentTimeMillis(),
+                        ),
                     )
                 },
                 beginBackupTransaction = profileStagingStore::markUpdatePending,

@@ -19,7 +19,15 @@ internal data class RemoteProfileCatalogEntry(
     val userAgent: String?,
     val proxyUrl: String?,
     val filePath: String,
+    val lastUpdated: Long?,
 )
+
+internal fun nextRemoteProfileCommitTimestamp(previous: Long?, now: Long): Long =
+    when {
+        previous == null || previous < now -> now
+        previous < Long.MAX_VALUE -> previous + 1
+        else -> Long.MAX_VALUE
+    }
 
 internal class ProfileCatalogStore(
     private val profilePrefs: SharedPreferences,
@@ -54,6 +62,9 @@ internal class ProfileCatalogStore(
             userAgent = profile.optString("userAgent").takeIf { it.isNotBlank() },
             proxyUrl = profile.optString("proxyUrl").takeIf { it.isNotBlank() },
             filePath = profile.getString("filePath"),
+            lastUpdated = profile.takeIf { it.has("lastUpdated") }
+                ?.optLong("lastUpdated")
+                ?.takeIf { it > 0L },
         )
     }
 
