@@ -160,7 +160,7 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
-    fun activeProfileUpdateReportsRestartFailureAndRetries() = runBlocking {
+    fun activeProfileUpdateReportsRestartFailureWithoutRedownloading() = runBlocking {
         val operations = FakeOperations(
             profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
             initialState = ServiceState.RUNNING,
@@ -174,7 +174,7 @@ class ProfileAutoUpdatePolicyTest {
         assertEquals(1, operations.restartCount)
         assertFalse(result.restartedVpn)
         assertEquals(listOf("restart:IllegalStateException"), result.failures)
-        assertTrue(result.shouldRetry)
+        assertFalse(result.shouldRetry)
     }
 
     @Test
@@ -258,7 +258,7 @@ class ProfileAutoUpdatePolicyTest {
     }
 
     @Test
-    fun successfulActiveUpdateStillRestartsVpnWhenStatePersistenceFails() = runBlocking {
+    fun successfulActiveUpdateDoesNotRedownloadWhenStatePersistenceFails() = runBlocking {
         val operations = FakeOperations(
             profiles = listOf(remoteProfile(id = "active", autoUpdate = true, active = true)),
             failedStateWrites = setOf("active"),
@@ -271,7 +271,7 @@ class ProfileAutoUpdatePolicyTest {
         assertEquals(1, operations.restartCount)
         assertTrue(result.restartedVpn)
         assertEquals(listOf("state:active:IllegalStateException"), result.failures)
-        assertTrue(result.shouldRetry)
+        assertFalse(result.shouldRetry)
     }
 
     @Test

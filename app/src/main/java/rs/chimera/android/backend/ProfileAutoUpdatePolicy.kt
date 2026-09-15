@@ -85,9 +85,10 @@ internal data class ProfileAutoUpdateResult(
     val deferred: Int,
     val failures: List<String>,
     val restartedVpn: Boolean,
+    private val retryRequired: Boolean,
 ) {
     val shouldRetry: Boolean
-        get() = failures.isNotEmpty()
+        get() = retryRequired
 }
 
 /** Runs eligible updates, persists retry state, and isolates per-profile failures. */
@@ -105,12 +106,14 @@ internal class ProfileAutoUpdateRunner(
                     deferred = 0,
                     failures = listOf("list:${error::class.java.simpleName}"),
                     restartedVpn = false,
+                    retryRequired = true,
                 )
             }
         val profiles = ProfileAutoUpdatePolicy.eligibleProfiles(allProfiles, now())
         val failures = mutableListOf<String>()
         var updated = 0
         var activeProfileUpdated = false
+        var retryRequired = false
 
         profiles.forEach { profile ->
             val attemptedAt = now()
@@ -129,6 +132,7 @@ internal class ProfileAutoUpdateRunner(
                 }
             } catch (error: Exception) {
                 error.throwIfCancellation()
+                retryRequired = true
                 runCatching {
                     operations.recordAutoUpdateState(
                         profile.id,
@@ -163,6 +167,7 @@ internal class ProfileAutoUpdateRunner(
             deferred = configured - profiles.size,
             failures = failures,
             restartedVpn = restartedVpn,
+            retryRequired = retryRequired,
         )
     }
 }
