@@ -227,7 +227,7 @@ class TunService : VpnService(), VpnRuntimeControl {
             builder.addRoute("::", 0)
             builder.addDnsServer(TUN_DNS_V6)
         }
-        applyAppFilter(builder, settings)
+        TunAppFilter.apply(builder, settings, packageName)
         builder.allowBypass()
         return builder.establish()
     }
@@ -275,40 +275,6 @@ class TunService : VpnService(), VpnRuntimeControl {
             .onFailure { error ->
                 PrivacySafeLog.warning(TAG, "Failed to close detached TUN fd", error, debugDetail = "fd=$fd")
                 appendRuntimeLog("failed to close detached tun fd: $fd", error)
-            }
-    }
-
-    private fun applyAppFilter(
-        builder: Builder,
-        settings: TunServiceSettings,
-    ) {
-        when (settings.appFilterMode) {
-            "ALLOWED" -> {
-                settings.allowedApps.forEach { appPackageName ->
-                    runCatching { builder.addAllowedApplication(appPackageName) }
-                        .onFailure { error ->
-                            PrivacySafeLog.warning(TAG, "Failed to add allowed app", error, debugDetail = appPackageName)
-                        }
-                }
-            }
-            "DISALLOWED" -> {
-                addDisallowedApplicationSafely(builder, packageName)
-                settings.disallowedApps.forEach { appPackageName ->
-                    addDisallowedApplicationSafely(builder, appPackageName)
-                }
-            }
-            else -> addDisallowedApplicationSafely(builder, packageName)
-        }
-    }
-
-    private fun addDisallowedApplicationSafely(
-        builder: Builder,
-        appPackageName: String,
-    ) {
-        runCatching { builder.addDisallowedApplication(appPackageName) }
-            .onFailure { error ->
-                PrivacySafeLog.warning(TAG, "Failed to add disallowed app", error, debugDetail = appPackageName)
-                appendRuntimeLog("failed to add disallowed app: $appPackageName", error)
             }
     }
 
