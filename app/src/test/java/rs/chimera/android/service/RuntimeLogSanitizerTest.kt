@@ -49,6 +49,52 @@ class RuntimeLogSanitizerTest {
     }
 
     @Test
+    fun `cookie and api credential headers are redacted`() {
+        val sanitized = RuntimeLogSanitizer.sanitizeText(
+            "Cookie: session=private-cookie\n" +
+                "Set-Cookie: refresh=private-refresh; HttpOnly\n" +
+                "X-Api-Key: private-api-key\n" +
+                "X-Auth-Token: private-auth-token",
+        )
+
+        assertTrue(sanitized.contains("Cookie: ***"))
+        assertTrue(sanitized.contains("Set-Cookie: ***"))
+        assertTrue(sanitized.contains("X-Api-Key: ***"))
+        assertTrue(sanitized.contains("X-Auth-Token: ***"))
+        assertFalse(sanitized.contains("private-cookie"))
+        assertFalse(sanitized.contains("private-refresh"))
+        assertFalse(sanitized.contains("private-api-key"))
+        assertFalse(sanitized.contains("private-auth-token"))
+    }
+
+    @Test
+    fun `malformed urls still redact credentials and sensitive query`() {
+        val sanitized = RuntimeLogSanitizer.sanitizeText(
+            "download https://alice:secret@example.test/path?token=%ZZ#private-fragment",
+        )
+
+        assertTrue(sanitized.contains("https://***:***@example.test/path?token=***"))
+        assertFalse(sanitized.contains("alice"))
+        assertFalse(sanitized.contains("secret"))
+        assertFalse(sanitized.contains("private-fragment"))
+        assertFalse(sanitized.contains("%ZZ"))
+    }
+
+    @Test
+    fun `authorization assignments redact bearer and basic credentials`() {
+        val sanitized = RuntimeLogSanitizer.sanitizeText(
+            "authorization=Bearer top-secret proxy_authorization: Basic c2VjcmV0 mode=direct",
+        )
+
+        assertEquals(
+            "authorization=*** proxy_authorization: *** mode=direct",
+            sanitized,
+        )
+        assertFalse(sanitized.contains("top-secret"))
+        assertFalse(sanitized.contains("c2VjcmV0"))
+    }
+
+    @Test
     fun `inline credentials are redacted without changing ordinary values`() {
         assertEquals(
             "token=*** password: *** mode=direct api_key='***'",
@@ -64,6 +110,41 @@ class RuntimeLogSanitizerTest {
             "https://example.com/profile?access%5Ftoken=***&sig=***&safe=yes",
             RuntimeLogSanitizer.sanitizeText(
                 "https://example.com/profile?access%5Ftoken=abc&sig=xyz&safe=yes",
+            ),
+        )
+    }
+
+    @Test
+    fun `session and oauth-style assignments are redacted`() {
+        assertEquals(
+            "refresh_token=*** client-secret: *** session=*** session_id='***' mode=direct",
+            RuntimeLogSanitizer.sanitizeText(
+                "refresh_token=refresh-secret client-secret: client-secret-value " +
+                    "session=session-secret session_id='session-id-secret' mode=direct",
+            ),
+        )
+    }
+
+    @Test
+    fun `session and oauth-style query keys are redacted`() {
+        assertEquals(
+            "https://example.com/profile?refresh_token=***&client_secret=***&session=***&session-id=***&safe=yes",
+            RuntimeLogSanitizer.sanitizeText(
+                "https://example.com/profile?refresh_token=refresh-secret&client_secret=client-secret-value&" +
+                    "session=session-secret&session-id=session-id-secret&safe=yes",
+            ),
+        )
+    }
+
+    @Test
+    fun `private app paths are redacted from runtime log text`() {
+        val privateRoot = "/data/user/0/rs.chimera.android"
+
+        assertEquals(
+            "failed to open <app-private>/files/profiles/private.yaml",
+            RuntimeLogSanitizer.sanitizePrivatePaths(
+                value = "failed to open $privateRoot/files/profiles/private.yaml",
+                privatePathPrefixes = listOf(privateRoot),
             ),
         )
     }
