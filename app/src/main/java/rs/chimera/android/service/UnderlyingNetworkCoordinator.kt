@@ -33,6 +33,9 @@ internal object UnderlyingNetworkPolicy {
                 }.thenBy { it.index },
             ).map { it.value.value }
 
+    fun <T> explicitOrDefault(orderedNetworks: List<T>): List<T>? =
+        orderedNetworks.takeIf(List<T>::isNotEmpty)
+
     private fun <T> score(candidate: UnderlyingNetworkCandidate<T>): Int {
         var score = candidate.transport.priority
         if (candidate.isValidated) {
@@ -195,8 +198,9 @@ internal class UnderlyingNetworkCoordinator(
         val handles = orderedNetworks.map(Network::getNetworkHandle)
         if (handles == lastAppliedHandles) return
 
+        val networksToApply = UnderlyingNetworkPolicy.explicitOrDefault(orderedNetworks)?.toTypedArray()
         val applied =
-            runCatching { applyNetworks(orderedNetworks.toTypedArray()) }
+            runCatching { applyNetworks(networksToApply) }
                 .onFailure { error ->
                     PrivacySafeLog.warning(TAG, "Failed to apply underlying networks", error, debugDetail = reason)
                 }.getOrDefault(false)

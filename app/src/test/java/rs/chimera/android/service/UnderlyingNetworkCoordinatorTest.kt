@@ -58,6 +58,22 @@ class UnderlyingNetworkCoordinatorTest {
     }
 
     @Test
+    fun emptyCandidateSetFallsBackToSystemDefaultNetwork() {
+        val ordered = UnderlyingNetworkPolicy.order<String>(emptyList())
+
+        assertEquals(emptyList<String>(), ordered)
+        assertNull(UnderlyingNetworkPolicy.explicitOrDefault(ordered))
+    }
+
+    @Test
+    fun nonEmptyCandidateSetRemainsExplicit() {
+        assertEquals(
+            listOf("wifi"),
+            UnderlyingNetworkPolicy.explicitOrDefault(listOf("wifi")),
+        )
+    }
+
+    @Test
     fun latestNetworkResetGenerationSupersedesQueuedRequests() {
         val generation = NetworkResetGeneration()
         val first = generation.next()
