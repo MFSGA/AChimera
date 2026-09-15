@@ -3,6 +3,7 @@ package rs.chimera.android.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -12,12 +13,18 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import rs.chimera.android.R
+import rs.chimera.android.backend.ProfileRemotePolicy
 import rs.chimera.android.backend.model.ProfileDownloadProgress
+import android.os.Build
+import android.view.View
 
 @Composable
 internal fun RemoteProfileDialog(
@@ -36,6 +43,9 @@ internal fun RemoteProfileDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val urlValid = ProfileRemotePolicy.isValidUrl(profileUrl)
+    val proxyValid = proxyUrl.isBlank() || ProfileRemotePolicy.isValidProxyUrl(proxyUrl)
+
     AlertDialog(
         onDismissRequest = {
             if (!isDownloading) onDismiss()
@@ -43,6 +53,7 @@ internal fun RemoteProfileDialog(
         title = { Text(text = stringResource(id = R.string.profile_remote_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SensitiveRemoteAutofillGuard()
                 if (isDownloading) {
                     Text(
                         text = stringResource(id = R.string.profile_downloading),
@@ -84,8 +95,15 @@ internal fun RemoteProfileDialog(
                     onValueChange = onProfileUrlChange,
                     label = { Text(text = stringResource(id = R.string.profile_import_url)) },
                     placeholder = { Text(text = stringResource(id = R.string.profile_url_hint)) },
+                    supportingText = if (profileUrl.isNotBlank() && !urlValid) {
+                        { Text(text = stringResource(id = R.string.profile_url_invalid)) }
+                    } else {
+                        null
+                    },
+                    isError = profileUrl.isNotBlank() && !urlValid,
                     singleLine = true,
                     enabled = !isDownloading,
+                    keyboardOptions = RemoteUrlKeyboardOptions,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -95,6 +113,7 @@ internal fun RemoteProfileDialog(
                     placeholder = { Text(text = stringResource(id = R.string.profile_user_agent_hint)) },
                     singleLine = true,
                     enabled = !isDownloading,
+                    keyboardOptions = RemoteUserAgentKeyboardOptions,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -102,8 +121,15 @@ internal fun RemoteProfileDialog(
                     onValueChange = onProxyUrlChange,
                     label = { Text(text = stringResource(id = R.string.profile_proxy_label)) },
                     placeholder = { Text(text = stringResource(id = R.string.profile_proxy_hint)) },
+                    supportingText = if (!proxyValid) {
+                        { Text(text = stringResource(id = R.string.profile_proxy_invalid)) }
+                    } else {
+                        null
+                    },
+                    isError = !proxyValid,
                     singleLine = true,
                     enabled = !isDownloading,
+                    keyboardOptions = RemoteUrlKeyboardOptions,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(
@@ -124,7 +150,7 @@ internal fun RemoteProfileDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = profileUrl.isNotBlank() && !isDownloading,
+                enabled = urlValid && proxyValid && !isDownloading,
                 onClick = onConfirm,
             ) {
                 Text(text = stringResource(id = R.string.profile_download_file))
@@ -140,3 +166,26 @@ internal fun RemoteProfileDialog(
         },
     )
 }
+
+@Composable
+private fun SensitiveRemoteAutofillGuard() {
+    val view = LocalView.current
+    DisposableEffect(view) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return@DisposableEffect onDispose {}
+        }
+        val previous = view.importantForAutofill
+        view.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+        onDispose { view.importantForAutofill = previous }
+    }
+}
+
+private val RemoteUrlKeyboardOptions = KeyboardOptions(
+    autoCorrectEnabled = false,
+    keyboardType = KeyboardType.Uri,
+)
+
+private val RemoteUserAgentKeyboardOptions = KeyboardOptions(
+    autoCorrectEnabled = false,
+    keyboardType = KeyboardType.Ascii,
+)

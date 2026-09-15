@@ -257,6 +257,7 @@
     <string name="profile_user_agent_hint">可选的自定义客户端标识</string>
     <string name="profile_proxy_label">HTTP 代理</string>
     <string name="profile_proxy_hint">可选，例如 http://host:port</string>
+    <string name="profile_proxy_invalid">请输入有效的 http(s) 代理 URL。</string>
     <string name="profile_auto_update">启用自动更新</string>
     <string name="profile_auto_update_waiting">自动更新：等待首次检查</string>
     <string name="profile_auto_update_last_success">自动更新成功：%1$s</string>

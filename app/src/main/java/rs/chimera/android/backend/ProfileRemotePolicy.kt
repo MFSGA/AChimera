@@ -2,12 +2,28 @@ package rs.chimera.android.backend
 
 import java.net.URI
 import java.util.Locale
+import rs.chimera.android.backend.model.RemoteProfileRequest
 
 internal object ProfileRemotePolicy {
-    fun isValidUrl(value: String): Boolean = parseUrl(value) != null
+    fun isValidUrl(value: String): Boolean = parseHttpUrl(value) != null
+
+    fun normalizeRequest(request: RemoteProfileRequest): RemoteProfileRequest =
+        request.copy(
+            name = request.name?.trim()?.takeIf { it.isNotEmpty() },
+            url = requireValidUrl(request.url).toString(),
+            userAgent = request.userAgent?.trim()?.takeIf { it.isNotEmpty() },
+            proxyUrl = normalizeProxyUrl(request.proxyUrl),
+        )
+
+    fun isValidProxyUrl(value: String): Boolean = parseHttpUrl(value) != null
+
+    fun requireValidProxyUrl(value: String): URI =
+        parseHttpUrl(value) ?: throw IllegalArgumentException(
+            "Profile proxy URL must use http or https",
+        )
 
     fun requireValidUrl(value: String): URI =
-        parseUrl(value) ?: throw IllegalArgumentException(
+        parseHttpUrl(value) ?: throw IllegalArgumentException(
             "Remote profile URL must use http or https",
         )
 
@@ -28,7 +44,13 @@ internal object ProfileRemotePolicy {
         return storageFileName(profileId, sourceName)
     }
 
-    private fun parseUrl(value: String): URI? {
+    private fun normalizeProxyUrl(value: String?): String? =
+        value
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { requireValidProxyUrl(it).toString() }
+
+    private fun parseHttpUrl(value: String): URI? {
         val uri = runCatching { URI(value.trim()) }.getOrNull() ?: return null
         val scheme = uri.scheme?.lowercase(Locale.ROOT)
         return uri.takeIf {

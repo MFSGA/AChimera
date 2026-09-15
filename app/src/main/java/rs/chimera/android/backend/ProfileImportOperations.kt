@@ -74,18 +74,18 @@ internal class ProfileImportOperations(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
     ): Boolean {
-        ProfileRemotePolicy.requireValidUrl(request.url)
-        val resolvedName = request.name?.trim()?.takeIf { it.isNotEmpty() }
+        val normalizedRequest = ProfileRemotePolicy.normalizeRequest(request)
+        val resolvedName = normalizedRequest.name
             ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
 
         val id = UUID.randomUUID().toString()
         val destinationFile = File(
             context.filesDir,
-            ProfileRemotePolicy.storageFileNameForUrl(id, request.url),
+            ProfileRemotePolicy.storageFileNameForUrl(id, normalizedRequest.url),
         )
         val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
         withContext(Dispatchers.IO) {
-            downloadProfileToFile(stagedFile, request, onProgress)
+            downloadProfileToFile(stagedFile, normalizedRequest, onProgress)
         }
 
         val profileJson = JSONObject()
@@ -96,11 +96,11 @@ internal class ProfileImportOperations(
         profileJson.put("isActive", false)
         profileJson.put("fileSize", stagedFile.length())
         profileJson.put("type", ProfileType.REMOTE.name)
-        profileJson.put("url", request.url)
+        profileJson.put("url", normalizedRequest.url)
         profileJson.put("lastUpdated", System.currentTimeMillis())
-        profileJson.put("autoUpdate", request.autoUpdate)
-        if (request.userAgent != null) profileJson.put("userAgent", request.userAgent)
-        if (request.proxyUrl != null) profileJson.put("proxyUrl", request.proxyUrl)
+        profileJson.put("autoUpdate", normalizedRequest.autoUpdate)
+        if (normalizedRequest.userAgent != null) profileJson.put("userAgent", normalizedRequest.userAgent)
+        if (normalizedRequest.proxyUrl != null) profileJson.put("proxyUrl", normalizedRequest.proxyUrl)
 
         return ProfileImportTransactionPolicy.run(
             stagedFile = stagedFile,

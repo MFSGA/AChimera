@@ -2,7 +2,10 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.app.AlertDialog
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.text.InputType
+import android.view.View
 import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -248,7 +251,15 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private fun showUrlImportDialog() {
-        val input = EditText(this).apply { setText("https://") }
+        val input = EditText(this).apply {
+            setText("https://")
+            inputType = InputType.TYPE_CLASS_TEXT or
+                InputType.TYPE_TEXT_VARIATION_URI or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
+            }
+        }
         val dialog = AlertDialog.Builder(this)
             .setTitle(R.string.profile_import_url)
             .setView(input)

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import rs.chimera.android.backend.model.RemoteProfileRequest
 
 class ProfileRemotePolicyTest {
     @Test
@@ -68,5 +69,48 @@ class ProfileRemotePolicyTest {
             "profile.yaml",
             ProfileRemotePolicy.storageFileName("profile", "config."),
         )
+    }
+
+    @Test
+    fun acceptsOnlyHttpAndHttpsProxyUrls() {
+        assertTrue(ProfileRemotePolicy.isValidProxyUrl("http://127.0.0.1:7890"))
+        assertTrue(ProfileRemotePolicy.isValidProxyUrl("https://user:pass@example.com:8443"))
+        assertFalse(ProfileRemotePolicy.isValidProxyUrl("socks5://127.0.0.1:1080"))
+        assertFalse(ProfileRemotePolicy.isValidProxyUrl("http:///missing-host"))
+    }
+
+    @Test
+    fun normalizeRequestTrimsOptionalFieldsAndValidatesProxy() {
+        assertEquals(
+            RemoteProfileRequest(
+                name = "Example",
+                url = "https://example.com/config.yaml",
+                autoUpdate = true,
+                userAgent = "Chimera",
+                proxyUrl = "http://user:pass@127.0.0.1:7890",
+            ),
+            ProfileRemotePolicy.normalizeRequest(
+                RemoteProfileRequest(
+                    name = " Example ",
+                    url = " https://example.com/config.yaml ",
+                    autoUpdate = true,
+                    userAgent = " Chimera ",
+                    proxyUrl = " http://user:pass@127.0.0.1:7890 ",
+                ),
+            ),
+        )
+    }
+
+    @Test
+    fun normalizeRequestRejectsUnsupportedProxyScheme() {
+        assertThrows(IllegalArgumentException::class.java) {
+            ProfileRemotePolicy.normalizeRequest(
+                RemoteProfileRequest(
+                    name = null,
+                    url = "https://example.com/config.yaml",
+                    proxyUrl = "socks5://127.0.0.1:1080",
+                ),
+            )
+        }
     }
 }

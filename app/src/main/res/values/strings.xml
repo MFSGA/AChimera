@@ -256,6 +256,7 @@
     <string name="profile_user_agent_hint">Optional custom client header</string>
     <string name="profile_proxy_label">HTTP Proxy</string>
     <string name="profile_proxy_hint">Optional http://host:port</string>
+    <string name="profile_proxy_invalid">Please enter a valid http(s) proxy URL.</string>
     <string name="profile_auto_update">Enable auto update</string>
     <string name="profile_auto_update_waiting">Auto update: waiting for the first check</string>
     <string name="profile_auto_update_last_success">Auto update succeeded: %1$s</string>
