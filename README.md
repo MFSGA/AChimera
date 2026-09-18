@@ -82,7 +82,7 @@ cargo install cargo-ndk --locked
 .\gradlew testDebugUnitTest lintDebug
 ```
 
-GitHub Actions 会每天运行一次 `Nightly Build`，使用与本地和正式 CI 相同的 Rust/Android 工具链，并上传完整 ABI 的 Debug APK。也可以在 Actions 页面手动触发该工作流。
+GitHub Actions 会每天运行一次 `Nightly Build`，使用与本地和正式 CI 相同的 Rust/Android 工具链，并将完整 ABI 的 Debug APK 发布到滚动更新的 GitHub Nightly 预发布版本，同时保留 14 天的 Actions Artifact。也可以在 Actions 页面手动触发该工作流。
 
 构建 Release APK：
 

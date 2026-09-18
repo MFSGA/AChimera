@@ -12,7 +12,7 @@ defaults:
     shell: bash
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   RUST_TOOLCHAIN: "1.97.1"
@@ -134,3 +134,48 @@ jobs:
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish GitHub nightly release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NIGHTLY_TAG: nightly
+        run: |
+          set -euo pipefail
+          mapfile -t APK_PATHS < <(find app/build/outputs/apk/debug -type f -name '*.apk' | sort)
+          if [ "${#APK_PATHS[@]}" -eq 0 ]; then
+            echo "No nightly APK found." >&2
+            exit 1
+          fi
+
+          mkdir -p nightly-release
+          sha256sum "${APK_PATHS[@]}" > nightly-release/SHA256SUMS.txt
+          RELEASE_TITLE="Nightly $(date -u +%Y-%m-%d)"
+          RELEASE_NOTES=$(cat <<EOF
+          Automated nightly build from commit ${GITHUB_SHA}.
+
+          Build time (UTC): $(date -u --iso-8601=seconds)
+
+          This is an unsigned pre-release build for testing and is not a stable release.
+          EOF
+          )
+
+          RELEASE_FILES=("${APK_PATHS[@]}" nightly-release/SHA256SUMS.txt)
+          if gh release view "$NIGHTLY_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$NIGHTLY_TAG" "${RELEASE_FILES[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+            gh release edit "$NIGHTLY_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$RELEASE_TITLE" \
+              --target "$GITHUB_SHA" \
+              --notes "$RELEASE_NOTES" \
+              --prerelease
+          else
+            gh release create "$NIGHTLY_TAG" "${RELEASE_FILES[@]}" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TITLE" \
+              --notes "$RELEASE_NOTES" \
+              --prerelease \
+              --latest=false
+          fi
