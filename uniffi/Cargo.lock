@@ -518,8 +518,8 @@ dependencies = [
 
 [[package]]
 name = "chimera-dns"
-version = "0.25.5"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=9d8a568a84769c37dfc541fa0f4443ba3a61cbba#9d8a568a84769c37dfc541fa0f4443ba3a61cbba"
+version = "0.26.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=dec0382555fff54b7611531d23778df397df77ec#dec0382555fff54b7611531d23778df397df77ec"
 dependencies = [
  "async-trait",
  "futures",
@@ -634,8 +634,8 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clash-lib"
-version = "0.25.5"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=9d8a568a84769c37dfc541fa0f4443ba3a61cbba#9d8a568a84769c37dfc541fa0f4443ba3a61cbba"
+version = "0.26.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=dec0382555fff54b7611531d23778df397df77ec#dec0382555fff54b7611531d23778df397df77ec"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4849,8 +4849,8 @@ dependencies = [
 
 [[package]]
 name = "watfaq-netstack"
-version = "0.25.5"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=9d8a568a84769c37dfc541fa0f4443ba3a61cbba#9d8a568a84769c37dfc541fa0f4443ba3a61cbba"
+version = "0.26.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=dec0382555fff54b7611531d23778df397df77ec#dec0382555fff54b7611531d23778df397df77ec"
 dependencies = [
  "bytes",
  "etherparse",
