@@ -697,13 +697,7 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay(
     ): Short
-    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers(
-    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_rules(
-    ): Short
-    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider(
-    ): Short
-    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_reset_network(
     ): Short
@@ -712,6 +706,12 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_config(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider(
     ): Short
@@ -762,13 +762,7 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_delay(`ptr`: Long,`name`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`timeout`: RustBuffer.ByValue,
     ): Long
-    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(`ptr`: Long,
-    ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_rules(`ptr`: Long,
-    ): Long
-    external fun uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
-    ): Long
-    external fun uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(`ptr`: Long,`name`: RustBuffer.ByValue,`recordType`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_reset_network(`ptr`: Long,
     ): Long
@@ -777,6 +771,12 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_set_mode(`ptr`: Long,`mode`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_config(`ptr`: Long,`config`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(`ptr`: Long,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(`ptr`: Long,`name`: RustBuffer.ByValue,`recordType`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
     ): Long
@@ -937,37 +937,28 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_close_connection() != 21182.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 12014.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_configs() != 46474.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connection_summary() != 59183.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connection_summary() != 34567.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections() != 34026.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_connections() != 48538.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_memory() != 19857.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_memory() != 31024.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_mode() != 46336.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_mode() != 16219.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxies() != 49429.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxies() != 49318.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay() != 13007.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_delay() != 37255.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers() != 30983.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_rules() != 52140.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider() != 58383.toShort()) {
-        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
-    }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns() != 46980.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_rules() != 39457.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_reset_network() != 4116.toShort()) {
@@ -976,13 +967,22 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_select_proxy() != 46981.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode() != 63947.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_set_mode() != 55644.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_config() != 62337.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider() != 12271.toShort()) {
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers() != 22998.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider() != 43775.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns() != 54370.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider() != 12254.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_constructor_clashcontroller_new() != 63231.toShort()) {
@@ -1507,13 +1507,7 @@ public interface ClashControllerInterface {
 
     suspend fun `getProxyDelay`(`name`: kotlin.String, `url`: kotlin.String?, `timeout`: kotlin.Int?): DelayResponse
 
-    suspend fun `getProxyProviders`(): List<ProxyProviderSnapshot>
-
     suspend fun `getRules`(): List<RuleSnapshot>
-
-    suspend fun `healthcheckProxyProvider`(`name`: kotlin.String)
-
-    suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String): kotlin.String
 
     suspend fun `resetNetwork`()
 
@@ -1522,6 +1516,12 @@ public interface ClashControllerInterface {
     suspend fun `setMode`(`mode`: Mode)
 
     suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>)
+
+    suspend fun `getProxyProviders`(): List<ProxyProviderSnapshot>
+
+    suspend fun `healthcheckProxyProvider`(`name`: kotlin.String)
+
+    suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String): kotlin.String
 
     suspend fun `updateProxyProvider`(`name`: kotlin.String)
 
@@ -1826,27 +1826,6 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
 
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `getProxyProviders`() : List<ProxyProviderSnapshot> {
-        return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(
-                uniffiHandle,
-
-            )
-        },
-        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
-        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
-        // lift function
-        { FfiConverterSequenceTypeProxyProviderSnapshot.lift(it) },
-        // Error FFI converter
-        ChimeraException.ErrorHandler,
-    )
-    }
-
-
-    @Throws(ChimeraException::class)
-    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getRules`() : List<RuleSnapshot> {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
@@ -1860,49 +1839,6 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterSequenceTypeRuleSnapshot.lift(it) },
-        // Error FFI converter
-        ChimeraException.ErrorHandler,
-    )
-    }
-
-
-    @Throws(ChimeraException::class)
-    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `healthcheckProxyProvider`(`name`: kotlin.String) {
-        return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(
-                uniffiHandle,
-                FfiConverterString.lower(`name`),
-            )
-        },
-        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
-        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
-        // lift function
-        { Unit },
-
-        // Error FFI converter
-        ChimeraException.ErrorHandler,
-    )
-    }
-
-
-    @Throws(ChimeraException::class)
-    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String) : kotlin.String {
-        return uniffiRustCallAsync(
-        callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(
-                uniffiHandle,
-                FfiConverterString.lower(`name`),FfiConverterString.lower(`recordType`),
-            )
-        },
-        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
-        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
-        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
-        // lift function
-        { FfiConverterString.lift(it) },
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
@@ -1991,6 +1927,70 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         // lift function
         { Unit },
 
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getProxyProviders`() : List<ProxyProviderSnapshot> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeProxyProviderSnapshot.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `healthcheckProxyProvider`(`name`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(
+                uniffiHandle,
+                FfiConverterString.lower(`name`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String) : kotlin.String {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(
+                uniffiHandle,
+                FfiConverterString.lower(`name`),FfiConverterString.lower(`recordType`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterString.lift(it) },
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
