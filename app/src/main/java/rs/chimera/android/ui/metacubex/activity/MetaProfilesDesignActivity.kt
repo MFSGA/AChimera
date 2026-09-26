@@ -2,7 +2,6 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.app.AlertDialog
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,7 +18,6 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
-import rs.chimera.android.backend.applyUpdatedProfileToRunningVpn
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
@@ -200,9 +198,9 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             initialUserAgent = profile.userAgent.orEmpty(),
             initialProxyUrl = profile.proxyUrl.orEmpty(),
             requireName = true,
-        ) { form ->
+        ) { form, dismiss, setSubmitting ->
             lifecycleScope.launch {
-                performOperation(
+                val succeeded = performOperation(
                     progressMessage = getString(R.string.profile_edit_settings),
                     successMessage = getString(R.string.profile_settings_saved),
                     errorMessageRes = R.string.profile_settings_error,
@@ -218,6 +216,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                         ),
                     )
                 }
+                if (succeeded) dismiss() else setSubmitting(false)
             }
         }
     }
@@ -290,10 +289,10 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             titleRes = R.string.profile_import_url,
             initialUrl = getString(R.string.profile_url_scheme_prefix),
             requireName = false,
-        ) { form ->
+        ) { form, dismiss, setSubmitting ->
             lifecycleScope.launch {
                 var resolvedName = form.name ?: form.url
-                performOperation(
+                val succeeded = performOperation(
                     progressMessage = getString(R.string.profile_importing),
                     successMessage = getString(R.string.profile_import_success, resolvedName),
                     errorMessageRes = R.string.profile_import_error,
@@ -311,6 +310,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                         ),
                     )
                 }
+                if (succeeded) dismiss() else setSubmitting(false)
             }
         }
     }
@@ -333,19 +333,23 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         progressMessage: String,
         successMessage: String,
         errorMessageRes: Int,
+        successMessageProvider: (() -> String)? = null,
         operation: suspend () -> Unit,
-    ) {
-        if (operationInProgress) return
+    ): Boolean {
+        if (operationInProgress) return false
         operationInProgress = true
         design.showOperation(progressMessage)
         try {
             withContext(Dispatchers.IO) { operation() }
-            if (loadProfiles()) design.showToast(successMessage)
+            if (!loadProfiles()) return false
+            design.showToast(successMessageProvider?.invoke() ?: successMessage)
+            return true
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             loadProfiles()
             design.showToast(profileError(errorMessageRes, error))
+            return false
         } finally {
             operationInProgress = false
         }

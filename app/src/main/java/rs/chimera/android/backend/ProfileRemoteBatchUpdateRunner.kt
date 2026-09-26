@@ -1,6 +1,5 @@
 package rs.chimera.android.backend
 
-import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.ProfileSummary
 
@@ -14,17 +13,17 @@ internal sealed interface ProfileRemoteBatchUpdateResult {
 
 internal fun ChimeraBackend.profileRemoteBatchUpdateRunner() = ProfileRemoteBatchUpdateRunner(
     listProfiles = ::listProfiles,
-    updateProfile = { id, afterCommit -> updateRemoteProfile(id) { _ -> afterCommit() } },
+    updateProfile = ::updateRemoteProfile,
     activeProfileId = { activeProfile.value?.id },
-    serviceState = serviceState,
+    serviceState = { serviceState.value },
     restartVpn = ::restartVpn,
 )
 
 internal class ProfileRemoteBatchUpdateRunner(
     private val listProfiles: suspend () -> List<ProfileSummary>,
-    private val updateProfile: suspend (String, suspend () -> Unit) -> Unit,
+    private val updateProfile: suspend (String) -> Unit,
     private val activeProfileId: () -> String?,
-    private val serviceState: StateFlow<ServiceState>,
+    private val serviceState: () -> ServiceState,
     private val restartVpn: suspend () -> Unit,
 ) {
     suspend fun run(): ProfileRemoteBatchUpdateResult {

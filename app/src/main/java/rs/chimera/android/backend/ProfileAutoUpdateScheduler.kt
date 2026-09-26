@@ -27,12 +27,35 @@ internal class ProfileAutoUpdateScheduler(
     private val componentName = ComponentName(context, ProfileAutoUpdateJobService::class.java)
 
     fun refresh(profiles: List<ProfileSummary>) {
-        val scheduled = scheduler.allPendingJobs.any { job -> job.id == JOB_ID }
+        val scheduledJobs = scheduler.allPendingJobs
+        val scheduled = scheduledJobs.any { job -> job.id == JOB_ID }
         if (ProfileAutoUpdatePolicy.shouldSchedule(profiles)) {
             if (!scheduled) schedule()
         } else if (scheduled) {
             scheduler.cancel(JOB_ID)
         }
+        if (!ProfileAutoUpdatePolicy.shouldSchedule(profiles) &&
+            scheduledJobs.any { job -> job.id == IMMEDIATE_JOB_ID }
+        ) {
+            scheduler.cancel(IMMEDIATE_JOB_ID)
+        }
+    }
+
+    fun requestImmediateRefresh() {
+        val job = JobInfo.Builder(IMMEDIATE_JOB_ID, componentName)
+            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+            .setBackoffCriteria(
+                ProfileAutoUpdatePolicy.BASE_RETRY_DELAY_MILLIS,
+                JobInfo.BACKOFF_POLICY_EXPONENTIAL,
+            )
+            .build()
+        val scheduled = ProfileAutoUpdateScheduleRetry.replaceCurrent(
+            loadPrevious = { scheduler.allPendingJobs.firstOrNull { it.id == IMMEDIATE_JOB_ID } },
+            cancelPrevious = { scheduler.cancel(IMMEDIATE_JOB_ID) },
+            scheduleReplacement = { scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS },
+            restorePrevious = { scheduler.schedule(it) == JobScheduler.RESULT_SUCCESS },
+        )
+        check(scheduled) { "Unable to schedule immediate profile refresh" }
     }
 
     private fun schedule() {
@@ -53,6 +76,7 @@ internal class ProfileAutoUpdateScheduler(
 
     internal companion object {
         const val JOB_ID = 0x4348_5052
+        const val IMMEDIATE_JOB_ID = 0x4348_5053
         const val INTERVAL_MILLIS = ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS
     }
 }

@@ -253,6 +253,10 @@
     <string name="profile_import_success">已导入 %1$s</string>
     <string name="profile_import_error">导入失败：%1$s</string>
     <string name="profile_update">更新配置</string>
+    <string name="profile_edit_settings">编辑远程设置</string>
+    <string name="profile_settings_saved">远程配置设置已保存。</string>
+    <string name="profile_settings_error">保存远程配置设置失败：%1$s</string>
+    <string name="profile_saving_settings">正在保存远程配置设置…</string>
     <string name="profile_update_success">已更新 %1$s</string>
     <string name="profile_update_error">更新失败：%1$s</string>
     <string name="profile_update_reload_error">配置已更新，但 VPN 重新加载失败：%1$s</string>

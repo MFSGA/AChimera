@@ -1,71 +1,8 @@
 package rs.chimera.android.backend
 
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.ProfileSummary
-import rs.chimera.android.backend.model.ProfileType
 import rs.chimera.android.backend.model.ServiceState
-
-internal data class ProfileAutoUpdateState(
-    val lastAttempt: Long?,
-    val failureCount: Int,
-    val nextAttemptAt: Long?,
-    val lastError: String?,
-)
-
-/** Selects scheduled remote refreshes and computes bounded retry backoff. */
-internal object ProfileAutoUpdatePolicy {
-    const val UPDATE_INTERVAL_MILLIS = 24L * 60L * 60L * 1_000L
-    const val BASE_RETRY_DELAY_MILLIS = 15L * 60L * 1_000L
-    const val MAX_RETRY_DELAY_MILLIS = 5L * 60L * 60L * 1_000L
-
-    fun eligibleProfiles(
-        profiles: List<ProfileSummary>,
-        now: Long = System.currentTimeMillis(),
-    ): List<ProfileSummary> =
-        profiles.filter { profile ->
-            val nextAttemptAt = profile.nextAutoUpdateAt
-                ?: profile.lastUpdated?.let { it + UPDATE_INTERVAL_MILLIS }
-            isConfigured(profile) &&
-                (nextAttemptAt == null || nextAttemptAt <= now)
-        }
-
-    fun shouldSchedule(profiles: List<ProfileSummary>): Boolean = profiles.any(::isConfigured)
-
-    fun successState(attemptedAt: Long): ProfileAutoUpdateState =
-        ProfileAutoUpdateState(
-            lastAttempt = attemptedAt,
-            failureCount = 0,
-            nextAttemptAt = attemptedAt + UPDATE_INTERVAL_MILLIS,
-            lastError = null,
-        )
-
-    fun failureState(
-        previousFailures: Int,
-        attemptedAt: Long,
-        error: Throwable,
-    ): ProfileAutoUpdateState {
-        val failureCount = (previousFailures + 1).coerceAtLeast(1)
-        val exponent = (failureCount - 1).coerceAtMost(MAX_BACKOFF_EXPONENT)
-        val delay = (BASE_RETRY_DELAY_MILLIS * (1L shl exponent))
-            .coerceAtMost(MAX_RETRY_DELAY_MILLIS)
-        return ProfileAutoUpdateState(
-            lastAttempt = attemptedAt,
-            failureCount = failureCount,
-            nextAttemptAt = attemptedAt + delay,
-            lastError = error::class.java.simpleName.take(MAX_ERROR_LENGTH),
-        )
-    }
-
-    private fun isConfigured(profile: ProfileSummary): Boolean =
-        profile.type == ProfileType.REMOTE &&
-            profile.isRemote &&
-            profile.autoUpdate &&
-            !profile.url.isNullOrBlank()
-
-    private const val MAX_BACKOFF_EXPONENT = 16
-    private const val MAX_ERROR_LENGTH = 80
-}
 
 internal interface ProfileAutoUpdateOperations {
     val serviceState: StateFlow<ServiceState>
@@ -99,7 +36,7 @@ internal class ProfileAutoUpdateRunner(
     suspend fun run(): ProfileAutoUpdateResult {
         val allProfiles = runCatching { operations.listProfiles() }
             .getOrElse { error ->
-                error.throwIfCancellation()
+                error.throwIfCancellationOrFatal()
                 return ProfileAutoUpdateResult(
                     attempted = 0,
                     updated = 0,
@@ -127,11 +64,11 @@ internal class ProfileAutoUpdateRunner(
                         ProfileAutoUpdatePolicy.successState(attemptedAt),
                     )
                 }.onFailure { error ->
-                    error.throwIfCancellation()
+                    error.throwIfCancellationOrFatal()
                     failures += "state:${profile.id}:${error::class.java.simpleName}"
                 }
             } catch (error: Exception) {
-                error.throwIfCancellation()
+                error.throwIfCancellationOrFatal()
                 retryRequired = true
                 val failureStillCurrent = runCatching {
                     operations.listProfiles()
@@ -141,7 +78,7 @@ internal class ProfileAutoUpdateRunner(
                                 currentProfile.lastUpdated == profile.lastUpdated
                         } == true
                 }.getOrElse { listError ->
-                    listError.throwIfCancellation()
+                    listError.throwIfCancellationOrFatal()
                     failures += "list:${listError::class.java.simpleName}"
                     false
                 }
@@ -156,10 +93,9 @@ internal class ProfileAutoUpdateRunner(
                             ),
                         )
                     }.onFailure { stateError ->
-                        stateError.throwIfCancellation()
+                        stateError.throwIfCancellationOrFatal()
                         failures += "state:${profile.id}:${stateError::class.java.simpleName}"
                     }
-                }
                 }
                 failures += "${profile.id}:${error::class.java.simpleName}"
             }
@@ -170,7 +106,7 @@ internal class ProfileAutoUpdateRunner(
             runCatching { operations.restartVpn() }
                 .onSuccess { restartedVpn = true }
                 .onFailure { error ->
-                    error.throwIfCancellation()
+                    error.throwIfCancellationOrFatal()
                     failures += "restart:${error::class.java.simpleName}"
                 }
         }
@@ -185,14 +121,4 @@ internal class ProfileAutoUpdateRunner(
             retryRequired = retryRequired,
         )
     }
-}
-
-private fun ProfileSummary.hasSameAutoUpdateSource(other: ProfileSummary): Boolean =
-    autoUpdate == other.autoUpdate &&
-        url == other.url &&
-        userAgent == other.userAgent &&
-        proxyUrl == other.proxyUrl
-
-private fun Throwable.throwIfCancellation() {
-    if (this is CancellationException) throw this
 }

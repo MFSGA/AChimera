@@ -3,7 +3,10 @@ package rs.chimera.android.backend
 import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
+import rs.chimera.android.backend.model.RemoteProfileSettings
 import java.io.File
+
+internal const val PROFILE_AUTO_UPDATE_BOUND_STATE_REQUIRED_KEY = "autoUpdateStateBoundRequired"
 
 internal data class ProfileCatalogDocument(
     val json: JSONArray,
@@ -25,15 +28,8 @@ internal data class RemoteProfileCatalogEntry(
     val userAgent: String?,
     val proxyUrl: String?,
     val filePath: String,
-    val lastUpdated: Long?,
+    val lastUpdated: Long? = null,
 )
-
-internal fun nextRemoteProfileCommitTimestamp(previous: Long?, now: Long): Long =
-    when {
-        previous == null || previous < now -> now
-        previous < Long.MAX_VALUE -> previous + 1
-        else -> Long.MAX_VALUE
-    }
 
 internal class ProfileCatalogStore(
     private val profilePrefs: SharedPreferences,
@@ -138,7 +134,12 @@ internal class ProfileCatalogStore(
         commitPreferences(update)
     }
 
-    fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings) =
+    fun updateRemoteProfileSettings(
+        id: String,
+        settings: RemoteProfileSettings,
+        resetLastUpdated: Boolean = false,
+        requireBoundAutoUpdateState: Boolean = false,
+    ) =
         catalogCoordinator.withLock {
             val jsonArray = readJson()
             val profile = jsonArray.findById(id)
@@ -149,6 +150,10 @@ internal class ProfileCatalogStore(
             profile.put("autoUpdate", settings.autoUpdate)
             settings.userAgent?.let { profile.put("userAgent", it) } ?: profile.remove("userAgent")
             settings.proxyUrl?.let { profile.put("proxyUrl", it) } ?: profile.remove("proxyUrl")
+            if (resetLastUpdated) profile.remove("lastUpdated")
+            if (requireBoundAutoUpdateState) {
+                profile.put(PROFILE_AUTO_UPDATE_BOUND_STATE_REQUIRED_KEY, true)
+            }
             commitPreferences { putString(PROFILES_LIST_KEY, jsonArray.toString()) }
         }
     fun updateRemoteProfileMetadata(

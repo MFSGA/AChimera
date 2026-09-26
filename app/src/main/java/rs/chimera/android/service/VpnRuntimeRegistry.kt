@@ -2,6 +2,8 @@ package rs.chimera.android.service
 
 import java.util.concurrent.atomic.AtomicBoolean
 
+internal class VpnStopInProgressException : IllegalStateException("VPN service is stopping")
+
 internal interface VpnRuntimeControl {
     fun protectSocket(fd: Int): Boolean
 

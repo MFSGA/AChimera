@@ -37,6 +37,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
+import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.ui.components.ProfileCard
 import rs.chimera.android.ui.components.RemoteProfileDialog
 import rs.chimera.android.viewmodel.ProfileViewModel
@@ -57,6 +58,8 @@ fun ProfileScreen(
     var showLocalDialog by remember { mutableStateOf(false) }
     var showRemoteDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
+    var editingRemoteProfile by remember { mutableStateOf<Profile?>(null) }
+    var awaitingRemoteSettingsSave by remember { mutableStateOf(false) }
     var wasDownloading by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -74,6 +77,13 @@ fun ProfileScreen(
             remoteUserAgent = ""
             remoteProxyUrl = ""
             wasDownloading = false
+        }
+    }
+
+    LaunchedEffect(vm.isSavingRemoteProfileSettings) {
+        if (awaitingRemoteSettingsSave && !vm.isSavingRemoteProfileSettings) {
+            if (!vm.statusMessageIsError) editingRemoteProfile = null
+            awaitingRemoteSettingsSave = false
         }
     }
 
@@ -180,6 +190,51 @@ fun ProfileScreen(
                 remoteAutoUpdate = false
                 remoteUserAgent = ""
                 remoteProxyUrl = ""
+            },
+        )
+    }
+
+    editingRemoteProfile?.let { profile ->
+        var name by remember(profile.id) { mutableStateOf(profile.name) }
+        var url by remember(profile.id) { mutableStateOf(profile.url.orEmpty()) }
+        var autoUpdate by remember(profile.id) { mutableStateOf(profile.autoUpdate) }
+        var userAgent by remember(profile.id) { mutableStateOf(profile.userAgent.orEmpty()) }
+        var proxyUrl by remember(profile.id) { mutableStateOf(profile.proxyUrl.orEmpty()) }
+        RemoteProfileDialog(
+            profileName = name,
+            titleRes = R.string.profile_edit_settings,
+            confirmRes = R.string.save,
+            requireName = true,
+            profileUrl = url,
+            autoUpdate = autoUpdate,
+            userAgent = userAgent,
+            proxyUrl = proxyUrl,
+            isDownloading = vm.isSavingRemoteProfileSettings,
+            workingMessageRes = R.string.profile_saving_settings,
+            downloadProgress = null,
+            onProfileNameChange = { name = it },
+            onProfileUrlChange = { url = it },
+            onAutoUpdateChange = { autoUpdate = it },
+            onUserAgentChange = { userAgent = it },
+            onProxyUrlChange = { proxyUrl = it },
+            onConfirm = {
+                if (!vm.isProfileOperationInProgress) {
+                    awaitingRemoteSettingsSave = true
+                    vm.updateRemoteProfileSettings(
+                        context = context,
+                        profile = profile,
+                        settings = RemoteProfileSettings(
+                            name = name,
+                            url = url,
+                            autoUpdate = autoUpdate,
+                            userAgent = userAgent.ifBlank { null },
+                            proxyUrl = proxyUrl.ifBlank { null },
+                        ),
+                    )
+                }
+            },
+            onDismiss = {
+                if (!vm.isSavingRemoteProfileSettings) editingRemoteProfile = null
             },
         )
     }
@@ -339,6 +394,11 @@ fun ProfileScreen(
                 onActivate = { vm.activateProfile(context, profile) },
                 onDelete = { vm.deleteProfile(context, profile) },
                 onRename = { vm.renameProfile(context, profile, it) },
+                onEditRemoteSettings = if (profile.type == ProfileType.REMOTE) {
+                    { editingRemoteProfile = profile }
+                } else {
+                    null
+                },
                 onUpdate = if (profile.type == ProfileType.REMOTE) {
                     { vm.updateRemoteProfile(context, profile) }
                 } else {
@@ -357,6 +417,7 @@ private fun ProfileItem(
     onActivate: () -> Unit,
     onDelete: () -> Unit,
     onRename: (String) -> Unit,
+    onEditRemoteSettings: (() -> Unit)?,
     onUpdate: (() -> Unit)?,
 ) {
     var showRenameDialog by remember { mutableStateOf(false) }
@@ -408,6 +469,7 @@ private fun ProfileItem(
         onActivate = onActivate,
         onDelete = onDelete,
         onRenameRequest = { showRenameDialog = true },
+        onEditRemoteSettings = onEditRemoteSettings,
         onUpdate = onUpdate,
     )
 }

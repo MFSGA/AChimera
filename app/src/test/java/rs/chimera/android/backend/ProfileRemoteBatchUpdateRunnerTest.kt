@@ -1,11 +1,9 @@
 package rs.chimera.android.backend
 
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
-import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
 import rs.chimera.android.backend.model.ServiceState
@@ -16,7 +14,7 @@ class ProfileRemoteBatchUpdateRunnerTest {
         var updates = 0
         val runner = runner(
             profiles = listOf(profile("local", isRemote = false)),
-            updateProfile = { _, _ -> updates++ },
+            updateProfile = { updates++ },
         )
 
         assertSame(ProfileRemoteBatchUpdateResult.NoRemoteProfiles, runner.run())
@@ -34,10 +32,9 @@ class ProfileRemoteBatchUpdateRunnerTest {
                 profile("other", isRemote = true),
             ),
             activeProfileId = { "active" },
-            serviceState = MutableStateFlow(ServiceState.RUNNING),
-            updateProfile = { id, afterCommit ->
+            serviceState = { ServiceState.RUNNING },
+            updateProfile = { id ->
                 updated += id
-                afterCommit()
             },
             restartVpn = { restarts++ },
         )
@@ -53,9 +50,9 @@ class ProfileRemoteBatchUpdateRunnerTest {
 
     private fun runner(
         profiles: List<ProfileSummary>,
-        updateProfile: suspend (String, suspend () -> Unit) -> Unit = { _, afterCommit -> afterCommit() },
+        updateProfile: suspend (String) -> Unit = {},
         activeProfileId: () -> String? = { null },
-        serviceState: MutableStateFlow<ServiceState> = MutableStateFlow(ServiceState.STOPPED),
+        serviceState: () -> ServiceState = { ServiceState.STOPPED },
         restartVpn: suspend () -> Unit = {},
     ) = ProfileRemoteBatchUpdateRunner(
         listProfiles = { profiles },

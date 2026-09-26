@@ -260,6 +260,10 @@
     <string name="profile_import_success">Imported %1$s</string>
     <string name="profile_import_error">Import failed: %1$s</string>
     <string name="profile_update">Update</string>
+    <string name="profile_edit_settings">Edit remote settings</string>
+    <string name="profile_settings_saved">Remote profile settings saved.</string>
+    <string name="profile_settings_error">Failed to save remote profile settings: %1$s</string>
+    <string name="profile_saving_settings">Saving remote profile settings…</string>
     <string name="profile_update_success">Updated %1$s</string>
     <string name="profile_update_error">Update failed: %1$s</string>
     <string name="profile_update_reload_error">Profile updated, but VPN reload failed: %1$s</string>

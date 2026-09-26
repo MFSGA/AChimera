@@ -48,6 +48,6 @@ internal fun ProfileSummary.toAutoUpdateState(runtimeApplyPending: Boolean): Pro
         profileRevision = ProfileAutoUpdatePolicy.profileRevision(this),
     )
 
-internal fun Throwable.throwIfCancellation() {
-    if (this is CancellationException) throw this
+internal fun Throwable.throwIfCancellationOrFatal() {
+    if (this !is Exception || this is CancellationException) throw this
 }

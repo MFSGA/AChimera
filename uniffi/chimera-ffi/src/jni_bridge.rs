@@ -1,4 +1,5 @@
-use super::{INIT, install_socket_protector};
+use super::INIT;
+use crate::android_bridge::install_socket_protector;
 use crate::core_state::{ClashInstance, INSTANCE, clear_last_error, runtime, set_last_error};
 use crate::log::init_logger;
 use jni::objects::JObject;

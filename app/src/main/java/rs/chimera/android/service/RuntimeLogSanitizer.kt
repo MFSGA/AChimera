@@ -19,7 +19,6 @@ internal object RuntimeLogSanitizer {
                     },
                 ) { match ->
                     "${match.groupValues[1]}${match.groupValues[2]}${match.groupValues[1]}${match.groupValues[3]}***"
-                }
                 },
             ) { match ->
                 sanitizeUrl(match.value)

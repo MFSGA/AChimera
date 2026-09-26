@@ -5,7 +5,6 @@ import android.view.View
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -26,8 +25,6 @@ import androidx.compose.ui.unit.dp
 import rs.chimera.android.R
 import rs.chimera.android.backend.ProfileRemotePolicy
 import rs.chimera.android.backend.model.ProfileDownloadProgress
-import android.os.Build
-import android.view.View
 
 @Composable
 internal fun RemoteProfileDialog(
@@ -40,6 +37,7 @@ internal fun RemoteProfileDialog(
     userAgent: String,
     proxyUrl: String,
     isDownloading: Boolean,
+    workingMessageRes: Int = R.string.profile_downloading,
     downloadProgress: ProfileDownloadProgress?,
     onProfileNameChange: (String) -> Unit,
     onProfileUrlChange: (String) -> Unit,
@@ -62,7 +60,7 @@ internal fun RemoteProfileDialog(
                 SensitiveRemoteAutofillGuard()
                 if (isDownloading) {
                     Text(
-                        text = stringResource(id = R.string.profile_downloading),
+                        text = stringResource(id = workingMessageRes),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     downloadProgress?.let { progress ->

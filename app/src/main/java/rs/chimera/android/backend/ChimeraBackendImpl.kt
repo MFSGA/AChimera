@@ -8,7 +8,6 @@ import rs.chimera.android.settings.SettingsRepository
 
 import android.content.Context
 import android.net.Uri
-import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -26,6 +25,7 @@ import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
+import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsApplyEffect
@@ -160,8 +160,7 @@ class ChimeraBackendImpl(
         return profiles
     }
 
-    override suspend fun activateProfile(id: String) {
-        profileRecoveryReady.await()
+    private suspend fun activateProfileReady(id: String) {
         withContext(Dispatchers.IO) {
             profileCatalogCoordinator.withLock {
                 val document = profileCatalogStore.readDocument()

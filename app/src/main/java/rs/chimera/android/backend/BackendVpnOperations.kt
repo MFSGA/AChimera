@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.Intent
 import android.net.VpnService
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.ffi.shutdownClash

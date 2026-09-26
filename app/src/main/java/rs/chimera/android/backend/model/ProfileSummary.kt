@@ -23,4 +23,5 @@ data class ProfileSummary(
     val autoUpdateFailures: Int = 0,
     val nextAutoUpdateAt: Long? = null,
     val lastAutoUpdateError: String? = null,
+    val runtimeApplyPending: Boolean = false,
 )

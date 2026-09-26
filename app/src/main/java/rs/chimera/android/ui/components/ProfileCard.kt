@@ -55,6 +55,7 @@ internal fun ProfileCard(
     onActivate: () -> Unit,
     onDelete: () -> Unit,
     onRenameRequest: () -> Unit,
+    onEditRemoteSettings: (() -> Unit)? = null,
     onUpdate: (() -> Unit)?,
 ) {
     var menuExpanded by remember { mutableStateOf(false) }

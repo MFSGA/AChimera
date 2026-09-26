@@ -29,14 +29,23 @@ internal object ProfileRemotePolicy {
         )
     }
 
-    fun invalidatesAutoUpdateState(
+    fun changesRemoteSource(
         current: RemoteProfileCatalogEntry,
         updated: RemoteProfileSettings,
     ): Boolean =
         current.url != updated.url ||
-            current.autoUpdate != updated.autoUpdate ||
             current.userAgent != updated.userAgent ||
             current.proxyUrl != updated.proxyUrl
+
+    fun invalidatesAutoUpdateState(
+        current: RemoteProfileCatalogEntry,
+        updated: RemoteProfileSettings,
+    ): Boolean = changesRemoteSource(current, updated) || current.autoUpdate != updated.autoUpdate
+
+    fun shouldResetLastUpdated(
+        current: RemoteProfileCatalogEntry,
+        updated: RemoteProfileSettings,
+    ): Boolean = updated.autoUpdate && invalidatesAutoUpdateState(current, updated)
 
     fun requireValidUrl(value: String): URI =
         parseHttpUrl(value) ?: throw IllegalArgumentException(
