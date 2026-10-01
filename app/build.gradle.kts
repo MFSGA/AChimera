@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
-val baseVersionName = "0.8.3"
+val baseVersionName = "0.8.4"
 
 fun hasReleaseTag(
     baseVersionName: String,
