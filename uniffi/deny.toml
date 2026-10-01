@@ -39,13 +39,13 @@ allow = [
 
 [[licenses.clarify]]
 name = "chimera-dns"
-version = "0.25.1"
+version = "0.26.1"
 expression = "Apache-2.0"
 license-files = []
 
 [[licenses.clarify]]
 name = "clash-lib"
-version = "0.25.1"
+version = "0.26.1"
 expression = "Apache-2.0"
 license-files = []
 
