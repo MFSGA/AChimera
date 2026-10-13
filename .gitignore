@@ -43,7 +43,9 @@ signing.properties
 uniffi/target
 uniffi/.vscode/settings.json
 
-docs/
+docs/*
+!docs/ai-development-governance.md
+!docs/ai-review-checklist.md
 
 clash-andriod/
 
