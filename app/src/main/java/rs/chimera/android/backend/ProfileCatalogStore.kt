@@ -170,7 +170,10 @@ internal class ProfileCatalogStore(
         profile.put("lastUpdated", updatedAt)
 
         val activeProfile = jsonArray.findActive()
-        commitUpdate(backup = backup) {
+        commitUpdate(
+            backup = backup,
+            targetName = file.name,
+        ) {
             putString(PROFILES_LIST_KEY, jsonArray.toString())
             setActivePath(activeProfile?.getString("filePath"))
         }
@@ -179,10 +182,16 @@ internal class ProfileCatalogStore(
 
     fun commitUpdate(
         backup: File?,
+        targetName: String,
         update: SharedPreferences.Editor.() -> Unit,
     ) {
+        val pendingKeysToClear = profileUpdatePendingKeysForTarget(
+            entries = profilePrefs.all,
+            targetName = targetName,
+        )
         commitPreferences {
             update()
+            pendingKeysToClear.forEach(::remove)
             backup?.let { remove(profileUpdatePendingKey(it.name)) }
         }
     }
