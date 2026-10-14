@@ -90,6 +90,8 @@ GitHub Actions 会每天运行一次 `Nightly Build`，使用与本地和正式 
 .\gradlew assembleRelease
 ```
 
+Release APK 构建需要发布签名配置；签名材料与本地/GitHub Actions 配置方式见[Release APK 签名说明](RELEASE_SIGNING.md)。正式 APK 的证书指纹固定在 [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt)，可用于核对后续版本是否由同一签名密钥签发。Nightly Debug APK 使用 Android 默认 debug key，与正式发布签名身份不同。
+
 `core` 模块会在 Android 编译前自动完成两件事：
 
 1. 使用 `cargo ndk` 为 Android ABI 构建 `chimera-ffi`

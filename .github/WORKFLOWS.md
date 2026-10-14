@@ -8,14 +8,17 @@
 | --- | --- | --- |
 | `ci.yml` | `main` push / PR | 只读 Token；核验 Actions 引用、Cargo dependency policy、Rust fmt/Clippy/tests、UniFFI 绑定、Gradle ktlint/JVM/lint、Debug APK |
 | `nightly.yml` | 每日 19:17 UTC / 手工 dispatch | 构建全 ABI Debug APK，上传 Artifact，使用 `contents: write` 更新滚动 `nightly` GitHub 预发布 |
-| `release.yml` | `v*` 标签 push / 手工 dispatch | 手工 dispatch 可更改版本并推 tag；发布任务使用签名材料（若配置）构建 release APK，检查 Gradle 测试/lint，生成依赖清单、校验和并发布 GitHub Release |
+| `release.yml` | `v*` 标签 push / 手工 dispatch | 手工 dispatch 可更改版本并推 tag；必须配置签名 Secrets，否则失败；构建后逐个用 `apksigner` 验证 APK 与固定证书指纹，再生成依赖清单、校验和并发布 GitHub Release |
 
 ### 不可误判
 
 - CI 通过 **不等于** Android 设备端 VPN、权限撤销、后台恢复、双 UI 一致性、ARM ABI 运行成功。
 - Nightly 是**已有的自动预发布流水线**，不是夜间 AI 复盘；Nightly 具有写入 GitHub Release 的权限。
 - Release 接收 `v*` 标签 push；Codex 不得未经授权执行 tagging 或 workflow dispatch，也不得把普通合并当作稳定发布授权。
-- `release.yml` 的签名材料缺失时可以打包 unsigned APK；不能简单假定每一个稳定发布资产都已签名。修改此流程须 L3 审查。
+- `release.yml` 缺少签名材料、密钥解码/校验失败或 APK 签名验证失败时会停止，不会上传 unsigned Release APK。正式发布密钥不能提交到仓库。
+- `SIGNING_CERT_SHA256.txt` 固定正式 APK 证书的 SHA-256 指纹；每个 Release APK 必须匹配该指纹，Release 同时发布该指纹供用户比较。更换证书需维护者审查并更新指纹。
+- 手动触发的 Release 会在 bump 版本、推送 main 或创建 tag 前检查 Secrets、keystore、密码和别名，并用临时文件验证签名密钥可用，避免无效凭据留下半完成的版本变更。
+- `nightly.yml` 构建的是由 Android 默认 debug key 签名的 Debug APK；它不是正式发布密钥，不能用于验证稳定版签名身份。
 - CI 使用 `contents: read`；新建有写权限的 AI 工作流必须隔离不可信 PR 内容、限制 GitHub Token/Secrets。
 - 现有工作流不含独立的 Codex Reviewer / Issue coding / AI retrospective，不能在文档中宣称它们已自动执行。
 

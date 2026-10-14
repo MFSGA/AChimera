@@ -45,6 +45,70 @@ fun Project.exec(command: String): String = providers
 
 fun env(key: String): String? = System.getenv(key).let { if (it.isNullOrEmpty()) null else it }
 
+abstract class ValidateReleaseSigningTask : DefaultTask() {
+    @get:Input
+    abstract val missingVariables: ListProperty<String>
+
+    @get:Input
+    abstract val keystoreExists: Property<Boolean>
+
+    @TaskAction
+    fun validateSigningConfiguration() {
+        val missing = missingVariables.get()
+        check(missing.isEmpty()) {
+            "Release packaging requires signing environment variables: ${missing.joinToString()}."
+        }
+        check(keystoreExists.get()) {
+            "KEYSTORE_FILE must point to an existing, non-empty release keystore."
+        }
+    }
+}
+
+val releaseSigningEnvironment =
+    mapOf(
+        "KEYSTORE_FILE" to env("KEYSTORE_FILE"),
+        "KEYSTORE_PASSWORD" to env("KEYSTORE_PASSWORD"),
+        "KEY_ALIAS" to env("KEY_ALIAS"),
+        "KEY_PASSWORD" to env("KEY_PASSWORD"),
+    )
+
+if (releaseSigningEnvironment.values.any { !it.isNullOrBlank() }) {
+    rootProject.allprojects.forEach { configuredProject ->
+        configuredProject.tasks.configureEach {
+            notCompatibleWithConfigurationCache(
+                "Release signing credentials must not be stored in Gradle's configuration cache."
+            )
+        }
+    }
+}
+
+val validateReleaseSigning = tasks.register<ValidateReleaseSigningTask>("validateReleaseSigning") {
+    group = "verification"
+    description = "Ensures release artifacts are packaged with the configured release keystore."
+    notCompatibleWithConfigurationCache(
+        "Release signing credentials must not be stored in Gradle's configuration cache."
+    )
+
+    val missing = releaseSigningEnvironment.filterValues { it.isNullOrBlank() }.keys.toList()
+    missingVariables.set(missing)
+    keystoreExists.set(
+        releaseSigningEnvironment["KEYSTORE_FILE"]?.let { keystorePath ->
+            project.file(keystorePath).let { it.isFile && it.length() > 0L }
+        } ?: false,
+    )
+}
+
+tasks.configureEach {
+    if ((name.startsWith("package") || name.startsWith("bundle")) &&
+        name.contains("Release", ignoreCase = true)
+    ) {
+        dependsOn(validateReleaseSigning)
+        notCompatibleWithConfigurationCache(
+            "Release signing credentials must not be stored in Gradle's configuration cache."
+        )
+    }
+}
+
 val verifyVersionNamePolicy by tasks.registering {
     group = "verification"
     description = "Verifies development and release version-name behavior."
@@ -100,7 +164,7 @@ android {
     namespace = "rs.chimera.android"
     compileSdk = 36
     ndkVersion = rootProject.extra["ndkVersion"] as String
-    val keystore = env("KEYSTORE_FILE")
+    val keystore = releaseSigningEnvironment["KEYSTORE_FILE"]
 
     defaultConfig {
         applicationId = "rs.chimera.android"

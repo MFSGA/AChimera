@@ -56,6 +56,56 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: "temurin"
+          java-version: "25"
+
+      - name: Validate signing secrets before version bump
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          MISSING=()
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!name:-}" ]; then
+              MISSING+=("$name")
+            fi
+          done
+          if [ "${#MISSING[@]}" -ne 0 ]; then
+            echo "ERROR: required release signing secrets are missing: ${MISSING[*]}" >&2
+            echo "No version commit or tag was created." >&2
+            exit 1
+          fi
+
+          KEYSTORE_FILE="${RUNNER_TEMP}/chimera-release-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.jks"
+          PROBE_INPUT="${RUNNER_TEMP}/chimera-signing-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
+          PROBE_JAR="${RUNNER_TEMP}/chimera-signing-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.jar"
+          SIGNED_PROBE_JAR="${RUNNER_TEMP}/chimera-signing-probe-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-signed.jar"
+          trap 'rm -f "$KEYSTORE_FILE" "$PROBE_INPUT" "$PROBE_JAR" "$SIGNED_PROBE_JAR"' EXIT
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+          if [ ! -s "$KEYSTORE_FILE" ] || ! keytool -list -keystore "$KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "ERROR: release keystore, password, or key alias is invalid." >&2
+            echo "No version commit or tag was created." >&2
+            exit 1
+          fi
+          printf 'AChimera release signing preflight\n' > "$PROBE_INPUT"
+          jar --create --file "$PROBE_JAR" -C "$RUNNER_TEMP" "$(basename "$PROBE_INPUT")"
+          if ! jarsigner -keystore "$KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" -keypass "$KEY_PASSWORD" \
+            -signedjar "$SIGNED_PROBE_JAR" "$PROBE_JAR" "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "ERROR: release key password or alias cannot sign a test artifact." >&2
+            echo "No version commit or tag was created." >&2
+            exit 1
+          fi
+          echo "Release keystore and signing credentials passed preflight before version/tag writes."
+
       - name: Resolve next version
         id: resolve
         run: |
@@ -283,7 +333,6 @@ jobs:
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
 
       - name: Validate signing secrets
-        id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -297,49 +346,52 @@ jobs:
               MISSING+=("$name")
             fi
           done
-          if [ "${#MISSING[@]}" -eq 0 ]; then
-            echo "✅ All signing secrets present — APKs will be signed"
-            echo "signing_enabled=true" >> "$GITHUB_OUTPUT"
-            echo "signed_suffix=" >> "$GITHUB_OUTPUT"
-          else
-            echo "⚠️ Missing signing secrets: ${MISSING[*]}"
-            echo "  → Building UNSIGNED APKs (still useful for verifying the release pipeline)"
-            echo "  → To enable signing, configure these secrets in Settings → Secrets and variables → Actions"
-            echo "signing_enabled=false" >> "$GITHUB_OUTPUT"
-            echo "signed_suffix=-unsigned" >> "$GITHUB_OUTPUT"
+          if [ "${#MISSING[@]}" -ne 0 ]; then
+            echo "ERROR: required release signing secrets are missing: ${MISSING[*]}" >&2
+            echo "Configure them in Settings → Secrets and variables → Actions." >&2
+            exit 1
           fi
+          echo "All required release signing secrets are present."
 
       - name: Run quality checks
         run: ./gradlew testDebugUnitTest lintDebug
 
-      - name: Decode keystore
-        if: steps.signing.outputs.signing_enabled == 'true'
+      - name: Decode and validate keystore
+        id: keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           set -euo pipefail
-          echo "$KEYSTORE_BASE64" | base64 --decode > keystore.jks
+          umask 077
+          KEYSTORE_FILE="${RUNNER_TEMP}/chimera-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.jks"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+          chmod 600 "$KEYSTORE_FILE"
+          if [ ! -s "$KEYSTORE_FILE" ]; then
+            echo "Decoded release keystore is empty." >&2
+            exit 1
+          fi
+          keytool -list -keystore "$KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null 2>&1
+          echo "path=$KEYSTORE_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Build release APKs
         env:
-          KEYSTORE_FILE: ${{ steps.signing.outputs.signing_enabled == 'true' && format('{0}/keystore.jks', github.workspace) || '' }}
-          KEYSTORE_PASSWORD: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEYSTORE_PASSWORD || '' }}
-          KEY_ALIAS: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEY_ALIAS || '' }}
-          KEY_PASSWORD: ${{ steps.signing.outputs.signing_enabled == 'true' && secrets.KEY_PASSWORD || '' }}
+          KEYSTORE_FILE: ${{ steps.keystore.outputs.path }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           ANDROID_SPLIT_ABI_ENABLE: "true"
           ANDROID_SPLIT_ABI_UNIVERSAL_APK: "true"
         run: |
           set -euo pipefail
           rm -rf app/build/outputs/apk
-          if [ "${{ steps.signing.outputs.signing_enabled }}" = "true" ]; then
-            echo "Building SIGNED release APKs..."
-          else
-            echo "Building UNSIGNED release APKs (signing secrets not configured)..."
-          fi
+          echo "Building release APKs with the configured release keystore..."
           ./gradlew assembleRelease
 
       - name: Verify signed APK signatures
-        if: steps.signing.outputs.signing_enabled == 'true'
         run: |
           set -euo pipefail
           APKSIGNER="${ANDROID_HOME}/build-tools/${ANDROID_BUILD_TOOLS_VERSION}/apksigner"
@@ -352,10 +404,38 @@ jobs:
             echo "No signed release APK found." >&2
             exit 1
           fi
+          EXPECTED_FINGERPRINT="$(tr -d '[:space:]' < SIGNING_CERT_SHA256.txt | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$EXPECTED_FINGERPRINT" =~ ^[[:xdigit:]]{64}$ ]]; then
+            echo "SIGNING_CERT_SHA256.txt must contain one SHA-256 certificate fingerprint." >&2
+            exit 1
+          fi
+          SIGNING_FINGERPRINT=""
           for APK_PATH in "${APK_PATHS[@]}"; do
             echo "Verifying APK signature: $APK_PATH"
-            "$APKSIGNER" verify --verbose --print-certs "$APK_PATH"
+            VERIFY_OUTPUT="$("$APKSIGNER" verify --verbose --print-certs "$APK_PATH" 2>&1)"
+            printf '%s\n' "$VERIFY_OUTPUT"
+            SIGNER_COUNT="$(printf '%s\n' "$VERIFY_OUTPUT" | awk -F': ' '/^Number of signers:/ { print $2 }')"
+            if [ "$SIGNER_COUNT" != "1" ]; then
+              echo "Expected exactly one APK signer, found: ${SIGNER_COUNT:-none}." >&2
+              exit 1
+            fi
+            APK_FINGERPRINT="$(printf '%s\n' "$VERIFY_OUTPUT" | awk -F': ' '/Signer #1 certificate SHA-256 digest:/ { print tolower($2) }')"
+            if [ "$APK_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+              echo "APK signer fingerprint does not match SIGNING_CERT_SHA256.txt: $APK_PATH" >&2
+              exit 1
+            fi
+            if [ -n "$SIGNING_FINGERPRINT" ] && [ "$APK_FINGERPRINT" != "$SIGNING_FINGERPRINT" ]; then
+              echo "Release APKs were signed by different certificates." >&2
+              exit 1
+            fi
+            SIGNING_FINGERPRINT="$APK_FINGERPRINT"
           done
+          mkdir -p output
+          printf '%s\n' "$SIGNING_FINGERPRINT" > output/SIGNING_CERT_SHA256.txt
+
+      - name: Remove temporary keystore
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/chimera-release-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.jks"
 
       - name: Generate dependency inventory
         run: |
@@ -369,7 +449,6 @@ jobs:
       - name: Organize release artifacts
         env:
           VERSION: ${{ steps.version.outputs.tag }}
-          SIGNED_SUFFIX: ${{ steps.signing.outputs.signed_suffix }}
         run: |
           set -euo pipefail
           mkdir -p output
@@ -382,13 +461,12 @@ jobs:
             APK_NAME=$(basename "$APK_PATH")
             APK_BASE="${APK_NAME#app-}"
             APK_BASE="${APK_BASE%.apk}"
-            APK_BASE="${APK_BASE%-unsigned}"
             APK_BASE="${APK_BASE%-release}"
-            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_BASE}${SIGNED_SUFFIX}.apk"
+            cp "$APK_PATH" "output/chimera-lite-${VERSION}-${APK_BASE}.apk"
           done
-          sha256sum output/*.apk output/DEPENDENCIES-* > output/SHA256SUMS.txt
+          sha256sum output/*.apk output/DEPENDENCIES-* output/SIGNING_CERT_SHA256.txt > output/SHA256SUMS.txt
           ls -lh output/
-          echo "Artifacts filename suffix: '${SIGNED_SUFFIX}' (empty=signed, -unsigned=unsigned)"
+          echo "All release APK artifacts passed apksigner verification."
 
       - name: Upload release package artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

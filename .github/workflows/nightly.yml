@@ -155,7 +155,7 @@ jobs:
 
           Build time (UTC): $(date -u --iso-8601=seconds)
 
-          This is an unsigned pre-release build for testing and is not a stable release.
+          This Debug APK is signed with the Android debug key for testing; it is not signed with the stable release key.
           EOF
           )
 
