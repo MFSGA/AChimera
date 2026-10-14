@@ -65,6 +65,8 @@ Build the Release APK:
 .\gradlew assembleRelease
 ```
 
+Release APK builds require release-signing configuration. See [Release APK signing](RELEASE_SIGNING.md) for local and GitHub Actions setup. The expected release certificate fingerprint is pinned in [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt) so users can check signer continuity across versions. Nightly Debug APKs use Android's default debug key, which is different from the stable release signing identity.
+
 The `core` module automatically completes two steps before Android compilation:
 
 1. Use `cargo ndk` to build `chimera-ffi` for Android ABIs
