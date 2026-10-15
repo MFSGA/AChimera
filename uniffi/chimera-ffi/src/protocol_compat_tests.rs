@@ -205,6 +205,7 @@ fn invalid_reality_key_reports_runtime_handler_failure() {
         reality_opts: Some(OutboundTrojanRealityOpts {
             public_key: "not-a-valid-reality-key".to_owned(),
             short_id: Some("85144f63".to_owned()),
+            ..Default::default()
         }),
         ..Default::default()
     };
