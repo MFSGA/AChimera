@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import rs.chimera.android.R
+import rs.chimera.android.backend.ProfileDeletionRuntimePolicy
+import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.model.Profile
 import rs.chimera.android.model.ProfileType
 import rs.chimera.android.backend.model.RemoteProfileSettings
@@ -390,6 +392,7 @@ fun ProfileScreen(
             ProfileItem(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 profile = profile,
+                deletionAvailability = vm.profileDeletionAvailability,
                 mutationEnabled = !vm.isProfileOperationInProgress,
                 onActivate = { vm.activateProfile(context, profile) },
                 onDelete = { vm.deleteProfile(context, profile) },
@@ -413,6 +416,7 @@ fun ProfileScreen(
 private fun ProfileItem(
     modifier: Modifier = Modifier,
     profile: Profile,
+    deletionAvailability: ProfileDeletionAvailability,
     mutationEnabled: Boolean,
     onActivate: () -> Unit,
     onDelete: () -> Unit,
@@ -420,6 +424,20 @@ private fun ProfileItem(
     onEditRemoteSettings: (() -> Unit)?,
     onUpdate: (() -> Unit)?,
 ) {
+    val deleteBlockReason = ProfileDeletionRuntimePolicy.blockReason(
+        targetIsActive = profile.isActive,
+        serviceState = deletionAvailability.serviceState,
+        hasRunRequest = deletionAvailability.hasRunRequest,
+    )
+    val deleteBlockedMessage = when (deleteBlockReason) {
+        ProfileDeletionRuntimePolicy.BlockReason.VPN_TRANSITION ->
+            stringResource(id = R.string.profile_delete_blocked_transition_short)
+
+        ProfileDeletionRuntimePolicy.BlockReason.ACTIVE_PROFILE_IN_USE ->
+            stringResource(id = R.string.profile_delete_blocked_active_short)
+
+        null -> null
+    }
     var showRenameDialog by remember { mutableStateOf(false) }
     var renameValue by remember(profile.id, profile.name) { mutableStateOf(profile.name) }
     if (showRenameDialog) {
@@ -466,6 +484,7 @@ private fun ProfileItem(
         modifier = modifier,
         profile = profile,
         mutationEnabled = mutationEnabled,
+        deleteBlockedMessage = deleteBlockedMessage,
         onActivate = onActivate,
         onDelete = onDelete,
         onRenameRequest = { showRenameDialog = true },

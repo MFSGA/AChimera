@@ -52,6 +52,7 @@ internal fun ProfileCard(
     modifier: Modifier = Modifier,
     profile: Profile,
     mutationEnabled: Boolean,
+    deleteBlockedMessage: String?,
     onActivate: () -> Unit,
     onDelete: () -> Unit,
     onRenameRequest: () -> Unit,
@@ -237,8 +238,18 @@ internal fun ProfileCard(
                             },
                         )
                         DropdownMenuItem(
-                            text = { Text(text = stringResource(id = R.string.profile_delete)) },
-                            enabled = mutationEnabled,
+                            text = {
+                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                    Text(text = stringResource(id = R.string.profile_delete))
+                                    deleteBlockedMessage?.let { reason ->
+                                        Text(
+                                            text = reason,
+                                            style = MaterialTheme.typography.labelSmall,
+                                        )
+                                    }
+                                }
+                            },
+                            enabled = mutationEnabled && deleteBlockedMessage == null,
                             leadingIcon = {
                                 Icon(
                                     imageVector = Icons.Default.Delete,

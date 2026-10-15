@@ -12,15 +12,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import rs.chimera.android.Global
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ConnectionsSnapshot
+import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
@@ -33,6 +37,8 @@ import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
+import rs.chimera.android.service.VpnDesiredStateRuntimeState
+import rs.chimera.android.service.VpnRuntimeRegistry
 import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.backend.model.ProfileDownloadProgress
 import rs.chimera.android.util.toUserVisibleMessage
@@ -88,6 +94,23 @@ class ChimeraBackendImpl(
         context = context,
         serviceState = serviceState,
         profilePath = { Global.profilePath },
+    )
+    override val profileDeletionAvailability: StateFlow<ProfileDeletionAvailability> = combine(
+        serviceState,
+        VpnRuntimeRegistry.runRequestedState,
+        VpnDesiredStateRuntimeState.shouldRun,
+    ) { currentServiceState, runtimeRunRequest, persistedRunRequest ->
+        ProfileDeletionAvailability(
+            serviceState = currentServiceState,
+            hasRunRequest = runtimeRunRequest || persistedRunRequest,
+        )
+    }.stateIn(
+        scope = backendScope,
+        started = SharingStarted.Eagerly,
+        initialValue = ProfileDeletionAvailability(
+            serviceState = serviceState.value,
+            hasRunRequest = vpnOperations.hasRunRequest(),
+        ),
     )
     private val profileActivationOperations = ProfileActivationOperations(
         profileCatalogCoordinator = profileCatalogCoordinator,

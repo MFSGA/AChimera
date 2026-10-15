@@ -12,6 +12,7 @@ import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
+import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
@@ -31,6 +32,7 @@ interface ChimeraBackend {
     val settings: StateFlow<RuntimeSettings>
     val runtimeStatus: StateFlow<VpnRuntimeStatus>
     val serviceState: StateFlow<ServiceState>
+    val profileDeletionAvailability: StateFlow<ProfileDeletionAvailability>
     val serviceError: StateFlow<String?>
     val vpnSystemStatus: StateFlow<VpnSystemStatus>
     val activeProfile: StateFlow<ProfileSummary?>

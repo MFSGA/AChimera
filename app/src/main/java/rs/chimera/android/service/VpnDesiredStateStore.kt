@@ -1,6 +1,8 @@
 package rs.chimera.android.service
 
 import android.content.Context
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 internal enum class VpnDesiredStateReason {
     USER_START,
@@ -25,6 +27,10 @@ internal class VpnDesiredStateStore(
 ) {
     private val preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
+    init {
+        VpnDesiredStateRuntimeState.update(snapshot().shouldRun)
+    }
+
     fun snapshot(): VpnDesiredStateSnapshot =
         VpnDesiredStateSnapshotPolicy.parse(preferences.all)
 
@@ -44,6 +50,7 @@ internal class VpnDesiredStateStore(
                 .putString(KEY_REASON, reason.name)
                 .commit(),
         ) { "Unable to persist desired VPN state" }
+        VpnDesiredStateRuntimeState.update(shouldRun)
     }
 
     internal companion object {
@@ -51,5 +58,15 @@ internal class VpnDesiredStateStore(
         const val KEY_SHOULD_RUN = "should_run"
         const val KEY_UPDATED_AT = "updated_at"
         const val KEY_REASON = "reason"
+    }
+}
+
+internal object VpnDesiredStateRuntimeState {
+    private val mutableShouldRun = MutableStateFlow(false)
+
+    val shouldRun = mutableShouldRun.asStateFlow()
+
+    fun update(shouldRun: Boolean) {
+        mutableShouldRun.value = shouldRun
     }
 }

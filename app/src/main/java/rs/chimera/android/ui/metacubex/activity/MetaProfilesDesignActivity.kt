@@ -3,6 +3,7 @@ package rs.chimera.android.ui.metacubex.activity
 import android.app.AlertDialog
 import android.net.Uri
 import android.os.Bundle
+import android.widget.ArrayAdapter
 import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -11,14 +12,17 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ProfileDeletionRuntimePolicy
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.updateRemoteProfilesBatch
+import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
@@ -126,12 +130,74 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             add(ProfileAction.Rename)
             add(ProfileAction.Delete)
         }
-        AlertDialog.Builder(this)
-            .setTitle(profile.name)
-            .setItems(actions.map { getString(it.labelRes) }.toTypedArray()) { _, which ->
-                lifecycleScope.launch { handleProfileAction(profile, actions[which]) }
+        fun actionLabels(deleteBlockedMessage: String?): List<String> = actions.map { action ->
+            if (action == ProfileAction.Delete && deleteBlockedMessage != null) {
+                getString(R.string.profile_delete_blocked_action, getString(action.labelRes), deleteBlockedMessage)
+            } else {
+                getString(action.labelRes)
             }
-            .show()
+        }
+        var availability = backend.profileDeletionAvailability.value
+        var deleteBlockedMessage = profileDeleteBlockedMessage(profile.isActive, availability)
+        val actionAdapter = object : ArrayAdapter<String>(
+            this,
+            android.R.layout.simple_list_item_1,
+            actionLabels(deleteBlockedMessage),
+        ) {
+            override fun areAllItemsEnabled(): Boolean = false
+
+            override fun isEnabled(position: Int): Boolean =
+                actions[position] != ProfileAction.Delete || deleteBlockedMessage == null
+        }
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(profile.name)
+            .setAdapter(actionAdapter) { _, which ->
+                val action = actions[which]
+                val currentBlockMessage = if (action == ProfileAction.Delete) {
+                    profileDeleteBlockedMessage(
+                        profileIsActive = profile.isActive,
+                        availability = backend.profileDeletionAvailability.value,
+                    )
+                } else {
+                    null
+                }
+                when {
+                    currentBlockMessage != null -> design.showToast(currentBlockMessage)
+                    actionAdapter.isEnabled(which) -> {
+                        lifecycleScope.launch { handleProfileAction(profile, action) }
+                    }
+                }
+            }
+            .create()
+        val availabilityObserver = lifecycleScope.launch {
+            backend.profileDeletionAvailability.collect { updatedAvailability ->
+                availability = updatedAvailability
+                deleteBlockedMessage = profileDeleteBlockedMessage(profile.isActive, availability)
+                actionAdapter.clear()
+                actionAdapter.addAll(actionLabels(deleteBlockedMessage))
+            }
+        }
+        dialog.setOnDismissListener { availabilityObserver.cancel() }
+        dialog.show()
+    }
+
+    private fun profileDeleteBlockedMessage(
+        profileIsActive: Boolean,
+        availability: ProfileDeletionAvailability,
+    ): String? = when (
+        ProfileDeletionRuntimePolicy.blockReason(
+            targetIsActive = profileIsActive,
+            serviceState = availability.serviceState,
+            hasRunRequest = availability.hasRunRequest,
+        )
+    ) {
+            ProfileDeletionRuntimePolicy.BlockReason.VPN_TRANSITION ->
+                getString(R.string.profile_delete_blocked_transition_short)
+
+            ProfileDeletionRuntimePolicy.BlockReason.ACTIVE_PROFILE_IN_USE ->
+                getString(R.string.profile_delete_blocked_active_short)
+
+            null -> null
     }
 
     private suspend fun handleProfileAction(profile: ProfileSummary, action: ProfileAction) {

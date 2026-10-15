@@ -12,6 +12,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.Global
@@ -19,6 +20,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.updateRemoteProfilesBatch
+import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.model.Profile
@@ -56,6 +58,11 @@ class ProfileViewModel : ViewModel() {
     private val downloadOperations = LatestOperationGate()
     private val downloadProgressUpdates = Channel<Pair<Long, ProfileDownloadProgress>>(Channel.CONFLATED)
 
+    var profileDeletionAvailability: ProfileDeletionAvailability by mutableStateOf(
+        backend.profileDeletionAvailability.value,
+    )
+        private set
+
     var savedFilePath by mutableStateOf<String?>(null)
         private set
 
@@ -87,6 +94,9 @@ class ProfileViewModel : ViewModel() {
         private set
 
     init {
+        viewModelScope.launch {
+            backend.profileDeletionAvailability.collect { profileDeletionAvailability = it }
+        }
         viewModelScope.launch {
             for ((generation, progress) in downloadProgressUpdates) {
                 if (isDownloading && downloadOperations.isCurrent(generation)) {
