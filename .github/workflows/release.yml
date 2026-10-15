@@ -95,6 +95,21 @@ jobs:
             echo "No version commit or tag was created." >&2
             exit 1
           fi
+
+          EXPECTED_FINGERPRINT="$(tr -d '[:space:]' < SIGNING_CERT_SHA256.txt | tr '[:upper:]' '[:lower:]')"
+          if [[ ! "$EXPECTED_FINGERPRINT" =~ ^[[:xdigit:]]{64}$ ]]; then
+            echo "ERROR: SIGNING_CERT_SHA256.txt must contain one SHA-256 certificate fingerprint." >&2
+            echo "No version commit or tag was created." >&2
+            exit 1
+          fi
+          ACTUAL_FINGERPRINT="$(keytool -exportcert -keystore "$KEYSTORE_FILE" \
+            -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | sha256sum | awk '{print $1}')"
+          if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "ERROR: release keystore certificate does not match SIGNING_CERT_SHA256.txt." >&2
+            echo "No version commit or tag was created." >&2
+            exit 1
+          fi
+
           printf 'AChimera release signing preflight\n' > "$PROBE_INPUT"
           jar --create --file "$PROBE_JAR" -C "$RUNNER_TEMP" "$(basename "$PROBE_INPUT")"
           if ! jarsigner -keystore "$KEYSTORE_FILE" \
@@ -104,7 +119,7 @@ jobs:
             echo "No version commit or tag was created." >&2
             exit 1
           fi
-          echo "Release keystore and signing credentials passed preflight before version/tag writes."
+          echo "Release keystore, certificate fingerprint, and signing credentials passed preflight before version/tag writes."
 
       - name: Resolve next version
         id: resolve

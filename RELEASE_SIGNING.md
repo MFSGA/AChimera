@@ -1,6 +1,6 @@
 # Release APK 签名
 
-Release APK 不能在缺少发布密钥时打包。本地 `packageRelease`/`assembleRelease` 和 Release Bundle 任务会先检查签名环境变量及 keystore 文件；缺失时直接失败。GitHub Release 会逐个验签，并要求 APK 的 SHA-256 证书指纹匹配仓库中的 [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt)，随后把该指纹一并发布，方便用户跨版本核对。手动触发版本更新前，工作流会检查 Secrets、解码 keystore、校验密码和别名，并用临时 JAR 验证签名密钥可用；预检失败时不会创建版本提交或 tag。正式 Release 构建使用临时 runner 上的 keystore，验签后清理。
+Release APK 不能在缺少发布密钥时打包。本地 `packageRelease`/`assembleRelease` 和 Release Bundle 任务会先检查签名环境变量及 keystore 文件；缺失时直接失败。GitHub Release 会逐个验签，并要求 APK 的 SHA-256 证书指纹匹配仓库中的 [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt)，随后把该指纹一并发布，方便用户跨版本核对。手动触发版本更新前，工作流会检查 Secrets、解码 keystore、校验密码和别名、比对 keystore 证书指纹，并用临时 JAR 验证签名密钥可用；任一预检失败时都不会创建版本提交或 tag。正式 Release 构建使用临时 runner 上的 keystore，验签后清理。
 
 该指纹证明 APK 使用同一签名证书，代表签名密钥的连续性；它本身不认证现实中的个人或公司身份。用户应从官方仓库/发布页取得可信指纹，再用 Android SDK 的 `apksigner verify --print-certs app.apk` 检查下载的 APK。正式更换签名证书需要维护者审查并更新固定指纹。
 
