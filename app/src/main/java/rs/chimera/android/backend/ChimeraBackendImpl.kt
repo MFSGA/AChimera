@@ -52,6 +52,7 @@ class ChimeraBackendImpl(
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(context)
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(context)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
+    private val profileRuntimeMutationGate = ProfileRuntimeMutationGate()
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
     private val profileCatalogReader = ProfileCatalogReader(profileCatalogStore, profileAutoUpdateStateStore)
@@ -87,6 +88,14 @@ class ChimeraBackendImpl(
         context = context,
         serviceState = serviceState,
         profilePath = { Global.profilePath },
+    )
+    private val profileActivationOperations = ProfileActivationOperations(
+        profileCatalogCoordinator = profileCatalogCoordinator,
+        profileCatalogStore = profileCatalogStore,
+        serviceState = serviceState,
+        restartVpn = vpnOperations::restartVpn,
+        updateRuntimePath = Global::updateProfilePath,
+        refreshActiveProfile = ::refreshActiveProfile,
     )
     private val controllerOperations = BackendControllerOperations(
         socketPath = "${context.cacheDir}/clash.sock",
@@ -142,7 +151,9 @@ class ChimeraBackendImpl(
         vpnOperations.prepareStartVpn()
 
     private suspend fun startVpnAfterPermissionReady() {
-        vpnOperations.startVpnAfterPermission()
+        profileRuntimeMutationGate.withLock {
+            vpnOperations.startVpnAfterPermission()
+        }
     }
 
     override suspend fun stopVpn() = withContext(Dispatchers.IO) {
@@ -161,25 +172,8 @@ class ChimeraBackendImpl(
     }
 
     private suspend fun activateProfileReady(id: String) {
-        withContext(Dispatchers.IO) {
-            profileCatalogCoordinator.withLock {
-                val document = profileCatalogStore.readDocument()
-                val updatedProfiles = ProfileCatalogPolicy.activate(document.entries, id)
-                    ?: throw IllegalArgumentException("Profile not found")
-                val activePath = requireNotNull(ProfileCatalogPolicy.activePath(updatedProfiles))
-                profileCatalogStore.commitCatalog(
-                    catalog = profileCatalogStore.render(document, updatedProfiles),
-                    activePath = activePath,
-                )
-                try {
-                    Global.restoreProfilePath()
-                } finally {
-                    refreshActiveProfile()
-                }
-            }
-        }
-        if (serviceState.value == ServiceState.RUNNING) {
-            restartVpn()
+        profileRuntimeMutationGate.withLock {
+            profileActivationOperations.activate(id)
         }
     }
 
@@ -204,8 +198,10 @@ class ChimeraBackendImpl(
     }
 
     private suspend fun deleteProfileReady(id: String) {
-        profileUpdateCoordinator.withLock(id) {
-            deleteProfileLocked(id)
+        profileRuntimeMutationGate.withLock {
+            profileUpdateCoordinator.withLock(id) {
+                deleteProfileLocked(id)
+            }
         }
         synchronizeProfileAutoUpdateSchedule()
     }
@@ -215,6 +211,25 @@ class ChimeraBackendImpl(
             val document = profileCatalogStore.readDocument()
             val deletion = ProfileCatalogPolicy.delete(document.entries, id)
                 ?: throw IllegalArgumentException("Profile not found")
+            val deletedProfile = document.entries.first { it.id == id }
+            val blockReason = ProfileDeletionRuntimePolicy.blockReason(
+                targetIsActive = deletedProfile.isActive,
+                serviceState = serviceState.value,
+                hasRunRequest = vpnOperations.hasRunRequest(),
+            )
+            when (blockReason) {
+                ProfileDeletionRuntimePolicy.BlockReason.VPN_TRANSITION ->
+                    throw IllegalStateException(
+                        context.getString(rs.chimera.android.R.string.profile_delete_vpn_transition),
+                    )
+
+                ProfileDeletionRuntimePolicy.BlockReason.ACTIVE_PROFILE_IN_USE ->
+                    throw IllegalStateException(
+                        context.getString(rs.chimera.android.R.string.profile_delete_active_vpn_running),
+                    )
+
+                null -> Unit
+            }
             val activePath = ProfileCatalogPolicy.activePath(deletion.profiles)
             val originalCatalog = document.serialized
             val originalActivePath = ProfileCatalogPolicy.activePath(document.entries)

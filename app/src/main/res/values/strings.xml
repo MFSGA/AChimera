@@ -326,6 +326,8 @@
     <string name="profile_rename_error">Rename failed: %1$s</string>
     <string name="profile_delete_success">Deleted %1$s</string>
     <string name="profile_delete_error">Delete failed: %1$s</string>
+    <string name="profile_delete_active_vpn_running">Stop the VPN or switch to another profile before deleting the active profile.</string>
+    <string name="profile_delete_vpn_transition">Wait until the VPN has finished starting or stopping before deleting profiles.</string>
     <string name="profile_no_remote_profiles">No remote profiles to update.</string>
     <plurals name="profile_refresh_result">
         <item quantity="one">Remote profiles updated: %1$d succeeded, %2$d failed.</item>

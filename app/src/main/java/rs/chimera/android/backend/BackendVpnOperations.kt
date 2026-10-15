@@ -40,6 +40,9 @@ internal class BackendVpnOperations(
     }
 
     suspend fun startVpnAfterPermission() = commands.start {
+        check(profilePath().isNotBlank()) {
+            context.getString(rs.chimera.android.R.string.service_profile_required)
+        }
         desiredStateStore.markRunning()
         VpnRuntimeRegistry.requestStart()
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
@@ -96,6 +99,9 @@ internal class BackendVpnOperations(
             VpnRuntimeRegistry.restartVpn()
         }
     }
+
+    fun hasRunRequest(): Boolean =
+        VpnRuntimeRegistry.shouldRun || desiredStateStore.snapshot().shouldRun
 
     private fun Throwable.toServiceError(): String =
         toUserVisibleMessage(context, rs.chimera.android.R.string.profile_unknown_error)

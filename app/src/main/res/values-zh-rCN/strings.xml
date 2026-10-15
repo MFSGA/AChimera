@@ -316,6 +316,8 @@
     <string name="profile_rename_error">重命名失败：%1$s</string>
     <string name="profile_delete_success">已删除 %1$s</string>
     <string name="profile_delete_error">删除失败：%1$s</string>
+    <string name="profile_delete_active_vpn_running">VPN 尚未完全停止，不能删除当前活动配置。请先切换到其他配置或停止 VPN。</string>
+    <string name="profile_delete_vpn_transition">VPN 正在切换状态，请等待启动或停止完成后再删除配置。</string>
     <string name="profile_no_remote_profiles">没有可更新的远程配置。</string>
     <plurals name="profile_refresh_result">
         <item quantity="other">远程配置更新完成：成功 %1$d 个，失败 %2$d 个。</item>
