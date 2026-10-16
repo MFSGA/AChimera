@@ -118,6 +118,7 @@ jobs:
             "platforms;android-${ANDROID_PLATFORM_VERSION}" \
             "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
             "ndk;${ANDROID_NDK_VERSION}" \
+            "platform-tools" \
             "emulator" \
             "system-images;android-${ANDROID_PLATFORM_VERSION};google_apis;x86_64"
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
@@ -144,11 +145,14 @@ jobs:
       - name: Start Android API 36 emulator
         run: |
           set -euo pipefail
+          EMULATOR_LOG="${RUNNER_TEMP}/chimera-emulator.log"
+          trap 'status=$?; echo "::error::Android emulator startup failed (exit ${status}) at: ${BASH_COMMAND}"; if [ -f "$EMULATOR_LOG" ]; then tail -n 80 "$EMULATOR_LOG"; fi; exit "$status"' ERR
           AVDMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager"
           if [ ! -x "$AVDMANAGER" ]; then
             AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -path '*/bin/avdmanager' -type f -print -quit)"
           fi
           EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          ADB="${ANDROID_HOME}/platform-tools/adb"
           AVD_PACKAGE="system-images;android-${ANDROID_PLATFORM_VERSION};google_apis;x86_64"
           AVD_HOME="${RUNNER_TEMP}/android-avd"
           if [ -z "$AVDMANAGER" ] || [ ! -x "$AVDMANAGER" ]; then
@@ -157,6 +161,14 @@ jobs:
           fi
           if [ ! -x "$EMULATOR" ]; then
             echo "Android emulator was not found: $EMULATOR" >&2
+            exit 1
+          fi
+          if [ ! -x "$ADB" ]; then
+            echo "Android platform-tools adb was not found: $ADB" >&2
+            exit 1
+          fi
+          if ! command -v timeout >/dev/null 2>&1; then
+            echo "timeout was not found on PATH." >&2
             exit 1
           fi
 
@@ -175,25 +187,30 @@ jobs:
           "$EMULATOR" -avd chimera-ci \
             -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu swiftshader_indirect -no-metrics \
-            > "$RUNNER_TEMP/chimera-emulator.log" 2>&1 &
+            > "$EMULATOR_LOG" 2>&1 &
           echo "$!" > "$RUNNER_TEMP/chimera-emulator.pid"
 
-          timeout 120 adb wait-for-device
+          timeout 120 "$ADB" wait-for-device
           timeout 300 bash -c '
-            until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do
+            ADB="${ANDROID_HOME}/platform-tools/adb"
+            until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do
               sleep 5
             done
           '
-          adb shell settings put global window_animation_scale 0
-          adb shell settings put global transition_animation_scale 0
-          adb shell settings put global animator_duration_scale 0
+          "$ADB" shell settings put global window_animation_scale 0
+          "$ADB" shell settings put global transition_animation_scale 0
+          "$ADB" shell settings put global animator_duration_scale 0
 
       - name: Run Android instrumentation tests
         run: ./gradlew connectedDebugAndroidTest
 
       - name: Stop Android emulator
         if: always()
-        run: adb emu kill || true
+        run: |
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          if [ -x "$ADB" ]; then
+            "$ADB" emu kill || true
+          fi
 
       - name: Upload CI reports
         if: always()
