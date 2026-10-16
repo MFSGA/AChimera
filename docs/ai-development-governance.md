@@ -86,16 +86,16 @@
 
 **真实仓库行为（2026-10 读取工作流）：**
 
-- `.github/workflows/ci.yml`：`main` push/PR 触发，只读 Token；运行 Rust、依赖来源检查、UniFFI 绑定与 Gradle 质量检查，构建 Debug APK。不是设备端 VPN 互通证明。
+- `.github/workflows/ci.yml`：`main` push/PR 触发，只读 Token；运行 Rust、依赖来源检查、UniFFI 绑定与 Gradle 质量检查，构建 Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests。不是实体设备端 VPN 互通证明。
 - `.github/workflows/nightly.yml`：每天 19:17 UTC 定时或手工运行，完整 ABI Debug APK，上传 Artifact，更新 GitHub `nightly` **预发布**。它**已经有写入 Release 的能力**，不能把“Nightly”理解为只读复盘。
-- `.github/workflows/release.yml`：手工 dispatch 可推进版本并创建 tag；推送 `v*` tag 也能触发稳定版发布。流程检查 Gradle 测试/lint、签名（凭据未配置时可能构建 unsigned 包）、依赖清单及 APK，最后创建 GitHub Release。**现有工作流不是只有人工按钮才能发布**。
+- `.github/workflows/release.yml`：只能从 `main` 手工 dispatch 推进版本并创建 tag；推送 `v*` tag 也能触发稳定版发布。当前 workflow revision 会校验 tag 指向 `main` 中的提交且版本与源码一致；流程检查 Gradle 测试/lint、签名凭据、依赖清单及 APK，最后创建 GitHub Release。**现有工作流不是只有人工按钮才能发布**。但 GitHub 对 tag push 使用 tag 所指提交中的 workflow 文件，旧提交上的旧版工作流不受新检查保护，因此必须另行保护 `v*` 标签。
 
 **治理约束：**
 
 - 用户发起普通开发、自动 PR 或合并，不等于同意打 tag、更新 `main` 版本、改动 signing 或执行 Nightly/Release。
 - 未经明确授权，Codex 不执行/新增触发发布的推送、Tag、手工 dispatch，也不更改 GitHub Secrets、KeyStore、签名材料或工作流权限。
 - 已存在的 Nightly 自动预发布行为保持不变；要减少自动发布权限或提高发布前门禁，必须提出独立 L3 变更，不能偷偷改现有部署流程。
-- CI、Release 之间目前不等于存在强制的独立人工审核门禁；不能在没有检查 GitHub Rulesets/审批设置时宣称已被保护。
+- CI、Release 之间目前不等于存在强制的独立人工审核门禁；不能在没有检查 GitHub Rulesets/审批设置时宣称已被保护。当前 Release workflow revision 会检查 tag 的 main 来源，但 GitHub 端仍必须保护 `v*` 标签与 `main`，以防旧提交中的旧 workflow 被触发。
 
 ## 8. Lessons 与组织改进
 

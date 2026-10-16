@@ -117,7 +117,9 @@ jobs:
           "$sdkmanager_path" \
             "platforms;android-${ANDROID_PLATFORM_VERSION}" \
             "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
-            "ndk;${ANDROID_NDK_VERSION}"
+            "ndk;${ANDROID_NDK_VERSION}" \
+            "emulator" \
+            "system-images;android-${ANDROID_PLATFORM_VERSION};google_apis;x86_64"
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
 
@@ -139,6 +141,60 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew app:assembleDebug
 
+      - name: Start Android API 36 emulator
+        run: |
+          set -euo pipefail
+          AVDMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/avdmanager"
+          if [ ! -x "$AVDMANAGER" ]; then
+            AVDMANAGER="$(find "${ANDROID_HOME}/cmdline-tools" -path '*/bin/avdmanager' -type f -print -quit)"
+          fi
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          AVD_PACKAGE="system-images;android-${ANDROID_PLATFORM_VERSION};google_apis;x86_64"
+          AVD_HOME="${RUNNER_TEMP}/android-avd"
+          if [ -z "$AVDMANAGER" ] || [ ! -x "$AVDMANAGER" ]; then
+            echo "avdmanager was not found under ANDROID_HOME=${ANDROID_HOME}." >&2
+            exit 1
+          fi
+          if [ ! -x "$EMULATOR" ]; then
+            echo "Android emulator was not found: $EMULATOR" >&2
+            exit 1
+          fi
+
+          mkdir -p "$AVD_HOME"
+          export ANDROID_AVD_HOME="$AVD_HOME"
+          echo "no" | "$AVDMANAGER" create avd \
+            --force \
+            --name chimera-ci \
+            --package "$AVD_PACKAGE" \
+            --path "$AVD_HOME/chimera-ci.avd" \
+            --device pixel_2
+          if ! "$EMULATOR" -list-avds | grep -Fxq chimera-ci; then
+            echo "Created AVD chimera-ci is not visible to the Android emulator." >&2
+            exit 1
+          fi
+          "$EMULATOR" -avd chimera-ci \
+            -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -no-metrics \
+            > "$RUNNER_TEMP/chimera-emulator.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/chimera-emulator.pid"
+
+          timeout 120 adb wait-for-device
+          timeout 300 bash -c '
+            until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do
+              sleep 5
+            done
+          '
+          adb shell settings put global window_animation_scale 0
+          adb shell settings put global transition_animation_scale 0
+          adb shell settings put global animator_duration_scale 0
+
+      - name: Run Android instrumentation tests
+        run: ./gradlew connectedDebugAndroidTest
+
+      - name: Stop Android emulator
+        if: always()
+        run: adb emu kill || true
+
       - name: Upload CI reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -147,8 +203,11 @@ jobs:
           path: |
             app/build/reports/tests/testDebugUnitTest/**
             app/build/test-results/testDebugUnitTest/**
+            app/build/reports/androidTests/connected/**
+            app/build/outputs/androidTest-results/connected/**
             app/build/reports/lint-results-debug.*
             core/build/reports/lint-results-debug.*
+            ${{ runner.temp }}/chimera-emulator.log
           if-no-files-found: warn
           retention-days: 14
 

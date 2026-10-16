@@ -41,7 +41,7 @@ concurrency:
 jobs:
   bump:
     name: Bump version and push tag
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -123,11 +123,11 @@ jobs:
 
       - name: Resolve next version
         id: resolve
+        env:
+          EXPLICIT_TAG: ${{ inputs.tag_name }}
+          BUMP_TYPE: ${{ inputs.bump_type }}
         run: |
           set -euo pipefail
-
-          EXPLICIT_TAG="${{ inputs.tag_name }}"
-          BUMP_TYPE="${{ inputs.bump_type }}"
 
           # Read current version from app/build.gradle.kts
           CURRENT=$(grep -oE 'baseVersionName = "[0-9]+\.[0-9]+\.[0-9]+"' app/build.gradle.kts \
@@ -140,7 +140,8 @@ jobs:
 
           if [ -n "$EXPLICIT_TAG" ]; then
             # Validate explicit tag format
-            if [[ ! "$EXPLICIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            if [[ ! "$EXPLICIT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+              [[ "$EXPLICIT_TAG" == *$'\n'* || "$EXPLICIT_TAG" == *$'\r'* ]]; then
               echo "ERROR: explicit tag must match vX.Y.Z, got: $EXPLICIT_TAG" >&2
               exit 1
             fi
@@ -227,11 +228,15 @@ jobs:
           git push origin "${NEW_TAG}"
 
       - name: Summary
+        env:
+          BUMP_TYPE: ${{ inputs.bump_type }}
+          NEW_VERSION: ${{ steps.resolve.outputs.version }}
+          NEW_TAG: ${{ steps.resolve.outputs.tag }}
         run: |
           echo "### Version bumped ✅" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Bump type: \`${{ inputs.bump_type }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- New version: \`${{ steps.resolve.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- New tag: \`${{ steps.resolve.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Bump type: \`${BUMP_TYPE}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- New version: \`${NEW_VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- New tag: \`${NEW_TAG}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "Release job will build and publish artifacts for the created tag in this workflow." >> "$GITHUB_STEP_SUMMARY"
 
   release:
@@ -250,20 +255,24 @@ jobs:
     steps:
       - name: Resolve release tag
         id: version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+          BUMPED_TAG: ${{ needs.bump.outputs.tag }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "push" ]; then
-            TAG_NAME="${{ github.ref_name }}"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            TAG_NAME="$RELEASE_TAG"
           else
             # workflow_dispatch: use the tag created by the bump job
-            TAG_NAME="${{ needs.bump.outputs.tag }}"
+            TAG_NAME="$BUMPED_TAG"
           fi
 
           if [[ -z "$TAG_NAME" ]]; then
             echo "ERROR: could not resolve release tag" >&2
             exit 1
           fi
-          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+            [[ "$TAG_NAME" == *$'\n'* || "$TAG_NAME" == *$'\r'* ]]; then
             echo "ERROR: release tag must match vX.Y.Z, got: $TAG_NAME" >&2
             exit 1
           fi
@@ -275,6 +284,29 @@ jobs:
         with:
           fetch-depth: 0
           ref: refs/tags/${{ steps.version.outputs.tag }}
+
+      - name: Verify release source is on main and matches the tag
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+
+          RELEASE_COMMIT="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          MAIN_COMMIT="$(git rev-parse FETCH_HEAD)"
+          if ! git merge-base --is-ancestor "$RELEASE_COMMIT" "$MAIN_COMMIT"; then
+            echo "Release tag $RELEASE_TAG does not point to a commit contained in main." >&2
+            exit 1
+          fi
+
+          TAG_VERSION="${RELEASE_TAG#v}"
+          SOURCE_VERSION="$(sed -nE 's/^val baseVersionName = "([^"]+)"$/\1/p' app/build.gradle.kts | head -n 1)"
+          if [ -z "$SOURCE_VERSION" ] || [ "$SOURCE_VERSION" != "$TAG_VERSION" ]; then
+            echo "Release tag $RELEASE_TAG does not match app base version ${SOURCE_VERSION:-<missing>}." >&2
+            exit 1
+          fi
+
+          echo "Release tag points to reviewed main history and matches app version $SOURCE_VERSION."
 
       - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
