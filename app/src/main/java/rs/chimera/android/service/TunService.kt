@@ -31,6 +31,11 @@ import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
 
 class TunService : VpnService(), VpnRuntimeControl {
+    private data class CleanupOutcome(
+        val performed: Boolean,
+        val releaseFailure: Throwable? = null,
+    )
+
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -88,11 +93,12 @@ class TunService : VpnService(), VpnRuntimeControl {
                     this@TunService,
                     rs.chimera.android.R.string.profile_unknown_error,
                 )
-                val cleanedUp = cleanup(
+                val cleanupOutcome = cleanup(
                     finalState = ServiceState.ERROR,
                     errorMessage = detail,
                 )
-                if (cleanedUp) {
+                cleanupOutcome.releaseFailure?.let(error::addSuppressed)
+                if (cleanupOutcome.performed) {
                     NotificationHelper.notifyFailed(this@TunService, detail)
                     stopSelf()
                 }
@@ -322,7 +328,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         serviceScope.launch {
             startupJob?.join()
             runtimeMutex.withLock {
-                if (cleanup() && stopService) stopSelf()
+                if (cleanup().performed && stopService) stopSelf()
             }
         }
     }
@@ -331,29 +337,40 @@ class TunService : VpnService(), VpnRuntimeControl {
         finalState: ServiceState = ServiceState.STOPPED,
         stopCore: Boolean = true,
         errorMessage: String? = null,
-    ): Boolean {
-        if (!lifecycleGate.beginCleanup()) return false
+    ): CleanupOutcome {
+        if (!lifecycleGate.beginCleanup()) return CleanupOutcome(performed = false)
 
-        if (errorMessage != null) {
-            BackendRuntimeState.updateServiceError(errorMessage)
-        }
-        releaseRuntime(stopCore = stopCore, removeForeground = true)
+        val releaseFailure = releaseRuntime(stopCore = stopCore, removeForeground = true)
+        val decision = VpnRuntimeCleanupPolicy.resolve(
+            requestedState = finalState,
+            existingErrorMessage = errorMessage,
+            releaseFailure = releaseFailure,
+            formatReleaseFailure = { failure ->
+                failure.toUserVisibleMessage(
+                    this,
+                    rs.chimera.android.R.string.profile_unknown_error,
+                )
+            },
+        )
+        decision.errorMessage?.let(BackendRuntimeState::updateServiceError)
         publishVpnSystemStatus(serviceActive = false)
         VpnRuntimeRegistry.unregister(this)
-        BackendRuntimeState.updateServiceState(finalState)
+        BackendRuntimeState.updateServiceState(decision.serviceState)
         appendRuntimeLog("service cleanup complete")
-        return true
+        return CleanupOutcome(performed = true, releaseFailure = releaseFailure)
     }
 
     private fun releaseRuntime(
         stopCore: Boolean,
         removeForeground: Boolean,
-    ) {
+    ): Throwable? {
         networkResetGeneration.invalidate()
         networkCoordinator?.stop()
         networkCoordinator = null
+        var coreStopFailure: Throwable? = null
         if (stopCore) {
             shutdownClash().exceptionOrNull()?.let { error ->
+                coreStopFailure = error
                 PrivacySafeLog.warning(TAG, "Failed to stop Rust core cleanly", error)
                 appendRuntimeLog("failed to stop rust core cleanly", error)
             }
@@ -379,18 +396,23 @@ class TunService : VpnService(), VpnRuntimeControl {
         vpnInterface = null
         tunFd = null
         Global.proxyPort = null
+        return coreStopFailure
     }
 
     override suspend fun restartVpn() {
         check(lifecycleGate.canRunRuntime()) { "VPN service is stopping" }
 
+        var coreShutdownFailed = false
         try {
             runtimeMutex.withLock {
                 check(lifecycleGate.canRunRuntime()) { "VPN service is stopping" }
                 BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
                 appendRuntimeLog("service runtime reload requested")
                 ensureForegroundService()
-                releaseRuntime(stopCore = true, removeForeground = false)
+                releaseRuntime(stopCore = true, removeForeground = false)?.let { error ->
+                    coreShutdownFailed = true
+                    throw error
+                }
 
                 if (!lifecycleGate.canRunRuntime()) {
                     throw CancellationException("VPN runtime reload cancelled")
@@ -409,10 +431,18 @@ class TunService : VpnService(), VpnRuntimeControl {
                 this@TunService,
                 rs.chimera.android.R.string.profile_unknown_error,
             )
-            runtimeMutex.withLock {
-                if (cleanup(finalState = ServiceState.ERROR, errorMessage = detail)) {
-                    NotificationHelper.notifyFailed(this@TunService, detail)
-                    stopSelf()
+            withVpnCleanupContext {
+                runtimeMutex.withLock {
+                    val cleanupOutcome = cleanup(
+                        finalState = ServiceState.ERROR,
+                        stopCore = !coreShutdownFailed,
+                        errorMessage = detail,
+                    )
+                    cleanupOutcome.releaseFailure?.let(error::addSuppressed)
+                    if (cleanupOutcome.performed) {
+                        NotificationHelper.notifyFailed(this@TunService, detail)
+                        stopSelf()
+                    }
                 }
             }
             throw error
@@ -430,12 +460,12 @@ class TunService : VpnService(), VpnRuntimeControl {
                 if (!lifecycleGate.canHandleUnexpectedCoreStop()) return@withLock
                 recordDesiredStop(VpnDesiredStateReason.CORE_EXITED)
 
-                val cleanedUp = cleanup(
+                val cleanupOutcome = cleanup(
                     finalState = ServiceState.ERROR,
                     stopCore = false,
                     errorMessage = detail,
                 )
-                if (!cleanedUp) return@withLock
+                if (!cleanupOutcome.performed) return@withLock
 
                 PrivacySafeLog.errorDetail(TAG, "Rust core stopped unexpectedly", detail)
                 appendRuntimeLog("rust core stopped unexpectedly: $detail")
@@ -452,9 +482,11 @@ class TunService : VpnService(), VpnRuntimeControl {
 
         stopRequest.startupJob?.join()
         runtimeMutex.withLock {
-            if (cleanup()) {
+            val cleanupOutcome = cleanup()
+            if (cleanupOutcome.performed) {
                 stopSelf()
             }
+            cleanupOutcome.releaseFailure?.let { throw it }
         }
     }
 

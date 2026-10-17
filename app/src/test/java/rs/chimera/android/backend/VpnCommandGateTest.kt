@@ -38,6 +38,16 @@ class VpnCommandGateTest {
     }
 
     @Test
+    fun errorStateAllowsStartRetry() = runBlocking {
+        val gate = VpnCommandGate { ServiceState.ERROR }
+        var starts = 0
+
+        gate.start { starts++ }
+
+        assertEquals(1, starts)
+    }
+
+    @Test
     fun cancelledCommandReleasesGateForStop() = runBlocking {
         var state = ServiceState.STOPPED
         val gate = VpnCommandGate { state }
