@@ -28,7 +28,9 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Temporary mitigation attempt for Android emulator startup timeouts on ubuntu-latest.
+    # Keep only if hosted CI confirms it helps; revalidate before Ubuntu 22.04 retirement.
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

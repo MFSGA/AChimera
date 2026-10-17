@@ -6,12 +6,13 @@
 
 | 工作流 | 真实触发方式 | 作用与权限 |
 | --- | --- | --- |
-| `ci.yml` | `main` push / PR | 只读 Token；核验 Actions 引用、Cargo dependency policy、Rust fmt/Clippy/tests、UniFFI 绑定、Gradle ktlint/JVM/lint、Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests |
+| `ci.yml` | `main` push / PR | Ubuntu 22.04（为排查 Android emulator 启动超时而做的临时尝试，效果待托管 CI 确认）；只读 Token；核验 Actions 引用、Cargo dependency policy、Rust fmt/Clippy/tests、UniFFI 绑定、Gradle ktlint/JVM/lint、Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests |
 | `nightly.yml` | 每日 19:17 UTC / 手工 dispatch | 构建全 ABI Debug APK，上传 Artifact，使用 `contents: write` 更新滚动 `nightly` GitHub 预发布 |
 | `release.yml` | `v*` 标签 push / 手工 dispatch（仅 main） | 手工 dispatch 可更改版本并推 tag；必须配置签名 Secrets，否则失败；校验 tag 提交属于 main 且版本匹配；构建后逐个用 `apksigner` 验证 APK 与固定证书指纹，再生成依赖清单、校验和并发布 GitHub Release |
 
 ### 不可误判
 
+- CI 当前临时尝试固定到 `ubuntu-22.04`，以验证 runner 差异是否与 `ubuntu-latest` 上 Android emulator 启动超时有关；效果尚未经过托管 CI 验证。失败运行的可见注释只确认 `adb wait-for-device` 超时，我们未能读取 emulator 进程日志，根因仍未证实。Ubuntu 22.04 runner 已进入弃用期，须在 [2027-04-17 退役前](https://github.com/actions/runner-images/issues/14254)重新验证并迁移，不能把此 pin 当长期方案。
 - CI 通过 **不等于** Android 设备端 VPN、权限撤销、后台恢复、双 UI 一致性、ARM ABI 运行成功。
 - Nightly 是**已有的自动预发布流水线**，不是夜间 AI 复盘；Nightly 具有写入 GitHub Release 的权限。
 - Release 接收 `v*` 标签 push；Codex 不得未经授权执行 tagging 或 workflow dispatch，也不得把普通合并当作稳定发布授权。
