@@ -15,7 +15,7 @@
 
 | 编号 | 日期 | 范围 | 描述 | 证据 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| — | — | — | 暂无本流程核实并收录的事故 | — | — |
+| LESSON-20261017-001 | 2026-10-17 | Android instrumentation tests | CI 测试断言与测试上下文不匹配 | [失败 run 38995671505](https://github.com/MFSGA/AChimera/actions/runs/38995671505)、[修复验证 run 38996990027](https://github.com/MFSGA/AChimera/actions/runs/38996990027) | Verified |
 
 ## 条目模板
 
@@ -40,4 +40,19 @@
 
 ## 已确认经验
 
-*本次只建立记录制度，尚未为现有未提交代码推断事故或编造复盘结论。*
+### LESSON-20261017-001: Android instrumentation 断言与测试上下文不匹配
+
+- 发生/确认时间（含时区）：2026-10-17，Asia/Shanghai
+- 模块：Android instrumentation tests
+- 严重度：Medium
+- 状态：Verified
+- Issue、PR、commit、CI 运行或复现证据：[失败 CI run 38995671505](https://github.com/MFSGA/AChimera/actions/runs/38995671505)，修复提交 `2b9293f2`，完整通过的 [CI run 38996990027](https://github.com/MFSGA/AChimera/actions/runs/38996990027)
+- 环境：GitHub Actions `ubuntu-24.04`，Android API 36 x86_64 模拟器
+- 预期行为：导航测试验证设置页内容；Material XML 布局在应用主题下 inflate；无来源指纹的旧自动更新状态由存储层保持 fail-closed。
+- 实际失败与可复现步骤：CI run 38995671505 中，设置页测试用通用 `settings_title` 匹配到多个节点；Material 布局测试用未应用 Material 主题的 context inflate；存储层测试则错误地期待它为缺少来源指纹的旧状态自动绑定来源。
+- 根本原因及证据：失败测试日志确认前两项分别是非唯一 Compose 文本匹配和缺少主题属性；第三项断言与存储层职责不符，存储层无法验证当前 profile 来源。来源核验及兼容绑定应由 `ProfileCatalogReader` 在比较当前快照后完成，存储层必须拒绝推断来源。
+- 修复改动及其归属：测试改为断言唯一的 `settings_general` 内容、使用 `Theme_Chimera_MetaCubeX` 包装布局 context，并验证 store 层不会绑定缺指纹的旧状态；未改动应用运行逻辑。
+- 预防措施：UI 导航测试选择唯一页面内容；inflate Material 布局的测试显式使用应用主题；旧数据绑定只在具备来源快照校验的 catalog 层测试，存储层维持 fail-closed。
+- 复验命令、场景和真实结果：本地 `./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest --tests 'rs.chimera.android.backend.ProfileAutoUpdateStateWritePolicyTest'` 和 `git diff --check` 通过；CI run 38996990027 中 Rust、UniFFI、Android quality、Debug APK、KVM 加速、模拟器启动及完整 instrumentation tests 全部通过。未在本地设备运行 instrumentation tests。
+- 关联独立事件（用于累计出现次数）：无
+- 是否提议升级治理规范及审批链接：否

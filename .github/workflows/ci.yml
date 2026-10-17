@@ -28,9 +28,8 @@ concurrency:
 
 jobs:
   build:
-    # Temporary mitigation attempt for Android emulator startup timeouts on ubuntu-latest.
-    # Keep only if hosted CI confirms it helps; revalidate before Ubuntu 22.04 retirement.
-    runs-on: ubuntu-22.04
+    # Pin the known-compatible image: cargo-ndk requires GLIBC_2.39 and Android CI needs KVM.
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -143,6 +142,22 @@ jobs:
 
       - name: Build Debug APK
         run: ./gradlew app:assembleDebug
+
+      - name: Check Android emulator acceleration
+        run: |
+          set -euo pipefail
+          EMULATOR="${ANDROID_HOME}/emulator/emulator"
+          if [ ! -x "$EMULATOR" ]; then
+            echo "Android emulator was not found: $EMULATOR" >&2
+            exit 1
+          fi
+          if [ ! -e /dev/kvm ]; then
+            echo "KVM device /dev/kvm is unavailable on this runner." >&2
+            exit 1
+          fi
+          sudo chown "$(id -un)" /dev/kvm
+          sudo chmod 0600 /dev/kvm
+          "$EMULATOR" -accel-check
 
       - name: Start Android API 36 emulator
         run: |

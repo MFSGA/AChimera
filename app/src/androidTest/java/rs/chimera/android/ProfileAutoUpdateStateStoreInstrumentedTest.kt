@@ -191,7 +191,7 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
     }
 
     @Test
-    fun runtimeApplyPendingMarkBindsMatchingLegacyRevisionToSource() {
+    fun runtimeApplyPendingMarkDoesNotBindLegacyStateAtStoreLayer() {
         val id = trackedId("runtime-apply-bind-source")
         val current = ProfileAutoUpdateState(
             lastAttempt = 2_000L,
@@ -209,21 +209,7 @@ class ProfileAutoUpdateStateStoreInstrumentedTest {
         store.write(id, current)
 
         assertTrue(store.markRuntimeApplyPending(id, requested))
-
-        val boundPending = current.copy(
-            runtimeApplyPending = true,
-            sourceFingerprint = "source-a",
-        )
-        assertEquals(boundPending, store.read(id))
-
-        assertTrue(
-            store.clearRuntimeApplyPending(
-                id,
-                expectedProfileRevision = 4_000L,
-                expectedSourceFingerprint = "source-a",
-            ),
-        )
-        assertEquals(boundPending.copy(runtimeApplyPending = false), store.read(id))
+        assertEquals(current, store.read(id))
     }
 
     @Test

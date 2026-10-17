@@ -86,8 +86,8 @@
 
 **真实仓库行为（2026-10 读取工作流）：**
 
-- `.github/workflows/ci.yml`：`main` push/PR 触发，只读 Token；当前临时运行在 `ubuntu-22.04`，运行 Rust、依赖来源检查、UniFFI 绑定与 Gradle 质量检查，构建 Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests。不是实体设备端 VPN 互通证明。
-- 为验证 runner 差异是否与 [`ubuntu-latest` 上 Android emulator 启动超时](https://github.com/MFSGA/AChimera/actions/runs/38912772780)有关，CI 临时尝试固定到 Ubuntu 22.04；效果尚未经过托管 CI 验证。可见注释只确认 `adb wait-for-device` 超时，我们未能读取 emulator 进程日志，根因尚未证实。Ubuntu 22.04 runner 已进入弃用期，应在 [2027-04-17 退役前](https://github.com/actions/runner-images/issues/14254)重新验证并迁移。
+- `.github/workflows/ci.yml`：`main` push/PR 触发，只读 Token；固定在 Ubuntu 24.04（兼容 `cargo-ndk` 所需的 GLIBC 2.39），运行 Rust、依赖来源检查、UniFFI 绑定与 Gradle 质量检查，构建 Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests。启动前会检查并设置临时 runner 用户对 `/dev/kvm` 的访问权限，再运行 `emulator -accel-check`。不是实体设备端 VPN 互通证明。
+- 曾尝试 Ubuntu 22.04，但托管 CI 日志确认其中的 glibc 不满足 `cargo-ndk` 二进制要求（`GLIBC_2.39`）；此前 Ubuntu 24.04 运行日志也确认模拟器因 runner 用户无权访问 `/dev/kvm` 而无法启动。当前工作流因此固定 Ubuntu 24.04，并在模拟器启动前修复该临时 runner 的 KVM 设备访问权限及检查硬件加速。
 - `.github/workflows/nightly.yml`：每天 19:17 UTC 定时或手工运行，完整 ABI Debug APK，上传 Artifact，更新 GitHub `nightly` **预发布**。它**已经有写入 Release 的能力**，不能把“Nightly”理解为只读复盘。
 - `.github/workflows/release.yml`：只能从 `main` 手工 dispatch 推进版本并创建 tag；推送 `v*` tag 也能触发稳定版发布。当前 workflow revision 会校验 tag 指向 `main` 中的提交且版本与源码一致；流程检查 Gradle 测试/lint、签名凭据、依赖清单及 APK，最后创建 GitHub Release。**现有工作流不是只有人工按钮才能发布**。但 GitHub 对 tag push 使用 tag 所指提交中的 workflow 文件，旧提交上的旧版工作流不受新检查保护，因此必须另行保护 `v*` 标签。
 

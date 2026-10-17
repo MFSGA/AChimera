@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -108,7 +109,8 @@ class AppUiNavigationInstrumentedTest {
 
     @Test
     fun metaConnectionsLayoutStartsWithCloseAllDisabled() {
-        val root = LayoutInflater.from(context).inflate(R.layout.meta_design_connections, null)
+        val themedContext = ContextThemeWrapper(context, R.style.Theme_Chimera_MetaCubeX)
+        val root = LayoutInflater.from(themedContext).inflate(R.layout.meta_design_connections, null)
 
         assertFalse(root.findViewById<android.view.View>(R.id.close_all).isEnabled)
     }
@@ -146,7 +148,8 @@ class AppUiNavigationInstrumentedTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             waitForResumedActivity<MainActivity>()
             composeRule.onNodeWithText(context.getString(R.string.settings_screen)).performClick()
-            composeRule.onNodeWithText(context.getString(R.string.settings_title)).assertIsDisplayed()
+            composeRule.onNodeWithText(context.getString(R.string.settings_general))
+                .assertIsDisplayed()
         }
     }
 
