@@ -1,58 +1,43 @@
 package rs.chimera.android.ui.metacubex.adapter
 
-import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-
-import rs.chimera.android.databinding.MetaAdapterProxyBinding
+import rs.chimera.android.ui.metacubex.design.ProxyCardView
+import rs.chimera.android.ui.metacubex.design.ProxyDisplayEntry
 
 class ProxyAdapter(
-    private val selectedProxy: String?,
     private val onItemClick: (String) -> Unit,
-) : ListAdapter<ProxyAdapter.Item, ProxyAdapter.ViewHolder>(DiffCallback) {
+) : ListAdapter<ProxyDisplayEntry, ProxyAdapter.ViewHolder>(DiffCallback) {
+    var columns: Int = 2
+        set(value) {
+            field = value
+            notifyItemRangeChanged(0, itemCount)
+        }
 
-    data class Item(
-        val name: String,
-        val type: String,
-        val delay: String,
-        val isSelected: Boolean,
-    )
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val binding = MetaAdapterProxyBinding.inflate(
-            LayoutInflater.from(parent.context),
-            parent,
-            false,
-        )
-        return ViewHolder(binding)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
+        ViewHolder(ProxyCardView(parent.context))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), columns)
     }
 
     inner class ViewHolder(
-        private val binding: MetaAdapterProxyBinding,
-    ) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(item: Item) {
-            binding.proxyName = item.name
-            binding.proxyType = item.type
-            binding.delay = item.delay
-            binding.isSelected = item.isSelected
-            binding.clicked = android.view.View.OnClickListener { onItemClick(item.name) }
-            binding.executePendingBindings()
+        private val view: ProxyCardView,
+    ) : RecyclerView.ViewHolder(view) {
+        fun bind(entry: ProxyDisplayEntry, columnCount: Int) {
+            view.columns = columnCount
+            view.entry = entry
+            view.setOnClickListener { onItemClick(entry.name) }
         }
     }
 
-    private object DiffCallback : DiffUtil.ItemCallback<Item>() {
-        override fun areItemsTheSame(oldItem: Item, newItem: Item): Boolean {
-            return oldItem.name == newItem.name
-        }
+    private object DiffCallback : DiffUtil.ItemCallback<ProxyDisplayEntry>() {
+        override fun areItemsTheSame(oldItem: ProxyDisplayEntry, newItem: ProxyDisplayEntry): Boolean =
+            oldItem.name == newItem.name
 
-        override fun areContentsTheSame(oldItem: Item, newItem: Item): Boolean {
-            return oldItem == newItem
-        }
+        override fun areContentsTheSame(oldItem: ProxyDisplayEntry, newItem: ProxyDisplayEntry): Boolean =
+            oldItem == newItem
     }
 }

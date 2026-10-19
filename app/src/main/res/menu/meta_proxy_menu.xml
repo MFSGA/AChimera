@@ -1,18 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-    <group android:checkableBehavior="single">
-        <item
-            android:id="@+id/action_mode_rule"
-            android:title="@string/proxy_mode_rule"
-            app:showAsAction="never" />
-        <item
-            android:id="@+id/action_mode_global"
-            android:title="@string/proxy_mode_global"
-            app:showAsAction="never" />
-        <item
-            android:id="@+id/action_mode_direct"
-            android:title="@string/proxy_mode_direct"
-            app:showAsAction="never" />
-    </group>
+    <item
+        android:id="@+id/action_delay_test"
+        android:title="@string/proxy_delay_test"
+        app:actionLayout="@layout/meta_proxy_delay_test_action"
+        app:showAsAction="always" />
+
+    <item android:title="@string/proxy_menu_mode">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/action_mode_rule"
+                    android:title="@string/proxy_mode_rule" />
+                <item
+                    android:id="@+id/action_mode_global"
+                    android:title="@string/proxy_mode_global" />
+                <item
+                    android:id="@+id/action_mode_direct"
+                    android:title="@string/proxy_mode_direct" />
+            </group>
+        </menu>
+    </item>
+
+    <item android:title="@string/proxy_menu_layout">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item android:id="@+id/action_layout_single" android:title="@string/proxy_layout_single" />
+                <item android:id="@+id/action_layout_double" android:title="@string/proxy_layout_double" />
+                <item android:id="@+id/action_layout_multiple" android:title="@string/proxy_layout_multiple" />
+            </group>
+        </menu>
+    </item>
+
+    <item android:title="@string/proxy_menu_sort">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item android:id="@+id/action_sort_default" android:title="@string/proxy_sort_default" />
+                <item android:id="@+id/action_sort_name" android:title="@string/proxy_sort_name" />
+                <item android:id="@+id/action_sort_delay" android:title="@string/proxy_sort_delay" />
+            </group>
+        </menu>
+    </item>
 </menu>
