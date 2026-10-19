@@ -220,7 +220,7 @@ class AppUiNavigationInstrumentedTest {
             waitForResumedActivity<MetaSettingsActivity>()
             onView(withId(R.id.card_ports)).check(matches(isDisplayed()))
             onView(withId(R.id.card_language)).check { view, _ ->
-                assertEquals(View.GONE, view.visibility)
+                assertFalse(view.isShown)
             }
         }
     }
