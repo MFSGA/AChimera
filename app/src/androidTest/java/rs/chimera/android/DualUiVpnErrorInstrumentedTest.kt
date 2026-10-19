@@ -1,7 +1,6 @@
 package rs.chimera.android
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.os.Build
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasScrollAction
@@ -35,7 +34,6 @@ class DualUiVpnErrorInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private var hadStoredUiVariant = false
     private var originalStoredUiVariant: String? = null
-    private var originallyHadNotificationPermission = false
     private var originalRuntimeStatus: VpnRuntimeStatus? = null
     private val context
         get() = instrumentation.targetContext
@@ -46,9 +44,7 @@ class DualUiVpnErrorInstrumentedTest {
     @Before
     fun setUp() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            originallyHadNotificationPermission =
-                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-                    PackageManager.PERMISSION_GRANTED
+            // Revoking this permission in @After can terminate the target process hosting the runner.
             instrumentation.uiAutomation.grantRuntimePermission(
                 context.packageName,
                 Manifest.permission.POST_NOTIFICATIONS,
@@ -81,15 +77,6 @@ class DualUiVpnErrorInstrumentedTest {
             }
         }.commit()
         check(restoreUiVariant) { "Failed to restore the original UI variant preference" }
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !originallyHadNotificationPermission
-        ) {
-            instrumentation.uiAutomation.revokeRuntimePermission(
-                context.packageName,
-                Manifest.permission.POST_NOTIFICATIONS,
-            )
-        }
     }
 
     @Test
