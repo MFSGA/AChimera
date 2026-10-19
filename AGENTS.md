@@ -87,6 +87,12 @@
 
 如果 `clash-android` 需要当前锁定的 `Chimera_Client` release 不具备的 API 或行为，停止该迁移步骤，报告参考实现需求、当前依赖差异及受影响功能；不得猜测兼容性或切换浮动依赖。需要核心修复时，遵循上述 release-first 流程。
 
+### CMFA UI 对齐规范
+
+`app/src/main/java/rs/chimera/android/ui/metacubex/` 及其 XML、主题和 drawable 资源中的用户可见界面，必须尽可能像素级贴近本地 `ref/ClashMetaForAndroid` 对应界面，而不只是借鉴大致风格。实施或审查这套 UI 前，先阅读 [应用架构中的 CMFA UI 对齐规范](ARCHITECTURE.md)，核实并记录参考仓库修订；不得静默更换视觉基准。
+
+保留 Chimera 的应用名称、品牌标识和后端边界；UI 对齐不能复制或绕过业务后端。无法一比一呈现的功能或平台差异必须尽量缩小，并在变更说明中列出原因和影响。验收需提供相同或尽可能一致的设备条件下对应页面/状态的参考与实现截图比对；仅通过编译或确认页面可以打开，不算完成视觉对齐。
+
 ## UniFFI 绑定
 
 - 已跟踪的 Kotlin 绑定为 `core/src/main/java/uniffi/chimera_ffi/chimera_ffi.kt`。修改 Rust 导出接口后，通过 `just generate-bindings` 重新生成，不手改生成文件来掩盖接口差异。
