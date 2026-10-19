@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Chimera.MetaCubeXBase" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowBackground">#FF121212</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="colorPrimary">@color/metacubex_primary_dark</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorSurface">@color/metacubex_surface_dark</item>
+        <item name="colorControlNormal">@android:color/white</item>
+        <item name="colorClashStopped">@color/metacubex_surface_dark</item>
+        <item name="colorControlDisabled">#FF808080</item>
+
+        <item name="colorPrimaryDark">?attr/colorPrimary</item>
+        <item name="colorSecondary">?attr/colorPrimary</item>
+        <item name="colorOnSecondary">?attr/colorOnPrimary</item>
+        <item name="colorControlActivated">?attr/colorPrimary</item>
+        <item name="android:textColor">?attr/colorControlNormal</item>
+    </style>
+
+    <style name="Theme.Chimera.MetaCubeX" parent="@style/Theme.Chimera.MetaCubeXBase" />
+</resources>

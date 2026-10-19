@@ -1,14 +1,16 @@
 package rs.chimera.android.ui.metacubex.design
 
 import android.content.Context
+import android.util.TypedValue
 import android.view.View
+import android.widget.ImageView
 import android.widget.TextView
-import com.google.android.material.card.MaterialCardView
 import rs.chimera.android.R
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.databinding.MetaDesignMainBinding
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
+import rs.chimera.android.ui.metacubex.design.util.applySystemBarInsets
 
 class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     enum class Request {
@@ -29,16 +31,21 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     override val root: View
         get() = binding.root
 
-    private val cardHelp: MaterialCardView = root.findViewById(R.id.card_help)
-    private val cardAbout: MaterialCardView = root.findViewById(R.id.card_about)
+    private val cardHelp: View = root.findViewById(R.id.card_help)
+    private val cardAbout: View = root.findViewById(R.id.card_about)
+    private val statusIcon: ImageView = root.findViewById(R.id.icon_status)
     private val statusTitle: TextView = root.findViewById(R.id.text_status_title)
     private val statusSubtitle: TextView = root.findViewById(R.id.text_status_subtitle)
     private var serviceState = ServiceState.STOPPED
     private var serviceError: String? = null
     private var forwarded = "0 B"
     private var statusOperationInProgress = false
+    private val statusStartedColor = resolveThemeColor(R.attr.colorPrimary)
+    private val statusStoppedColor = resolveThemeColor(R.attr.colorClashStopped)
+    private val statusErrorColor = resolveThemeColor(R.attr.colorError)
 
     init {
+        root.applySystemBarInsets()
         binding.cardStatus.setOnClickListener { request(Request.ToggleStatus) }
         binding.cardProxy.setOnClickListener { request(Request.OpenProxy) }
         binding.cardProfiles.setOnClickListener { request(Request.OpenProfiles) }
@@ -89,28 +96,32 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
             ServiceState.STOPPED -> StatusPresentation(
                 title = context.getString(R.string.stat_vpn_stopped),
                 subtitle = context.getString(R.string.stat_vpn_hint_start),
-                color = context.getColor(R.color.clash_stopped),
+                color = statusStoppedColor,
+                icon = R.drawable.ic_outline_not_interested,
                 interactive = true,
                 proxyVisible = false,
             )
             ServiceState.STARTING -> StatusPresentation(
                 title = context.getString(R.string.cmfa_service_starting),
                 subtitle = context.getString(R.string.cmfa_service_wait),
-                color = context.getColor(R.color.clash_started),
+                color = statusStartedColor,
+                icon = R.drawable.ic_outline_not_interested,
                 interactive = false,
                 proxyVisible = false,
             )
             ServiceState.RUNNING -> StatusPresentation(
                 title = context.getString(R.string.stat_vpn_running),
                 subtitle = context.getString(R.string.cmfa_traffic_forwarded, forwarded),
-                color = context.getColor(R.color.clash_started),
+                color = statusStartedColor,
+                icon = R.drawable.ic_outline_check_circle,
                 interactive = true,
                 proxyVisible = true,
             )
             ServiceState.STOPPING -> StatusPresentation(
                 title = context.getString(R.string.cmfa_service_stopping),
                 subtitle = context.getString(R.string.cmfa_service_wait),
-                color = context.getColor(R.color.clash_stopped),
+                color = statusStoppedColor,
+                icon = R.drawable.ic_outline_not_interested,
                 interactive = false,
                 proxyVisible = false,
             )
@@ -119,7 +130,8 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
                 subtitle = serviceError?.let {
                     context.getString(R.string.cmfa_service_error_detail, it)
                 } ?: context.getString(R.string.cmfa_service_retry),
-                color = context.getColor(R.color.clash_error),
+                color = statusErrorColor,
+                icon = R.drawable.ic_outline_not_interested,
                 interactive = true,
                 proxyVisible = false,
             )
@@ -127,6 +139,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
 
         statusTitle.text = presentation.title
         statusSubtitle.text = presentation.subtitle
+        statusIcon.setImageResource(presentation.icon)
         binding.cardStatus.setCardBackgroundColor(presentation.color)
         val interactive = presentation.interactive && !statusOperationInProgress
         binding.cardStatus.isEnabled = interactive
@@ -160,10 +173,21 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         requests.trySend(request)
     }
 
+    private fun resolveThemeColor(attribute: Int): Int {
+        val value = TypedValue()
+        context.theme.resolveAttribute(attribute, value, true)
+        return if (value.resourceId != 0) {
+            context.getColor(value.resourceId)
+        } else {
+            value.data
+        }
+    }
+
     private data class StatusPresentation(
         val title: String,
         val subtitle: String,
         val color: Int,
+        val icon: Int,
         val interactive: Boolean,
         val proxyVisible: Boolean,
     )

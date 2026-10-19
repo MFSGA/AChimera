@@ -3,8 +3,11 @@
     <attr name="colorClashStopped" format="color" />
     <attr name="colorControlDisabled" format="color" />
 
-    <style name="Theme.Chimera.MetaCubeX" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/clash_started</item>
+    <style name="Theme.Chimera.MetaCubeXBase" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="android:windowBackground">@color/metacubex_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@color/metacubex_navigation_overlay</item>
+        <item name="colorPrimary">@color/metacubex_primary</item>
         <item name="colorOnPrimary">@android:color/white</item>
         <item name="colorControlNormal">@android:color/black</item>
         <item name="colorClashStopped">@color/clash_stopped</item>
@@ -16,4 +19,6 @@
         <item name="colorControlActivated">?attr/colorPrimary</item>
         <item name="android:textColor">?attr/colorControlNormal</item>
     </style>
+
+    <style name="Theme.Chimera.MetaCubeX" parent="@style/Theme.Chimera.MetaCubeXBase" />
 </resources>

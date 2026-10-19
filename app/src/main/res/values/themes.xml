@@ -5,4 +5,9 @@
     <color name="clash_started">#1976d2</color>
     <color name="clash_stopped">#808080</color>
     <color name="clash_error">#B3261E</color>
+    <color name="metacubex_primary">#1e4376</color>
+    <color name="metacubex_primary_dark">#1976d2</color>
+    <color name="metacubex_background">#FFFAFAFA</color>
+    <color name="metacubex_surface_dark">#FF202020</color>
+    <color name="metacubex_navigation_overlay">#50000000</color>
 </resources>

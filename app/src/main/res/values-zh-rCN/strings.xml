@@ -85,6 +85,7 @@
     <string name="status_enabled">已启用</string>
     <string name="status_disabled">未启用</string>
     <string name="panel_screen">节点</string>
+    <string name="proxy_screen">代理</string>
     <string name="settings_screen">设置</string>
     <string name="settings_title">设置</string>
     <string name="settings_appearance">外观</string>
@@ -190,6 +191,15 @@
     <string name="proxy_select_not_applied">核心未能应用 %1$s。</string>
     <string name="proxy_select_failed">选择代理失败：%1$s</string>
     <string name="proxy_delay_testing_progress">正在测试 %1$d/%2$d</string>
+    <string name="proxy_menu_mode">模式</string>
+    <string name="proxy_menu_layout">布局</string>
+    <string name="proxy_menu_sort">排序方式</string>
+    <string name="proxy_layout_single">单列</string>
+    <string name="proxy_layout_double">双列</string>
+    <string name="proxy_layout_multiple">三列</string>
+    <string name="proxy_sort_default">默认顺序</string>
+    <string name="proxy_sort_name">名称</string>
+    <string name="proxy_sort_delay">延迟</string>
     <string name="proxy_delay_complete">%1$s 的延迟测试已完成。</string>
     <plurals name="proxy_delay_complete_with_failures">
         <item quantity="other">%1$s 的延迟测试已完成；%2$d 个节点失败。</item>

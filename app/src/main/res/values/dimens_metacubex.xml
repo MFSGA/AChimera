@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="metacubex_main_horizontal_padding">30dp</dimen>
+    <dimen name="metacubex_main_banner_height">90dp</dimen>
+    <dimen name="metacubex_main_icon_slot">70dp</dimen>
+    <dimen name="metacubex_main_icon_size">30dp</dimen>
+    <dimen name="metacubex_main_card_min_height">85dp</dimen>
+    <dimen name="metacubex_main_card_radius">8dp</dimen>
+    <dimen name="metacubex_main_card_elevation">5dp</dimen>
+    <dimen name="metacubex_main_card_margin_vertical">5dp</dimen>
+    <dimen name="metacubex_main_label_padding_vertical">15dp</dimen>
+    <dimen name="metacubex_main_label_margin_vertical">2dp</dimen>
+    <dimen name="metacubex_proxy_layout_padding">3dp</dimen>
+    <dimen name="metacubex_proxy_content_padding">15dp</dimen>
+    <dimen name="metacubex_proxy_content_padding_compact">12dp</dimen>
+    <dimen name="metacubex_proxy_text_margin">10dp</dimen>
+    <dimen name="metacubex_proxy_text_margin_compact">5dp</dimen>
+    <dimen name="metacubex_proxy_text_size">12sp</dimen>
+    <dimen name="metacubex_proxy_text_size_compact">11sp</dimen>
+    <dimen name="metacubex_proxy_card_radius">5dp</dimen>
+    <dimen name="metacubex_toolbar_height">56dp</dimen>
+    <dimen name="metacubex_tab_layout_height">48dp</dimen>
+    <dimen name="metacubex_tab_layout_elevation">5dp</dimen>
+    <dimen name="metacubex_divider_size">1dp</dimen>
+    <dimen name="metacubex_item_tailing_margin">17.5dp</dimen>
+</resources>
