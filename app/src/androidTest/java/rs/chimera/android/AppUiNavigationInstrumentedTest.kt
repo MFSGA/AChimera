@@ -20,6 +20,7 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
@@ -34,6 +35,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import rs.chimera.android.ui.metacubex.activity.MetaConnectionsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
+import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
@@ -219,12 +221,42 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun metaSettingsEntryOpensSettingsScreen() {
+    fun metaSettingsEntryOpensCategoryHomeAndNetworkSettings() {
         ActivityScenario.launch(MetaMainActivity::class.java).use {
             waitForResumedActivity<MetaMainActivity>()
             onView(withId(R.id.card_settings)).perform(click())
-            waitForResumedActivity<MetaSettingsActivity>()
+            waitForResumedActivity<MetaSettingsHomeActivity>()
             onView(withId(R.id.toolbar)).check(matches(isDisplayed()))
+            onView(withId(R.id.category_app)).check(matches(isDisplayed()))
+            onView(withId(R.id.category_network)).perform(click())
+            waitForResumedActivity<MetaSettingsActivity>()
+            onView(withId(R.id.card_ports)).check(matches(isDisplayed()))
+            onView(withId(R.id.card_language)).check { view, _ ->
+                assertEquals(View.GONE, view.visibility)
+            }
+        }
+    }
+
+    @Test
+    fun metaSettingsMetaFeaturesCategoryShowsDiagnosticsOnly() {
+        ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
+            waitForResumedActivity<MetaSettingsHomeActivity>()
+            onView(withId(R.id.category_meta_features)).perform(click())
+            waitForResumedActivity<MetaSettingsActivity>()
+            onView(withId(R.id.card_dns)).check(matches(isDisplayed()))
+            onView(withId(R.id.card_ports)).check { view, _ ->
+                assertEquals(View.GONE, view.visibility)
+            }
+        }
+    }
+
+    @Test
+    fun metaSettingsOverrideEntryExplainsUnsupportedCapability() {
+        ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
+            waitForResumedActivity<MetaSettingsHomeActivity>()
+            onView(withId(R.id.category_override)).perform(click())
+            onView(withText(R.string.settings_category_override_unavailable))
+                .check(matches(isDisplayed()))
         }
     }
 

@@ -33,12 +33,17 @@ import rs.chimera.android.util.toUserVisibleMessage
 class MetaSettingsActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private lateinit var design: SettingsDesign
+    private val category: SettingsDesign.Category by lazy {
+        SettingsDesign.Category.values().firstOrNull {
+            it.name == intent.getStringExtra(SettingsDesign.EXTRA_CATEGORY)
+        } ?: SettingsDesign.Category.APP
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setTheme(R.style.Theme_Chimera_MetaCubeX)
 
-        design = SettingsDesign(this)
+        design = SettingsDesign(this, category)
         setContentView(design.root)
         design.render(loadState())
 

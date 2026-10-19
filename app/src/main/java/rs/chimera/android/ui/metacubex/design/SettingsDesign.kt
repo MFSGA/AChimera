@@ -2,6 +2,7 @@ package rs.chimera.android.ui.metacubex.design
 
 import android.content.Context
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
@@ -10,7 +11,20 @@ import rs.chimera.android.R
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
-class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context) {
+class SettingsDesign(
+    context: Context,
+    private val category: Category,
+) : Design<SettingsDesign.Request>(context) {
+    enum class Category(val viewTag: String, val titleRes: Int) {
+        APP("app", R.string.settings_category_app),
+        NETWORK("network", R.string.settings_category_network),
+        META_FEATURES("meta_features", R.string.settings_category_meta_features),
+    }
+
+    companion object {
+        const val EXTRA_CATEGORY = "rs.chimera.android.ui.metacubex.settings_category"
+    }
+
     sealed class Request {
         data object NavigateBack : Request()
         data object EditPorts : Request()
@@ -75,6 +89,14 @@ class SettingsDesign(context: Context) : Design<SettingsDesign.Request>(context)
     private var rendering = false
 
     init {
+        toolbar.title = context.getString(category.titleRes)
+        root.findViewById<LinearLayout>(R.id.settings_content).let { content ->
+            for (index in 0 until content.childCount) {
+                val child = content.getChildAt(index)
+                child.visibility = if (child.tag == category.viewTag) View.VISIBLE else View.GONE
+            }
+        }
+
         toolbar.setNavigationOnClickListener { request(Request.NavigateBack) }
         cardLanguage.setOnClickListener { request(Request.ChooseLanguage) }
         cardAppearance.setOnClickListener { request(Request.ChooseAppearance) }

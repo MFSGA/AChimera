@@ -88,6 +88,11 @@
     <string name="proxy_screen">代理</string>
     <string name="settings_screen">设置</string>
     <string name="settings_title">设置</string>
+    <string name="settings_category_app">应用</string>
+    <string name="settings_category_network">网络</string>
+    <string name="settings_category_override">覆写</string>
+    <string name="settings_category_meta_features">Meta 功能</string>
+    <string name="settings_category_override_unavailable">Chimera 当前版本尚不支持配置覆写。</string>
     <string name="settings_appearance">外观</string>
     <string name="settings_dark_mode">深色模式</string>
     <string name="settings_ui_style">界面风格</string>

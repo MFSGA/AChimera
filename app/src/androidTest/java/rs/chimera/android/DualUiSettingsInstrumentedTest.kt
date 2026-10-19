@@ -2,6 +2,7 @@ package rs.chimera.android
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
 import androidx.compose.ui.test.SemanticsNodeInteraction
@@ -32,6 +33,7 @@ import org.junit.runner.RunWith
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
+import rs.chimera.android.ui.metacubex.design.SettingsDesign
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.UiVariant
 
@@ -90,7 +92,7 @@ class DualUiSettingsInstrumentedTest {
             scrollWatfaqTo(portsSummary).assertIsDisplayed()
         }
 
-        ActivityScenario.launch(MetaSettingsActivity::class.java).use {
+        launchMetaSettings(SettingsDesign.Category.NETWORK).use {
             onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
             onView(withId(R.id.switch_fake_ip)).check(matches(isChecked()))
             onView(withId(R.id.switch_ipv6)).check(matches(isChecked()))
@@ -107,7 +109,7 @@ class DualUiSettingsInstrumentedTest {
             scrollWatfaqTo(context.getString(R.string.proxy_providers_title)).assertIsDisplayed()
         }
 
-        ActivityScenario.launch(MetaSettingsActivity::class.java).use {
+        launchMetaSettings(SettingsDesign.Category.META_FEATURES).use {
             onView(withId(R.id.card_dns)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.card_rules)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.card_providers)).perform(scrollTo()).check(matches(isDisplayed()))
@@ -121,7 +123,7 @@ class DualUiSettingsInstrumentedTest {
             scrollWatfaqTo(context.getString(R.string.settings_reset_network)).assertIsDisplayed()
         }
 
-        ActivityScenario.launch(MetaSettingsActivity::class.java).use {
+        launchMetaSettings(SettingsDesign.Category.NETWORK).use {
             onView(withId(R.id.card_reset_network)).perform(scrollTo()).check(matches(isDisplayed()))
         }
     }
@@ -136,7 +138,7 @@ class DualUiSettingsInstrumentedTest {
             }
         }
 
-        ActivityScenario.launch(MetaSettingsActivity::class.java).use {
+        launchMetaSettings(SettingsDesign.Category.NETWORK).use {
             onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
         }
     }
@@ -156,6 +158,13 @@ class DualUiSettingsInstrumentedTest {
             .performClick()
         scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).assertIsDisplayed()
     }
+
+    private fun launchMetaSettings(
+        category: SettingsDesign.Category,
+    ): ActivityScenario<MetaSettingsActivity> = ActivityScenario.launch<MetaSettingsActivity>(
+        Intent(context, MetaSettingsActivity::class.java)
+            .putExtra(SettingsDesign.EXTRA_CATEGORY, category.name),
+    )
 
     private fun scrollWatfaqTo(text: String): SemanticsNodeInteraction {
         composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text))

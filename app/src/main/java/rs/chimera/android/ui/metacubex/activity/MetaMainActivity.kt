@@ -127,7 +127,7 @@ class MetaMainActivity : AppCompatActivity() {
                 startActivity(Intent(this, MetaLogsDesignActivity::class.java))
             }
             MainDesign.Request.OpenSettings -> {
-                startActivity(Intent(this, MetaSettingsActivity::class.java))
+                startActivity(Intent(this, MetaSettingsHomeActivity::class.java))
             }
             MainDesign.Request.OpenWatfaq -> DefaultAppUiRouter.openWatfaq(this)
             MainDesign.Request.OpenHelp -> showMessageDialog(
