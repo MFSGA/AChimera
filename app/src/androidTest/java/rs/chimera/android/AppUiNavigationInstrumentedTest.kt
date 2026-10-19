@@ -5,8 +5,11 @@ import android.app.Activity
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
+import android.view.View
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.recyclerview.widget.RecyclerView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -32,6 +35,9 @@ import org.junit.runner.RunWith
 import rs.chimera.android.ui.metacubex.activity.MetaConnectionsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
+import rs.chimera.android.ui.metacubex.design.ProxyDesign
+import rs.chimera.android.backend.model.ProxyGroupSnapshot
+import rs.chimera.android.backend.model.ProxyMode
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.UiVariant
@@ -41,12 +47,18 @@ class AppUiNavigationInstrumentedTest {
     private val instrumentation = InstrumentationRegistry.getInstrumentation()
     private val context: Context
         get() = instrumentation.targetContext
+    private var originalPreferences: Map<String, Map<String, *>> = emptyMap()
+    private var notificationPermissionWasGranted = false
 
     @get:Rule
     val composeRule = createEmptyComposeRule()
 
     @Before
     fun setUp() {
+        originalPreferences = snapshotPreferences()
+        notificationPermissionWasGranted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+            android.content.pm.PackageManager.PERMISSION_GRANTED
         clearPreferences()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             instrumentation.uiAutomation.grantRuntimePermission(
@@ -61,7 +73,16 @@ class AppUiNavigationInstrumentedTest {
         resumedActivities().forEach { activity ->
             instrumentation.runOnMainSync(activity::finishAndRemoveTask)
         }
-        clearPreferences()
+        restorePreferences()
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            !notificationPermissionWasGranted
+        ) {
+            instrumentation.uiAutomation.revokeRuntimePermission(
+                context.packageName,
+                Manifest.permission.POST_NOTIFICATIONS,
+            )
+        }
     }
 
     @Test
@@ -104,6 +125,70 @@ class AppUiNavigationInstrumentedTest {
             waitForResumedActivity<MetaMainActivity>()
             onView(withId(R.id.card_memory)).check(matches(isDisplayed()))
             onView(withId(R.id.text_memory)).check(matches(isDisplayed()))
+        }
+    }
+
+    @Test
+    fun proxyPagerPagesFillTheViewport() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = ProxyDesign(activity)
+                activity.addContentView(
+                    design.root,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                design.setGroups(
+                    listOf(
+                        ProxyGroupSnapshot(
+                            name = "test-group",
+                            proxies = listOf("test-node"),
+                            selected = "test-node",
+                            mode = ProxyMode.RULE,
+                            proxyDetails = emptyMap(),
+                        ),
+                    ),
+                )
+            }
+            var measurement: Pair<IntArray, CharSequence?>? = null
+            val deadline = SystemClock.uptimeMillis() + 5_000
+            while (measurement == null && SystemClock.uptimeMillis() < deadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val viewPager = design.binding.viewPager
+                    val pageRecycler = viewPager.getChildAt(0) as? RecyclerView ?: return@onActivity
+                    val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView
+                        as? RecyclerView ?: return@onActivity
+                    if (page.adapter?.itemCount == 1) {
+                        val card = page.findViewHolderForAdapterPosition(0)?.itemView
+                        if (card != null) {
+                            measurement = Pair(
+                                intArrayOf(viewPager.width, viewPager.height, page.width, page.height),
+                                card.contentDescription,
+                            )
+                        }
+                    }
+                }
+                if (measurement == null) SystemClock.sleep(50)
+            }
+
+            val rendered = measurement ?: throw AssertionError("Proxy item did not render")
+            assertEquals(rendered.first[0], rendered.first[2])
+            assertEquals(rendered.first[1], rendered.first[3])
+            assertNotNull(rendered.second)
+
+            var stateVisibility = View.GONE
+            var contentVisibility = View.VISIBLE
+            scenario.onActivity {
+                design.showError("Test error")
+                stateVisibility = design.root.findViewById<View>(R.id.proxy_state).visibility
+                contentVisibility = design.root.findViewById<View>(R.id.proxy_content).visibility
+            }
+            assertEquals(View.VISIBLE, stateVisibility)
+            assertEquals(View.GONE, contentVisibility)
         }
     }
 
@@ -223,6 +308,33 @@ class AppUiNavigationInstrumentedTest {
     private fun clearPreferences() {
         context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+    }
+
+    private fun snapshotPreferences(): Map<String, Map<String, *>> = listOf(
+        SETTINGS_PREFS,
+        PROFILE_PREFS,
+    ).associateWith { name ->
+        context.getSharedPreferences(name, Context.MODE_PRIVATE).all.mapValues { (_, value) ->
+            if (value is Set<*>) value.toSet() else value
+        }
+    }
+
+    private fun restorePreferences() {
+        originalPreferences.forEach { (name, values) ->
+            val editor = context.getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear()
+            values.forEach { (key, value) ->
+                when (value) {
+                    is Boolean -> editor.putBoolean(key, value)
+                    is Float -> editor.putFloat(key, value)
+                    is Int -> editor.putInt(key, value)
+                    is Long -> editor.putLong(key, value)
+                    is String -> editor.putString(key, value)
+                    is Set<*> -> editor.putStringSet(key, value.filterIsInstance<String>().toSet())
+                    null -> editor.remove(key)
+                }
+            }
+            check(editor.commit()) { "Failed to restore preferences '$name' after instrumentation test" }
+        }
     }
 
     private companion object {
