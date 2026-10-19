@@ -73,6 +73,14 @@ cargo install cargo-ndk --locked
 
 ## 本地构建
 
+启动一个已配置的 AVD；若模拟器已运行则复用，并等待 Android 启动完成（可选传入 AVD 名称）：
+
+```bash
+./scripts/start-emulator.sh
+# 或替换为 Android Studio Device Manager 中的 AVD 名称：
+./scripts/start-emulator.sh YOUR_AVD_NAME
+```
+
 构建 Debug APK：
 
 ```powershell

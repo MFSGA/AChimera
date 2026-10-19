@@ -50,6 +50,14 @@ cargo install cargo-ndk --locked
 
 ## Local Build
 
+Start a configured AVD or reuse a running emulator, then wait for Android to finish booting (optionally pass an AVD name):
+
+```bash
+./scripts/start-emulator.sh
+# Or replace with an AVD name from Android Studio Device Manager:
+./scripts/start-emulator.sh YOUR_AVD_NAME
+```
+
 Build the Debug APK:
 
 ```powershell
