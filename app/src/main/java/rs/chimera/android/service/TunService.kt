@@ -31,11 +31,6 @@ import rs.chimera.android.ffi.initClash
 import rs.chimera.android.ffi.shutdownClash
 
 class TunService : VpnService(), VpnRuntimeControl {
-    private data class CleanupOutcome(
-        val performed: Boolean,
-        val releaseFailure: Throwable? = null,
-    )
-
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunFd: Int? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -46,6 +41,21 @@ class TunService : VpnService(), VpnRuntimeControl {
     private val networkResetMutex = Mutex()
     private val networkResetGeneration = NetworkResetGeneration()
     private var networkCoordinator: UnderlyingNetworkCoordinator? = null
+    private val cleanupCoordinator by lazy {
+        VpnRuntimeCleanupCoordinator(
+            lifecycleGate = lifecycleGate,
+            runtimeControl = this,
+            releaseRuntime = ::releaseRuntime,
+            publishVpnInactive = { publishVpnSystemStatus(serviceActive = false) },
+            formatReleaseFailure = { failure ->
+                failure.toUserVisibleMessage(
+                    this,
+                    rs.chimera.android.R.string.profile_unknown_error,
+                )
+            },
+            logCleanupComplete = { appendRuntimeLog("service cleanup complete") },
+        )
+    }
 
     override fun onStartCommand(
         intent: Intent?,
@@ -337,28 +347,11 @@ class TunService : VpnService(), VpnRuntimeControl {
         finalState: ServiceState = ServiceState.STOPPED,
         stopCore: Boolean = true,
         errorMessage: String? = null,
-    ): CleanupOutcome {
-        if (!lifecycleGate.beginCleanup()) return CleanupOutcome(performed = false)
-
-        val releaseFailure = releaseRuntime(stopCore = stopCore, removeForeground = true)
-        val decision = VpnRuntimeCleanupPolicy.resolve(
-            requestedState = finalState,
-            existingErrorMessage = errorMessage,
-            releaseFailure = releaseFailure,
-            formatReleaseFailure = { failure ->
-                failure.toUserVisibleMessage(
-                    this,
-                    rs.chimera.android.R.string.profile_unknown_error,
-                )
-            },
-        )
-        decision.errorMessage?.let(BackendRuntimeState::updateServiceError)
-        publishVpnSystemStatus(serviceActive = false)
-        VpnRuntimeRegistry.unregister(this)
-        BackendRuntimeState.updateServiceState(decision.serviceState)
-        appendRuntimeLog("service cleanup complete")
-        return CleanupOutcome(performed = true, releaseFailure = releaseFailure)
-    }
+    ): VpnRuntimeCleanupOutcome = cleanupCoordinator.cleanup(
+        finalState = finalState,
+        stopCore = stopCore,
+        errorMessage = errorMessage,
+    )
 
     private fun releaseRuntime(
         stopCore: Boolean,
