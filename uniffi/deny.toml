@@ -60,4 +60,6 @@ allow-git = [
     "https://github.com/Watfaq/rustls.git",
     "https://github.com/Watfaq/sock2proc.git",
     "https://github.com/Watfaq/tokio-rustls.git",
+    "https://github.com/Watfaq/boring-noise.git",
+    "https://github.com/shadowsocks/shadowsocks-rust.git",
 ]
