@@ -50,7 +50,6 @@ class AppUiNavigationInstrumentedTest {
     private val context: Context
         get() = instrumentation.targetContext
     private var originalPreferences: Map<String, Map<String, *>> = emptyMap()
-    private var notificationPermissionWasGranted = false
 
     @get:Rule
     val composeRule = createEmptyComposeRule()
@@ -58,11 +57,9 @@ class AppUiNavigationInstrumentedTest {
     @Before
     fun setUp() {
         originalPreferences = snapshotPreferences()
-        notificationPermissionWasGranted = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
         clearPreferences()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Revoking this permission in @After can terminate the target process hosting the runner.
             instrumentation.uiAutomation.grantRuntimePermission(
                 context.packageName,
                 Manifest.permission.POST_NOTIFICATIONS,
@@ -76,15 +73,6 @@ class AppUiNavigationInstrumentedTest {
             instrumentation.runOnMainSync(activity::finishAndRemoveTask)
         }
         restorePreferences()
-        if (
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            !notificationPermissionWasGranted
-        ) {
-            instrumentation.uiAutomation.revokeRuntimePermission(
-                context.packageName,
-                Manifest.permission.POST_NOTIFICATIONS,
-            )
-        }
     }
 
     @Test
