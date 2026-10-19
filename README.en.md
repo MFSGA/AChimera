@@ -5,11 +5,14 @@ The current app name is `Chimera Lite`, and the package includes both the Androi
 
 ## Supported Protocols
 
+- `anytls`
 - `hysteria2`
 - `reality`
-- `xhttp`
+- `shadowsocks`
+- `xhttp` (including HTTP/3 with standard TLS and ALPN `h3`)
 - `trojan`
-- `vless`
+- `vless` (including optional 1-RTT encryption)
+- `wireguard`
 - `tls+ws`
 
 ## Tech Stack

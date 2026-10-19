@@ -24,11 +24,14 @@ AChimera 是一个基于 Android + Kotlin/Jetpack Compose + Rust/UniFFI 的实�
 
 ## 支持协议
 
+- `anytls`
 - `hysteria2`
 - `reality`
-- `xhttp`
+- `shadowsocks`
+- `xhttp`（包括 HTTP/3；需标准 TLS 和 ALPN `h3`）
 - `trojan`
-- `vless`
+- `vless`（包括可选 1-RTT 加密）
+- `wireguard`
 - `tls+ws`
 
 ## 应用架构
