@@ -65,7 +65,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.profileName = name
             ?.takeIf { it.isNotBlank() }
             ?.let { context.getString(R.string.cmfa_profile_activated, it) }
-            ?: context.getString(R.string.no_profile)
+            ?: context.getString(R.string.cmfa_profile_not_selected)
         binding.executePendingBindings()
     }
 
@@ -95,7 +95,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         val presentation = when (serviceState) {
             ServiceState.STOPPED -> StatusPresentation(
                 title = context.getString(R.string.stat_vpn_stopped),
-                subtitle = context.getString(R.string.stat_vpn_hint_start),
+                subtitle = context.getString(R.string.cmfa_status_hint_start),
                 color = statusStoppedColor,
                 icon = R.drawable.ic_outline_not_interested,
                 interactive = true,

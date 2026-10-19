@@ -7,7 +7,9 @@
     <string name="home_logs_copy">Copy Logs</string>
     <string name="home_logs_clear">Clear Logs</string>
     <string name="cmfa_traffic_forwarded">Forwarded: %1$s</string>
-    <string name="cmfa_profile_activated">Activated: %1$s</string>
+    <string name="cmfa_profile_activated">%1$s Activated</string>
+    <string name="cmfa_profile_not_selected">Not selected</string>
+    <string name="cmfa_status_hint_start">Tap to start</string>
     <string name="cmfa_help_title">Help</string>
     <string name="cmfa_help_body">This screen follows the ClashMetaForAndroid main-page layout while using the current Chimera backend. Select a profile before starting, then use Nodes to choose the active proxy.</string>
     <string name="cmfa_service_starting">Starting…</string>
@@ -133,6 +135,7 @@
     <string name="dark_mode_light">Light</string>
     <string name="dark_mode_dark">Dark</string>
     <string name="settings_general">General</string>
+    <string name="settings_interface">Interface</string>
     <string name="settings_about">About</string>
     <string name="settings_language">Language</string>
     <string name="settings_logs_summary">Inspect the runtime log file and live updates.</string>
