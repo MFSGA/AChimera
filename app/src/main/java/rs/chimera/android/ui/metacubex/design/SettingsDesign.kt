@@ -1,13 +1,15 @@
 package rs.chimera.android.ui.metacubex.design
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.view.View
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
 import rs.chimera.android.R
+import rs.chimera.android.ui.metacubex.design.util.applySystemBarInsets
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
@@ -64,10 +66,13 @@ class SettingsDesign(
         false,
     )
 
-    private val toolbar = root.findViewById<MaterialToolbar>(R.id.toolbar)
-    private val cardLanguage = root.findViewById<MaterialCardView>(R.id.card_language)
-    private val cardAppearance = root.findViewById<MaterialCardView>(R.id.card_appearance)
-    private val cardUiVariant = root.findViewById<MaterialCardView>(R.id.card_ui_variant)
+    private val toolbarNavigation = root.findViewById<View>(R.id.toolbar_navigation)
+    private val toolbar = root.findViewById<View>(R.id.toolbar)
+    private val toolbarTitle = root.findViewById<TextView>(R.id.toolbar_title)
+    private val settingsScroll = root.findViewById<ScrollView>(R.id.settings_scroll)
+    private val cardLanguage = root.findViewById<View>(R.id.card_language)
+    private val cardAppearance = root.findViewById<View>(R.id.card_appearance)
+    private val cardUiVariant = root.findViewById<View>(R.id.card_ui_variant)
     private val cardPorts = root.findViewById<MaterialCardView>(R.id.card_ports)
     private val cardLogs = root.findViewById<MaterialCardView>(R.id.card_logs)
     private val cardDiagnostics = root.findViewById<MaterialCardView>(R.id.card_diagnostics)
@@ -87,9 +92,13 @@ class SettingsDesign(
     private val vpnSystemSummary = root.findViewById<TextView>(R.id.text_vpn_system_summary)
     private val vpnSystemDefaultTextColor = vpnSystemSummary.currentTextColor
     private var rendering = false
+    private var appBarElevated = false
+    private var appBarElevationAnimator: ValueAnimator? = null
 
     init {
-        toolbar.title = context.getString(category.titleRes)
+        root.applySystemBarInsets()
+
+        toolbarTitle.text = context.getString(category.titleRes)
         root.findViewById<LinearLayout>(R.id.settings_content).let { content ->
             for (index in 0 until content.childCount) {
                 val child = content.getChildAt(index)
@@ -97,7 +106,24 @@ class SettingsDesign(
             }
         }
 
-        toolbar.setNavigationOnClickListener { request(Request.NavigateBack) }
+        toolbarNavigation.setOnClickListener { request(Request.NavigateBack) }
+        settingsScroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
+            val elevated = scrollY > 0
+            if (appBarElevated != elevated) {
+                appBarElevated = elevated
+                appBarElevationAnimator?.cancel()
+                val targetElevation = if (elevated) {
+                    5 * context.resources.displayMetrics.density
+                } else {
+                    0f
+                }
+                appBarElevationAnimator = ValueAnimator.ofFloat(toolbar.elevation, targetElevation).apply {
+                    duration = 300L
+                    addUpdateListener { toolbar.elevation = it.animatedValue as Float }
+                    start()
+                }
+            }
+        }
         cardLanguage.setOnClickListener { request(Request.ChooseLanguage) }
         cardAppearance.setOnClickListener { request(Request.ChooseAppearance) }
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }

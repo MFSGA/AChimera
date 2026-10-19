@@ -8,7 +8,7 @@ AChimera 的 MetaCubeX / CMFA 风格界面（`app/src/main/java/rs/chimera/andro
 
 ### 参考基线
 
-- 本规范初始视觉基线为本地 `ref/ClashMetaForAndroid` 的提交 `8a0e818272b92382b3d2ae61b29911653b9801cb`。
+- 本规范视觉基线为本地 `ref/ClashMetaForAndroid` 的提交 `3cc102aab3f251ef460a3b6e2835b6c1eb581e73`（维护者于 2026-10-19 确认）。
 - 每次开始 UI 对齐前，通过 `git -C ref/ClashMetaForAndroid rev-parse HEAD` 核实参考修订，并在任务/PR 说明中记录 SHA 与对应的参考页面或资源路径。若本地参考不再处于该基线，不得静默改变标准；先由维护者确认是否更新基线，并说明视觉影响。
 - 逐功能查找参考项目中的 Activity、Design、layout、menu、theme、drawable 和 values 资源；以核实过的源码为准，不凭记忆或单张截图重画。
 
