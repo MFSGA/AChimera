@@ -73,15 +73,18 @@ class SettingsDesign(
     private val cardLanguage = root.findViewById<View>(R.id.card_language)
     private val cardAppearance = root.findViewById<View>(R.id.card_appearance)
     private val cardUiVariant = root.findViewById<View>(R.id.card_ui_variant)
-    private val cardPorts = root.findViewById<MaterialCardView>(R.id.card_ports)
+    private val rowAllowLan = root.findViewById<View>(R.id.row_allow_lan)
+    private val rowFakeIp = root.findViewById<View>(R.id.row_fake_ip)
+    private val rowIpv6 = root.findViewById<View>(R.id.row_ipv6)
+    private val cardPorts = root.findViewById<View>(R.id.card_ports)
     private val cardLogs = root.findViewById<MaterialCardView>(R.id.card_logs)
     private val cardDiagnostics = root.findViewById<MaterialCardView>(R.id.card_diagnostics)
     private val cardDns = root.findViewById<MaterialCardView>(R.id.card_dns)
     private val cardRules = root.findViewById<MaterialCardView>(R.id.card_rules)
     private val cardProviders = root.findViewById<MaterialCardView>(R.id.card_providers)
-    private val cardAccessControl = root.findViewById<MaterialCardView>(R.id.card_access_control)
-    private val cardResetNetwork = root.findViewById<MaterialCardView>(R.id.card_reset_network)
-    private val cardResetSettings = root.findViewById<MaterialCardView>(R.id.card_reset_settings)
+    private val cardAccessControl = root.findViewById<View>(R.id.card_access_control)
+    private val cardResetNetwork = root.findViewById<View>(R.id.card_reset_network)
+    private val cardResetSettings = root.findViewById<View>(R.id.card_reset_settings)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
     private val switchIpv6 = root.findViewById<SwitchMaterial>(R.id.switch_ipv6)
@@ -127,6 +130,9 @@ class SettingsDesign(
         cardLanguage.setOnClickListener { request(Request.ChooseLanguage) }
         cardAppearance.setOnClickListener { request(Request.ChooseAppearance) }
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }
+        rowAllowLan.setOnClickListener { switchAllowLan.isChecked = !switchAllowLan.isChecked }
+        rowFakeIp.setOnClickListener { switchFakeIp.isChecked = !switchFakeIp.isChecked }
+        rowIpv6.setOnClickListener { switchIpv6.isChecked = !switchIpv6.isChecked }
         cardPorts.setOnClickListener { request(Request.EditPorts) }
         cardLogs.setOnClickListener { request(Request.OpenLogs) }
         cardDiagnostics.setOnClickListener { request(Request.ShareDiagnostics) }
