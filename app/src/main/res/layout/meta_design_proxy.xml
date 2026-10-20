@@ -123,13 +123,6 @@
                         app:tabIndicatorColor="?attr/colorPrimary"
                         app:tabMode="scrollable" />
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/metacubex_divider_size"
-                        android:alpha="0.96"
-                        android:background="?android:windowBackground"
-                        android:elevation="@dimen/metacubex_tab_layout_elevation" />
-
                     <FrameLayout
                         android:layout_width="match_parent"
                         android:layout_height="0dp"
@@ -139,6 +132,13 @@
                             android:id="@+id/view_pager"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent" />
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="@dimen/metacubex_divider_size"
+                            android:alpha="0.96"
+                            android:background="?android:windowBackground"
+                            android:elevation="@dimen/metacubex_tab_layout_elevation" />
                     </FrameLayout>
                 </LinearLayout>
 

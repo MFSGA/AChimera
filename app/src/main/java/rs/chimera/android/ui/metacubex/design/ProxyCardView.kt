@@ -82,8 +82,9 @@ class ProxyCardView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        paint.reset()
         paint.textSize = textSize
-        paint.getTextBounds("Stub!", 0, 5, bounds)
+        paint.getTextBounds("Stub!", 0, 1, bounds)
         val desiredHeight = (
             layoutPadding * 2 +
                 contentPadding * 2 +
@@ -201,7 +202,8 @@ class ProxyCardView(context: Context) : View(context) {
         else -> Color.TRANSPARENT
     }
 
-    private fun dimension(resource: Int): Float = resources.getDimension(resource)
+    private fun dimension(resource: Int): Float =
+        resources.getDimensionPixelSize(resource).toFloat()
 
     private fun resolveThemeColor(attribute: Int): Int {
         val value = TypedValue()

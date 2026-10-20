@@ -7,7 +7,10 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.ViewCompat
 import androidx.core.view.doOnPreDraw
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -19,7 +22,6 @@ import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
 import rs.chimera.android.databinding.MetaDesignProxyBinding
 import rs.chimera.android.ui.metacubex.adapter.ProxyAdapter
-import rs.chimera.android.ui.metacubex.design.util.applySystemBarInsets
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
@@ -65,7 +67,6 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private var bottomStateRefreshPending = false
 
     init {
-        root.applySystemBarInsets()
         binding.proxyBackButton.setOnClickListener {
             request(Request.NavigateBack)
         }
@@ -75,6 +76,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         binding.fabDelayTest.setOnClickListener { requestDelayTest() }
         retryButton.setOnClickListener { request(Request.Refresh) }
         binding.viewPager.adapter = pagerAdapter
+        applyProxySystemBarInsets()
 
         TabLayoutMediator(
             binding.tabLayout,
@@ -390,10 +392,45 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         requests.trySend(request)
     }
 
+    private fun applyProxySystemBarInsets() {
+        val defaultFabBottomMargin =
+            (binding.fabDelayTest.layoutParams as CoordinatorLayout.LayoutParams).bottomMargin
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            view.setPaddingRelative(
+                if (isRtl) bars.right else bars.left,
+                bars.top,
+                if (isRtl) bars.left else bars.right,
+                0,
+            )
+            pagerAdapter.setBottomInset(bars.bottom)
+            (binding.fabDelayTest.layoutParams as CoordinatorLayout.LayoutParams).apply {
+                bottomMargin = defaultFabBottomMargin + bars.bottom
+                binding.fabDelayTest.layoutParams = this
+            }
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
+    }
+
     private inner class ProxyPagerAdapter : RecyclerView.Adapter<ProxyPagerAdapter.PageHolder>() {
         private var pages = listOf<List<ProxyDisplayEntry>>()
         private var groupNames = emptyList<String>()
         private val pageAdapters = mutableMapOf<String, ProxyAdapter>()
+        private var bottomInset = 0
+
+        fun setBottomInset(inset: Int) {
+            if (bottomInset == inset) return
+            bottomInset = inset
+
+            val pagerRecycler = binding.viewPager.getChildAt(0) as? RecyclerView ?: return
+            repeat(itemCount) { position ->
+                (pagerRecycler.findViewHolderForAdapterPosition(position) as? PageHolder)
+                    ?.recyclerView
+                    ?.setPaddingRelative(0, 0, 0, bottomInset)
+            }
+        }
 
         fun submitPages(pages: List<List<ProxyDisplayEntry>>) {
             val oldCount = this.pages.size
@@ -448,6 +485,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 layoutManager = gridLayoutManager()
                 isNestedScrollingEnabled = false
                 clipToPadding = false
+                setPaddingRelative(0, 0, 0, bottomInset)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
