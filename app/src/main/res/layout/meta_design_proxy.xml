@@ -43,9 +43,7 @@
                         android:elevation="@dimen/metacubex_tab_layout_elevation"
                         app:tabBackground="@android:color/transparent"
                         app:tabIndicatorColor="?attr/colorPrimary"
-                        app:tabMode="scrollable"
-                        app:tabSelectedTextColor="?attr/colorPrimary"
-                        app:tabTextColor="?attr/colorControlNormal" />
+                        app:tabMode="scrollable" />
 
                     <View
                         android:layout_width="match_parent"

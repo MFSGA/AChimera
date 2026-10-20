@@ -42,10 +42,13 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private val stateMessage = root.findViewById<TextView>(R.id.proxy_state_message)
     private val retryButton = root.findViewById<MaterialButton>(R.id.proxy_state_retry)
     private val groups = mutableListOf<ProxyDisplayGroup>()
+    private var sourceGroups = emptyList<ProxyGroupSnapshot>()
     private val displayPreferences = ProxyDisplayPreferences(context)
     private var displayOptions = displayPreferences.read()
+    private var lastGroupName = displayPreferences.readLastGroupName()
     private val pagerAdapter = ProxyPagerAdapter()
     private var currentGroupIndex = 0
+    private var renderingGroups = false
     private var interactionEnabled = true
     private var testing = false
 
@@ -68,6 +71,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 R.id.action_sort_default -> updateSortOrder(ProxySortOrder.DEFAULT)
                 R.id.action_sort_name -> updateSortOrder(ProxySortOrder.NAME)
                 R.id.action_sort_delay -> updateSortOrder(ProxySortOrder.DELAY)
+                R.id.action_filter_not_selectable -> updateSelectableFilter(item)
                 else -> return@setOnMenuItemClickListener false
             }
             true
@@ -90,11 +94,18 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     currentGroupIndex = position
+                    if (!renderingGroups) {
+                        groups.getOrNull(position)?.name?.let { name ->
+                            lastGroupName = name
+                            displayPreferences.updateLastGroupName(name)
+                        }
+                    }
                 }
             },
         )
         updateLayoutSelection()
         updateSortSelection()
+        updateSelectableFilterSelection()
     }
 
     fun showLoading() {
@@ -136,12 +147,27 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
+        sourceGroups = snapshots
+        val lastGroupStillExists = snapshots.any { snapshot ->
+            snapshot.name == lastGroupName && snapshot.proxyDetails[snapshot.name]?.isGroup == true
+        }
+        if (lastGroupName != null && !lastGroupStillExists) {
+            lastGroupName = null
+            displayPreferences.updateLastGroupName(null)
+        }
+        renderGroups()
+    }
+
+    private fun renderGroups() {
+        val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         groups.clear()
         groups += ProxyDisplayPolicy.groupPages(
-            snapshots,
+            sourceGroups,
             unavailableType = context.getString(R.string.not_available),
+            excludeNotSelectable = displayOptions.excludeNotSelectable,
         )
-        updateModeSelection(snapshots.firstOrNull()?.mode)
+        updateModeSelection(sourceGroups.firstOrNull()?.mode)
+        updateSelectableFilterSelection()
 
         if (groups.isEmpty()) {
             showState(
@@ -153,14 +179,25 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             return
         }
 
-        currentGroupIndex = currentGroupIndex.coerceIn(0, groups.lastIndex)
-        pagerAdapter.submitPages(sortedPages())
-        content.visibility = View.VISIBLE
-        stateContainer.visibility = View.GONE
-        setDelayTestActionVisible(true)
-        binding.fabDelayTest.visibility = View.VISIBLE
-        binding.viewPager.setCurrentItem(currentGroupIndex, false)
-        setInteractionEnabled(!testing)
+        currentGroupIndex = groups.indexOfFirst { it.name == selectedGroupName }
+            .takeIf { it >= 0 }
+            ?: 0
+        if (lastGroupName == null) {
+            lastGroupName = groups.getOrNull(currentGroupIndex)?.name
+            lastGroupName?.let(displayPreferences::updateLastGroupName)
+        }
+        renderingGroups = true
+        try {
+            pagerAdapter.submitPages(sortedPages())
+            content.visibility = View.VISIBLE
+            stateContainer.visibility = View.GONE
+            setDelayTestActionVisible(true)
+            binding.fabDelayTest.visibility = View.VISIBLE
+            binding.viewPager.setCurrentItem(currentGroupIndex, false)
+            setInteractionEnabled(!testing)
+        } finally {
+            renderingGroups = false
+        }
     }
 
     fun setDelayTestProgress(current: Int, total: Int) {
@@ -209,6 +246,17 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         displayOptions = displayPreferences.updateSortOrder(sortOrder)
         updateSortSelection()
         pagerAdapter.submitPages(sortedPages())
+    }
+
+    private fun updateSelectableFilter(item: android.view.MenuItem) {
+        item.isChecked = !item.isChecked
+        displayOptions = displayPreferences.updateExcludeNotSelectable(item.isChecked)
+        renderGroups()
+    }
+
+    private fun updateSelectableFilterSelection() {
+        binding.toolbar.menu.findItem(R.id.action_filter_not_selectable)?.isChecked =
+            displayOptions.excludeNotSelectable
     }
 
     private fun sortedPages(): List<List<ProxyDisplayEntry>> =
@@ -370,6 +418,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             R.id.action_sort_name,
             R.id.action_sort_delay,
         )
-        val MENU_ACTION_IDS = MODE_MENU_IDS + LAYOUT_MENU_IDS + SORT_MENU_IDS
+        val MENU_ACTION_IDS = MODE_MENU_IDS + LAYOUT_MENU_IDS + SORT_MENU_IDS +
+            R.id.action_filter_not_selectable
     }
 }

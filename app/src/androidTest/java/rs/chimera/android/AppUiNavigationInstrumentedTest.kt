@@ -41,6 +41,7 @@ import rs.chimera.android.ui.metacubex.activity.MetaOverrideActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
+import rs.chimera.android.ui.metacubex.design.ProxyDisplayPreferences
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
@@ -316,6 +317,59 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
+    fun proxyMenuFiltersAndRestoresNonSelectableGroups() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = ProxyDesign(activity)
+                activity.addContentView(
+                    design.root,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                design.setGroups(
+                    listOf(
+                        proxyGroup("选择", "Selector"),
+                        proxyGroup("自动测速", "URLTest"),
+                    ),
+                )
+                assertEquals(2, design.binding.viewPager.adapter?.itemCount)
+            }
+
+            scenario.onActivity {
+                design.binding.viewPager.setCurrentItem(1, true)
+            }
+            instrumentation.waitForIdleSync()
+            assertEquals(
+                "自动测速",
+                ProxyDisplayPreferences(context).readLastGroupName(),
+            )
+
+            scenario.onActivity { activity ->
+                val filter = design.binding.toolbar.menu
+                    .findItem(R.id.action_filter_not_selectable)
+                assertFalse(filter.isChecked)
+                design.binding.toolbar.menu.performIdentifierAction(filter.itemId, 0)
+
+                assertTrue(filter.isChecked)
+                assertTrue(ProxyDisplayPreferences(activity).read().excludeNotSelectable)
+                assertEquals(1, design.binding.viewPager.adapter?.itemCount)
+                assertEquals(0, design.binding.viewPager.currentItem)
+                assertEquals("自动测速", ProxyDisplayPreferences(activity).readLastGroupName())
+
+                design.binding.toolbar.menu.performIdentifierAction(filter.itemId, 0)
+                assertFalse(filter.isChecked)
+                assertFalse(ProxyDisplayPreferences(activity).read().excludeNotSelectable)
+                assertEquals(2, design.binding.viewPager.adapter?.itemCount)
+                assertEquals(1, design.binding.viewPager.currentItem)
+                assertEquals("自动测速", ProxyDisplayPreferences(activity).readLastGroupName())
+            }
+        }
+    }
+
+    @Test
     fun metaConnectionsLayoutStartsWithCloseAllDisabled() {
         val themedContext = ContextThemeWrapper(context, R.style.Theme_Chimera_MetaCubeX)
         val root = LayoutInflater.from(themedContext).inflate(R.layout.meta_design_connections, null)
@@ -487,14 +541,27 @@ class AppUiNavigationInstrumentedTest {
         return activities
     }
 
+    private fun proxyGroup(name: String, type: String) = ProxyGroupSnapshot(
+        name = name,
+        proxies = listOf("test-node"),
+        selected = "test-node",
+        mode = ProxyMode.RULE,
+        proxyDetails = mapOf(
+            name to ProxySnapshot(name, type, emptyList(), isGroup = true, now = "test-node"),
+            "test-node" to ProxySnapshot("test-node", "Vless", emptyList()),
+        ),
+    )
+
     private fun clearPreferences() {
         context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
         context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
+        context.getSharedPreferences(PROXY_DISPLAY_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
     }
 
     private fun snapshotPreferences(): Map<String, Map<String, *>> = listOf(
         SETTINGS_PREFS,
         PROFILE_PREFS,
+        PROXY_DISPLAY_PREFS,
     ).associateWith { name ->
         context.getSharedPreferences(name, Context.MODE_PRIVATE).all.mapValues { (_, value) ->
             if (value is Set<*>) value.toSet() else value
@@ -532,6 +599,7 @@ class AppUiNavigationInstrumentedTest {
         const val ACTIVITY_POLL_INTERVAL_MS = 50L
         const val SETTINGS_PREFS = "settings"
         const val PROFILE_PREFS = "file_prefs"
+        const val PROXY_DISPLAY_PREFS = "metacubex_ui"
         const val MIXED_PORT_KEY = "mixed_port"
         const val APP_FILTER_MODE_KEY = "app_filter_mode"
         const val PROFILE_PATH_KEY = "profile_path"

@@ -92,4 +92,43 @@ class ProxyDisplayPolicyTest {
         assertEquals("Fallback(node-b)", pages[0].proxies[1].type)
         assertEquals("42", pages[0].proxies.first().delayText)
     }
+
+    @Test
+    fun selectableFilterHidesNonSelectorGroupsOnlyWhenEnabled() {
+        val snapshots = listOf(
+            ProxyGroupSnapshot(
+                name = "手动选择",
+                proxies = listOf("node-a"),
+                selected = "node-a",
+                mode = ProxyMode.RULE,
+                proxyDetails = mapOf(
+                    "手动选择" to ProxySnapshot("手动选择", "Selector", emptyList(), isGroup = true),
+                    "node-a" to ProxySnapshot("node-a", "Vless", emptyList()),
+                ),
+            ),
+            ProxyGroupSnapshot(
+                name = "自动测速",
+                proxies = listOf("node-a"),
+                selected = "node-a",
+                mode = ProxyMode.RULE,
+                proxyDetails = mapOf(
+                    "自动测速" to ProxySnapshot("自动测速", "URLTest", emptyList(), isGroup = true),
+                    "node-a" to ProxySnapshot("node-a", "Vless", emptyList()),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf("手动选择", "自动测速"),
+            ProxyDisplayPolicy.groupPages(snapshots, "Unavailable").map { it.name },
+        )
+        assertEquals(
+            listOf("手动选择"),
+            ProxyDisplayPolicy.groupPages(
+                snapshots,
+                "Unavailable",
+                excludeNotSelectable = true,
+            ).map { it.name },
+        )
+    }
 }

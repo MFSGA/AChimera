@@ -268,6 +268,8 @@
     <string name="proxy_select_failed">选择代理失败：%1$s</string>
     <string name="proxy_delay_testing_progress">正在测试 %1$d/%2$d</string>
     <string name="proxy_menu_mode">模式</string>
+    <string name="proxy_menu_filter">过滤</string>
+    <string name="proxy_exclude_not_selectable">不可选择</string>
     <string name="proxy_menu_layout">布局</string>
     <string name="proxy_menu_sort">排序方式</string>
     <string name="proxy_layout_single">单列</string>

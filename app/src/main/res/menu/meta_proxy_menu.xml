@@ -7,6 +7,15 @@
         app:actionLayout="@layout/meta_proxy_delay_test_action"
         app:showAsAction="always" />
 
+    <item android:title="@string/proxy_menu_filter">
+        <menu>
+            <item
+                android:id="@+id/action_filter_not_selectable"
+                android:checkable="true"
+                android:title="@string/proxy_exclude_not_selectable" />
+        </menu>
+    </item>
+
     <item android:title="@string/proxy_menu_mode">
         <menu>
             <group android:checkableBehavior="single">

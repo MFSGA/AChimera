@@ -21,6 +21,7 @@ data class ProxyDisplayEntry(
 data class ProxyDisplayOptions(
     val columns: Int = DEFAULT_COLUMNS,
     val sortOrder: ProxySortOrder = ProxySortOrder.DEFAULT,
+    val excludeNotSelectable: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_COLUMNS = 2
@@ -55,10 +56,12 @@ object ProxyDisplayPolicy {
     fun groupPages(
         snapshots: List<ProxyGroupSnapshot>,
         unavailableType: String,
+        excludeNotSelectable: Boolean = false,
     ): List<ProxyDisplayGroup> = snapshots.mapNotNull { snapshot ->
         val group = snapshot.proxyDetails[snapshot.name]
             ?.takeIf { it.isGroup }
             ?: return@mapNotNull null
+        if (excludeNotSelectable && group.type != SELECTOR_TYPE) return@mapNotNull null
 
         ProxyDisplayGroup(
             name = snapshot.name,
@@ -94,9 +97,11 @@ class ProxyDisplayPreferences(context: Context) {
         val sortOrder = preferences.getString(KEY_SORT_ORDER, null)
             ?.let { stored -> ProxySortOrder.entries.firstOrNull { it.name == stored } }
             ?: ProxySortOrder.DEFAULT
+        val excludeNotSelectable = preferences.getBoolean(KEY_EXCLUDE_NOT_SELECTABLE, false)
         return ProxyDisplayOptions(
             columns = ProxyDisplayPolicy.normalizeColumns(columns),
             sortOrder = sortOrder,
+            excludeNotSelectable = excludeNotSelectable,
         )
     }
 
@@ -111,9 +116,28 @@ class ProxyDisplayPreferences(context: Context) {
         return read()
     }
 
+    fun updateExcludeNotSelectable(exclude: Boolean): ProxyDisplayOptions {
+        preferences.edit { putBoolean(KEY_EXCLUDE_NOT_SELECTABLE, exclude) }
+        return read()
+    }
+
+    fun readLastGroupName(): String? = preferences.getString(KEY_LAST_GROUP_NAME, null)
+
+    fun updateLastGroupName(name: String?) {
+        preferences.edit {
+            if (name == null) {
+                remove(KEY_LAST_GROUP_NAME)
+            } else {
+                putString(KEY_LAST_GROUP_NAME, name)
+            }
+        }
+    }
+
     private companion object {
         const val PREFERENCES_NAME = "metacubex_ui"
         const val KEY_COLUMNS = "proxy_columns"
         const val KEY_SORT_ORDER = "proxy_sort_order"
+        const val KEY_EXCLUDE_NOT_SELECTABLE = "proxy_exclude_not_selectable"
+        const val KEY_LAST_GROUP_NAME = "proxy_last_group"
     }
 }
