@@ -79,34 +79,45 @@ object ProxyDisplayPolicy {
         unavailableType: String,
         excludeNotSelectable: Boolean = false,
         animateSelectionChanges: Boolean = false,
-    ): List<ProxyDisplayGroup> = snapshots.mapNotNull { snapshot ->
-        val group = snapshot.proxyDetails[snapshot.name]
-            ?.takeIf { it.isGroup }
-            ?: return@mapNotNull null
-        if (excludeNotSelectable && group.type != SELECTOR_TYPE) return@mapNotNull null
+    ): List<ProxyDisplayGroup> {
+        val visibleGroupNames = snapshots.asSequence()
+            .filter { snapshot ->
+                val group = snapshot.proxyDetails[snapshot.name]
+                group?.isGroup == true && (!excludeNotSelectable || group.type == SELECTOR_TYPE)
+            }
+            .map(ProxyGroupSnapshot::name)
+            .toSet()
 
-        ProxyDisplayGroup(
-            name = snapshot.name,
-            isSelectable = group.type == SELECTOR_TYPE,
-            proxies = snapshot.proxies.map { name ->
-                val proxy = snapshot.proxyDetails[name]
-                val type = when {
-                    proxy == null -> unavailableType
-                    proxy.isGroup -> "${proxy.type}(${proxy.now?.takeIf(String::isNotEmpty) ?: "*"})"
-                    else -> proxy.type
-                }
-                val delay = proxy?.history?.lastOrNull()?.delay
-                    ?.takeIf { it in 1..Short.MAX_VALUE }
-                ProxyDisplayEntry(
-                    name = name,
-                    type = type,
-                    delayText = delay?.toString().orEmpty(),
-                    delayMillis = delay,
-                    isSelected = name == snapshot.selected,
-                    animateSelectionChange = animateSelectionChanges,
-                )
-            },
-        )
+        return snapshots.mapNotNull { snapshot ->
+            val group = snapshot.proxyDetails[snapshot.name]
+                ?.takeIf { it.isGroup }
+                ?: return@mapNotNull null
+            if (excludeNotSelectable && group.type != SELECTOR_TYPE) return@mapNotNull null
+
+            ProxyDisplayGroup(
+                name = snapshot.name,
+                isSelectable = group.type == SELECTOR_TYPE,
+                proxies = snapshot.proxies.map { name ->
+                    val proxy = snapshot.proxyDetails[name]
+                    val type = when {
+                        proxy == null -> unavailableType
+                        proxy.isGroup && proxy.name in visibleGroupNames ->
+                            "${proxy.type}(${proxy.now?.takeIf(String::isNotEmpty) ?: "*"})"
+                        else -> proxy.type
+                    }
+                    val delay = proxy?.history?.lastOrNull()?.delay
+                        ?.takeIf { it in 1..Short.MAX_VALUE }
+                    ProxyDisplayEntry(
+                        name = name,
+                        type = type,
+                        delayText = delay?.toString().orEmpty(),
+                        delayMillis = delay,
+                        isSelected = name == snapshot.selected,
+                        animateSelectionChange = animateSelectionChanges,
+                    )
+                },
+            )
+        }
     }
 
     private const val SELECTOR_TYPE = "Selector"

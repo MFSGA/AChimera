@@ -114,13 +114,24 @@ class ProxyDisplayPolicyTest {
             mode = ProxyMode.RULE,
             proxyDetails = mapOf("node-a" to ProxySnapshot("node-a", "Shadowsocks", emptyList())),
         )
+        val fallbackPage = ProxyGroupSnapshot(
+            name = "fallback",
+            proxies = listOf("node-b"),
+            selected = "node-b",
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                "fallback" to ProxySnapshot("fallback", "Fallback", emptyList(), isGroup = true, now = "node-b"),
+                "node-b" to ProxySnapshot("node-b", "Shadowsocks", emptyList()),
+            ),
+        )
 
+        val snapshots = listOf(selectorPage, urlTestPage, leafProxyPage, fallbackPage)
         val pages = ProxyDisplayPolicy.groupPages(
-            listOf(selectorPage, urlTestPage, leafProxyPage),
+            snapshots,
             unavailableType = "Unavailable",
         )
 
-        assertEquals(listOf("手动选择", "自动测速"), pages.map { it.name })
+        assertEquals(listOf("手动选择", "自动测速", "fallback"), pages.map { it.name })
         assertEquals(true, pages[0].isSelectable)
         assertEquals(false, pages[1].isSelectable)
         assertEquals(true, pages[0].proxies.first().isSelected)
@@ -128,6 +139,14 @@ class ProxyDisplayPolicyTest {
         assertEquals("42", pages[0].proxies.first().delayText)
         assertEquals(null, pages[0].proxies[2].delayMillis)
         assertEquals("", pages[0].proxies[2].delayText)
+
+        val selectablePages = ProxyDisplayPolicy.groupPages(
+            snapshots,
+            unavailableType = "Unavailable",
+            excludeNotSelectable = true,
+        )
+        assertEquals(listOf("手动选择"), selectablePages.map { it.name })
+        assertEquals("Fallback", selectablePages.single().proxies[1].type)
     }
 
     @Test
