@@ -77,13 +77,8 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
         }
         refreshAction.visibility = if (profiles.any { it.isRemote }) View.VISIBLE else View.GONE
         if (profiles.isEmpty()) {
-            profileList.visibility = View.GONE
-            stateContainer.visibility = View.VISIBLE
-            stateProgress.visibility = View.GONE
-            stateAction.visibility = View.VISIBLE
-            stateAction.setText(R.string.profile_import)
-            stateAction.setOnClickListener { request(Request.AddProfile) }
-            stateMessage.setText(R.string.profile_empty)
+            stateContainer.visibility = View.GONE
+            profileList.visibility = View.VISIBLE
         } else {
             stateContainer.visibility = View.GONE
             profileList.visibility = View.VISIBLE
