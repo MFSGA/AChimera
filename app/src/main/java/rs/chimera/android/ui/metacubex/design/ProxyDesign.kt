@@ -158,6 +158,29 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         renderGroups()
     }
 
+    fun applyProxySelection(groupName: String, proxyName: String): Boolean {
+        val group = sourceGroups.firstOrNull { it.name == groupName } ?: return false
+        if (group.proxyDetails[groupName]
+                ?.let { it.isGroup && it.type == SELECTOR_TYPE } != true
+        ) {
+            return false
+        }
+        if (proxyName !in group.proxies) return false
+
+        sourceGroups = sourceGroups.map { snapshot ->
+            val linkedSelector = snapshot.proxyDetails[groupName]
+                ?.takeIf { it.isGroup }
+                ?: return@map snapshot
+            snapshot.copy(
+                selected = if (snapshot.name == groupName) proxyName else snapshot.selected,
+                proxyDetails = snapshot.proxyDetails +
+                    (groupName to linkedSelector.copy(now = proxyName)),
+            )
+        }
+        renderGroups()
+        return true
+    }
+
     private fun renderGroups() {
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         groups.clear()
@@ -523,6 +546,8 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     private companion object {
+        const val SELECTOR_TYPE = "Selector"
+
         val MODE_MENU_IDS = listOf(
             R.id.action_mode_rule,
             R.id.action_mode_global,

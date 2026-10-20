@@ -152,16 +152,10 @@ class MetaProxyDesignActivity : AppCompatActivity() {
             runCatchingPreservingCancellation {
                 withContext(Dispatchers.IO) {
                     backend.selectProxy(request.groupName, request.proxyName)
-                    backend.listProxyGroups()
                 }
-            }.onSuccess { snapshots ->
-                initialLoadComplete = true
-                design.setGroups(snapshots)
-                val selected = snapshots
-                    .firstOrNull { it.name == request.groupName }
-                    ?.selected == request.proxyName
-                if (!selected) {
-                    design.showToast(getString(R.string.proxy_select_not_applied, request.proxyName))
+            }.onSuccess {
+                if (!design.applyProxySelection(request.groupName, request.proxyName)) {
+                    refreshGroups()
                 }
             }.onFailure { error ->
                 design.showToast(

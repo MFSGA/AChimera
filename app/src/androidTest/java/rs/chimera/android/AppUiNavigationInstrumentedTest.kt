@@ -289,6 +289,115 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
+    fun successfulProxySelectionImmediatelyUpdatesCardAndLinkedGroupLabel() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = ProxyDesign(activity)
+                activity.addContentView(
+                    design.root,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                val details = mapOf(
+                    "outer" to ProxySnapshot(
+                        name = "outer",
+                        type = "Selector",
+                        history = emptyList(),
+                        isGroup = true,
+                        now = "fallback",
+                    ),
+                    "selector" to ProxySnapshot(
+                        name = "selector",
+                        type = "Selector",
+                        history = emptyList(),
+                        isGroup = true,
+                        now = "node-a",
+                    ),
+                    "fallback" to ProxySnapshot("fallback", "Direct", emptyList()),
+                    "node-a" to ProxySnapshot("node-a", "Vless", emptyList()),
+                    "node-b" to ProxySnapshot("node-b", "Vless", emptyList()),
+                )
+                design.setGroups(
+                    listOf(
+                        ProxyGroupSnapshot(
+                            name = "outer",
+                            proxies = listOf("selector", "fallback"),
+                            selected = "fallback",
+                            mode = ProxyMode.RULE,
+                            proxyDetails = details,
+                        ),
+                        ProxyGroupSnapshot(
+                            name = "selector",
+                            proxies = listOf("node-a", "node-b"),
+                            selected = "node-a",
+                            mode = ProxyMode.RULE,
+                            proxyDetails = details,
+                        ),
+                    ),
+                )
+                design.binding.viewPager.setCurrentItem(1, false)
+            }
+
+            var selectionApplied = false
+            val clickDeadline = SystemClock.uptimeMillis() + 5_000
+            while (!selectionApplied && SystemClock.uptimeMillis() < clickDeadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                        ?: return@onActivity
+                    val page = pagerRecycler.findViewHolderForAdapterPosition(1)?.itemView
+                        as? RecyclerView ?: return@onActivity
+                    if (page.findViewHolderForAdapterPosition(1) != null) {
+                        selectionApplied = design.applyProxySelection("selector", "node-b")
+                    }
+                }
+                if (!selectionApplied) SystemClock.sleep(50)
+            }
+            assertTrue("The requested selector should be present", selectionApplied)
+
+            var selectedCardState: Pair<Boolean, Boolean>? = null
+            val selectionDeadline = SystemClock.uptimeMillis() + 5_000
+            while (selectedCardState != Pair(false, true) && SystemClock.uptimeMillis() < selectionDeadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                        ?: return@onActivity
+                    val page = pagerRecycler.findViewHolderForAdapterPosition(1)?.itemView
+                        as? RecyclerView ?: return@onActivity
+                    val previous = page.findViewHolderForAdapterPosition(0)?.itemView ?: return@onActivity
+                    val current = page.findViewHolderForAdapterPosition(1)?.itemView ?: return@onActivity
+                    selectedCardState = previous.isSelected to current.isSelected
+                }
+                if (selectedCardState != Pair(false, true)) SystemClock.sleep(50)
+            }
+            assertEquals(Pair(false, true), selectedCardState)
+
+            var linkedGroupLabel: CharSequence? = null
+            scenario.onActivity { design.binding.viewPager.setCurrentItem(0, false) }
+            val linkedLabelDeadline = SystemClock.uptimeMillis() + 5_000
+            while (
+                linkedGroupLabel?.contains("Selector(node-b)") != true &&
+                SystemClock.uptimeMillis() < linkedLabelDeadline
+            ) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                        ?: return@onActivity
+                    val page = pagerRecycler.findViewHolderForAdapterPosition(0)?.itemView
+                        as? RecyclerView ?: return@onActivity
+                    linkedGroupLabel = page.findViewHolderForAdapterPosition(0)?.itemView
+                        ?.contentDescription
+                }
+                if (linkedGroupLabel?.contains("Selector(node-b)") != true) SystemClock.sleep(50)
+            }
+            assertTrue(linkedGroupLabel.toString(), linkedGroupLabel?.contains("Selector(node-b)") == true)
+        }
+    }
+
+    @Test
     fun proxyModeMenuRemainsInteractiveWhenNoProxyPagesAreAvailable() {
         lateinit var design: ProxyDesign
         ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
