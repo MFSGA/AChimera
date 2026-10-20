@@ -18,23 +18,24 @@ class ProxyDisplayPolicyTest {
     }
 
     @Test
-    fun nameAndDelaySortKeepUnknownDelayAtTheEnd() {
+    fun nameAndDelaySortKeepUnknownDelayAtTheEndLikeCmfa() {
         val entries = listOf(
             ProxyDisplayEntry("Zulu", "SS", "-", null, false),
+            ProxyDisplayEntry("Zero", "SS", "", null, false),
             ProxyDisplayEntry("Beta", "SS", "40", 40, false),
             ProxyDisplayEntry("Alpha", "SS", "12", 12, true),
         )
 
         assertEquals(
-            listOf("Zulu", "Beta", "Alpha"),
+            listOf("Zulu", "Zero", "Beta", "Alpha"),
             ProxyDisplayPolicy.sort(entries, ProxySortOrder.DEFAULT).map { it.name },
         )
         assertEquals(
-            listOf("Alpha", "Beta", "Zulu"),
+            listOf("Alpha", "Beta", "Zero", "Zulu"),
             ProxyDisplayPolicy.sort(entries, ProxySortOrder.NAME).map { it.name },
         )
         assertEquals(
-            listOf("Alpha", "Beta", "Zulu"),
+            listOf("Alpha", "Beta", "Zulu", "Zero"),
             ProxyDisplayPolicy.sort(entries, ProxySortOrder.DELAY).map { it.name },
         )
     }
@@ -43,7 +44,7 @@ class ProxyDisplayPolicyTest {
     fun groupPagesOnlyShowGroupsAndOnlySelectorsAcceptSelection() {
         val selectorPage = ProxyGroupSnapshot(
             name = "手动选择",
-            proxies = listOf("node-a", "fallback"),
+            proxies = listOf("node-a", "fallback", "zero-delay"),
             selected = "node-a",
             mode = ProxyMode.RULE,
             proxyDetails = mapOf(
@@ -59,6 +60,11 @@ class ProxyDisplayPolicyTest {
                     emptyList(),
                     isGroup = true,
                     now = "node-b",
+                ),
+                "zero-delay" to ProxySnapshot(
+                    "zero-delay",
+                    "Shadowsocks",
+                    listOf(ProxyDelayHistory(delay = 0, time = 2L)),
                 ),
             ),
         )
@@ -91,6 +97,8 @@ class ProxyDisplayPolicyTest {
         assertEquals(true, pages[0].proxies.first().isSelected)
         assertEquals("Fallback(node-b)", pages[0].proxies[1].type)
         assertEquals("42", pages[0].proxies.first().delayText)
+        assertEquals(null, pages[0].proxies[2].delayMillis)
+        assertEquals("", pages[0].proxies[2].delayText)
     }
 
     @Test

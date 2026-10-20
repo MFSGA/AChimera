@@ -74,7 +74,7 @@ object ProxyDisplayPolicy {
                     else -> proxy.type
                 }
                 val delay = proxy?.history?.lastOrNull()?.delay
-                    ?.takeIf { it in 0..Short.MAX_VALUE }
+                    ?.takeIf { it in 1..Short.MAX_VALUE }
                 ProxyDisplayEntry(
                     name = name,
                     type = type,
