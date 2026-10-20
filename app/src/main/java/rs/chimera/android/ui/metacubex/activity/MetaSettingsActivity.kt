@@ -79,6 +79,10 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.ChooseLanguage -> showLanguageDialog()
             SettingsDesign.Request.ChooseAppearance -> showAppearanceDialog()
             SettingsDesign.Request.ChooseUiVariant -> showUiVariantDialog()
+            is SettingsDesign.Request.SetAutoRestart -> {
+                AppPreferences.updateAutoRestart(this, request.enabled)
+                design.render(loadState())
+            }
             is SettingsDesign.Request.SetAllowLan -> {
                 saveSettings(SettingsPatch(allowLan = request.enabled))
             }
@@ -483,6 +487,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             language = languageLabel(AppPreferences.language(this)),
             appearance = appearanceLabel(AppPreferences.appearance(this)),
             uiVariant = uiVariantLabel(AppPreferences.uiVariant(this)),
+            autoRestart = AppPreferences.autoRestart(this),
             vpnSystemStatus = vpnPresentation.format(this),
             vpnSystemRestricted = vpnPresentation.restricted,
         )

@@ -181,6 +181,9 @@
     <string name="settings_interface">界面</string>
     <string name="settings_about">关于</string>
     <string name="settings_language">语言</string>
+    <string name="settings_behavior">行为</string>
+    <string name="settings_auto_restart">自动重启</string>
+    <string name="settings_auto_restart_summary">允许 Chimera 自动重启 VPN</string>
     <string name="settings_logs_summary">查看运行日志文件及实时刷新内容。</string>
     <string name="dns_diagnostics_title">DNS 诊断</string>
     <string name="dns_diagnostics_summary">在 VPN 运行时查询当前核心解析器。</string>

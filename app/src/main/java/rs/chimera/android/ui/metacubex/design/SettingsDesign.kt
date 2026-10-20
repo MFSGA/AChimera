@@ -41,6 +41,7 @@ class SettingsDesign(
         data object ChooseLanguage : Request()
         data object ChooseAppearance : Request()
         data object ChooseUiVariant : Request()
+        data class SetAutoRestart(val enabled: Boolean) : Request()
         data class SetAllowLan(val enabled: Boolean) : Request()
         data class SetFakeIp(val enabled: Boolean) : Request()
         data class SetIpv6(val enabled: Boolean) : Request()
@@ -56,6 +57,7 @@ class SettingsDesign(
         val language: String,
         val appearance: String,
         val uiVariant: String,
+        val autoRestart: Boolean,
         val vpnSystemStatus: String,
         val vpnSystemRestricted: Boolean,
     )
@@ -85,6 +87,8 @@ class SettingsDesign(
     private val cardAccessControl = root.findViewById<View>(R.id.card_access_control)
     private val cardResetNetwork = root.findViewById<View>(R.id.card_reset_network)
     private val cardResetSettings = root.findViewById<View>(R.id.card_reset_settings)
+    private val rowAutoRestart = root.findViewById<View>(R.id.row_auto_restart)
+    private val switchAutoRestart = root.findViewById<SwitchMaterial>(R.id.switch_auto_restart)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
     private val switchIpv6 = root.findViewById<SwitchMaterial>(R.id.switch_ipv6)
@@ -130,6 +134,7 @@ class SettingsDesign(
         cardLanguage.setOnClickListener { request(Request.ChooseLanguage) }
         cardAppearance.setOnClickListener { request(Request.ChooseAppearance) }
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }
+        rowAutoRestart.setOnClickListener { switchAutoRestart.isChecked = !switchAutoRestart.isChecked }
         rowAllowLan.setOnClickListener { switchAllowLan.isChecked = !switchAllowLan.isChecked }
         rowFakeIp.setOnClickListener { switchFakeIp.isChecked = !switchFakeIp.isChecked }
         rowIpv6.setOnClickListener { switchIpv6.isChecked = !switchIpv6.isChecked }
@@ -148,6 +153,9 @@ class SettingsDesign(
         switchAllowLan.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAllowLan(checked))
         }
+        switchAutoRestart.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) request(Request.SetAutoRestart(checked))
+        }
         switchFakeIp.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetFakeIp(checked))
         }
@@ -161,6 +169,7 @@ class SettingsDesign(
     }
     fun render(state: State) {
         rendering = true
+        switchAutoRestart.isChecked = state.autoRestart
         switchAllowLan.isChecked = state.allowLan
         switchFakeIp.isChecked = state.fakeIp
         switchIpv6.isChecked = state.ipv6

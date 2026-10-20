@@ -2,6 +2,7 @@ package rs.chimera.android
 
 import android.Manifest
 import android.app.Activity
+import android.content.Intent
 import android.content.Context
 import android.os.Build
 import android.os.SystemClock
@@ -40,6 +41,7 @@ import rs.chimera.android.ui.metacubex.activity.MetaOverrideActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
+import rs.chimera.android.ui.metacubex.design.SettingsDesign
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
 import rs.chimera.android.backend.model.ProxySnapshot
@@ -352,6 +354,34 @@ class AppUiNavigationInstrumentedTest {
             onView(withId(R.id.card_ports)).check(matches(isDisplayed()))
             onView(withId(R.id.card_language)).check { view, _ ->
                 assertFalse(view.isShown)
+            }
+        }
+    }
+
+    @Test
+    fun metaAppSettingsAutoRestartToggleUpdatesRecoveryPreference() {
+        assertTrue(AppPreferences.autoRestart(context))
+        val intent = Intent(context, MetaSettingsActivity::class.java)
+            .putExtra(SettingsDesign.EXTRA_CATEGORY, SettingsDesign.Category.APP.name)
+
+        ActivityScenario.launch<MetaSettingsActivity>(intent).use {
+            waitForResumedActivity<MetaSettingsActivity>()
+            onView(withId(R.id.switch_auto_restart)).check { view, _ ->
+                assertTrue(
+                    (view as com.google.android.material.switchmaterial.SwitchMaterial).isChecked,
+                )
+            }
+            onView(withId(R.id.row_auto_restart)).perform(click())
+
+            val deadline = SystemClock.uptimeMillis() + 3_000
+            while (AppPreferences.autoRestart(context) && SystemClock.uptimeMillis() < deadline) {
+                SystemClock.sleep(20)
+            }
+            assertFalse(AppPreferences.autoRestart(context))
+            onView(withId(R.id.switch_auto_restart)).check { view, _ ->
+                assertFalse(
+                    (view as com.google.android.material.switchmaterial.SwitchMaterial).isChecked,
+                )
             }
         }
     }
