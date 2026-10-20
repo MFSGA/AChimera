@@ -1,12 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<menu xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
-    <item
-        android:id="@+id/action_delay_test"
-        android:title="@string/proxy_delay_test"
-        app:actionLayout="@layout/meta_proxy_delay_test_action"
-        app:showAsAction="always" />
-
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:title="@string/proxy_menu_filter">
         <menu>
             <item

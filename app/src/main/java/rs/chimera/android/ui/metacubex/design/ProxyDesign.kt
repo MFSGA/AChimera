@@ -1,6 +1,7 @@
 package rs.chimera.android.ui.metacubex.design
 
 import android.content.Context
+import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
@@ -9,6 +10,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
+import androidx.appcompat.widget.PopupMenu
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayoutMediator
 import rs.chimera.android.R
@@ -47,6 +49,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private var displayOptions = displayPreferences.read()
     private var lastGroupName = displayPreferences.readLastGroupName()
     private val pagerAdapter = ProxyPagerAdapter()
+    private val proxyMenu by lazy {
+        PopupMenu(context, binding.proxyOverflowButton).apply {
+            menuInflater.inflate(R.menu.meta_proxy_menu, menu)
+            setOnMenuItemClickListener(::onProxyMenuItemClick)
+        }
+    }
     private var currentGroupIndex = 0
     private var renderingGroups = false
     private var interactionEnabled = true
@@ -54,31 +62,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     init {
         root.applySystemBarInsets()
-        binding.toolbar.title = context.getString(R.string.proxy_screen)
-        binding.toolbar.setNavigationOnClickListener {
+        binding.proxyBackButton.setOnClickListener {
             request(Request.NavigateBack)
         }
-        binding.toolbar.inflateMenu(R.menu.meta_proxy_menu)
+        binding.proxyOverflowButton.setOnClickListener { proxyMenu.show() }
+        binding.proxyDelayTestIcon.setOnClickListener { requestDelayTest() }
         setDelayTestActionVisible(false)
-        binding.toolbar.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                R.id.action_mode_rule -> requestMode(ProxyMode.RULE)
-                R.id.action_mode_global -> requestMode(ProxyMode.GLOBAL)
-                R.id.action_mode_direct -> requestMode(ProxyMode.DIRECT)
-                R.id.action_layout_single -> updateColumns(1)
-                R.id.action_layout_double -> updateColumns(2)
-                R.id.action_layout_multiple -> updateColumns(3)
-                R.id.action_sort_default -> updateSortOrder(ProxySortOrder.DEFAULT)
-                R.id.action_sort_name -> updateSortOrder(ProxySortOrder.NAME)
-                R.id.action_sort_delay -> updateSortOrder(ProxySortOrder.DELAY)
-                R.id.action_filter_not_selectable -> updateSelectableFilter(item)
-                else -> return@setOnMenuItemClickListener false
-            }
-            true
-        }
-        binding.toolbar.menu.findItem(R.id.action_delay_test).actionView?.setOnClickListener {
-            requestDelayTest()
-        }
         binding.fabDelayTest.setOnClickListener { requestDelayTest() }
         retryButton.setOnClickListener { request(Request.Refresh) }
         binding.viewPager.adapter = pagerAdapter
@@ -254,8 +243,25 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         renderGroups()
     }
 
+    private fun onProxyMenuItemClick(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.action_mode_rule -> requestMode(ProxyMode.RULE)
+            R.id.action_mode_global -> requestMode(ProxyMode.GLOBAL)
+            R.id.action_mode_direct -> requestMode(ProxyMode.DIRECT)
+            R.id.action_layout_single -> updateColumns(1)
+            R.id.action_layout_double -> updateColumns(2)
+            R.id.action_layout_multiple -> updateColumns(3)
+            R.id.action_sort_default -> updateSortOrder(ProxySortOrder.DEFAULT)
+            R.id.action_sort_name -> updateSortOrder(ProxySortOrder.NAME)
+            R.id.action_sort_delay -> updateSortOrder(ProxySortOrder.DELAY)
+            R.id.action_filter_not_selectable -> updateSelectableFilter(item)
+            else -> return false
+        }
+        return true
+    }
+
     private fun updateSelectableFilterSelection() {
-        binding.toolbar.menu.findItem(R.id.action_filter_not_selectable)?.isChecked =
+        proxyMenu.menu.findItem(R.id.action_filter_not_selectable)?.isChecked =
             displayOptions.excludeNotSelectable
     }
 
@@ -282,19 +288,19 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         interactionEnabled = enabled
         binding.viewPager.isUserInputEnabled = enabled
         binding.fabDelayTest.isEnabled = enabled
-        MENU_ACTION_IDS.forEach { id -> binding.toolbar.menu.findItem(id)?.isEnabled = enabled }
-        binding.toolbar.menu.findItem(R.id.action_delay_test)?.isEnabled = enabled
+        binding.proxyDelayTestIcon.isEnabled = enabled
+        binding.proxyOverflowButton.isEnabled = enabled
+        MENU_ACTION_IDS.forEach { id -> proxyMenu.menu.findItem(id)?.isEnabled = enabled }
     }
 
     private fun setDelayTestActionVisible(visible: Boolean) {
-        binding.toolbar.menu.findItem(R.id.action_delay_test)?.isVisible = visible
+        binding.proxyDelayTestAction.visibility = if (visible) View.VISIBLE else View.GONE
     }
 
     private fun updateDelayTestActionProgress(isTesting: Boolean) {
-        val action = binding.toolbar.menu.findItem(R.id.action_delay_test)?.actionView ?: return
-        action.findViewById<View>(R.id.proxy_delay_test_icon).visibility =
+        binding.proxyDelayTestIcon.visibility =
             if (isTesting) View.GONE else View.VISIBLE
-        action.findViewById<View>(R.id.proxy_delay_test_progress).visibility =
+        binding.proxyDelayTestProgress.visibility =
             if (isTesting) View.VISIBLE else View.GONE
     }
 
@@ -305,9 +311,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             ProxyMode.DIRECT -> R.id.action_mode_direct
             null -> null
         }
-        MODE_MENU_IDS.forEach { id ->
-            binding.toolbar.menu.findItem(id)?.isChecked = id == selectedId
-        }
+        selectedId?.let { proxyMenu.menu.findItem(it)?.isChecked = true }
     }
 
     private fun updateLayoutSelection() {
@@ -316,9 +320,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             2 -> R.id.action_layout_double
             else -> R.id.action_layout_multiple
         }
-        LAYOUT_MENU_IDS.forEach { id ->
-            binding.toolbar.menu.findItem(id)?.isChecked = id == selectedId
-        }
+        proxyMenu.menu.findItem(selectedId)?.isChecked = true
     }
 
     private fun updateSortSelection() {
@@ -327,9 +329,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             ProxySortOrder.NAME -> R.id.action_sort_name
             ProxySortOrder.DELAY -> R.id.action_sort_delay
         }
-        SORT_MENU_IDS.forEach { id ->
-            binding.toolbar.menu.findItem(id)?.isChecked = id == selectedId
-        }
+        proxyMenu.menu.findItem(selectedId)?.isChecked = true
     }
 
     private fun request(request: Request) {

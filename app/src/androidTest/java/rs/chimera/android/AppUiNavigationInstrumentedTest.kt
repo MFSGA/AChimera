@@ -289,11 +289,11 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun directModeRemainsSelectedWhenNoProxyPagesAreAvailable() {
+    fun proxyModeMenuRemainsInteractiveWhenNoProxyPagesAreAvailable() {
+        lateinit var design: ProxyDesign
         ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
-            var directModeChecked = false
             scenario.onActivity { activity ->
-                val design = ProxyDesign(activity)
+                design = ProxyDesign(activity)
                 activity.addContentView(
                     design.root,
                     ViewGroup.LayoutParams(
@@ -318,13 +318,16 @@ class AppUiNavigationInstrumentedTest {
                         ),
                     ),
                 )
-                directModeChecked = design.binding.toolbar.menu
-                    .findItem(R.id.action_mode_direct)
-                    .isChecked
             }
 
-            assertTrue(directModeChecked)
+            onView(withId(R.id.proxy_overflow_button)).perform(click())
+            onView(withText(R.string.proxy_menu_mode)).perform(click())
+            onView(withText(R.string.proxy_mode_rule)).perform(click())
         }
+        assertEquals(
+            ProxyDesign.Request.SwitchMode(ProxyMode.RULE),
+            design.requests.tryReceive().getOrNull(),
+        )
     }
 
     @Test
@@ -358,20 +361,24 @@ class AppUiNavigationInstrumentedTest {
                 ProxyDisplayPreferences(context).readLastGroupName(),
             )
 
-            scenario.onActivity { activity ->
-                val filter = design.binding.toolbar.menu
-                    .findItem(R.id.action_filter_not_selectable)
-                assertFalse(filter.isChecked)
-                design.binding.toolbar.menu.performIdentifierAction(filter.itemId, 0)
+            scenario.onActivity {
+                design.binding.proxyOverflowButton.performClick()
+            }
+            onView(withText(R.string.proxy_menu_filter)).perform(click())
+            onView(withText(R.string.proxy_exclude_not_selectable)).perform(click())
 
-                assertTrue(filter.isChecked)
+            scenario.onActivity { activity ->
                 assertTrue(ProxyDisplayPreferences(activity).read().excludeNotSelectable)
                 assertEquals(1, design.binding.viewPager.adapter?.itemCount)
                 assertEquals(0, design.binding.viewPager.currentItem)
                 assertEquals("自动测速", ProxyDisplayPreferences(activity).readLastGroupName())
 
-                design.binding.toolbar.menu.performIdentifierAction(filter.itemId, 0)
-                assertFalse(filter.isChecked)
+                design.binding.proxyOverflowButton.performClick()
+            }
+            onView(withText(R.string.proxy_menu_filter)).perform(click())
+            onView(withText(R.string.proxy_exclude_not_selectable)).perform(click())
+
+            scenario.onActivity { activity ->
                 assertFalse(ProxyDisplayPreferences(activity).read().excludeNotSelectable)
                 assertEquals(2, design.binding.viewPager.adapter?.itemCount)
                 assertEquals(1, design.binding.viewPager.currentItem)
