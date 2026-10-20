@@ -160,6 +160,36 @@ fn default_download_limits_are_bounded() {
     assert_eq!(5 * 1024 * 1024, limits.max_bytes);
 }
 
+#[test]
+fn download_returns_subscription_usage_from_response_headers() {
+    let (url, server) = spawn_server(1, |_request_index, _path| {
+        ok_response_with_subscription(
+            "mixed-port: 7890\n",
+            "upload=120; download=340; total=1000; expire=1900000000",
+        )
+    });
+    let output = unique_temp_path("subscription-info.yaml");
+
+    let result = runtime()
+        .block_on(download_file_with_progress_and_limits(
+            url,
+            output.to_string_lossy().into_owned(),
+            None,
+            None,
+            None,
+            test_limits(Duration::from_secs(2), 1),
+        ))
+        .unwrap();
+
+    let info = result.subscription_info.expect("subscription info missing");
+    assert_eq!(Some(120), info.upload);
+    assert_eq!(Some(340), info.download);
+    assert_eq!(Some(1000), info.total);
+    assert_eq!(Some(1_900_000_000), info.expire);
+    assert_eq!(1, server.join().unwrap());
+    let _ = fs::remove_file(output);
+}
+
 fn runtime() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -239,6 +269,14 @@ fn ok_response(body: &str) -> String {
     format!(
         "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/yaml\r\nConnection: close\r\n\r\n{body}",
         body.len()
+    )
+}
+
+fn ok_response_with_subscription(body: &str, subscription_userinfo: &str) -> String {
+    format!(
+        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Type: text/yaml\r\nsubscription-userinfo: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len(),
+        subscription_userinfo,
     )
 }
 

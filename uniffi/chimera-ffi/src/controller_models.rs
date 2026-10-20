@@ -126,6 +126,14 @@ pub struct ProxyProviderSnapshot {
     pub proxy_count: i32,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+pub struct ProviderSnapshot {
+    pub name: String,
+    pub provider_type: String,
+    pub vehicle_type: String,
+    pub updated_at: Option<i64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct ProxiesResponse {
     pub(crate) proxies: HashMap<String, Proxy>,

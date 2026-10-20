@@ -10,6 +10,15 @@ pub struct DownloadResult {
     pub success: bool,
     pub file_size: u64,
     pub error_message: Option<String>,
+    pub subscription_info: Option<SubscriptionInfo>,
+}
+
+#[derive(uniffi::Record, Default, Clone)]
+pub struct SubscriptionInfo {
+    pub upload: Option<u64>,
+    pub download: Option<u64>,
+    pub total: Option<u64>,
+    pub expire: Option<u64>,
 }
 
 #[derive(uniffi::Record, Clone)]
@@ -112,8 +121,15 @@ pub(crate) async fn download_file_with_progress_and_limits(
                 status.as_u16(),
                 status.canonical_reason().unwrap_or("Unknown")
             )),
+            subscription_info: None,
         });
     }
+
+    let subscription_info = response
+        .headers()
+        .get("subscription-userinfo")
+        .and_then(|value| value.to_str().ok())
+        .and_then(parse_subscription_userinfo);
 
     let total_size = response.content_length().unwrap_or(0);
     if total_size > limits.max_bytes {
@@ -161,7 +177,32 @@ pub(crate) async fn download_file_with_progress_and_limits(
         success: true,
         file_size: buffer.len() as u64,
         error_message: None,
+        subscription_info,
     })
+}
+
+fn parse_subscription_userinfo(value: &str) -> Option<SubscriptionInfo> {
+    let mut info = SubscriptionInfo::default();
+    for part in value.split(';') {
+        let Some((key, value)) = part.trim().split_once('=') else {
+            continue;
+        };
+        let Ok(value) = value.trim().parse::<u64>() else {
+            continue;
+        };
+        match key.trim().to_ascii_lowercase().as_str() {
+            "upload" => info.upload = Some(value),
+            "download" => info.download = Some(value),
+            "total" => info.total = Some(value),
+            "expire" => info.expire = Some(value),
+            _ => {}
+        }
+    }
+    (info.upload.is_some()
+        || info.download.is_some()
+        || info.total.is_some()
+        || info.expire.is_some())
+    .then_some(info)
 }
 
 fn download_request_error(error: reqwest::Error, limits: DownloadLimits) -> ChimeraError {

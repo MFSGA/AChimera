@@ -707,11 +707,15 @@ internal object IntegrityCheckingUniffiLib {
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_config(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_providers(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_healthcheck_proxy_provider(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns(
+    ): Short
+    external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_provider(
     ): Short
     external fun uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider(
     ): Short
@@ -772,11 +776,15 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_config(`ptr`: Long,`config`: RustBuffer.ByValue,
     ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_providers(`ptr`: Long,
+    ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_get_proxy_providers(`ptr`: Long,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_healthcheck_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_query_dns(`ptr`: Long,`name`: RustBuffer.ByValue,`recordType`: RustBuffer.ByValue,
+    ): Long
+    external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_provider(`ptr`: Long,`providerType`: RustBuffer.ByValue,`name`: RustBuffer.ByValue,
     ): Long
     external fun uniffi_chimera_ffi_fn_method_clashcontroller_update_proxy_provider(`ptr`: Long,`name`: RustBuffer.ByValue,
     ): Long
@@ -973,6 +981,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_config() != 62337.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_providers() != 32574.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_get_proxy_providers() != 22998.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -980,6 +991,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_query_dns() != 54370.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_provider() != 23671.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_method_clashcontroller_update_proxy_provider() != 12254.toShort()) {
@@ -1517,11 +1531,15 @@ public interface ClashControllerInterface {
 
     suspend fun `updateConfig`(`config`: Map<kotlin.String, kotlin.String>)
 
+    suspend fun `getProviders`(): List<ProviderSnapshot>
+
     suspend fun `getProxyProviders`(): List<ProxyProviderSnapshot>
 
     suspend fun `healthcheckProxyProvider`(`name`: kotlin.String)
 
     suspend fun `queryDns`(`name`: kotlin.String, `recordType`: kotlin.String): kotlin.String
+
+    suspend fun `updateProvider`(`providerType`: kotlin.String, `name`: kotlin.String)
 
     suspend fun `updateProxyProvider`(`name`: kotlin.String)
 
@@ -1935,6 +1953,27 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
 
     @Throws(ChimeraException::class)
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `getProviders`() : List<ProviderSnapshot> {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_get_providers(
+                uniffiHandle,
+
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_rust_buffer(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_rust_buffer(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
+        // lift function
+        { FfiConverterSequenceTypeProviderSnapshot.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
     override suspend fun `getProxyProviders`() : List<ProxyProviderSnapshot> {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
@@ -1991,6 +2030,28 @@ open class ClashController: Disposable, AutoCloseable, ClashControllerInterface
         { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_rust_buffer(future) },
         // lift function
         { FfiConverterString.lift(it) },
+        // Error FFI converter
+        ChimeraException.ErrorHandler,
+    )
+    }
+
+
+    @Throws(ChimeraException::class)
+    @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
+    override suspend fun `updateProvider`(`providerType`: kotlin.String, `name`: kotlin.String) {
+        return uniffiRustCallAsync(
+        callWithHandle { uniffiHandle ->
+            UniffiLib.uniffi_chimera_ffi_fn_method_clashcontroller_update_provider(
+                uniffiHandle,
+                FfiConverterString.lower(`providerType`),FfiConverterString.lower(`name`),
+            )
+        },
+        { future, callback, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_poll_void(future, callback, continuation) },
+        { future, continuation -> UniffiLib.ffi_chimera_ffi_rust_future_complete_void(future, continuation) },
+        { future -> UniffiLib.ffi_chimera_ffi_rust_future_free_void(future) },
+        // lift function
+        { Unit },
+
         // Error FFI converter
         ChimeraException.ErrorHandler,
     )
@@ -2370,6 +2431,8 @@ data class DownloadResult (
     var `fileSize`: kotlin.ULong
     ,
     var `errorMessage`: kotlin.String?
+    ,
+    var `subscriptionInfo`: SubscriptionInfo?
 
 ){
 
@@ -2389,19 +2452,22 @@ public object FfiConverterTypeDownloadResult: FfiConverterRustBuffer<DownloadRes
             FfiConverterBoolean.read(buf),
             FfiConverterULong.read(buf),
             FfiConverterOptionalString.read(buf),
+            FfiConverterOptionalTypeSubscriptionInfo.read(buf),
         )
     }
 
     override fun allocationSize(value: DownloadResult) = (
             FfiConverterBoolean.allocationSize(value.`success`) +
             FfiConverterULong.allocationSize(value.`fileSize`) +
-            FfiConverterOptionalString.allocationSize(value.`errorMessage`)
+            FfiConverterOptionalString.allocationSize(value.`errorMessage`) +
+            FfiConverterOptionalTypeSubscriptionInfo.allocationSize(value.`subscriptionInfo`)
     )
 
     override fun write(value: DownloadResult, buf: ByteBuffer) {
             FfiConverterBoolean.write(value.`success`, buf)
             FfiConverterULong.write(value.`fileSize`, buf)
             FfiConverterOptionalString.write(value.`errorMessage`, buf)
+            FfiConverterOptionalTypeSubscriptionInfo.write(value.`subscriptionInfo`, buf)
     }
 }
 
@@ -2614,6 +2680,54 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
 
 
 
+data class ProviderSnapshot (
+    var `name`: kotlin.String
+    ,
+    var `providerType`: kotlin.String
+    ,
+    var `vehicleType`: kotlin.String
+    ,
+    var `updatedAt`: kotlin.Long?
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeProviderSnapshot: FfiConverterRustBuffer<ProviderSnapshot> {
+    override fun read(buf: ByteBuffer): ProviderSnapshot {
+        return ProviderSnapshot(
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterString.read(buf),
+            FfiConverterOptionalLong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ProviderSnapshot) = (
+            FfiConverterString.allocationSize(value.`name`) +
+            FfiConverterString.allocationSize(value.`providerType`) +
+            FfiConverterString.allocationSize(value.`vehicleType`) +
+            FfiConverterOptionalLong.allocationSize(value.`updatedAt`)
+    )
+
+    override fun write(value: ProviderSnapshot, buf: ByteBuffer) {
+            FfiConverterString.write(value.`name`, buf)
+            FfiConverterString.write(value.`providerType`, buf)
+            FfiConverterString.write(value.`vehicleType`, buf)
+            FfiConverterOptionalLong.write(value.`updatedAt`, buf)
+    }
+}
+
+
+
 data class Proxy (
     var `name`: kotlin.String
     ,
@@ -2753,6 +2867,54 @@ public object FfiConverterTypeRuleSnapshot: FfiConverterRustBuffer<RuleSnapshot>
             FfiConverterString.write(value.`ruleType`, buf)
             FfiConverterString.write(value.`proxy`, buf)
             FfiConverterString.write(value.`payload`, buf)
+    }
+}
+
+
+
+data class SubscriptionInfo (
+    var `upload`: kotlin.ULong?
+    ,
+    var `download`: kotlin.ULong?
+    ,
+    var `total`: kotlin.ULong?
+    ,
+    var `expire`: kotlin.ULong?
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeSubscriptionInfo: FfiConverterRustBuffer<SubscriptionInfo> {
+    override fun read(buf: ByteBuffer): SubscriptionInfo {
+        return SubscriptionInfo(
+            FfiConverterOptionalULong.read(buf),
+            FfiConverterOptionalULong.read(buf),
+            FfiConverterOptionalULong.read(buf),
+            FfiConverterOptionalULong.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: SubscriptionInfo) = (
+            FfiConverterOptionalULong.allocationSize(value.`upload`) +
+            FfiConverterOptionalULong.allocationSize(value.`download`) +
+            FfiConverterOptionalULong.allocationSize(value.`total`) +
+            FfiConverterOptionalULong.allocationSize(value.`expire`)
+    )
+
+    override fun write(value: SubscriptionInfo, buf: ByteBuffer) {
+            FfiConverterOptionalULong.write(value.`upload`, buf)
+            FfiConverterOptionalULong.write(value.`download`, buf)
+            FfiConverterOptionalULong.write(value.`total`, buf)
+            FfiConverterOptionalULong.write(value.`expire`, buf)
     }
 }
 
@@ -2983,6 +3145,38 @@ public object FfiConverterOptionalInt: FfiConverterRustBuffer<kotlin.Int?> {
 /**
  * @suppress
  */
+public object FfiConverterOptionalULong: FfiConverterRustBuffer<kotlin.ULong?> {
+    override fun read(buf: ByteBuffer): kotlin.ULong? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterULong.read(buf)
+    }
+
+    override fun allocationSize(value: kotlin.ULong?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterULong.allocationSize(value)
+        }
+    }
+
+    override fun write(value: kotlin.ULong?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterULong.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalLong: FfiConverterRustBuffer<kotlin.Long?> {
     override fun read(buf: ByteBuffer): kotlin.Long? {
         if (buf.get().toInt() == 0) {
@@ -3037,6 +3231,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
         } else {
             buf.put(1)
             FfiConverterString.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterOptionalTypeSubscriptionInfo: FfiConverterRustBuffer<SubscriptionInfo?> {
+    override fun read(buf: ByteBuffer): SubscriptionInfo? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeSubscriptionInfo.read(buf)
+    }
+
+    override fun allocationSize(value: SubscriptionInfo?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeSubscriptionInfo.allocationSize(value)
+        }
+    }
+
+    override fun write(value: SubscriptionInfo?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeSubscriptionInfo.write(value, buf)
         }
     }
 }
@@ -3185,6 +3411,34 @@ public object FfiConverterSequenceTypeDelayHistory: FfiConverterRustBuffer<List<
         buf.putInt(value.size)
         value.iterator().forEach {
             FfiConverterTypeDelayHistory.write(it, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
+public object FfiConverterSequenceTypeProviderSnapshot: FfiConverterRustBuffer<List<ProviderSnapshot>> {
+    override fun read(buf: ByteBuffer): List<ProviderSnapshot> {
+        val len = buf.getInt()
+        return List<ProviderSnapshot>(len) {
+            FfiConverterTypeProviderSnapshot.read(buf)
+        }
+    }
+
+    override fun allocationSize(value: List<ProviderSnapshot>): ULong {
+        val sizeForLength = 4UL
+        val sizeForItems = value.map { FfiConverterTypeProviderSnapshot.allocationSize(it) }.sum()
+        return sizeForLength + sizeForItems
+    }
+
+    override fun write(value: List<ProviderSnapshot>, buf: ByteBuffer) {
+        buf.putInt(value.size)
+        value.iterator().forEach {
+            FfiConverterTypeProviderSnapshot.write(it, buf)
         }
     }
 }
