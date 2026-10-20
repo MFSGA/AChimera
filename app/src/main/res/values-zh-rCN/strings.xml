@@ -256,6 +256,7 @@
     <string name="proxy_mode_rule">规则</string>
     <string name="proxy_mode_global">全局</string>
     <string name="proxy_mode_direct">直连</string>
+    <string name="proxy_mode_switch_tips">仅在本次会话中有效</string>
     <string name="cmfa_main_mode_rule">规则模式</string>
     <string name="cmfa_main_mode_global">全局模式</string>
     <string name="cmfa_main_mode_direct">直连模式</string>

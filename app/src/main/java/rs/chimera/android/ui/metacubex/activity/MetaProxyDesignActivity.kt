@@ -177,6 +177,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
             return
         }
 
+        design.showModeSwitchTips()
         selecting = true
         design.setSelecting(true)
         try {

@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import android.widget.Toast
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.doOnPreDraw
@@ -17,6 +18,8 @@ import androidx.viewpager2.widget.ViewPager2
 import androidx.appcompat.widget.PopupMenu
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
@@ -146,6 +149,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             showProgress = false,
             showRetry = showRetry,
         )
+    }
+
+    suspend fun showModeSwitchTips() {
+        withContext(Dispatchers.Main) {
+            Toast.makeText(context, R.string.proxy_mode_switch_tips, Toast.LENGTH_LONG).show()
+        }
     }
 
     fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
