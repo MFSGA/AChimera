@@ -11,16 +11,20 @@ import androidx.core.content.ContextCompat
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
+import rs.chimera.android.ui.preferences.AppPreferences
 
 internal object VpnRecoveryBroadcastPolicy {
     fun isSupported(action: String?): Boolean =
         action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED
+
+    fun shouldAutoRestart(action: String?, enabled: Boolean): Boolean =
+        enabled && isSupported(action)
 }
 
 class VpnRecoveryReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action
-        if (!VpnRecoveryBroadcastPolicy.isSupported(action)) return
+        if (!VpnRecoveryBroadcastPolicy.shouldAutoRestart(action, AppPreferences.autoRestart(context))) return
 
         val store = VpnDesiredStateStore(context)
         when (

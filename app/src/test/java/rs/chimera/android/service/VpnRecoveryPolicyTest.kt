@@ -15,6 +15,34 @@ class VpnRecoveryPolicyTest {
     }
 
     @Test
+    fun autoRestartPreferenceGatesBootAndPackageUpdateRecovery() {
+        assertTrue(
+            VpnRecoveryBroadcastPolicy.shouldAutoRestart(
+                "android.intent.action.BOOT_COMPLETED",
+                enabled = true,
+            ),
+        )
+        assertTrue(
+            VpnRecoveryBroadcastPolicy.shouldAutoRestart(
+                "android.intent.action.MY_PACKAGE_REPLACED",
+                enabled = true,
+            ),
+        )
+        assertFalse(
+            VpnRecoveryBroadcastPolicy.shouldAutoRestart(
+                "android.intent.action.BOOT_COMPLETED",
+                enabled = false,
+            ),
+        )
+        assertFalse(
+            VpnRecoveryBroadcastPolicy.shouldAutoRestart(
+                "android.intent.action.MAIN",
+                enabled = true,
+            ),
+        )
+    }
+
+    @Test
     fun stoppedDesiredStateIsNeverRecovered() {
         assertEquals(
             VpnRecoveryDecision.DISCARD_STOPPED,

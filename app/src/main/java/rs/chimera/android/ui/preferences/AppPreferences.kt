@@ -27,6 +27,7 @@ object AppPreferences {
     private const val KEY_UI_VARIANT = "ui_variant"
     private const val KEY_LANGUAGE = "language"
     private const val KEY_APPEARANCE = "appearance"
+    private const val KEY_AUTO_RESTART = "auto_restart"
 
     fun apply(context: Context) {
         applyLanguage(language(context))
@@ -42,6 +43,9 @@ object AppPreferences {
     fun appearance(context: Context): AppearancePreference =
         enumPreference(context, KEY_APPEARANCE, AppearancePreference.SYSTEM)
 
+    fun autoRestart(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_AUTO_RESTART, true)
+
     fun updateUiVariant(context: Context, variant: UiVariant) {
         putEnum(context, KEY_UI_VARIANT, variant)
     }
@@ -54,6 +58,10 @@ object AppPreferences {
     fun updateAppearance(context: Context, preference: AppearancePreference) {
         putEnum(context, KEY_APPEARANCE, preference)
         applyAppearance(preference)
+    }
+
+    fun updateAutoRestart(context: Context, enabled: Boolean) {
+        preferences(context).edit { putBoolean(KEY_AUTO_RESTART, enabled) }
     }
 
     private fun applyLanguage(preference: LanguagePreference) {
