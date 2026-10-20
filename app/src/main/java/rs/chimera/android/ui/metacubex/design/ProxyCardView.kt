@@ -30,7 +30,7 @@ class ProxyCardView(context: Context) : View(context) {
 
     var entry: ProxyDisplayEntry? = null
         set(value) {
-            val itemChanged = field?.name != value?.name
+            val previous = field
             field = value
             contentDescription = value?.let { item ->
                 listOfNotNull(
@@ -41,9 +41,7 @@ class ProxyCardView(context: Context) : View(context) {
             }
             isSelected = value?.isSelected == true
             ViewCompat.setStateDescription(this, if (isSelected) context.getString(R.string.selected) else null)
-            if (itemChanged) {
-                selectionColorTransition.snap(backgroundColor(value), System.currentTimeMillis())
-            }
+            selectionColorTransition.bind(previous, value, backgroundColor(value), System.currentTimeMillis())
             requestLayout()
             invalidate()
         }

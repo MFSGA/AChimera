@@ -188,17 +188,18 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                     (groupName to linkedSelector.copy(now = proxyName)),
             )
         }
-        renderGroups()
+        renderGroups(animateSelectionChanges = true)
         return true
     }
 
-    private fun renderGroups() {
+    private fun renderGroups(animateSelectionChanges: Boolean = false) {
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         groups.clear()
         groups += ProxyDisplayPolicy.groupPages(
             sourceGroups,
             unavailableType = context.getString(R.string.not_available),
             excludeNotSelectable = displayOptions.excludeNotSelectable,
+            animateSelectionChanges = animateSelectionChanges,
         )
         bottomGroups.retainAll(groups.map { it.name }.toSet())
         updateModeSelection(sourceGroups.firstOrNull()?.mode)

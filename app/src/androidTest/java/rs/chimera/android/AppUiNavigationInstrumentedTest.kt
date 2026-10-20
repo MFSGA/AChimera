@@ -41,6 +41,7 @@ import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
 import rs.chimera.android.ui.metacubex.activity.MetaOverrideActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
+import rs.chimera.android.ui.metacubex.design.ProxyCardView
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
 import rs.chimera.android.ui.metacubex.design.ProxyDisplayPreferences
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
@@ -293,6 +294,7 @@ class AppUiNavigationInstrumentedTest {
     fun successfulProxySelectionImmediatelyUpdatesCardAndLinkedGroupLabel() {
         ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
             lateinit var design: ProxyDesign
+            lateinit var snapshots: List<ProxyGroupSnapshot>
             scenario.onActivity { activity ->
                 design = ProxyDesign(activity)
                 activity.addContentView(
@@ -321,7 +323,7 @@ class AppUiNavigationInstrumentedTest {
                     "node-a" to ProxySnapshot("node-a", "Vless", emptyList()),
                     "node-b" to ProxySnapshot("node-b", "Vless", emptyList()),
                 )
-                design.setGroups(
+                snapshots =
                     listOf(
                         ProxyGroupSnapshot(
                             name = "outer",
@@ -337,8 +339,8 @@ class AppUiNavigationInstrumentedTest {
                             mode = ProxyMode.RULE,
                             proxyDetails = details,
                         ),
-                    ),
-                )
+                    )
+                design.setGroups(snapshots)
                 design.binding.viewPager.setCurrentItem(1, false)
             }
 
@@ -359,6 +361,7 @@ class AppUiNavigationInstrumentedTest {
             assertTrue("The requested selector should be present", selectionApplied)
 
             var selectedCardState: Pair<Boolean, Boolean>? = null
+            var selectionChangeAnimated = false
             val selectionDeadline = SystemClock.uptimeMillis() + 5_000
             while (selectedCardState != Pair(false, true) && SystemClock.uptimeMillis() < selectionDeadline) {
                 instrumentation.waitForIdleSync()
@@ -367,12 +370,15 @@ class AppUiNavigationInstrumentedTest {
                         ?: return@onActivity
                     val page = proxyPageRecycler(pagerRecycler, 1) ?: return@onActivity
                     val previous = page.findViewHolderForAdapterPosition(0)?.itemView ?: return@onActivity
-                    val current = page.findViewHolderForAdapterPosition(1)?.itemView ?: return@onActivity
+                    val current = page.findViewHolderForAdapterPosition(1)?.itemView as? ProxyCardView
+                        ?: return@onActivity
                     selectedCardState = previous.isSelected to current.isSelected
+                    selectionChangeAnimated = current.entry?.animateSelectionChange == true
                 }
                 if (selectedCardState != Pair(false, true)) SystemClock.sleep(50)
             }
             assertEquals(Pair(false, true), selectedCardState)
+            assertTrue("A successful selector change should request CMFA's color transition", selectionChangeAnimated)
 
             var linkedGroupLabel: CharSequence? = null
             scenario.onActivity { design.binding.viewPager.setCurrentItem(0, false) }
@@ -392,6 +398,44 @@ class AppUiNavigationInstrumentedTest {
                 if (linkedGroupLabel?.contains("Selector(node-b)") != true) SystemClock.sleep(50)
             }
             assertTrue(linkedGroupLabel.toString(), linkedGroupLabel?.contains("Selector(node-b)") == true)
+
+            val confirmedSnapshots = snapshots.map { snapshot ->
+                snapshot.copy(
+                    selected = if (snapshot.name == "selector") "node-b" else snapshot.selected,
+                    proxyDetails = snapshot.proxyDetails.mapValues { (name, proxy) ->
+                        if (name == "selector") proxy.copy(now = "node-b") else proxy
+                    },
+                )
+            }
+            scenario.onActivity {
+                design.binding.viewPager.setCurrentItem(1, false)
+                design.setGroups(confirmedSnapshots)
+            }
+            var refreshedSelectionState: Pair<Boolean, Boolean>? = null
+            var refreshRequestsAnimation = true
+            val refreshDeadline = SystemClock.uptimeMillis() + 5_000
+            while (
+                (refreshedSelectionState != Pair(false, true) || refreshRequestsAnimation) &&
+                SystemClock.uptimeMillis() < refreshDeadline
+            ) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                        ?: return@onActivity
+                    val page = proxyPageRecycler(pagerRecycler, 1) ?: return@onActivity
+                    val previous = page.findViewHolderForAdapterPosition(0)?.itemView
+                        ?: return@onActivity
+                    val current = page.findViewHolderForAdapterPosition(1)?.itemView as? ProxyCardView
+                        ?: return@onActivity
+                    refreshedSelectionState = previous.isSelected to current.isSelected
+                    refreshRequestsAnimation = current.entry?.animateSelectionChange == true
+                }
+                if (refreshedSelectionState != Pair(false, true) || refreshRequestsAnimation) {
+                    SystemClock.sleep(50)
+                }
+            }
+            assertEquals(Pair(false, true), refreshedSelectionState)
+            assertFalse("A regular group refresh should snap to its selection", refreshRequestsAnimation)
         }
     }
 

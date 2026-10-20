@@ -16,6 +16,8 @@ data class ProxyDisplayEntry(
     val delayText: String,
     val delayMillis: Int?,
     val isSelected: Boolean,
+    /** Set only for a successful selector change that should animate like CMFA's redraw path. */
+    val animateSelectionChange: Boolean = false,
 )
 
 data class ProxyDisplayOptions(
@@ -57,6 +59,7 @@ object ProxyDisplayPolicy {
         snapshots: List<ProxyGroupSnapshot>,
         unavailableType: String,
         excludeNotSelectable: Boolean = false,
+        animateSelectionChanges: Boolean = false,
     ): List<ProxyDisplayGroup> = snapshots.mapNotNull { snapshot ->
         val group = snapshot.proxyDetails[snapshot.name]
             ?.takeIf { it.isGroup }
@@ -81,6 +84,7 @@ object ProxyDisplayPolicy {
                     delayText = delay?.toString().orEmpty(),
                     delayMillis = delay,
                     isSelected = name == snapshot.selected,
+                    animateSelectionChange = animateSelectionChanges,
                 )
             },
         )
