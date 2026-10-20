@@ -41,6 +41,35 @@ class ProxyDisplayPolicyTest {
     }
 
     @Test
+    fun nameSortUsesCmfasCaseSensitiveTitleOrder() {
+        val entries = listOf(
+            ProxyDisplayEntry("alpha", "SS", "", null, false),
+            ProxyDisplayEntry("Zulu", "SS", "", null, false),
+            ProxyDisplayEntry("Alpha", "SS", "", null, false),
+        )
+
+        assertEquals(
+            listOf("Alpha", "Zulu", "alpha"),
+            ProxyDisplayPolicy.sort(entries, ProxySortOrder.NAME).map { it.name },
+        )
+    }
+
+    @Test
+    fun nameSortOrdersSupplementaryCharactersLikeUtf8Reference() {
+        val privateUse = "\uE000"
+        val supplementary = "\uD83D\uDE00"
+        val entries = listOf(
+            ProxyDisplayEntry(supplementary, "SS", "", null, false),
+            ProxyDisplayEntry(privateUse, "SS", "", null, false),
+        )
+
+        assertEquals(
+            listOf(privateUse, supplementary),
+            ProxyDisplayPolicy.sort(entries, ProxySortOrder.NAME).map { it.name },
+        )
+    }
+
+    @Test
     fun groupPagesOnlyShowGroupsAndOnlySelectorsAcceptSelection() {
         val selectorPage = ProxyGroupSnapshot(
             name = "手动选择",

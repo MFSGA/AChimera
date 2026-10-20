@@ -48,11 +48,30 @@ object ProxyDisplayPolicy {
         order: ProxySortOrder,
     ): List<ProxyDisplayEntry> = when (order) {
         ProxySortOrder.DEFAULT -> entries
-        ProxySortOrder.NAME -> entries.sortedBy { it.name.lowercase() }
+        ProxySortOrder.NAME -> entries.sortedWith { left, right ->
+            compareCodePointStrings(left.name, right.name)
+        }
         ProxySortOrder.DELAY -> entries.sortedWith(
             compareBy<ProxyDisplayEntry> { it.delayMillis == null }
                 .thenBy { it.delayMillis },
         )
+    }
+
+    private fun compareCodePointStrings(left: String, right: String): Int {
+        var leftOffset = 0
+        var rightOffset = 0
+        while (leftOffset < left.length && rightOffset < right.length) {
+            val leftCodePoint = Character.codePointAt(left, leftOffset)
+            val rightCodePoint = Character.codePointAt(right, rightOffset)
+            if (leftCodePoint != rightCodePoint) return leftCodePoint.compareTo(rightCodePoint)
+            leftOffset += Character.charCount(leftCodePoint)
+            rightOffset += Character.charCount(rightCodePoint)
+        }
+        return when {
+            leftOffset == left.length && rightOffset == right.length -> 0
+            leftOffset == left.length -> -1
+            else -> 1
+        }
     }
 
     fun groupPages(
