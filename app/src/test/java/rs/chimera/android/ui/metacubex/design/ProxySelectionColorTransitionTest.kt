@@ -24,7 +24,7 @@ class ProxySelectionColorTransitionTest {
         transition.snap(UNSELECTED, frameTime = 100L)
 
         val intermediate = transition.advance(SELECTED, frameTime = 164L)
-        assertNotEquals(UNSELECTED, intermediate.color)
+        assertEquals(0xff000040.toInt(), intermediate.color)
         assertNotEquals(SELECTED, intermediate.color)
         assertTrue(intermediate.animating)
 
