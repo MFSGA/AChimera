@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.core.view.doOnPreDraw
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
@@ -61,6 +62,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private var testing = false
     private var horizontalScrolling = false
     private val bottomGroups = mutableSetOf<String>()
+    private var bottomStateRefreshPending = false
 
     init {
         root.applySystemBarInsets()
@@ -85,6 +87,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
                     currentGroupIndex = position
+                    pagerAdapter.refreshPageBottomState(position)
                     updateDelayTestFabVisibility()
                     if (!renderingGroups) {
                         groups.getOrNull(position)?.name?.let { name ->
@@ -144,7 +147,6 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
-        bottomGroups.clear()
         sourceGroups = snapshots
         val lastGroupStillExists = snapshots.any { snapshot ->
             snapshot.name == lastGroupName && snapshot.proxyDetails[snapshot.name]?.isGroup == true
@@ -164,10 +166,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             unavailableType = context.getString(R.string.not_available),
             excludeNotSelectable = displayOptions.excludeNotSelectable,
         )
+        bottomGroups.retainAll(groups.map { it.name }.toSet())
         updateModeSelection(sourceGroups.firstOrNull()?.mode)
         updateSelectableFilterSelection()
 
         if (groups.isEmpty()) {
+            bottomStateRefreshPending = false
             showState(
                 title = context.getString(R.string.no_proxy_groups),
                 message = context.getString(R.string.proxy_empty_message),
@@ -184,6 +188,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             lastGroupName = groups.getOrNull(currentGroupIndex)?.name
             lastGroupName?.let(displayPreferences::updateLastGroupName)
         }
+        bottomStateRefreshPending = true
         renderingGroups = true
         try {
             pagerAdapter.submitPages(sortedPages())
@@ -312,6 +317,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         val currentGroup = groups.getOrNull(currentGroupIndex)?.name
         val shouldShow = content.visibility == View.VISIBLE &&
             currentGroup != null &&
+            !bottomStateRefreshPending &&
             currentGroup !in bottomGroups &&
             !horizontalScrolling &&
             !testing
@@ -363,11 +369,22 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     private inner class ProxyPagerAdapter : RecyclerView.Adapter<ProxyPagerAdapter.PageHolder>() {
         private var pages = listOf<List<ProxyDisplayEntry>>()
+        private var groupNames = emptyList<String>()
+        private val pageAdapters = mutableMapOf<String, ProxyAdapter>()
 
         fun submitPages(pages: List<List<ProxyDisplayEntry>>) {
             val oldCount = this.pages.size
             val newCount = pages.size
             this.pages = pages
+            val newGroupNames = groups.map { it.name }
+
+            if (groupNames == newGroupNames) {
+                groups.indices.forEach(::updatePageAdapter)
+                return
+            }
+
+            groupNames = newGroupNames
+            pageAdapters.keys.retainAll(newGroupNames.toSet())
 
             val sharedCount = minOf(oldCount, newCount)
             if (sharedCount > 0) {
@@ -380,7 +397,25 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
 
         fun refreshPages() {
-            if (pages.isNotEmpty()) notifyItemRangeChanged(0, pages.size)
+            if (pages.isNotEmpty()) groups.indices.forEach(::updatePageAdapter)
+        }
+
+        fun refreshPageBottomState(position: Int) {
+            val group = groups.getOrNull(position) ?: return
+            if (position == currentGroupIndex) bottomStateRefreshPending = true
+            val adapter = pageAdapters[group.name] ?: return
+            refreshBottomState(position, group.name, adapter)
+        }
+
+        private fun updatePageAdapter(position: Int) {
+            val group = groups.getOrNull(position) ?: return
+            val adapter = pageAdapters[group.name] ?: return
+            if (position == currentGroupIndex) bottomStateRefreshPending = true
+            adapter.columns = displayOptions.columns
+            adapter.selectable = group.isSelectable
+            adapter.submitList(pages.getOrNull(position).orEmpty()) {
+                refreshBottomState(position, group.name, adapter)
+            }
         }
 
         override fun getItemCount(): Int = pages.size
@@ -405,20 +440,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                         if (newState != RecyclerView.SCROLL_STATE_IDLE) return
                         val position = holder.bindingAdapterPosition
                         val groupName = groups.getOrNull(position)?.name ?: return
-                        val layoutManager = recyclerView.layoutManager as? GridLayoutManager
-                            ?: return
-                        val itemCount = recyclerView.adapter?.itemCount ?: return
-                        val isAtScrolledBottom =
-                            layoutManager.findFirstVisibleItemPosition() != 0 &&
-                                layoutManager.findLastVisibleItemPosition() == itemCount - 1
-                        val changed = if (isAtScrolledBottom) {
-                            bottomGroups.add(groupName)
-                        } else {
-                            bottomGroups.remove(groupName)
-                        }
-                        if (changed && position == currentGroupIndex) {
-                            updateDelayTestFabVisibility()
-                        }
+                        updateBottomState(groupName, recyclerView)
                     }
                 },
             )
@@ -427,18 +449,63 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
         override fun onBindViewHolder(holder: PageHolder, position: Int) {
             val items = pages.getOrNull(position).orEmpty()
-            val groupName = groups.getOrNull(position)?.name.orEmpty()
+            val group = groups.getOrNull(position) ?: return
+            val groupName = group.name
             bottomGroups.remove(groupName)
-            holder.recyclerView.layoutManager = gridLayoutManager()
-            val proxyAdapter = ProxyAdapter { proxyName ->
-                if (interactionEnabled) request(Request.SelectProxy(groupName, proxyName))
+            if (position == currentGroupIndex) bottomStateRefreshPending = true
+            val proxyAdapter = pageAdapters.getOrPut(groupName) {
+                ProxyAdapter { proxyName ->
+                    if (interactionEnabled) request(Request.SelectProxy(groupName, proxyName))
+                }
             }.apply {
                 columns = displayOptions.columns
-                selectable = groups.getOrNull(position)?.isSelectable == true
+                selectable = group.isSelectable
+                submitList(items) {
+                    refreshBottomState(position, groupName, proxyAdapter = this)
+                }
             }
-            holder.recyclerView.adapter = proxyAdapter
-            proxyAdapter.submitList(items)
+            if (holder.recyclerView.adapter !== proxyAdapter) {
+                holder.recyclerView.layoutManager = gridLayoutManager()
+                holder.recyclerView.adapter = proxyAdapter
+            }
             if (position == currentGroupIndex) updateDelayTestFabVisibility()
+        }
+
+        private fun refreshBottomState(
+            position: Int,
+            groupName: String,
+            proxyAdapter: ProxyAdapter,
+        ) {
+            binding.viewPager.doOnPreDraw {
+                val pagerRecyclerView = binding.viewPager.getChildAt(0) as? RecyclerView ?: return@doOnPreDraw
+                val pageHolder = pagerRecyclerView.findViewHolderForAdapterPosition(position) as? PageHolder
+                    ?: return@doOnPreDraw
+                if (
+                    groups.getOrNull(position)?.name != groupName ||
+                    pageHolder.recyclerView.adapter !== proxyAdapter
+                ) {
+                    return@doOnPreDraw
+                }
+                if (position == currentGroupIndex) bottomStateRefreshPending = false
+                updateBottomState(groupName, pageHolder.recyclerView)
+            }
+        }
+
+        private fun updateBottomState(groupName: String, recyclerView: RecyclerView) {
+            val layoutManager = recyclerView.layoutManager as? GridLayoutManager ?: return
+            val itemCount = recyclerView.adapter?.itemCount ?: return
+            val isAtScrolledBottom =
+                itemCount > 0 &&
+                    layoutManager.findFirstVisibleItemPosition() != 0 &&
+                    layoutManager.findLastVisibleItemPosition() == itemCount - 1
+            if (isAtScrolledBottom) {
+                bottomGroups.add(groupName)
+            } else {
+                bottomGroups.remove(groupName)
+            }
+            if (groups.getOrNull(currentGroupIndex)?.name == groupName) {
+                updateDelayTestFabVisibility()
+            }
         }
 
         private fun gridLayoutManager() = GridLayoutManager(
