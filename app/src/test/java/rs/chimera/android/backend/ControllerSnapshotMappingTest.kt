@@ -87,6 +87,22 @@ class ControllerSnapshotMappingTest {
     }
 
     @Test
+    fun proxyMappingPreservesGroupClassificationAndSelectedNestedGroup() {
+        val mapped = listOf(
+            Proxy("manual", "Selector", listOf("node-a"), "node-a", emptyList()),
+            Proxy("automatic", "URLTest", emptyList(), null, emptyList()),
+            Proxy("fallback", "Fallback", emptyList(), "node-a", emptyList()),
+            Proxy("node-a", "Shadowsocks", emptyList(), null, listOf(DelayHistory("10", 10))),
+        ).toProxyGroupSnapshots(Mode.RULE).associateBy { it.name }
+
+        assertEquals(true, mapped.getValue("manual").proxyDetails.getValue("manual").isGroup)
+        assertEquals("node-a", mapped.getValue("manual").proxyDetails.getValue("manual").now)
+        assertEquals(true, mapped.getValue("automatic").proxyDetails.getValue("automatic").isGroup)
+        assertEquals(true, mapped.getValue("fallback").proxyDetails.getValue("fallback").isGroup)
+        assertEquals(false, mapped.getValue("node-a").proxyDetails.getValue("node-a").isGroup)
+    }
+
+    @Test
     fun connectionMappingPreservesControllerMetadataAndTotals() {
         val response = ConnectionsResponse(
             downloadTotal = 100,

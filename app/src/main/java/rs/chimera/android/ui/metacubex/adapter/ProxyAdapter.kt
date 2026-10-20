@@ -1,5 +1,6 @@
 package rs.chimera.android.ui.metacubex.adapter
 
+import android.view.View
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -10,6 +11,12 @@ import rs.chimera.android.ui.metacubex.design.ProxyDisplayEntry
 class ProxyAdapter(
     private val onItemClick: (String) -> Unit,
 ) : ListAdapter<ProxyDisplayEntry, ProxyAdapter.ViewHolder>(DiffCallback) {
+    var selectable: Boolean = false
+        set(value) {
+            field = value
+            notifyItemRangeChanged(0, itemCount)
+        }
+
     var columns: Int = 2
         set(value) {
             field = value
@@ -29,7 +36,11 @@ class ProxyAdapter(
         fun bind(entry: ProxyDisplayEntry, columnCount: Int) {
             view.columns = columnCount
             view.entry = entry
-            view.setOnClickListener { onItemClick(entry.name) }
+            view.setOnClickListener(
+                if (selectable) View.OnClickListener { onItemClick(entry.name) } else null,
+            )
+            view.isClickable = selectable
+            view.isFocusable = selectable
         }
     }
 

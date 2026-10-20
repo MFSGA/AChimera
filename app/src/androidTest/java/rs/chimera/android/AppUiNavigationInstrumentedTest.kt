@@ -29,6 +29,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -41,6 +42,7 @@ import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
+import rs.chimera.android.backend.model.ProxySnapshot
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.UiVariant
@@ -139,7 +141,20 @@ class AppUiNavigationInstrumentedTest {
                             proxies = listOf("test-node"),
                             selected = "test-node",
                             mode = ProxyMode.RULE,
-                            proxyDetails = emptyMap(),
+                            proxyDetails = mapOf(
+                                "test-group" to ProxySnapshot(
+                                    name = "test-group",
+                                    type = "Selector",
+                                    history = emptyList(),
+                                    isGroup = true,
+                                    now = "test-node",
+                                ),
+                                "test-node" to ProxySnapshot(
+                                    name = "test-node",
+                                    type = "Vless",
+                                    history = emptyList(),
+                                ),
+                            ),
                         ),
                     ),
                 )
@@ -171,6 +186,82 @@ class AppUiNavigationInstrumentedTest {
             assertEquals(rendered.first[1], rendered.first[3])
             assertNotNull(rendered.second)
 
+            var selectorClickable = false
+            var selectorClickHandled = false
+            scenario.onActivity {
+                val viewPager = design.binding.viewPager
+                val pageRecycler = viewPager.getChildAt(0) as RecyclerView
+                val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView as RecyclerView
+                val card = page.findViewHolderForAdapterPosition(0)?.itemView
+                    ?: throw AssertionError("Selector proxy item did not render")
+                selectorClickable = card.isClickable
+                selectorClickHandled = card.performClick()
+            }
+            assertTrue(selectorClickable)
+            assertTrue(selectorClickHandled)
+            assertEquals(
+                ProxyDesign.Request.SelectProxy("test-group", "test-node"),
+                design.requests.tryReceive().getOrNull(),
+            )
+
+            scenario.onActivity {
+                design.setGroups(
+                    listOf(
+                        ProxyGroupSnapshot(
+                            name = "test-url-test",
+                            proxies = listOf("test-node"),
+                            selected = "test-node",
+                            mode = ProxyMode.RULE,
+                            proxyDetails = mapOf(
+                                "test-url-test" to ProxySnapshot(
+                                    name = "test-url-test",
+                                    type = "URLTest",
+                                    history = emptyList(),
+                                    isGroup = true,
+                                    now = "test-node",
+                                ),
+                                "test-node" to ProxySnapshot(
+                                    name = "test-node",
+                                    type = "Vless",
+                                    history = emptyList(),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+            }
+
+            var nonSelectorClickable: Boolean? = null
+            val nonSelectorDeadline = SystemClock.uptimeMillis() + 5_000
+            while (
+                nonSelectorClickable != false &&
+                SystemClock.uptimeMillis() < nonSelectorDeadline
+            ) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val viewPager = design.binding.viewPager
+                    val pageRecycler = viewPager.getChildAt(0) as? RecyclerView ?: return@onActivity
+                    val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView
+                        as? RecyclerView ?: return@onActivity
+                    nonSelectorClickable = page.findViewHolderForAdapterPosition(0)?.itemView
+                        ?.isClickable
+                }
+                if (nonSelectorClickable != false) SystemClock.sleep(50)
+            }
+            assertEquals(false, nonSelectorClickable)
+
+            var nonSelectorClickHandled = true
+            scenario.onActivity {
+                val viewPager = design.binding.viewPager
+                val pageRecycler = viewPager.getChildAt(0) as RecyclerView
+                val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView as RecyclerView
+                val card = page.findViewHolderForAdapterPosition(0)?.itemView
+                    ?: throw AssertionError("URLTest proxy item did not render")
+                nonSelectorClickHandled = card.performClick()
+            }
+            assertFalse(nonSelectorClickHandled)
+            assertFalse(design.requests.tryReceive().isSuccess)
+
             var stateVisibility = View.GONE
             var contentVisibility = View.VISIBLE
             scenario.onActivity {
@@ -180,6 +271,45 @@ class AppUiNavigationInstrumentedTest {
             }
             assertEquals(View.VISIBLE, stateVisibility)
             assertEquals(View.GONE, contentVisibility)
+        }
+    }
+
+    @Test
+    fun directModeRemainsSelectedWhenNoProxyPagesAreAvailable() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            var directModeChecked = false
+            scenario.onActivity { activity ->
+                val design = ProxyDesign(activity)
+                activity.addContentView(
+                    design.root,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                design.setGroups(
+                    listOf(
+                        ProxyGroupSnapshot(
+                            name = "DIRECT",
+                            proxies = emptyList(),
+                            selected = null,
+                            mode = ProxyMode.DIRECT,
+                            proxyDetails = mapOf(
+                                "DIRECT" to ProxySnapshot(
+                                    name = "DIRECT",
+                                    type = "Direct",
+                                    history = emptyList(),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
+                directModeChecked = design.binding.toolbar.menu
+                    .findItem(R.id.action_mode_direct)
+                    .isChecked
+            }
+
+            assertTrue(directModeChecked)
         }
     }
 

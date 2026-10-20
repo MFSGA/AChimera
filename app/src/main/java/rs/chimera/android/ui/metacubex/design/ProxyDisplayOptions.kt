@@ -2,6 +2,7 @@ package rs.chimera.android.ui.metacubex.design
 
 import android.content.Context
 import androidx.core.content.edit
+import rs.chimera.android.backend.model.ProxyGroupSnapshot
 
 enum class ProxySortOrder {
     DEFAULT,
@@ -27,6 +28,12 @@ data class ProxyDisplayOptions(
     }
 }
 
+data class ProxyDisplayGroup(
+    val name: String,
+    val isSelectable: Boolean,
+    val proxies: List<ProxyDisplayEntry>,
+)
+
 object ProxyDisplayPolicy {
     fun normalizeColumns(columns: Int): Int = columns.coerceIn(1, 3)
 
@@ -44,6 +51,39 @@ object ProxyDisplayPolicy {
                 .thenBy { it.delayMillis },
         )
     }
+
+    fun groupPages(
+        snapshots: List<ProxyGroupSnapshot>,
+        unavailableType: String,
+    ): List<ProxyDisplayGroup> = snapshots.mapNotNull { snapshot ->
+        val group = snapshot.proxyDetails[snapshot.name]
+            ?.takeIf { it.isGroup }
+            ?: return@mapNotNull null
+
+        ProxyDisplayGroup(
+            name = snapshot.name,
+            isSelectable = group.type == SELECTOR_TYPE,
+            proxies = snapshot.proxies.map { name ->
+                val proxy = snapshot.proxyDetails[name]
+                val type = when {
+                    proxy == null -> unavailableType
+                    proxy.isGroup -> "${proxy.type}(${proxy.now?.takeIf(String::isNotEmpty) ?: "*"})"
+                    else -> proxy.type
+                }
+                val delay = proxy?.history?.lastOrNull()?.delay
+                    ?.takeIf { it in 0..Short.MAX_VALUE }
+                ProxyDisplayEntry(
+                    name = name,
+                    type = type,
+                    delayText = delay?.toString().orEmpty(),
+                    delayMillis = delay,
+                    isSelected = name == snapshot.selected,
+                )
+            },
+        )
+    }
+
+    private const val SELECTOR_TYPE = "Selector"
 }
 
 class ProxyDisplayPreferences(context: Context) {

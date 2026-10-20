@@ -71,8 +71,8 @@ class ProxyCardView(context: Context) : View(context) {
     init {
         // Keep the selector above the custom card fill so the pressed ripple remains visible.
         foreground = selectableBackground
-        isClickable = true
-        isFocusable = true
+        isClickable = false
+        isFocusable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         setLayerType(LAYER_TYPE_SOFTWARE, null)
     }

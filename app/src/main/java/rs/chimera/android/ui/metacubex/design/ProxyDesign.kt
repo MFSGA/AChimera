@@ -21,11 +21,6 @@ import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
 class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
-    data class GroupPage(
-        val name: String,
-        val proxies: List<ProxyDisplayEntry>,
-    )
-
     sealed class Request {
         data class SelectProxy(val groupName: String, val proxyName: String) : Request()
         data class DelayTest(val groupName: String, val proxyNames: List<String>) : Request()
@@ -46,7 +41,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private val stateTitle = root.findViewById<TextView>(R.id.proxy_state_title)
     private val stateMessage = root.findViewById<TextView>(R.id.proxy_state_message)
     private val retryButton = root.findViewById<MaterialButton>(R.id.proxy_state_retry)
-    private val groups = mutableListOf<GroupPage>()
+    private val groups = mutableListOf<ProxyDisplayGroup>()
     private val displayPreferences = ProxyDisplayPreferences(context)
     private var displayOptions = displayPreferences.read()
     private val pagerAdapter = ProxyPagerAdapter()
@@ -142,23 +137,11 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
         groups.clear()
-        groups += snapshots.map { snapshot ->
-            GroupPage(
-                name = snapshot.name,
-                proxies = snapshot.proxies.map { name ->
-                    val detail = snapshot.proxyDetails[name]
-                    val delay = detail?.history?.lastOrNull()?.delay
-                        ?.takeIf { it in 0..Short.MAX_VALUE }
-                    ProxyDisplayEntry(
-                        name = name,
-                        type = detail?.type ?: context.getString(R.string.not_available),
-                        delayText = delay?.toString().orEmpty(),
-                        delayMillis = delay,
-                        isSelected = name == snapshot.selected,
-                    )
-                },
-            )
-        }
+        groups += ProxyDisplayPolicy.groupPages(
+            snapshots,
+            unavailableType = context.getString(R.string.not_available),
+        )
+        updateModeSelection(snapshots.firstOrNull()?.mode)
 
         if (groups.isEmpty()) {
             showState(
@@ -171,7 +154,6 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
 
         currentGroupIndex = currentGroupIndex.coerceIn(0, groups.lastIndex)
-        updateModeSelection(snapshots.firstOrNull()?.mode)
         pagerAdapter.submitPages(sortedPages())
         content.visibility = View.VISIBLE
         stateContainer.visibility = View.GONE
@@ -350,7 +332,10 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             holder.recyclerView.layoutManager = gridLayoutManager()
             val proxyAdapter = ProxyAdapter { proxyName ->
                 if (interactionEnabled) request(Request.SelectProxy(groupName, proxyName))
-            }.apply { columns = displayOptions.columns }
+            }.apply {
+                columns = displayOptions.columns
+                selectable = groups.getOrNull(position)?.isSelectable == true
+            }
             holder.recyclerView.adapter = proxyAdapter
             proxyAdapter.submitList(items)
         }

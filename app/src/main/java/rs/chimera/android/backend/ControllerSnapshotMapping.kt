@@ -75,11 +75,21 @@ private fun Proxy.toSnapshot(): ProxySnapshot =
                 time = entry.time.toLongOrNull() ?: 0L,
             )
         },
+        isGroup = all.isNotEmpty() || proxyType in PROXY_GROUP_TYPES,
+        now = now,
     )
 
 private const val GLOBAL_PROXY_NAME = "GLOBAL"
 private const val DIRECT_PROXY_NAME = "DIRECT"
 private const val DIRECT_PROXY_TYPE = "Direct"
+private val PROXY_GROUP_TYPES = setOf(
+    "URLTest",
+    "Selector",
+    "Relay",
+    "LoadBalance",
+    "Smart",
+    "Fallback",
+)
 
 internal fun ConnectionsResponse.toConnectionsSnapshot(): ConnectionsSnapshot =
     ConnectionsSnapshot(
