@@ -21,6 +21,7 @@ class ProxyCardView(context: Context) : View(context) {
     private val layoutPadding = dimension(R.dimen.metacubex_proxy_layout_padding)
     private val cardRadius = dimension(R.dimen.metacubex_proxy_card_radius)
     private val shadowColor = Color.argb(0x15, 0x44, 0x44, 0x44)
+    private val selectionColorTransition = ProxySelectionColorTransition()
     private val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
     private val colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
     private val colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
@@ -29,6 +30,7 @@ class ProxyCardView(context: Context) : View(context) {
 
     var entry: ProxyDisplayEntry? = null
         set(value) {
+            val itemChanged = field?.name != value?.name
             field = value
             contentDescription = value?.let { item ->
                 listOfNotNull(
@@ -39,6 +41,9 @@ class ProxyCardView(context: Context) : View(context) {
             }
             isSelected = value?.isSelected == true
             ViewCompat.setStateDescription(this, if (isSelected) context.getString(R.string.selected) else null)
+            if (itemChanged) {
+                selectionColorTransition.snap(backgroundColor(value), System.currentTimeMillis())
+            }
             requestLayout()
             invalidate()
         }
@@ -69,8 +74,7 @@ class ProxyCardView(context: Context) : View(context) {
         )
 
     init {
-        // Keep the selector above the custom card fill so the pressed ripple remains visible.
-        foreground = selectableBackground
+        background = selectableBackground
         isClickable = false
         isFocusable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
@@ -91,20 +95,25 @@ class ProxyCardView(context: Context) : View(context) {
         setMeasuredDimension(measuredWidth, measuredHeight)
     }
 
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        val item = entry ?: return
-        val useCard = columns != 1
-        val backgroundColor = when {
-            item.isSelected -> colorPrimary
-            useCard -> colorSurface
-            else -> Color.TRANSPARENT
+    override fun draw(canvas: Canvas) {
+        val item = entry
+        if (item == null) {
+            super.draw(canvas)
+            return
         }
-        val foregroundColor = if (item.isSelected) colorOnPrimary else colorOnSurface
+
+        val useCard = columns != 1
+        val frame = selectionColorTransition.advance(
+            backgroundColor(item),
+            System.currentTimeMillis(),
+        )
+        if (frame.animating) {
+            postInvalidateOnAnimation()
+        }
 
         paint.reset()
         paint.isAntiAlias = true
-        paint.color = backgroundColor
+        paint.color = frame.color
         paint.style = Paint.Style.FILL
         if (useCard) {
             path.reset()
@@ -126,8 +135,18 @@ class ProxyCardView(context: Context) : View(context) {
             canvas.save()
         }
 
-        paint.clearShadowLayer()
-        paint.color = foregroundColor
+        // CMFA draws its selectable background after the card fill and before the text.
+        super.draw(canvas)
+        canvas.restore()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val item = entry ?: return
+
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.color = if (item.isSelected) colorOnPrimary else colorOnSurface
         paint.textSize = textSize
         paint.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
 
@@ -174,7 +193,12 @@ class ProxyCardView(context: Context) : View(context) {
             layoutPadding + (height - layoutPadding * 2) * 2f / 3f - textOffset,
             paint,
         )
-        canvas.restore()
+    }
+
+    private fun backgroundColor(item: ProxyDisplayEntry?): Int = when {
+        item?.isSelected == true -> colorPrimary
+        item != null && columns != 1 -> colorSurface
+        else -> Color.TRANSPARENT
     }
 
     private fun dimension(resource: Int): Float = resources.getDimension(resource)
