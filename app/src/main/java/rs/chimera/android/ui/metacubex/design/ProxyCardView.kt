@@ -109,7 +109,7 @@ class ProxyCardView(context: Context) : View(context) {
             System.currentTimeMillis(),
         )
         if (frame.animating) {
-            postInvalidateOnAnimation()
+            postInvalidate()
         }
 
         paint.reset()
