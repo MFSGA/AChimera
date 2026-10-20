@@ -259,8 +259,8 @@ class MetaMainActivity : AppCompatActivity() {
 
     private fun modeLabelRes(mode: ProxyMode): Int =
         when (mode) {
-            ProxyMode.RULE -> R.string.proxy_mode_rule
-            ProxyMode.GLOBAL -> R.string.proxy_mode_global
-            ProxyMode.DIRECT -> R.string.proxy_mode_direct
+            ProxyMode.RULE -> R.string.cmfa_main_mode_rule
+            ProxyMode.GLOBAL -> R.string.cmfa_main_mode_global
+            ProxyMode.DIRECT -> R.string.cmfa_main_mode_direct
         }
 }

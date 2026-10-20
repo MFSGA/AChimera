@@ -160,7 +160,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/panel_screen"
+                    android:text="@string/proxy_screen"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
 
                     <TextView
