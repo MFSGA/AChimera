@@ -15,8 +15,13 @@ pub mod util;
 #[cfg(test)]
 mod util_tests;
 
+#[cfg(not(target_os = "android"))]
 #[global_allocator]
 static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
+
+#[cfg(target_os = "android")]
+#[global_allocator]
+static GLOBAL: std::alloc::System = std::alloc::System;
 
 use clash_lib::Config as ClashConfig;
 #[cfg(test)]
