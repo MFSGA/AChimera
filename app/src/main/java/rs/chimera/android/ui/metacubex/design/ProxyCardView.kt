@@ -82,6 +82,12 @@ class ProxyCardView(context: Context) : View(context) {
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val measuredWidth = when (MeasureSpec.getMode(widthMeasureSpec)) {
+            MeasureSpec.UNSPECIFIED -> resources.displayMetrics.widthPixels
+            MeasureSpec.AT_MOST, MeasureSpec.EXACTLY -> MeasureSpec.getSize(widthMeasureSpec)
+            else -> throw IllegalArgumentException("invalid measure spec")
+        }
+
         paint.reset()
         paint.textSize = textSize
         paint.getTextBounds("Stub!", 0, 1, bounds)
@@ -91,8 +97,14 @@ class ProxyCardView(context: Context) : View(context) {
                 bounds.height() * 2 +
                 textMargin
             ).toInt()
-        val measuredHeight = resolveSize(desiredHeight, heightMeasureSpec)
-        val measuredWidth = resolveSize(suggestedMinimumWidth, widthMeasureSpec)
+
+        val measuredHeight = when (MeasureSpec.getMode(heightMeasureSpec)) {
+            MeasureSpec.UNSPECIFIED -> desiredHeight
+            MeasureSpec.AT_MOST, MeasureSpec.EXACTLY ->
+                desiredHeight.coerceAtMost(MeasureSpec.getSize(heightMeasureSpec))
+            else -> throw IllegalArgumentException("invalid measure spec")
+        }
+
         setMeasuredDimension(measuredWidth, measuredHeight)
     }
 
