@@ -2,12 +2,17 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.content.Intent
 import android.os.Bundle
+import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -19,6 +24,7 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.metacubex.design.MainDesign
+import rs.chimera.android.ui.metacubex.design.ProviderDisplayPolicy
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.backend.model.ProxyMode
 
@@ -64,6 +70,28 @@ class MetaMainActivity : AppCompatActivity() {
                             design.setMode(getString(R.string.not_available))
                         }
                     }
+                }
+                launch {
+                    backend.runtimeStatus
+                        .map { it.state }
+                        .distinctUntilChanged()
+                        .combine(backend.activeProfile) { state, profile -> state to profile }
+                        .collectLatest { (state, _) ->
+                            if (state == ServiceState.RUNNING) {
+                                val hasProviders = try {
+                                    withContext(Dispatchers.IO) {
+                                        backend.listProviders().any(ProviderDisplayPolicy::isVisible)
+                                    }
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (_: Exception) {
+                                    false
+                                }
+                                design.setHasProviders(hasProviders)
+                            } else {
+                                design.setHasProviders(false)
+                            }
+                        }
                 }
                 launch {
                     backend.activeProfile.collect { profile ->
@@ -117,6 +145,9 @@ class MetaMainActivity : AppCompatActivity() {
             MainDesign.Request.OpenProxy -> {
                 startActivity(Intent(this, MetaProxyDesignActivity::class.java))
             }
+            MainDesign.Request.OpenProviders -> {
+                startActivity(Intent(this, MetaProvidersActivity::class.java))
+            }
             MainDesign.Request.OpenProfiles -> {
                 startActivity(Intent(this, MetaProfilesDesignActivity::class.java))
             }
@@ -130,17 +161,10 @@ class MetaMainActivity : AppCompatActivity() {
                 startActivity(Intent(this, MetaSettingsHomeActivity::class.java))
             }
             MainDesign.Request.OpenWatfaq -> DefaultAppUiRouter.openWatfaq(this)
-            MainDesign.Request.OpenHelp -> showMessageDialog(
-                title = getString(R.string.cmfa_help_title),
-                message = getString(R.string.cmfa_help_body),
-            )
-            MainDesign.Request.OpenAbout -> showMessageDialog(
-                title = getString(R.string.about_title),
-                message = getString(
-                    R.string.cmfa_about_body,
-                    getString(R.string.app_ver),
-                ),
-            )
+            MainDesign.Request.OpenHelp -> {
+                startActivity(Intent(this, MetaHelpActivity::class.java))
+            }
+            MainDesign.Request.OpenAbout -> showAboutDialog()
         }
     }
 
@@ -225,11 +249,11 @@ class MetaMainActivity : AppCompatActivity() {
             error.message?.takeIf { it.isNotBlank() } ?: error.javaClass.simpleName,
         )
 
-    private fun showMessageDialog(title: String, message: String) {
+    private fun showAboutDialog() {
+        val content = layoutInflater.inflate(R.layout.meta_dialog_about, null, false)
+        content.findViewById<TextView>(R.id.about_version).text = getString(R.string.app_ver)
         AlertDialog.Builder(this)
-            .setTitle(title)
-            .setMessage(message)
-            .setPositiveButton(android.R.string.ok, null)
+            .setView(content)
             .show()
     }
 

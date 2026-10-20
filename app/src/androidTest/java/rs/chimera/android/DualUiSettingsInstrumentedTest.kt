@@ -26,6 +26,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -77,26 +78,41 @@ class DualUiSettingsInstrumentedTest {
             httpPort = TEST_HTTP_PORT,
             socksPort = TEST_SOCKS_PORT,
         )
-        val portsSummary = context.getString(
-            R.string.cmfa_ports_summary,
-            TEST_MIXED_PORT.toInt(),
-            TEST_HTTP_PORT.toString(),
-            TEST_SOCKS_PORT.toString(),
-        )
+        assertEquals(TEST_MIXED_PORT, backend.settings.value.mixedPort)
+        assertEquals(TEST_HTTP_PORT, backend.settings.value.httpPort)
+        assertEquals(TEST_SOCKS_PORT, backend.settings.value.socksPort)
 
-        ActivityScenario.launch(MainActivity::class.java).use {
+        var watfaqPortsSummary = ""
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             openWatfaqSettings()
             scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_fake_ip)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_ipv6)).assertIsOn()
-            scrollWatfaqTo(portsSummary).assertIsDisplayed()
+            scenario.onActivity { activity ->
+                watfaqPortsSummary = activity.getString(
+                    R.string.cmfa_ports_summary,
+                    TEST_MIXED_PORT.toInt(),
+                    TEST_HTTP_PORT.toString(),
+                    TEST_SOCKS_PORT.toString(),
+                )
+            }
+            scrollWatfaqTo(watfaqPortsSummary).assertIsDisplayed()
         }
 
-        launchMetaSettings(SettingsDesign.Category.NETWORK).use {
+        launchMetaSettings(SettingsDesign.Category.NETWORK).use { scenario ->
+            var metaPortsSummary = ""
+            scenario.onActivity { activity ->
+                metaPortsSummary = activity.getString(
+                    R.string.cmfa_ports_summary,
+                    TEST_MIXED_PORT.toInt(),
+                    TEST_HTTP_PORT.toString(),
+                    TEST_SOCKS_PORT.toString(),
+                )
+            }
             onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
             onView(withId(R.id.switch_fake_ip)).check(matches(isChecked()))
             onView(withId(R.id.switch_ipv6)).check(matches(isChecked()))
-            onView(withId(R.id.text_ports_summary)).check(matches(withText(portsSummary)))
+            onView(withId(R.id.text_ports_summary)).check(matches(withText(metaPortsSummary)))
         }
     }
 

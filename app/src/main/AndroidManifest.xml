@@ -38,7 +38,19 @@
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaHelpActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaProfilesDesignActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaProvidersActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaNewProfileActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
@@ -59,6 +71,10 @@
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaOverrideActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity

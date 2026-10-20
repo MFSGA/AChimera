@@ -382,7 +382,7 @@ class MetaSettingsActivity : AppCompatActivity() {
 
     private fun showAppearanceDialog() {
         showChoiceDialog(
-            titleRes = R.string.settings_appearance,
+            titleRes = R.string.settings_dark_mode,
             values = AppearancePreference.entries,
             current = AppPreferences.appearance(this),
             label = ::appearanceLabel,

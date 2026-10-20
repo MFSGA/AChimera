@@ -35,8 +35,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import rs.chimera.android.ui.metacubex.activity.MetaConnectionsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
-import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
+import rs.chimera.android.ui.metacubex.activity.MetaOverrideActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
+import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
@@ -239,12 +240,13 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun metaSettingsOverrideEntryExplainsUnsupportedCapability() {
+    fun metaSettingsOverrideEntryOpensOverrideScreen() {
         ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
             waitForResumedActivity<MetaSettingsHomeActivity>()
             onView(withId(R.id.category_override)).perform(click())
-            onView(withText(R.string.settings_category_override_unavailable))
-                .check(matches(isDisplayed()))
+            waitForResumedActivity<MetaOverrideActivity>()
+            onView(withText(R.string.meta_override_general)).check(matches(isDisplayed()))
+            onView(withText(R.string.meta_override_http_port)).check(matches(isDisplayed()))
         }
     }
 

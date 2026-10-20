@@ -16,6 +16,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     enum class Request {
         ToggleStatus,
         OpenProxy,
+        OpenProviders,
         OpenProfiles,
         OpenConnections,
         OpenLogs,
@@ -33,11 +34,13 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
 
     private val cardHelp: View = root.findViewById(R.id.card_help)
     private val cardAbout: View = root.findViewById(R.id.card_about)
+    private val cardProviders: View = root.findViewById(R.id.card_providers)
     private val statusIcon: ImageView = root.findViewById(R.id.icon_status)
     private val statusTitle: TextView = root.findViewById(R.id.text_status_title)
     private val statusSubtitle: TextView = root.findViewById(R.id.text_status_subtitle)
     private var serviceState = ServiceState.STOPPED
     private var serviceError: String? = null
+    private var hasProviders = false
     private var forwarded = "0 B"
     private var statusOperationInProgress = false
     private val statusStartedColor = resolveThemeColor(R.attr.colorPrimary)
@@ -48,6 +51,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         root.applySystemBarInsets()
         binding.cardStatus.setOnClickListener { request(Request.ToggleStatus) }
         binding.cardProxy.setOnClickListener { request(Request.OpenProxy) }
+        cardProviders.setOnClickListener { request(Request.OpenProviders) }
         binding.cardProfiles.setOnClickListener { request(Request.OpenProfiles) }
         binding.cardConnections.setOnClickListener { request(Request.OpenConnections) }
         binding.cardLogs.setOnClickListener { request(Request.OpenLogs) }
@@ -71,6 +75,11 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
 
     fun setServiceState(state: ServiceState) {
         serviceState = state
+        renderServiceState()
+    }
+
+    fun setHasProviders(hasProviders: Boolean) {
+        this.hasProviders = hasProviders
         renderServiceState()
     }
 
@@ -145,6 +154,11 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.cardStatus.isEnabled = interactive
         binding.cardStatus.alpha = if (interactive) 1f else 0.72f
         binding.cardProxy.visibility = if (presentation.proxyVisible) View.VISIBLE else View.GONE
+        cardProviders.visibility = if (serviceState == ServiceState.RUNNING && hasProviders) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
     }
 
     fun setForwarded(value: String) {

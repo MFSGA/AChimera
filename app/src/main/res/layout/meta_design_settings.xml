@@ -118,7 +118,7 @@
                             <TextView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="@string/settings_appearance"
+                                android:text="@string/settings_dark_mode"
                                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
 
                             <TextView
