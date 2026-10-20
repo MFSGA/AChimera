@@ -32,14 +32,54 @@ class ProfileAdapter(
         holder.bind(getItem(position))
     }
 
+    fun refreshElapsed() {
+        if (itemCount > 0 && currentList.any { it.lastUpdated != null }) {
+            notifyItemRangeChanged(0, itemCount)
+        }
+    }
+
     inner class ViewHolder(
         private val binding: MetaAdapterProfileBinding,
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(profile: ProfileSummary) {
             binding.profileName = profile.name
             binding.profileType = binding.root.context.getString(
-                if (profile.isRemote) R.string.profile_type_remote else R.string.profile_type_local,
+                if (profile.isRemote) R.string.cmfa_profile_type_url else R.string.cmfa_profile_type_file,
             )
+            binding.lastUpdatedText = profileElapsedTime(profile.lastUpdated)?.let { elapsed ->
+                val context = binding.root.context
+                when (elapsed.unit) {
+                    ProfileElapsedTime.Unit.DAYS -> context.resources.getQuantityString(
+                        R.plurals.profile_updated_days_ago,
+                        elapsed.amount.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                        elapsed.amount,
+                    )
+                    ProfileElapsedTime.Unit.HOURS -> context.resources.getQuantityString(
+                        R.plurals.profile_updated_hours_ago,
+                        elapsed.amount.coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                        elapsed.amount,
+                    )
+                    ProfileElapsedTime.Unit.MINUTES -> context.getString(
+                        R.string.profile_updated_minutes_ago,
+                        elapsed.amount,
+                    )
+                    ProfileElapsedTime.Unit.RECENTLY -> context.getString(R.string.profile_updated_recently)
+                }
+            }
+            val subscription = profileSubscriptionPresentation(
+                uploadBytes = profile.subscriptionUploadBytes,
+                downloadBytes = profile.subscriptionDownloadBytes,
+                totalBytes = profile.subscriptionTotalBytes,
+                expiresAtMillis = profile.subscriptionExpiresAtMillis,
+            )
+            binding.subscriptionUsageText = subscription.usageText
+            binding.subscriptionExpireText = subscription.expiresText
+            binding.subscriptionProgressVisible = subscription.progressPermille != null
+            binding.subscriptionProgress = subscription.progressPermille ?: 0
+            binding.textProfileSubscriptionUsage.visibility =
+                if (subscription.usageText == null) View.GONE else View.VISIBLE
+            binding.textProfileSubscriptionExpire.visibility =
+                if (subscription.expiresText == null) View.GONE else View.VISIBLE
             binding.isActive = profile.isActive
             val autoUpdatePresentation = resolveProfileAutoUpdatePresentation(
                 autoUpdate = profile.autoUpdate,

@@ -1,18 +1,20 @@
 package rs.chimera.android.ui.metacubex.activity
 
 import android.app.AlertDialog
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.ArrayAdapter
 import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.color.MaterialColors
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -26,7 +28,10 @@ import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.databinding.MetaDialogProfileMenuBinding
+import rs.chimera.android.databinding.MetaProfileActionItemBinding
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
+import rs.chimera.android.ui.metacubex.design.util.MetaBottomSheetDialog
 import rs.chimera.android.ui.profileDetailsText
 
 class MetaProfilesDesignActivity : AppCompatActivity() {
@@ -43,6 +48,16 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         }
     }
 
+    private val newProfileLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        when (result.data?.getStringExtra(MetaNewProfileActivity.EXTRA_SOURCE)) {
+            MetaNewProfileActivity.SOURCE_URL -> showUrlImportDialog()
+            MetaNewProfileActivity.SOURCE_FILE -> filePickerLauncher.launch("*/*")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -56,6 +71,15 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         }
 
         observeProfiles()
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    kotlinx.coroutines.delay(60_000)
+                    design.refreshElapsed()
+                }
+            }
+        }
     }
 
     private fun observeProfiles() {
@@ -123,58 +147,71 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             design.showToast(profileError(R.string.profile_list_error, error))
             return
         } ?: return
-        val actions = buildList {
-            add(ProfileAction.Details)
-            if (profile.isActive) add(ProfileAction.Verify)
-            if (profile.isRemote) add(ProfileAction.Update)
-            add(ProfileAction.Rename)
-            add(ProfileAction.Delete)
-        }
-        fun actionLabels(deleteBlockedMessage: String?): List<String> = actions.map { action ->
-            if (action == ProfileAction.Delete && deleteBlockedMessage != null) {
-                getString(R.string.profile_delete_blocked_action, getString(action.labelRes), deleteBlockedMessage)
-            } else {
-                getString(action.labelRes)
-            }
-        }
+        val actions = MetaProfileAction.entries.filter { it.isAvailableFor(profile) }
+        var profileIsActive = backend.activeProfile.value?.id?.let { it == profileId } ?: profile.isActive
         var availability = backend.profileDeletionAvailability.value
-        var deleteBlockedMessage = profileDeleteBlockedMessage(profile.isActive, availability)
-        val actionAdapter = object : ArrayAdapter<String>(
-            this,
-            android.R.layout.simple_list_item_1,
-            actionLabels(deleteBlockedMessage),
-        ) {
-            override fun areAllItemsEnabled(): Boolean = false
-
-            override fun isEnabled(position: Int): Boolean =
-                actions[position] != ProfileAction.Delete || deleteBlockedMessage == null
+        var deleteBlockedMessage = profileDeleteBlockedMessage(profileIsActive, availability)
+        val dialog = MetaBottomSheetDialog(this)
+        val binding = MetaDialogProfileMenuBinding.inflate(layoutInflater)
+        val actionBindings = mutableMapOf<MetaProfileAction, MetaProfileActionItemBinding>()
+        fun renderDeleteAvailability(blockedMessage: String?) {
+            val deleteBinding = actionBindings[MetaProfileAction.Delete] ?: return
+            deleteBinding.actionRoot.isEnabled = blockedMessage == null
+            deleteBinding.actionRoot.alpha = if (blockedMessage == null) 1f else 0.45f
+            deleteBinding.actionRoot.contentDescription = blockedMessage?.let {
+                getString(R.string.profile_delete_blocked_action, getString(R.string.profile_delete), it)
+            } ?: getString(R.string.profile_delete)
+            deleteBinding.actionSubtext.visibility =
+                if (blockedMessage == null) android.view.View.GONE else android.view.View.VISIBLE
+            deleteBinding.actionSubtext.text = blockedMessage.orEmpty()
         }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(profile.name)
-            .setAdapter(actionAdapter) { _, which ->
-                val action = actions[which]
-                val currentBlockMessage = if (action == ProfileAction.Delete) {
+        actions.forEach { action ->
+            val actionBinding = MetaProfileActionItemBinding.inflate(
+                layoutInflater,
+                binding.profileActionsContainer,
+                false,
+            )
+            actionBinding.actionIcon.setImageResource(action.iconRes)
+            actionBinding.actionLabel.setText(action.labelRes)
+            if (action == MetaProfileAction.Delete) {
+                val errorColor = MaterialColors.getColor(
+                    actionBinding.actionLabel,
+                    com.google.android.material.R.attr.colorError,
+                )
+                actionBinding.actionIcon.setColorFilter(errorColor)
+                actionBinding.actionLabel.setTextColor(errorColor)
+            }
+            actionBinding.actionRoot.setOnClickListener {
+                val currentBlockMessage = if (action == MetaProfileAction.Delete) {
                     profileDeleteBlockedMessage(
-                        profileIsActive = profile.isActive,
+                        profileIsActive = backend.activeProfile.value?.id?.let { it == profileId }
+                            ?: profile.isActive,
                         availability = backend.profileDeletionAvailability.value,
                     )
                 } else {
                     null
                 }
-                when {
-                    currentBlockMessage != null -> design.showToast(currentBlockMessage)
-                    actionAdapter.isEnabled(which) -> {
-                        lifecycleScope.launch { handleProfileAction(profile, action) }
-                    }
+                if (currentBlockMessage != null) {
+                    renderDeleteAvailability(currentBlockMessage)
+                    design.showToast(currentBlockMessage)
+                } else {
+                    dialog.dismiss()
+                    lifecycleScope.launch { handleProfileAction(profile, action) }
                 }
             }
-            .create()
+            binding.profileActionsContainer.addView(actionBinding.root)
+            actionBindings[action] = actionBinding
+        }
+        renderDeleteAvailability(deleteBlockedMessage)
+        dialog.setContentView(binding.root)
         val availabilityObserver = lifecycleScope.launch {
-            backend.profileDeletionAvailability.collect { updatedAvailability ->
+            combine(backend.profileDeletionAvailability, backend.activeProfile) { updatedAvailability, activeProfile ->
+                updatedAvailability to (activeProfile?.id?.let { it == profileId } ?: profile.isActive)
+            }.collect { (updatedAvailability, updatedProfileIsActive) ->
                 availability = updatedAvailability
-                deleteBlockedMessage = profileDeleteBlockedMessage(profile.isActive, availability)
-                actionAdapter.clear()
-                actionAdapter.addAll(actionLabels(deleteBlockedMessage))
+                profileIsActive = updatedProfileIsActive
+                deleteBlockedMessage = profileDeleteBlockedMessage(profileIsActive, availability)
+                renderDeleteAvailability(deleteBlockedMessage)
             }
         }
         dialog.setOnDismissListener { availabilityObserver.cancel() }
@@ -200,25 +237,26 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             null -> null
     }
 
-    private suspend fun handleProfileAction(profile: ProfileSummary, action: ProfileAction) {
+    private suspend fun handleProfileAction(profile: ProfileSummary, action: MetaProfileAction) {
         when (action) {
-            ProfileAction.Details -> {
+            MetaProfileAction.Details -> {
                 AlertDialog.Builder(this)
                     .setTitle(profile.name)
                     .setMessage(profile.profileDetailsText(this))
                     .setPositiveButton(android.R.string.ok, null)
                     .show()
             }
-            ProfileAction.Verify -> verifyProfile(profile)
-            ProfileAction.Update -> performOperation(
+            MetaProfileAction.Verify -> verifyProfile(profile)
+            MetaProfileAction.EditRemoteSettings -> showRemoteSettingsDialog(profile)
+            MetaProfileAction.Update -> performOperation(
                 progressMessage = getString(R.string.profile_updating),
                 successMessage = getString(R.string.profile_update_success, profile.name),
                 errorMessageRes = R.string.profile_update_error,
             ) {
                 backend.updateRemoteProfile(profile.id)
             }
-            ProfileAction.Rename -> showRenameDialog(profile.id, profile.name)
-            ProfileAction.Delete -> confirmDelete(profile.id, profile.name)
+            MetaProfileAction.Rename -> showRenameDialog(profile.id, profile.name)
+            MetaProfileAction.Delete -> confirmDelete(profile.id, profile.name)
         }
     }
 
@@ -334,19 +372,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
 
     private fun showAddDialog() {
         if (operationInProgress) return
-        val options = arrayOf(
-            getString(R.string.profile_import_url),
-            getString(R.string.profile_import_file),
-        )
-        AlertDialog.Builder(this)
-            .setTitle(R.string.profile_import)
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showUrlImportDialog()
-                    1 -> filePickerLauncher.launch("*/*")
-                }
-            }
-            .show()
+        newProfileLauncher.launch(Intent(this, MetaNewProfileActivity::class.java))
     }
 
     private fun showUrlImportDialog() {
@@ -473,13 +499,5 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         } finally {
             operationInProgress = false
         }
-    }
-
-    private enum class ProfileAction(val labelRes: Int) {
-        Details(R.string.profile_details),
-        Verify(R.string.profile_verify),
-        Update(R.string.profile_update),
-        Rename(R.string.profile_rename),
-        Delete(R.string.profile_delete),
     }
 }

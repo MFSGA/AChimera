@@ -11,7 +11,18 @@
     <string name="cmfa_profile_not_selected">Not selected</string>
     <string name="cmfa_status_hint_start">Tap to start</string>
     <string name="cmfa_help_title">Help</string>
-    <string name="cmfa_help_body">This screen follows the ClashMetaForAndroid main-page layout while using the current Chimera backend. Select a profile before starting, then use Nodes to choose the active proxy.</string>
+    <string name="meta_help_tips"><![CDATA[Chimera Lite is <strong>free software</strong> and we do <strong>NOT</strong> provide any service for it, including subscriptions or proxy nodes. Please do not report issues unrelated to the app.]]></string>
+    <string name="meta_help_document">Document</string>
+    <string name="meta_help_sources">Sources</string>
+    <string name="meta_help_clash_wiki">Clash Wiki</string>
+    <string name="meta_help_clash_meta_wiki">Clash Meta Wiki</string>
+    <string name="meta_help_clash_meta_core">Clash Meta Core</string>
+    <string name="meta_help_clash_meta_for_android">Clash Meta for Android</string>
+    <string name="meta_help_clash_wiki_url" translatable="false">https://github.com/Dreamacro/clash/wiki</string>
+    <string name="meta_help_clash_meta_wiki_url" translatable="false">https://wiki.metacubex.one</string>
+    <string name="meta_help_clash_meta_core_url" translatable="false">https://github.com/MetaCubeX/Clash.Meta</string>
+    <string name="meta_help_clash_meta_for_android_url" translatable="false">https://github.com/MetaCubeX/ClashMetaForAndroid</string>
+    <string name="meta_help_browser_unavailable">No browser is available to open this link.</string>
     <string name="cmfa_service_starting">Starting…</string>
     <string name="cmfa_service_stopping">Stopping…</string>
     <string name="cmfa_service_error">Service error</string>
@@ -98,6 +109,43 @@
     <string name="settings_category_override">Override</string>
     <string name="settings_category_meta_features">Meta Features</string>
     <string name="settings_category_override_unavailable">Profile overrides are not supported in Chimera yet.</string>
+    <string name="meta_override_reset">Reset overrides</string>
+    <string name="meta_override_no_change">Do not modify</string>
+    <string name="meta_override_general">General</string>
+    <string name="meta_override_dns">DNS</string>
+    <string name="meta_override_http_port">HTTP Port</string>
+    <string name="meta_override_socks_port">Socks Port</string>
+    <string name="meta_override_redirect_port">Redirect Port</string>
+    <string name="meta_override_tproxy_port">TProxy Port</string>
+    <string name="meta_override_mixed_port">Mixed Port</string>
+    <string name="meta_override_authentication">Authentication</string>
+    <string name="meta_override_allow_lan">Allow LAN connections</string>
+    <string name="meta_override_ipv6">IPv6</string>
+    <string name="meta_override_bind_address">Bind Address</string>
+    <string name="meta_override_external_controller">External Controller</string>
+    <string name="meta_override_external_controller_tls">External Controller TLS</string>
+    <string name="meta_override_allow_origins">External Controller Allow Origins</string>
+    <string name="meta_override_allow_private_network">External Controller Allow Private Network</string>
+    <string name="meta_override_secret">Secret</string>
+    <string name="meta_override_mode">Mode</string>
+    <string name="meta_override_log_level">Log Level</string>
+    <string name="meta_override_hosts">Hosts</string>
+    <string name="meta_override_strategy">Strategy</string>
+    <string name="meta_override_prefer_h3">Prefer H3</string>
+    <string name="meta_override_listen">Listen</string>
+    <string name="meta_override_append_system_dns">Append System DNS</string>
+    <string name="meta_override_use_hosts">Use Hosts</string>
+    <string name="meta_override_enhanced_mode">Enhanced Mode</string>
+    <string name="meta_override_name_server">Name Server</string>
+    <string name="meta_override_fallback">Fallback Name Server</string>
+    <string name="meta_override_default_name_server">Default Name Server</string>
+    <string name="meta_override_fakeip_filter">Fake-IP Filter</string>
+    <string name="meta_override_fakeip_filter_mode">Fake-IP Filter Mode</string>
+    <string name="meta_override_geoip_fallback">GeoIP Fallback</string>
+    <string name="meta_override_geoip_fallback_code">GeoIP Fallback Code</string>
+    <string name="meta_override_domain_fallback">Domain Fallback</string>
+    <string name="meta_override_ipcidr_fallback">IPCIDR Fallback</string>
+    <string name="meta_override_name_server_policy">Name Server Policy</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_dark_mode">Dark Mode</string>
     <string name="settings_ui_style">Interface Style</string>
@@ -172,6 +220,23 @@
     <string name="proxy_provider_action_failed">Provider action failed: %1$s</string>
     <string name="proxy_provider_updated">Updated %1$s.</string>
     <string name="proxy_provider_checked">Health check started for %1$s.</string>
+    <string name="meta_providers_title">Providers</string>
+    <string name="meta_providers_update_all">Update All</string>
+    <string name="meta_providers_load_failed">Failed to load providers: %1$s</string>
+    <string name="meta_provider_update">Update</string>
+    <string name="meta_provider_update_failed">Failed to update %1$s: %2$s</string>
+    <string name="meta_provider_type">%1$s(%2$s)</string>
+    <string name="meta_provider_type_proxy">Proxy</string>
+    <string name="meta_provider_type_rule">Rule</string>
+    <string name="meta_provider_vehicle_http">HTTP</string>
+    <string name="meta_provider_vehicle_file">File</string>
+    <string name="meta_provider_vehicle_inline">Inline</string>
+    <string name="meta_provider_vehicle_compatible">Compatible</string>
+    <string name="meta_provider_time_unknown">—</string>
+    <string name="meta_provider_recently">Recently</string>
+    <string name="meta_provider_minutes_ago">%1$d min ago</string>
+    <string name="meta_provider_hours_ago">%1$d hours ago</string>
+    <string name="meta_provider_days_ago">%1$d days ago</string>
     <string name="settings_about_summary">Current app information and known runtime constraints.</string>
     <string name="settings_known_issues">Known issues:\n- Some settings only take effect after restarting VPN.</string>
     <string name="language_system">System Default</string>
@@ -219,7 +284,7 @@
         <item quantity="one">Delay test completed for %1$s; %2$d node failed.</item>
         <item quantity="other">Delay test completed for %1$s; %2$d nodes failed.</item>
     </plurals>
-    <string name="profile_screen">Profile</string>
+    <string name="profile_screen">Profiles</string>
     <string name="no_profile">No profile selected</string>
     <string name="retry">Retry</string>
     <string name="service_start_action">Start</string>
@@ -251,6 +316,18 @@
     <string name="profile_list_title">Profiles (%1$d)</string>
     <string name="profile_type_local">Local</string>
     <string name="profile_type_remote">Remote</string>
+    <string name="cmfa_profile_type_file">File</string>
+    <string name="cmfa_profile_type_url">URL</string>
+    <string name="profile_updated_recently">Recently</string>
+    <string name="profile_updated_minutes_ago">%1$d min ago</string>
+    <plurals name="profile_updated_hours_ago">
+        <item quantity="one">%1$d hour ago</item>
+        <item quantity="other">%1$d hours ago</item>
+    </plurals>
+    <plurals name="profile_updated_days_ago">
+        <item quantity="one">%1$d day ago</item>
+        <item quantity="other">%1$d days ago</item>
+    </plurals>
     <string name="profile_activate">Activate</string>
     <string name="profile_active_badge">Active</string>
     <string name="profile_missing">No profile selected</string>
@@ -306,6 +383,24 @@
     <string name="profile_last_updated">Updated: %1$s</string>
     <string name="profile_unknown_error">Unknown error</string>
     <string name="app_selector_title">App Selector</string>
+    <string name="access_control_packages">Access Control Packages</string>
+    <string name="access_control_back">Back</string>
+    <string name="access_control_options">More options</string>
+    <string name="access_control_keyword">Keyword</string>
+    <string name="access_control_select_all">Select All</string>
+    <string name="access_control_select_none">Select None</string>
+    <string name="access_control_select_invert">Select Invert</string>
+    <string name="access_control_filter">Filter</string>
+    <string name="access_control_sort">Sort</string>
+    <string name="access_control_sort_name">Name</string>
+    <string name="access_control_sort_package">Package Name</string>
+    <string name="access_control_sort_install_time">Install Time</string>
+    <string name="access_control_sort_update_time">Update Time</string>
+    <string name="access_control_reverse">Reverse</string>
+    <string name="access_control_external">External</string>
+    <string name="access_control_import">Import from Clipboard</string>
+    <string name="access_control_export">Export to Clipboard</string>
+    <string name="app_selector_exported">Copied app packages to clipboard.</string>
     <string name="app_selector_mode_all">All Apps</string>
     <string name="app_selector_mode_allowed">Allowed</string>
     <string name="app_selector_mode_disallowed">Disallowed</string>
@@ -316,6 +411,7 @@
         <item quantity="other">%1$d selected</item>
     </plurals>
     <string name="app_selector_search">Search apps</string>
+    <string name="app_selector_close_search">Close search</string>
     <string name="app_selector_system_apps">Show system apps</string>
     <string name="app_selector_loading">Loading apps…</string>
     <string name="app_selector_empty">No matching apps.</string>
@@ -328,6 +424,11 @@
     <string name="proxy_delay_test">Delay Test</string>
     <string name="profile_import">Add Profile</string>
     <string name="profile_import_file">Import From File</string>
+    <string name="profile_create">Create Profile</string>
+    <string name="profile_provider_file">File</string>
+    <string name="profile_provider_file_summary">Import from File</string>
+    <string name="profile_provider_url">URL</string>
+    <string name="profile_provider_url_summary">Import from URL</string>
     <string name="profile_delete">Delete</string>
     <string name="profile_delete_confirm">Delete this profile?</string>
     <string name="profile_loading">Loading profiles…</string>

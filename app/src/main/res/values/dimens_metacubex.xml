@@ -19,8 +19,17 @@
     <dimen name="metacubex_proxy_text_size_compact">11sp</dimen>
     <dimen name="metacubex_proxy_card_radius">5dp</dimen>
     <dimen name="metacubex_toolbar_height">56dp</dimen>
+    <dimen name="metacubex_toolbar_image_action_padding">5dp</dimen>
     <dimen name="metacubex_tab_layout_height">48dp</dimen>
     <dimen name="metacubex_tab_layout_elevation">5dp</dimen>
     <dimen name="metacubex_divider_size">1dp</dimen>
+    <dimen name="metacubex_item_header_component_size">30dp</dimen>
+    <dimen name="metacubex_item_header_margin">17.5dp</dimen>
+    <dimen name="metacubex_item_min_height">75dp</dimen>
+    <dimen name="metacubex_item_text_margin">5dp</dimen>
+    <dimen name="metacubex_item_tailing_component_size">30dp</dimen>
     <dimen name="metacubex_item_tailing_margin">17.5dp</dimen>
+    <dimen name="metacubex_bottom_sheet_top_padding">10dp</dimen>
+    <dimen name="metacubex_bottom_sheet_handle_height">5dp</dimen>
+    <dimen name="metacubex_dialog_padding">20dp</dimen>
 </resources>
