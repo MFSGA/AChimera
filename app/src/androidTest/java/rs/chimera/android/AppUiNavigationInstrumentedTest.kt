@@ -207,6 +207,17 @@ class AppUiNavigationInstrumentedTest {
                 design.requests.tryReceive().getOrNull(),
             )
 
+            var selectionContentAlpha = 0f
+            var selectionPageInputEnabled = true
+            scenario.onActivity {
+                design.setSelecting(true)
+                selectionContentAlpha = design.root.findViewById<View>(R.id.proxy_content).alpha
+                selectionPageInputEnabled = design.binding.viewPager.isUserInputEnabled
+                design.setSelecting(false)
+            }
+            assertEquals(1f, selectionContentAlpha, 0f)
+            assertFalse(selectionPageInputEnabled)
+
             scenario.onActivity {
                 design.setGroups(
                     listOf(

@@ -284,7 +284,6 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         binding.fabDelayTest.isEnabled = enabled
         MENU_ACTION_IDS.forEach { id -> binding.toolbar.menu.findItem(id)?.isEnabled = enabled }
         binding.toolbar.menu.findItem(R.id.action_delay_test)?.isEnabled = enabled
-        content.alpha = if (enabled) 1f else 0.65f
     }
 
     private fun setDelayTestActionVisible(visible: Boolean) {
