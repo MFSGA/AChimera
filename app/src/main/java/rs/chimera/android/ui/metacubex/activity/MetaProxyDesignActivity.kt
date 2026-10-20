@@ -148,7 +148,6 @@ class MetaProxyDesignActivity : AppCompatActivity() {
         if (selecting || testing) return
 
         selecting = true
-        design.setSelecting(true)
         try {
             runCatchingPreservingCancellation {
                 withContext(Dispatchers.IO) {
@@ -161,12 +160,9 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 val selected = snapshots
                     .firstOrNull { it.name == request.groupName }
                     ?.selected == request.proxyName
-                val message = if (selected) {
-                    getString(R.string.proxy_select_success, request.proxyName)
-                } else {
-                    getString(R.string.proxy_select_not_applied, request.proxyName)
+                if (!selected) {
+                    design.showToast(getString(R.string.proxy_select_not_applied, request.proxyName))
                 }
-                design.showToast(message)
             }.onFailure { error ->
                 design.showToast(
                     getString(
@@ -177,7 +173,6 @@ class MetaProxyDesignActivity : AppCompatActivity() {
             }
         } finally {
             selecting = false
-            design.setSelecting(false)
         }
     }
 
