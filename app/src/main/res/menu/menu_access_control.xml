@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/access_control_select_all"
+        android:title="@string/access_control_select_all" />
+    <item
+        android:id="@+id/access_control_select_none"
+        android:title="@string/access_control_select_none" />
+    <item
+        android:id="@+id/access_control_select_invert"
+        android:title="@string/access_control_select_invert" />
+
+    <item android:title="@string/access_control_filter">
+        <menu>
+            <item
+                android:id="@+id/access_control_system_apps"
+                android:checkable="true"
+                android:title="@string/app_selector_system_apps" />
+        </menu>
+    </item>
+
+    <item android:title="@string/access_control_sort">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/access_control_sort_name"
+                    android:title="@string/access_control_sort_name" />
+                <item
+                    android:id="@+id/access_control_sort_package"
+                    android:title="@string/access_control_sort_package" />
+                <item
+                    android:id="@+id/access_control_sort_install_time"
+                    android:title="@string/access_control_sort_install_time" />
+                <item
+                    android:id="@+id/access_control_sort_update_time"
+                    android:title="@string/access_control_sort_update_time" />
+            </group>
+            <item
+                android:id="@+id/access_control_reverse"
+                android:checkable="true"
+                android:title="@string/access_control_reverse" />
+        </menu>
+    </item>
+
+    <item android:title="@string/access_control_external">
+        <menu>
+            <item
+                android:id="@+id/access_control_import"
+                android:title="@string/access_control_import" />
+            <item
+                android:id="@+id/access_control_export"
+                android:title="@string/access_control_export" />
+        </menu>
+    </item>
+
+    <item android:title="@string/app_selector_mode">
+        <menu>
+            <group android:checkableBehavior="single">
+                <item
+                    android:id="@+id/access_control_mode_all"
+                    android:checkable="true"
+                    android:title="@string/app_selector_mode_all" />
+                <item
+                    android:id="@+id/access_control_mode_allowed"
+                    android:checkable="true"
+                    android:title="@string/app_selector_mode_allowed" />
+                <item
+                    android:id="@+id/access_control_mode_disallowed"
+                    android:checkable="true"
+                    android:title="@string/app_selector_mode_disallowed" />
+            </group>
+        </menu>
+    </item>
+
+    <item
+        android:id="@+id/access_control_save"
+        android:title="@string/save" />
+</menu>

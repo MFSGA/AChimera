@@ -1,94 +1,90 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="?attr/colorSurface"
     android:orientation="vertical">
 
-    <com.google.android.material.appbar.MaterialToolbar
+    <RelativeLayout
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:title="@string/app_selector_title"
-        app:navigationIcon="@drawable/ic_baseline_arrow_back"
-        app:titleTextColor="@android:color/white" />
-
-    <RadioGroup
-        android:id="@+id/filter_mode"
-        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="8dp">
+        android:background="?attr/colorSurface"
+        android:minHeight="@dimen/metacubex_toolbar_height"
+        android:paddingEnd="@dimen/metacubex_item_tailing_margin">
 
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/mode_all"
-            android:layout_width="match_parent"
+        <LinearLayout
+            android:id="@+id/activity_bar_title_container"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="@string/app_selector_mode_all" />
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:gravity="center_vertical"
+            android:minHeight="@dimen/metacubex_toolbar_height"
+            android:orientation="horizontal">
 
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/mode_allowed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="@string/app_selector_mode_allowed" />
+            <ImageView
+                android:id="@+id/toolbar_back"
+                android:layout_width="@dimen/metacubex_item_header_component_size"
+                android:layout_height="@dimen/metacubex_item_header_component_size"
+                android:layout_marginHorizontal="@dimen/metacubex_item_header_margin"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="@string/access_control_back"
+                android:focusable="true"
+                android:paddingHorizontal="@dimen/metacubex_toolbar_image_action_padding"
+                android:src="@drawable/ic_baseline_arrow_back" />
 
-        <com.google.android.material.radiobutton.MaterialRadioButton
-            android:id="@+id/mode_disallowed"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="@string/app_selector_mode_disallowed" />
-    </RadioGroup>
+            <TextView
+                android:id="@+id/toolbar_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@string/access_control_packages"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
+                android:textColor="?android:attr/textColorPrimary" />
+        </LinearLayout>
 
-    <LinearLayout
-        android:id="@+id/app_controls"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="16dp">
+        <ImageView
+            android:id="@+id/access_control_search_button"
+            android:layout_width="@dimen/metacubex_item_tailing_component_size"
+            android:layout_height="@dimen/metacubex_item_tailing_component_size"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="@dimen/metacubex_item_tailing_margin"
+            android:layout_toStartOf="@id/access_control_menu_button"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/app_selector_search"
+            android:focusable="true"
+            android:padding="@dimen/metacubex_toolbar_image_action_padding"
+            android:src="@drawable/ic_baseline_search" />
 
-        <EditText
-            android:id="@+id/search_apps"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="@string/app_selector_search"
-            android:importantForAutofill="no"
-            android:imeOptions="actionDone"
-            android:inputType="text"
-            android:maxLines="1" />
-
-        <com.google.android.material.switchmaterial.SwitchMaterial
-            android:id="@+id/show_system_apps"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:minHeight="48dp"
-            android:text="@string/app_selector_system_apps" />
-
-        <TextView
-            android:id="@+id/selected_count"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:paddingVertical="4dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
-    </LinearLayout>
+        <ImageView
+            android:id="@+id/access_control_menu_button"
+            android:layout_width="@dimen/metacubex_item_tailing_component_size"
+            android:layout_height="@dimen/metacubex_item_tailing_component_size"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="@dimen/metacubex_item_tailing_margin"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/access_control_options"
+            android:focusable="true"
+            android:padding="@dimen/metacubex_toolbar_image_action_padding"
+            android:src="@drawable/ic_baseline_more_vert" />
+    </RelativeLayout>
 
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <ListView
+        <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/app_list"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:choiceMode="multipleChoice"
             android:clipToPadding="false"
-            android:dividerHeight="0dp"
-            android:paddingHorizontal="8dp"
             android:paddingBottom="8dp" />
 
         <LinearLayout
@@ -124,12 +120,4 @@
                 android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/save_apps"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="16dp"
-        android:layout_marginBottom="16dp"
-        android:text="@string/save" />
 </LinearLayout>

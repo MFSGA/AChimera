@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="?attr/colorSurface"
+        android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingEnd="@dimen/metacubex_item_tailing_margin">
+
+        <ImageView
+            android:id="@+id/close_search"
+            android:layout_width="@dimen/metacubex_item_header_component_size"
+            android:layout_height="@dimen/metacubex_item_header_component_size"
+            android:layout_margin="@dimen/metacubex_item_header_margin"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/app_selector_close_search"
+            android:clickable="true"
+            android:focusable="true"
+            android:padding="@dimen/metacubex_toolbar_image_action_padding"
+            android:src="@drawable/ic_baseline_close" />
+
+        <androidx.appcompat.widget.AppCompatEditText
+            android:id="@+id/search_keyword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/access_control_keyword"
+            android:singleLine="true" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/search_results"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="@dimen/metacubex_dialog_padding" />
+</LinearLayout>
