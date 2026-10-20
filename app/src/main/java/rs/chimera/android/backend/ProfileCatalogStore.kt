@@ -4,6 +4,8 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.backend.model.ProfileSubscriptionUsage
+import rs.chimera.android.backend.model.putProfileSubscriptionUsage
 import java.io.File
 
 internal const val PROFILE_AUTO_UPDATE_BOUND_STATE_REQUIRED_KEY = "autoUpdateStateBoundRequired"
@@ -145,11 +147,21 @@ internal class ProfileCatalogStore(
             val profile = jsonArray.findById(id)
                 ?: throw IllegalArgumentException("Profile not found")
             require(profile.optString("type", "LOCAL") == "REMOTE") { "Profile is not remote" }
+            val remoteSourceChanged =
+                profile.optString("url").takeIf { it.isNotBlank() } != settings.url ||
+                    profile.optString("userAgent").takeIf { it.isNotBlank() } != settings.userAgent ||
+                    profile.optString("proxyUrl").takeIf { it.isNotBlank() } != settings.proxyUrl
             profile.put("name", settings.name)
             profile.put("url", settings.url)
             profile.put("autoUpdate", settings.autoUpdate)
             settings.userAgent?.let { profile.put("userAgent", it) } ?: profile.remove("userAgent")
             settings.proxyUrl?.let { profile.put("proxyUrl", it) } ?: profile.remove("proxyUrl")
+            if (remoteSourceChanged) {
+                profile.remove("subscriptionUploadBytes")
+                profile.remove("subscriptionDownloadBytes")
+                profile.remove("subscriptionTotalBytes")
+                profile.remove("subscriptionExpiresAtMillis")
+            }
             if (resetLastUpdated) profile.remove("lastUpdated")
             if (requireBoundAutoUpdateState) {
                 profile.put(PROFILE_AUTO_UPDATE_BOUND_STATE_REQUIRED_KEY, true)
@@ -161,6 +173,7 @@ internal class ProfileCatalogStore(
         file: File,
         backup: File?,
         updatedAt: Long,
+        subscriptionUsage: ProfileSubscriptionUsage? = null,
     ): Boolean = catalogCoordinator.withLock {
         val jsonArray = readJson()
         val profile = jsonArray.findById(id)
@@ -168,6 +181,9 @@ internal class ProfileCatalogStore(
         profile.put("filePath", file.absolutePath)
         profile.put("fileSize", file.length())
         profile.put("lastUpdated", updatedAt)
+        if (subscriptionUsage != null) {
+            profile.putProfileSubscriptionUsage(subscriptionUsage)
+        }
 
         val activeProfile = jsonArray.findActive()
         commitUpdate(

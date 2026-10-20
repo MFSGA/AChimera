@@ -24,4 +24,8 @@ data class ProfileSummary(
     val nextAutoUpdateAt: Long? = null,
     val lastAutoUpdateError: String? = null,
     val runtimeApplyPending: Boolean = false,
+    val subscriptionUploadBytes: Long? = null,
+    val subscriptionDownloadBytes: Long? = null,
+    val subscriptionTotalBytes: Long? = null,
+    val subscriptionExpiresAtMillis: Long? = null,
 )

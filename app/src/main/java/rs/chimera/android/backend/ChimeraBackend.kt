@@ -15,6 +15,7 @@ import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
+import rs.chimera.android.backend.model.ProviderSnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.backend.model.RuleSnapshot
@@ -71,6 +72,8 @@ interface ChimeraBackend {
     suspend fun closeAllConnections()
     suspend fun listRules(): List<RuleSnapshot>
     suspend fun listProxyProviders(): List<ProxyProviderSnapshot>
+    suspend fun listProviders(): List<ProviderSnapshot>
+    suspend fun updateProvider(type: String, name: String)
     suspend fun updateProxyProvider(name: String)
     suspend fun healthcheckProxyProvider(name: String)
     suspend fun queryDns(name: String, recordType: String): String

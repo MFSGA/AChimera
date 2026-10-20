@@ -11,6 +11,7 @@ import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
+import rs.chimera.android.backend.model.ProviderSnapshot
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.TrafficSnapshot
@@ -117,6 +118,25 @@ internal class BackendControllerOperations(
             )
         }
     }
+
+    suspend fun listProviders(): List<ProviderSnapshot> = withControllerContext {
+        requireProxyServiceRunning()
+        controller.getProviders().map { provider ->
+            ProviderSnapshot(
+                name = provider.name,
+                type = provider.providerType,
+                vehicleType = provider.vehicleType,
+                updatedAtMillis = provider.updatedAt,
+            )
+        }
+    }
+
+    suspend fun updateProvider(type: String, name: String) =
+        proxyProviderOperations.withLock(if (type == "Proxy") name else "$type:$name") {
+            runProxyOperation("Failed to update provider") {
+                controller.updateProvider(type, name)
+            }
+        }
 
     suspend fun updateProxyProvider(name: String) = proxyProviderOperations.withLock(name) {
         runProxyOperation("Failed to update proxy provider") {

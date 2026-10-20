@@ -10,6 +10,8 @@ import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.model.ProfileType
 import rs.chimera.android.backend.model.ProfileDownloadProgress
+import rs.chimera.android.backend.model.putProfileSubscriptionUsage
+import rs.chimera.android.backend.model.toProfileSubscriptionUsage
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
@@ -89,7 +91,7 @@ internal class ProfileImportOperations(
             ProfileRemotePolicy.storageFileNameForUrl(id, normalizedRequest.url),
         )
         val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
-        downloadProfileToFile(stagedFile, normalizedRequest, onProgress)
+        val downloadResult = downloadProfileToFile(stagedFile, normalizedRequest, onProgress)
 
         val profileJson = JSONObject()
         profileJson.put("id", id)
@@ -102,6 +104,9 @@ internal class ProfileImportOperations(
         profileJson.put("url", normalizedRequest.url)
         profileJson.put("lastUpdated", System.currentTimeMillis())
         profileJson.put("autoUpdate", normalizedRequest.autoUpdate)
+        downloadResult.subscriptionInfo?.toProfileSubscriptionUsage()?.let {
+            profileJson.putProfileSubscriptionUsage(it)
+        }
         if (normalizedRequest.userAgent != null) {
             profileJson.put("userAgent", normalizedRequest.userAgent)
         }
@@ -153,7 +158,7 @@ internal class ProfileImportOperations(
         file: File,
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
-    ): File {
+    ): uniffi.chimera_ffi.DownloadResult {
         return try {
             ChimeraFfi.ensureInitialized()
             val result = downloadFileWithProgress(
@@ -173,7 +178,7 @@ internal class ProfileImportOperations(
             }
             ProfileImportPolicy.requireUsableDownloadedProfile(file)
             verifyImportedProfile(file)
-            file
+            result
         } catch (error: Throwable) {
             ProfileFilePolicy.deleteAfterFailure(file, error)
             throw error

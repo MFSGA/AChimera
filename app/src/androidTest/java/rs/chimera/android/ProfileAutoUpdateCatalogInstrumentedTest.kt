@@ -17,6 +17,11 @@ import rs.chimera.android.backend.ProfileAutoUpdateStateStore
 import rs.chimera.android.backend.ProfileCatalogCoordinator
 import rs.chimera.android.backend.ProfileCatalogReader
 import rs.chimera.android.backend.ProfileCatalogStore
+import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.backend.model.ProfileSubscriptionUsage
+import rs.chimera.android.backend.model.toProfileSubscriptionUsage
+import uniffi.chimera_ffi.DownloadResult
+import uniffi.chimera_ffi.SubscriptionInfo
 
 @RunWith(AndroidJUnit4::class)
 class ProfileAutoUpdateCatalogInstrumentedTest {
@@ -82,6 +87,137 @@ class ProfileAutoUpdateCatalogInstrumentedTest {
             emptyList<Any>(),
             ProfileAutoUpdatePolicy.eligibleProfiles(listOf(profile), now = NOW),
         )
+    }
+
+    @Test
+    fun remoteUpdatePersistsSubscriptionUsageForProfileSummary() {
+        val id = trackedId("subscription-usage")
+        seedCatalog(id = id, requireBoundState = false)
+        val file = context.cacheDir.resolve("$id.yaml")
+        val result = DownloadResult(
+            success = true,
+            fileSize = 42u,
+            errorMessage = null,
+            subscriptionInfo = SubscriptionInfo(
+                upload = 120u,
+                download = 340u,
+                total = 1_000u,
+                expire = 1_900_000_000u,
+            ),
+        )
+        val usage = checkNotNull(result.toProfileSubscriptionUsage())
+        val store = ProfileCatalogStore(catalogPrefs, ProfileCatalogCoordinator())
+
+        assertEquals(true, store.updateRemoteProfileMetadata(id, file, null, NOW, usage))
+
+        val profile = readProfile()
+        assertEquals(120L, profile.subscriptionUploadBytes)
+        assertEquals(340L, profile.subscriptionDownloadBytes)
+        assertEquals(1_000L, profile.subscriptionTotalBytes)
+        assertEquals(1_900_000_000_000L, profile.subscriptionExpiresAtMillis)
+
+        store.updateRemoteProfileMetadata(
+            id,
+            file,
+            null,
+            NOW + 1L,
+            ProfileSubscriptionUsage(
+                uploadBytes = null,
+                downloadBytes = 560L,
+                totalBytes = null,
+                expiresAtMillis = null,
+            ),
+        )
+
+        val profileAfterPartialHeader = readProfile()
+        assertEquals(120L, profileAfterPartialHeader.subscriptionUploadBytes)
+        assertEquals(560L, profileAfterPartialHeader.subscriptionDownloadBytes)
+        assertEquals(1_000L, profileAfterPartialHeader.subscriptionTotalBytes)
+        assertEquals(1_900_000_000_000L, profileAfterPartialHeader.subscriptionExpiresAtMillis)
+
+        store.updateRemoteProfileMetadata(id, file, null, NOW + 2L, subscriptionUsage = null)
+
+        val profileAfterHeaderlessUpdate = readProfile()
+        assertEquals(120L, profileAfterHeaderlessUpdate.subscriptionUploadBytes)
+        assertEquals(560L, profileAfterHeaderlessUpdate.subscriptionDownloadBytes)
+        assertEquals(1_000L, profileAfterHeaderlessUpdate.subscriptionTotalBytes)
+        assertEquals(1_900_000_000_000L, profileAfterHeaderlessUpdate.subscriptionExpiresAtMillis)
+    }
+
+    @Test
+    fun changingEachRemoteSourceFieldClearsSavedSubscriptionUsage() {
+        val baseSettings = RemoteProfileSettings(
+            name = "unused",
+            url = "https://new.example/profile.yaml",
+            autoUpdate = true,
+            userAgent = "old-agent",
+            proxyUrl = "https://proxy.example",
+        )
+        val changedSettings = listOf(
+            baseSettings.copy(url = "https://new.example/changed.yaml"),
+            baseSettings.copy(userAgent = "new-agent"),
+            baseSettings.copy(proxyUrl = "https://new-proxy.example"),
+        )
+
+        changedSettings.forEachIndexed { index, settings ->
+            val id = trackedId("subscription-source-change-$index")
+            seedCatalog(id = id, requireBoundState = false)
+            val profile = JSONArray(checkNotNull(catalogPrefs.getString("profiles_list", null)))
+                .getJSONObject(0)
+                .put("userAgent", "old-agent")
+                .put("proxyUrl", "https://proxy.example")
+                .put("subscriptionUploadBytes", 120L)
+                .put("subscriptionDownloadBytes", 340L)
+                .put("subscriptionTotalBytes", 1_000L)
+                .put("subscriptionExpiresAtMillis", 1_900_000_000_000L)
+            catalogPrefs.edit()
+                .putString("profiles_list", JSONArray().put(profile).toString())
+                .commit()
+
+            ProfileCatalogStore(catalogPrefs, ProfileCatalogCoordinator())
+                .updateRemoteProfileSettings(id, settings.copy(name = id))
+
+            val updatedProfile = readProfile()
+            assertNull(updatedProfile.subscriptionUploadBytes)
+            assertNull(updatedProfile.subscriptionDownloadBytes)
+            assertNull(updatedProfile.subscriptionTotalBytes)
+            assertNull(updatedProfile.subscriptionExpiresAtMillis)
+        }
+    }
+
+    @Test
+    fun changingNonSourceSettingsPreservesSavedSubscriptionUsage() {
+        val id = trackedId("subscription-nonsource-change")
+        seedCatalog(id = id, requireBoundState = false)
+        val profile = JSONArray(checkNotNull(catalogPrefs.getString("profiles_list", null)))
+            .getJSONObject(0)
+            .put("userAgent", "same-agent")
+            .put("proxyUrl", "https://proxy.example")
+            .put("subscriptionUploadBytes", 120L)
+            .put("subscriptionDownloadBytes", 340L)
+            .put("subscriptionTotalBytes", 1_000L)
+            .put("subscriptionExpiresAtMillis", 1_900_000_000_000L)
+        catalogPrefs.edit()
+            .putString("profiles_list", JSONArray().put(profile).toString())
+            .commit()
+        val store = ProfileCatalogStore(catalogPrefs, ProfileCatalogCoordinator())
+
+        store.updateRemoteProfileSettings(
+            id,
+            RemoteProfileSettings(
+                name = "Renamed",
+                url = "https://new.example/profile.yaml",
+                autoUpdate = false,
+                userAgent = "same-agent",
+                proxyUrl = "https://proxy.example",
+            ),
+        )
+
+        val updatedProfile = readProfile()
+        assertEquals(120L, updatedProfile.subscriptionUploadBytes)
+        assertEquals(340L, updatedProfile.subscriptionDownloadBytes)
+        assertEquals(1_000L, updatedProfile.subscriptionTotalBytes)
+        assertEquals(1_900_000_000_000L, updatedProfile.subscriptionExpiresAtMillis)
     }
 
     private fun seedCatalog(id: String, requireBoundState: Boolean) {

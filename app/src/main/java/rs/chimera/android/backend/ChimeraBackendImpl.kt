@@ -26,8 +26,10 @@ import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
+import rs.chimera.android.backend.model.ProfileSubscriptionUsage
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
+import rs.chimera.android.backend.model.ProviderSnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.backend.model.RuleSnapshot
@@ -41,6 +43,7 @@ import rs.chimera.android.service.VpnDesiredStateRuntimeState
 import rs.chimera.android.service.VpnRuntimeRegistry
 import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.backend.model.ProfileDownloadProgress
+import rs.chimera.android.backend.model.toProfileSubscriptionUsage
 import rs.chimera.android.util.toUserVisibleMessage
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
@@ -342,6 +345,7 @@ class ChimeraBackendImpl(
             ?: Global.proxyPort?.let { "http://127.0.0.1:$it" }
 
         val outputFile = File(targetProfile.filePath)
+        var subscriptionUsage: ProfileSubscriptionUsage? = null
 
         val updatedActiveProfile = withContext(Dispatchers.IO) {
             ProfileUpdateTransactionPolicy.run(
@@ -365,6 +369,7 @@ class ChimeraBackendImpl(
                         if (!result.success) {
                             throw IllegalStateException(result.errorMessage ?: "Unknown download error")
                         }
+                        subscriptionUsage = result.toProfileSubscriptionUsage()
                         ProfileImportPolicy.requireUsableDownloadedProfile(tempFile)
                         verifyConfig(tempFile.absolutePath)
 
@@ -383,6 +388,7 @@ class ChimeraBackendImpl(
                             previous = targetProfile.lastUpdated,
                             now = System.currentTimeMillis(),
                         ),
+                        subscriptionUsage = subscriptionUsage,
                     )
                 },
                 beginBackupTransaction = profileStagingStore::markUpdatePending,
@@ -436,6 +442,13 @@ class ChimeraBackendImpl(
 
     override suspend fun listProxyProviders(): List<ProxyProviderSnapshot> =
         controllerOperations.listProxyProviders()
+
+    override suspend fun listProviders(): List<ProviderSnapshot> =
+        controllerOperations.listProviders()
+
+    override suspend fun updateProvider(type: String, name: String) {
+        controllerOperations.updateProvider(type, name)
+    }
 
     override suspend fun updateProxyProvider(name: String) {
         controllerOperations.updateProxyProvider(name)

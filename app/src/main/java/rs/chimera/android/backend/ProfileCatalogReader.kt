@@ -62,6 +62,10 @@ internal class ProfileCatalogReader(
             autoUpdate = optBoolean("autoUpdate", false),
             userAgent = optString("userAgent").takeIf { it.isNotBlank() },
             proxyUrl = optString("proxyUrl").takeIf { it.isNotBlank() },
+            subscriptionUploadBytes = nonNegativeLongOrNull("subscriptionUploadBytes"),
+            subscriptionDownloadBytes = nonNegativeLongOrNull("subscriptionDownloadBytes"),
+            subscriptionTotalBytes = nonNegativeLongOrNull("subscriptionTotalBytes"),
+            subscriptionExpiresAtMillis = nonNegativeLongOrNull("subscriptionExpiresAtMillis"),
         )
         val storedState = autoUpdateStateStore.read(profileId)
         val requireBoundState = optBoolean(PROFILE_AUTO_UPDATE_BOUND_STATE_REQUIRED_KEY, false)
@@ -103,4 +107,9 @@ internal class ProfileCatalogReader(
             runtimeApplyPending = autoUpdateState.runtimeApplyPending,
         )
     }
+
+    private fun JSONObject.nonNegativeLongOrNull(key: String): Long? =
+        takeIf { has(key) && !isNull(key) }
+            ?.optLong(key)
+            ?.takeIf { it >= 0L }
 }

@@ -8,6 +8,8 @@ import uniffi.chimera_ffi.DownloadProgress
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
 import uniffi.chimera_ffi.verifyConfig
+import rs.chimera.android.backend.model.ProfileSubscriptionUsage
+import rs.chimera.android.backend.model.toProfileSubscriptionUsage
 import java.io.File
 
 internal fun nextRemoteProfileCommitTimestamp(previous: Long?, now: Long): Long =
@@ -44,6 +46,7 @@ internal class ProfileRemoteUpdateOperations(
             val outputFile = File(targetProfile.filePath)
 
             var committedAt: Long? = null
+            var subscriptionUsage: ProfileSubscriptionUsage? = null
             val updatedActiveProfile = ProfileUpdateTransactionPolicy.run(
                 destinationFile = outputFile,
                 update = {
@@ -65,6 +68,7 @@ internal class ProfileRemoteUpdateOperations(
                         if (!result.success) {
                             throw IllegalStateException(result.errorMessage ?: "Unknown download error")
                         }
+                        subscriptionUsage = result.subscriptionInfo?.toProfileSubscriptionUsage()
                         ProfileImportPolicy.requireUsableDownloadedProfile(tempFile)
                         verifyConfig(tempFile.absolutePath)
                         tempFile
@@ -83,6 +87,7 @@ internal class ProfileRemoteUpdateOperations(
                         file = file,
                         backup = backup,
                         updatedAt = updatedAt,
+                        subscriptionUsage = subscriptionUsage,
                     ).also { committedAt = updatedAt }
                 },
                 beginBackupTransaction = profileStagingStore::markUpdatePending,
