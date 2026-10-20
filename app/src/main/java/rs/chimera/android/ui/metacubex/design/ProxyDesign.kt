@@ -427,6 +427,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private inner class ProxyPagerAdapter : RecyclerView.Adapter<ProxyPagerAdapter.PageHolder>() {
         private var pages = listOf<List<ProxyDisplayEntry>>()
         private var groupNames = emptyList<String>()
+        private val childrenPool = RecyclerView.RecycledViewPool()
         private val pageAdapters = mutableMapOf<String, ProxyAdapter>()
         private var bottomInset = 0
 
@@ -501,6 +502,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 layoutManager = gridLayoutManager()
                 isNestedScrollingEnabled = false
                 clipToPadding = false
+                setRecycledViewPool(childrenPool)
                 setPaddingRelative(0, 0, 0, bottomInset)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,

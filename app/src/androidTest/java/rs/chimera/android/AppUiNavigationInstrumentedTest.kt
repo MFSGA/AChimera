@@ -31,6 +31,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -474,6 +475,37 @@ class AppUiNavigationInstrumentedTest {
                 if (currentPage != 1) SystemClock.sleep(50)
             }
             assertEquals("A horizontal drag should page to the next proxy group", 1, currentPage)
+        }
+    }
+
+    @Test
+    fun proxyPagesShareRecycledViewPoolLikeCmfa() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = createProxyDesign(
+                    activity,
+                    listOf(
+                        proxyGroup("first-selector", "Selector"),
+                        proxyGroup("second-selector", "Selector"),
+                    ),
+                )
+                design.binding.viewPager.offscreenPageLimit = 1
+            }
+
+            awaitProxyPageBounds(scenario, design, pagePosition = 0, itemCount = 1)
+            awaitProxyPageBounds(scenario, design, pagePosition = 1, itemCount = 1)
+            var firstPool: RecyclerView.RecycledViewPool? = null
+            var secondPool: RecyclerView.RecycledViewPool? = null
+            scenario.onActivity {
+                val pagerRecycler = design.binding.viewPager.getChildAt(0) as RecyclerView
+                firstPool = proxyPageRecycler(pagerRecycler, 0)?.recycledViewPool
+                secondPool = proxyPageRecycler(pagerRecycler, 1)?.recycledViewPool
+            }
+
+            assertNotNull("The first proxy page should be attached", firstPool)
+            assertNotNull("The second proxy page should be attached", secondPool)
+            assertSame("CMFA shares one recycled-view pool across proxy pages", firstPool, secondPool)
         }
     }
 
