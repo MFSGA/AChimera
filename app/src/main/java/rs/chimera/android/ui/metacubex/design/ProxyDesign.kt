@@ -481,6 +481,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         override fun getItemCount(): Int = pages.size
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PageHolder {
+            val host = VerticalScrollableHost(context).apply {
+                layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                )
+            }
             val recycler = RecyclerView(context).apply {
                 layoutManager = gridLayoutManager()
                 isNestedScrollingEnabled = false
@@ -491,7 +497,8 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                 )
             }
-            val holder = PageHolder(recycler)
+            host.addView(recycler)
+            val holder = PageHolder(host, recycler)
             recycler.addOnScrollListener(
                 object : RecyclerView.OnScrollListener() {
                     override fun onScrollStateChanged(
@@ -579,8 +586,10 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             }
         }
 
-        inner class PageHolder(val recyclerView: RecyclerView) :
-            RecyclerView.ViewHolder(recyclerView)
+        inner class PageHolder(
+            root: VerticalScrollableHost,
+            val recyclerView: RecyclerView,
+        ) : RecyclerView.ViewHolder(root)
     }
 
     private companion object {

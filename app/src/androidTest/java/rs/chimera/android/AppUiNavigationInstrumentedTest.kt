@@ -26,6 +26,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import androidx.test.uiautomator.UiDevice
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -169,8 +170,7 @@ class AppUiNavigationInstrumentedTest {
                 scenario.onActivity {
                     val viewPager = design.binding.viewPager
                     val pageRecycler = viewPager.getChildAt(0) as? RecyclerView ?: return@onActivity
-                    val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView
-                        as? RecyclerView ?: return@onActivity
+                    val page = proxyPageRecycler(pageRecycler, 0) ?: return@onActivity
                     if (page.adapter?.itemCount == 1) {
                         val card = page.findViewHolderForAdapterPosition(0)?.itemView
                         if (card != null) {
@@ -194,7 +194,8 @@ class AppUiNavigationInstrumentedTest {
             scenario.onActivity {
                 val viewPager = design.binding.viewPager
                 val pageRecycler = viewPager.getChildAt(0) as RecyclerView
-                val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView as RecyclerView
+                val page = proxyPageRecycler(pageRecycler, 0)
+                    ?: throw AssertionError("Selector proxy page did not render")
                 val card = page.findViewHolderForAdapterPosition(0)?.itemView
                     ?: throw AssertionError("Selector proxy item did not render")
                 selectorClickable = card.isClickable
@@ -255,8 +256,7 @@ class AppUiNavigationInstrumentedTest {
                 scenario.onActivity {
                     val viewPager = design.binding.viewPager
                     val pageRecycler = viewPager.getChildAt(0) as? RecyclerView ?: return@onActivity
-                    val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView
-                        as? RecyclerView ?: return@onActivity
+                    val page = proxyPageRecycler(pageRecycler, 0) ?: return@onActivity
                     nonSelectorClickable = page.findViewHolderForAdapterPosition(0)?.itemView
                         ?.isClickable
                 }
@@ -268,7 +268,8 @@ class AppUiNavigationInstrumentedTest {
             scenario.onActivity {
                 val viewPager = design.binding.viewPager
                 val pageRecycler = viewPager.getChildAt(0) as RecyclerView
-                val page = pageRecycler.findViewHolderForAdapterPosition(0)?.itemView as RecyclerView
+                val page = proxyPageRecycler(pageRecycler, 0)
+                    ?: throw AssertionError("URLTest proxy page did not render")
                 val card = page.findViewHolderForAdapterPosition(0)?.itemView
                     ?: throw AssertionError("URLTest proxy item did not render")
                 nonSelectorClickHandled = card.performClick()
@@ -348,8 +349,7 @@ class AppUiNavigationInstrumentedTest {
                 scenario.onActivity {
                     val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
                         ?: return@onActivity
-                    val page = pagerRecycler.findViewHolderForAdapterPosition(1)?.itemView
-                        as? RecyclerView ?: return@onActivity
+                    val page = proxyPageRecycler(pagerRecycler, 1) ?: return@onActivity
                     if (page.findViewHolderForAdapterPosition(1) != null) {
                         selectionApplied = design.applyProxySelection("selector", "node-b")
                     }
@@ -365,8 +365,7 @@ class AppUiNavigationInstrumentedTest {
                 scenario.onActivity {
                     val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
                         ?: return@onActivity
-                    val page = pagerRecycler.findViewHolderForAdapterPosition(1)?.itemView
-                        as? RecyclerView ?: return@onActivity
+                    val page = proxyPageRecycler(pagerRecycler, 1) ?: return@onActivity
                     val previous = page.findViewHolderForAdapterPosition(0)?.itemView ?: return@onActivity
                     val current = page.findViewHolderForAdapterPosition(1)?.itemView ?: return@onActivity
                     selectedCardState = previous.isSelected to current.isSelected
@@ -386,14 +385,94 @@ class AppUiNavigationInstrumentedTest {
                 scenario.onActivity {
                     val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
                         ?: return@onActivity
-                    val page = pagerRecycler.findViewHolderForAdapterPosition(0)?.itemView
-                        as? RecyclerView ?: return@onActivity
+                    val page = proxyPageRecycler(pagerRecycler, 0) ?: return@onActivity
                     linkedGroupLabel = page.findViewHolderForAdapterPosition(0)?.itemView
                         ?.contentDescription
                 }
                 if (linkedGroupLabel?.contains("Selector(node-b)") != true) SystemClock.sleep(50)
             }
             assertTrue(linkedGroupLabel.toString(), linkedGroupLabel?.contains("Selector(node-b)") == true)
+        }
+    }
+
+    @Test
+    fun proxyPageAllowsHorizontalPagingGesture() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = createProxyDesign(
+                    activity,
+                    listOf(
+                        proxyGroup("first-selector", "Selector"),
+                        proxyGroup("next-selector", "Selector"),
+                    ),
+                )
+            }
+
+            val pagerBounds = awaitProxyPageBounds(scenario, design, 0, 1).first
+            var userInputEnabled = false
+            scenario.onActivity { userInputEnabled = design.binding.viewPager.isUserInputEnabled }
+            assertTrue(userInputEnabled)
+
+            val horizontalY = pagerBounds[1] + pagerBounds[3] / 2f
+            UiDevice.getInstance(instrumentation).swipe(
+                (pagerBounds[0] + pagerBounds[2] * 0.8f).toInt(),
+                horizontalY.toInt(),
+                (pagerBounds[0] + pagerBounds[2] * 0.2f).toInt(),
+                horizontalY.toInt(),
+                24,
+            )
+            var currentPage = -1
+            val deadline = SystemClock.uptimeMillis() + 3_000
+            while (currentPage != 1 && SystemClock.uptimeMillis() < deadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity { currentPage = design.binding.viewPager.currentItem }
+                if (currentPage != 1) SystemClock.sleep(50)
+            }
+            assertEquals("A horizontal drag should page to the next proxy group", 1, currentPage)
+        }
+    }
+
+    @Test
+    fun proxyPageAllowsVerticalListScrollGesture() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            val nodeNames = (0 until 48).map { "scroll-node-$it" }
+            scenario.onActivity { activity ->
+                design = createProxyDesign(
+                    activity,
+                    listOf(proxyGroupWithNodes("long-selector", "Selector", nodeNames)),
+                )
+            }
+
+            val listBounds = awaitProxyPageBounds(scenario, design, 0, nodeNames.size).second
+            var offsetBefore = 0
+            scenario.onActivity {
+                val pagerRecycler = design.binding.viewPager.getChildAt(0) as RecyclerView
+                offsetBefore = proxyPageRecycler(pagerRecycler, 0)
+                    ?.computeVerticalScrollOffset() ?: 0
+            }
+            val centerX = (listBounds[0] + listBounds[2] / 2f).toInt()
+            UiDevice.getInstance(instrumentation).swipe(
+                centerX,
+                (listBounds[1] + listBounds[3] * 0.8f).toInt(),
+                centerX,
+                (listBounds[1] + listBounds[3] * 0.3f).toInt(),
+                24,
+            )
+
+            var scrollOffset = offsetBefore
+            val deadline = SystemClock.uptimeMillis() + 3_000
+            while (scrollOffset <= offsetBefore && SystemClock.uptimeMillis() < deadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as RecyclerView
+                    scrollOffset = proxyPageRecycler(pagerRecycler, 0)
+                        ?.computeVerticalScrollOffset() ?: offsetBefore
+                }
+                if (scrollOffset <= offsetBefore) SystemClock.sleep(50)
+            }
+            assertTrue("A vertical drag should scroll the proxy list", scrollOffset > offsetBefore)
         }
     }
 
@@ -678,6 +757,86 @@ class AppUiNavigationInstrumentedTest {
             "test-node" to ProxySnapshot("test-node", "Vless", emptyList()),
         ),
     )
+
+    private fun proxyGroupWithNodes(
+        name: String,
+        type: String,
+        nodeNames: List<String>,
+    ): ProxyGroupSnapshot {
+        val details = buildMap<String, ProxySnapshot> {
+            put(
+                name,
+                ProxySnapshot(
+                    name = name,
+                    type = type,
+                    history = emptyList(),
+                    isGroup = true,
+                    now = nodeNames.first(),
+                ),
+            )
+            nodeNames.forEach { nodeName ->
+                put(nodeName, ProxySnapshot(nodeName, "Vless", emptyList()))
+            }
+        }
+        return ProxyGroupSnapshot(
+            name = name,
+            proxies = nodeNames,
+            selected = nodeNames.first(),
+            mode = ProxyMode.RULE,
+            proxyDetails = details,
+        )
+    }
+
+    private fun createProxyDesign(
+        activity: Activity,
+        groups: List<ProxyGroupSnapshot>,
+    ): ProxyDesign = ProxyDesign(activity).also { design ->
+        activity.addContentView(
+            design.root,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            ),
+        )
+        design.setGroups(groups)
+    }
+
+    private fun awaitProxyPageBounds(
+        scenario: ActivityScenario<MetaMainActivity>,
+        design: ProxyDesign,
+        pagePosition: Int,
+        itemCount: Int,
+    ): Pair<IntArray, IntArray> {
+        var bounds: Pair<IntArray, IntArray>? = null
+        val deadline = SystemClock.uptimeMillis() + 5_000
+        while (bounds == null && SystemClock.uptimeMillis() < deadline) {
+            instrumentation.waitForIdleSync()
+            scenario.onActivity {
+                val pager = design.binding.viewPager
+                val pagerRecycler = pager.getChildAt(0) as? RecyclerView
+                    ?: return@onActivity
+                val list = proxyPageRecycler(pagerRecycler, pagePosition) ?: return@onActivity
+                if (list.adapter?.itemCount == itemCount && list.height > 0) {
+                    val pagerLocation = IntArray(2)
+                    val listLocation = IntArray(2)
+                    pager.getLocationOnScreen(pagerLocation)
+                    list.getLocationOnScreen(listLocation)
+                    bounds = Pair(
+                        intArrayOf(pagerLocation[0], pagerLocation[1], pager.width, pager.height),
+                        intArrayOf(listLocation[0], listLocation[1], list.width, list.height),
+                    )
+                }
+            }
+            if (bounds == null) SystemClock.sleep(50)
+        }
+        return bounds ?: throw AssertionError("Proxy pages and list did not render")
+    }
+
+    private fun proxyPageRecycler(pagerRecycler: RecyclerView, position: Int): RecyclerView? {
+        val pageRoot = pagerRecycler.findViewHolderForAdapterPosition(position)?.itemView
+            as? ViewGroup ?: return null
+        return pageRoot.getChildAt(0) as? RecyclerView
+    }
 
     private fun clearPreferences() {
         context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).edit().clear().commit()
