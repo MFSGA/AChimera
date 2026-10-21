@@ -787,7 +787,7 @@ class AppUiNavigationInstrumentedTest {
 
             onView(withId(R.id.proxy_overflow_button)).perform(click())
             onView(withText(R.string.proxy_menu_mode)).perform(click())
-            onView(withText(R.string.proxy_mode_rule)).perform(click())
+            onView(withText(R.string.cmfa_main_mode_rule)).perform(click())
         }
         assertEquals(
             ProxyDesign.Request.SwitchMode(ProxyMode.RULE),
