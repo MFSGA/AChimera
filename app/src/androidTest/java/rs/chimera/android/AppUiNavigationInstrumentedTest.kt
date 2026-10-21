@@ -785,9 +785,21 @@ class AppUiNavigationInstrumentedTest {
                 )
             }
 
-            onView(withId(R.id.proxy_overflow_button)).perform(click())
-            onView(withText(R.string.proxy_menu_mode)).perform(click())
-            onView(withText(R.string.cmfa_main_mode_rule)).perform(click())
+            val device = UiDevice.getInstance(instrumentation)
+            scenario.onActivity { design.binding.proxyOverflowButton.performClick() }
+            instrumentation.waitForIdleSync()
+            device.waitForIdle()
+            val modeMenu = device.findObject(
+                UiSelector().text(context.getString(R.string.proxy_menu_mode)),
+            )
+            assertTrue("Proxy mode submenu should appear", modeMenu.waitForExists(5_000))
+            modeMenu.click()
+            device.waitForIdle()
+            val ruleMode = device.findObject(
+                UiSelector().text(context.getString(R.string.cmfa_main_mode_rule)),
+            )
+            assertTrue("Rule mode should appear in the submenu", ruleMode.waitForExists(5_000))
+            ruleMode.click()
         }
         assertEquals(
             ProxyDesign.Request.SwitchMode(ProxyMode.RULE),
