@@ -13,14 +13,14 @@
         <menu>
             <group android:checkableBehavior="single">
                 <item
-                    android:id="@+id/action_mode_rule"
-                    android:title="@string/proxy_mode_rule" />
+                    android:id="@+id/action_mode_direct"
+                    android:title="@string/cmfa_main_mode_direct" />
                 <item
                     android:id="@+id/action_mode_global"
-                    android:title="@string/proxy_mode_global" />
+                    android:title="@string/cmfa_main_mode_global" />
                 <item
-                    android:id="@+id/action_mode_direct"
-                    android:title="@string/proxy_mode_direct" />
+                    android:id="@+id/action_mode_rule"
+                    android:title="@string/cmfa_main_mode_rule" />
             </group>
         </menu>
     </item>

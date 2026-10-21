@@ -1,6 +1,7 @@
 package rs.chimera.android.ui.metacubex.design
 
 import android.content.Context
+import android.os.SystemClock
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -54,6 +55,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private val displayPreferences = ProxyDisplayPreferences(context)
     private var displayOptions = displayPreferences.read()
     private var lastGroupName = displayPreferences.readLastGroupName()
+    private val selectionAnimationTracker = ProxySelectionAnimationTracker()
     private val pagerAdapter = ProxyPagerAdapter()
     private val proxyMenu by lazy {
         PopupMenu(context, binding.proxyOverflowButton).apply {
@@ -158,6 +160,35 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
+        val previousGroups = sourceGroups.associateBy(ProxyGroupSnapshot::name)
+        val selectorGroupNames = snapshots.asSequence()
+            .filter { snapshot ->
+                val group = snapshot.proxyDetails[snapshot.name]
+                group?.isGroup == true && group.type == SELECTOR_TYPE
+            }
+            .map(ProxyGroupSnapshot::name)
+            .toSet()
+        selectionAnimationTracker.retainGroups(selectorGroupNames)
+        snapshots.forEach { snapshot ->
+            val previous = previousGroups[snapshot.name] ?: return@forEach
+            val selector = snapshot.proxyDetails[snapshot.name]
+            if (selector?.isGroup != true || selector.type != SELECTOR_TYPE) return@forEach
+            val currentSelection = snapshot.selected
+            if (currentSelection == null) {
+                selectionAnimationTracker.clearGroup(snapshot.name)
+                return@forEach
+            }
+            if (previous.selected != currentSelection) {
+                selectionAnimationTracker.record(
+                    snapshot.name,
+                    previous.selected,
+                    currentSelection,
+                    SystemClock.uptimeMillis(),
+                )
+            } else {
+                selectionAnimationTracker.clearGroup(snapshot.name)
+            }
+        }
         sourceGroups = snapshots
         val lastGroupStillExists = snapshots.any { snapshot ->
             snapshot.name == lastGroupName && snapshot.proxyDetails[snapshot.name]?.isGroup == true
@@ -166,7 +197,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             lastGroupName = null
             displayPreferences.updateLastGroupName(null)
         }
-        renderGroups()
+        renderGroups(
+            selectionAnimationExpirations = selectionAnimationTracker.snapshot(SystemClock.uptimeMillis()),
+        )
     }
 
     fun applyProxySelection(groupName: String, proxyName: String): Boolean {
@@ -178,6 +211,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
         if (proxyName !in group.proxies) return false
 
+        val selectionAnimationExpirations = selectionAnimationTracker.record(
+            groupName,
+            group.selected,
+            proxyName,
+            SystemClock.uptimeMillis(),
+        )
         sourceGroups = sourceGroups.map { snapshot ->
             val linkedSelector = snapshot.proxyDetails[groupName]
                 ?.takeIf { it.isGroup }
@@ -188,18 +227,20 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                     (groupName to linkedSelector.copy(now = proxyName)),
             )
         }
-        renderGroups(animateSelectionChanges = true)
+        renderGroups(selectionAnimationExpirations = selectionAnimationExpirations)
         return true
     }
 
-    private fun renderGroups(animateSelectionChanges: Boolean = false) {
+    private fun renderGroups(
+        selectionAnimationExpirations: Map<String, Map<String, Long>> = emptyMap(),
+    ) {
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         groups.clear()
         groups += ProxyDisplayPolicy.groupPages(
             sourceGroups,
             unavailableType = context.getString(R.string.not_available),
             excludeNotSelectable = displayOptions.excludeNotSelectable,
-            animateSelectionChanges = animateSelectionChanges,
+            selectionAnimationExpirations = selectionAnimationExpirations,
         )
         bottomGroups.retainAll(groups.map { it.name }.toSet())
         updateModeSelection(sourceGroups.firstOrNull()?.mode)

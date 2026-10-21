@@ -18,7 +18,14 @@ data class ProxyDisplayEntry(
     val isSelected: Boolean,
     /** Set only for a successful selector change that should animate like CMFA's redraw path. */
     val animateSelectionChange: Boolean = false,
+    /** Keeps transition identity scoped when RecyclerViews share holders across selector pages. */
+    val selectionGroupName: String = "",
+    /** Absolute uptime deadline prevents cached off-screen pages from replaying stale animations. */
+    val selectionAnimationExpiresAt: Long? = null,
 )
+
+internal fun ProxyDisplayEntry.isSelectionAnimationActive(frameTime: Long): Boolean =
+    animateSelectionChange && (selectionAnimationExpiresAt == null || frameTime < selectionAnimationExpiresAt)
 
 data class ProxyDisplayOptions(
     val columns: Int = DEFAULT_COLUMNS,
@@ -78,7 +85,7 @@ object ProxyDisplayPolicy {
         snapshots: List<ProxyGroupSnapshot>,
         unavailableType: String,
         excludeNotSelectable: Boolean = false,
-        animateSelectionChanges: Boolean = false,
+        selectionAnimationExpirations: Map<String, Map<String, Long>> = emptyMap(),
     ): List<ProxyDisplayGroup> {
         val visibleGroupNames = snapshots.asSequence()
             .filter { snapshot ->
@@ -107,13 +114,16 @@ object ProxyDisplayPolicy {
                     }
                     val delay = proxy?.history?.lastOrNull()?.delay
                         ?.takeIf { it in 1..Short.MAX_VALUE }
+                    val animationExpiresAt = selectionAnimationExpirations[snapshot.name]?.get(name)
                     ProxyDisplayEntry(
                         name = name,
                         type = type,
                         delayText = delay?.toString().orEmpty(),
                         delayMillis = delay,
                         isSelected = name == snapshot.selected,
-                        animateSelectionChange = animateSelectionChanges,
+                        animateSelectionChange = animationExpiresAt != null,
+                        selectionGroupName = snapshot.name,
+                        selectionAnimationExpiresAt = animationExpiresAt,
                     )
                 },
             )

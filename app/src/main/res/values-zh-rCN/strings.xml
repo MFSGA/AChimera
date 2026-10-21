@@ -318,12 +318,12 @@
     <string name="cmfa_profile_type_file">文件</string>
     <string name="cmfa_profile_type_url">URL</string>
     <string name="profile_updated_recently">最近</string>
-    <string name="profile_updated_minutes_ago">%1$d分钟前</string>
+    <string name="profile_updated_minutes_ago">%1$d 分钟前</string>
     <plurals name="profile_updated_hours_ago">
-        <item quantity="other">%1$d小时前</item>
+        <item quantity="other">%1$d 小时前</item>
     </plurals>
     <plurals name="profile_updated_days_ago">
-        <item quantity="other">%1$d天前</item>
+        <item quantity="other">%1$d 天前</item>
     </plurals>
     <string name="profile_activate">启用</string>
     <string name="profile_active_badge">当前使用</string>

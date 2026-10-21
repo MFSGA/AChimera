@@ -150,6 +150,43 @@ class ProxyDisplayPolicyTest {
     }
 
     @Test
+    fun selectionAnimationMarksOnlyChangedNodesInTheirSelectorGroup() {
+        val selector = ProxyGroupSnapshot(
+            name = "selector",
+            proxies = listOf("old", "new", "other"),
+            selected = "new",
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                "selector" to ProxySnapshot("selector", "Selector", emptyList(), isGroup = true),
+                "old" to ProxySnapshot("old", "Vless", emptyList()),
+                "new" to ProxySnapshot("new", "Vless", emptyList()),
+                "other" to ProxySnapshot("other", "Vless", emptyList()),
+            ),
+        )
+        val otherGroup = ProxyGroupSnapshot(
+            name = "other-group",
+            proxies = listOf("old", "new"),
+            selected = "old",
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                "other-group" to ProxySnapshot("other-group", "Selector", emptyList(), isGroup = true),
+                "old" to ProxySnapshot("old", "Vless", emptyList()),
+                "new" to ProxySnapshot("new", "Vless", emptyList()),
+            ),
+        )
+
+        val groups = ProxyDisplayPolicy.groupPages(
+            listOf(selector, otherGroup),
+            unavailableType = "Unavailable",
+            selectionAnimationExpirations = mapOf("selector" to mapOf("old" to 420L, "new" to 420L)),
+        )
+
+        assertEquals(listOf(true, true, false), groups[0].proxies.map { it.animateSelectionChange })
+        assertEquals(listOf(false, false), groups[1].proxies.map { it.animateSelectionChange })
+        assertEquals(listOf(420L, 420L, null), groups[0].proxies.map { it.selectionAnimationExpiresAt })
+    }
+
+    @Test
     fun selectableFilterHidesNonSelectorGroupsOnlyWhenEnabled() {
         val snapshots = listOf(
             ProxyGroupSnapshot(

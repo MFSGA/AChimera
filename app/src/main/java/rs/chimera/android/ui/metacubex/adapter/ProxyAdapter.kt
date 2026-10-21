@@ -13,12 +13,14 @@ class ProxyAdapter(
 ) : ListAdapter<ProxyDisplayEntry, ProxyAdapter.ViewHolder>(DiffCallback) {
     var selectable: Boolean = false
         set(value) {
+            if (field == value) return
             field = value
             notifyItemRangeChanged(0, itemCount)
         }
 
     var columns: Int = 2
         set(value) {
+            if (field == value) return
             field = value
             notifyItemRangeChanged(0, itemCount)
         }
@@ -27,13 +29,18 @@ class ProxyAdapter(
         ViewHolder(ProxyCardView(parent.context))
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(getItem(position), columns)
+        holder.bind(getItem(position), columns, selectable, onItemClick)
     }
 
-    inner class ViewHolder(
+    class ViewHolder(
         private val view: ProxyCardView,
     ) : RecyclerView.ViewHolder(view) {
-        fun bind(entry: ProxyDisplayEntry, columnCount: Int) {
+        fun bind(
+            entry: ProxyDisplayEntry,
+            columnCount: Int,
+            selectable: Boolean,
+            onItemClick: (String) -> Unit,
+        ) {
             view.columns = columnCount
             view.entry = entry
             view.setOnClickListener(

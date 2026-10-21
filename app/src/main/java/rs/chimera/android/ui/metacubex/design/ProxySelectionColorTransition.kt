@@ -8,12 +8,13 @@ internal data class ProxySelectionColorFrame(
 )
 
 internal object ProxySelectionTransitionPolicy {
-    fun shouldAnimate(previous: ProxyDisplayEntry?, current: ProxyDisplayEntry?): Boolean =
+    fun shouldAnimate(previous: ProxyDisplayEntry?, current: ProxyDisplayEntry?, frameTime: Long): Boolean =
         previous != null &&
             current != null &&
             previous.name == current.name &&
+            previous.selectionGroupName == current.selectionGroupName &&
             previous.isSelected != current.isSelected &&
-            current.animateSelectionChange
+            current.isSelectionAnimationActive(frameTime)
 }
 
 /** Matches CMFA's frame-time-based interpolation between selected and unselected card fills. */
@@ -32,9 +33,21 @@ internal class ProxySelectionColorTransition {
         target: Int,
         frameTime: Long,
     ): Boolean {
-        val animate = ProxySelectionTransitionPolicy.shouldAnimate(previous, current)
-        if (!animate) snap(target, frameTime)
-        return animate
+        val continuesTransition = previous != null &&
+            current != null &&
+            previous.name == current.name &&
+            previous.selectionGroupName == current.selectionGroupName &&
+            previous.isSelected == current.isSelected &&
+            current.isSelectionAnimationActive(frameTime) &&
+            color != null &&
+            color != target
+        val shouldAnimate = ProxySelectionTransitionPolicy.shouldAnimate(previous, current, frameTime) ||
+            continuesTransition
+        if (!shouldAnimate || color == null) {
+            snap(target, frameTime)
+            return false
+        }
+        return color != target
     }
 
     fun advance(target: Int, frameTime: Long): ProxySelectionColorFrame {

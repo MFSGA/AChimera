@@ -27,6 +27,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
+import androidx.test.uiautomator.UiSelector
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -45,7 +46,10 @@ import rs.chimera.android.ui.metacubex.activity.MetaSettingsHomeActivity
 import rs.chimera.android.ui.metacubex.design.ProxyCardView
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
 import rs.chimera.android.ui.metacubex.design.ProxyDisplayPreferences
+import rs.chimera.android.ui.metacubex.design.ProxyDisplayEntry
+import rs.chimera.android.ui.metacubex.design.isSelectionAnimationActive
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
+import rs.chimera.android.backend.model.ProxyDelayHistory
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
 import rs.chimera.android.backend.model.ProxySnapshot
@@ -158,7 +162,7 @@ class AppUiNavigationInstrumentedTest {
                                 "test-node" to ProxySnapshot(
                                     name = "test-node",
                                     type = "Vless",
-                                    history = emptyList(),
+                                    history = listOf(ProxyDelayHistory(delay = 0, time = 1L)),
                                 ),
                             ),
                         ),
@@ -190,6 +194,7 @@ class AppUiNavigationInstrumentedTest {
             assertEquals(rendered.first[0], rendered.first[2])
             assertEquals(rendered.first[1], rendered.first[3])
             assertNotNull(rendered.second)
+            assertEquals("test-node, Vless", rendered.second.toString())
 
             var selectorClickable = false
             var selectorClickHandled = false
@@ -292,6 +297,71 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
+    fun proxyModeMenuMatchesCmfaOrder() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = ProxyDesign(activity)
+                activity.addContentView(
+                    design.root,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                val details = mapOf(
+                    "selector" to ProxySnapshot(
+                        name = "selector",
+                        type = "Selector",
+                        history = emptyList(),
+                        isGroup = true,
+                        now = "node",
+                    ),
+                    "node" to ProxySnapshot(name = "node", type = "Vless", history = emptyList()),
+                )
+                design.setGroups(
+                    listOf(
+                        ProxyGroupSnapshot(
+                            name = "selector",
+                            proxies = listOf("node"),
+                            selected = "node",
+                            mode = ProxyMode.RULE,
+                            proxyDetails = details,
+                        ),
+                    ),
+                )
+            }
+
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { design.binding.proxyOverflowButton.performClick() }
+            instrumentation.waitForIdleSync()
+            val device = UiDevice.getInstance(instrumentation)
+            device.waitForIdle()
+            val mode = device.findObject(UiSelector().text(context.getString(R.string.proxy_menu_mode)))
+            assertTrue("Mode submenu should be visible in the proxy menu", mode.exists())
+            mode.click()
+            device.waitForIdle()
+            val direct = device.findObject(UiSelector().text(context.getString(R.string.cmfa_main_mode_direct)))
+            val global = device.findObject(UiSelector().text(context.getString(R.string.cmfa_main_mode_global)))
+            val rule = device.findObject(UiSelector().text(context.getString(R.string.cmfa_main_mode_rule)))
+
+            assertTrue("Direct mode should be visible in the proxy menu", direct.exists())
+            assertTrue("Global mode should be visible in the proxy menu", global.exists())
+            assertTrue("Rule mode should be visible in the proxy menu", rule.exists())
+            assertTrue(direct.visibleBounds.top < global.visibleBounds.top)
+            assertTrue(global.visibleBounds.top < rule.visibleBounds.top)
+            // UiAutomator exposes the row title as a plain TextView; inspect the MenuItem state directly.
+            val proxyMenuDelegate = ProxyDesign::class.java.declaredFields
+                .first { it.name.startsWith("proxyMenu") }
+                .apply { isAccessible = true }
+            val popupMenu = (proxyMenuDelegate.get(design) as Lazy<*>).value as androidx.appcompat.widget.PopupMenu
+            assertFalse(popupMenu.menu.findItem(R.id.action_mode_direct).isChecked)
+            assertFalse(popupMenu.menu.findItem(R.id.action_mode_global).isChecked)
+            assertTrue(popupMenu.menu.findItem(R.id.action_mode_rule).isChecked)
+        }
+    }
+
+    @Test
     fun successfulProxySelectionImmediatelyUpdatesCardAndLinkedGroupLabel() {
         ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
             lateinit var design: ProxyDesign
@@ -346,6 +416,7 @@ class AppUiNavigationInstrumentedTest {
             }
 
             var selectionApplied = false
+            var selectionRequest: ProxyDesign.Request? = null
             val clickDeadline = SystemClock.uptimeMillis() + 5_000
             while (!selectionApplied && SystemClock.uptimeMillis() < clickDeadline) {
                 instrumentation.waitForIdleSync()
@@ -353,13 +424,17 @@ class AppUiNavigationInstrumentedTest {
                     val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
                         ?: return@onActivity
                     val page = proxyPageRecycler(pagerRecycler, 1) ?: return@onActivity
-                    if (page.findViewHolderForAdapterPosition(1) != null) {
+                    val card = page.findViewHolderForAdapterPosition(1)?.itemView as? ProxyCardView
+                        ?: return@onActivity
+                    if (card.performClick()) {
+                        selectionRequest = design.requests.tryReceive().getOrNull()
                         selectionApplied = design.applyProxySelection("selector", "node-b")
                     }
                 }
                 if (!selectionApplied) SystemClock.sleep(50)
             }
             assertTrue("The requested selector should be present", selectionApplied)
+            assertEquals(ProxyDesign.Request.SelectProxy("selector", "node-b"), selectionRequest)
 
             var selectedCardState: Pair<Boolean, Boolean>? = null
             var selectionChangeAnimated = false
@@ -373,13 +448,15 @@ class AppUiNavigationInstrumentedTest {
                     val previous = page.findViewHolderForAdapterPosition(0)?.itemView ?: return@onActivity
                     val current = page.findViewHolderForAdapterPosition(1)?.itemView as? ProxyCardView
                         ?: return@onActivity
-                    selectedCardState = previous.isSelected to current.isSelected
+                    selectedCardState =
+                        ((previous as? ProxyCardView)?.entry?.isSelected == true) to
+                            (current.entry?.isSelected == true)
                     selectionChangeAnimated = current.entry?.animateSelectionChange == true
                 }
                 if (selectedCardState != Pair(false, true)) SystemClock.sleep(50)
             }
             assertEquals(Pair(false, true), selectedCardState)
-            assertTrue("A successful selector change should request CMFA's color transition", selectionChangeAnimated)
+            assertTrue("A successful selector change should animate its selected card", selectionChangeAnimated)
 
             var linkedGroupLabel: CharSequence? = null
             scenario.onActivity { design.binding.viewPager.setCurrentItem(0, false) }
@@ -428,7 +505,9 @@ class AppUiNavigationInstrumentedTest {
                         ?: return@onActivity
                     val current = page.findViewHolderForAdapterPosition(1)?.itemView as? ProxyCardView
                         ?: return@onActivity
-                    refreshedSelectionState = previous.isSelected to current.isSelected
+                    refreshedSelectionState =
+                        ((previous as? ProxyCardView)?.entry?.isSelected == true) to
+                            (current.entry?.isSelected == true)
                     refreshRequestsAnimation = current.entry?.animateSelectionChange == true
                 }
                 if (refreshedSelectionState != Pair(false, true) || refreshRequestsAnimation) {
@@ -436,7 +515,129 @@ class AppUiNavigationInstrumentedTest {
                 }
             }
             assertEquals(Pair(false, true), refreshedSelectionState)
-            assertFalse("A regular group refresh should snap to its selection", refreshRequestsAnimation)
+            assertFalse("A confirmed list rebind should snap to its selection", refreshRequestsAnimation)
+        }
+    }
+
+    @Test
+    fun externalSelectionChangeAnimatesUntilSameSelectionRefreshConfirmsIt() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            lateinit var changedSnapshot: ProxyGroupSnapshot
+            scenario.onActivity { activity ->
+                val initial = proxyGroupWithNodes("selector", "Selector", listOf("node-a", "node-b"))
+                design = createProxyDesign(activity, listOf(initial))
+                changedSnapshot = initial.copy(
+                    selected = "node-b",
+                    proxyDetails = initial.proxyDetails +
+                        ("selector" to initial.proxyDetails.getValue("selector").copy(now = "node-b")),
+                )
+            }
+            awaitProxyPageBounds(scenario, design, pagePosition = 0, itemCount = 2)
+
+            scenario.onActivity { design.setGroups(listOf(changedSnapshot)) }
+            assertEquals(listOf(true, true), awaitProxySelectionMarkers(scenario, design, listOf(true, true)))
+
+            scenario.onActivity { design.setGroups(listOf(changedSnapshot)) }
+            assertEquals(listOf(false, false), awaitProxySelectionMarkers(scenario, design, listOf(false, false)))
+        }
+    }
+
+    @Test
+    fun cachedOffscreenPageDoesNotReplayExpiredSelectionAnimation() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            lateinit var updatedGroups: List<ProxyGroupSnapshot>
+            scenario.onActivity { activity ->
+                val initialGroups = (0..4).map { index ->
+                    proxyGroupWithNodes("selector-$index", "Selector", listOf("node-a", "node-b"))
+                }
+                design = createProxyDesign(activity, initialGroups)
+                updatedGroups = initialGroups.mapIndexed { index, snapshot ->
+                    if (index != 4) {
+                        snapshot
+                    } else {
+                        snapshot.copy(
+                            selected = "node-b",
+                            proxyDetails = snapshot.proxyDetails +
+                                (snapshot.name to snapshot.proxyDetails.getValue(snapshot.name).copy(now = "node-b")),
+                        )
+                    }
+                }
+            }
+            awaitProxyPageBounds(scenario, design, pagePosition = 0, itemCount = 2)
+            var targetPageAdapterCreatedBeforeUpdate = true
+            scenario.onActivity {
+                targetPageAdapterCreatedBeforeUpdate = proxyPageAdapterExists(design, "selector-4")
+            }
+            assertFalse("The far-off selector page should not be bound initially", targetPageAdapterCreatedBeforeUpdate)
+
+            scenario.onActivity { design.setGroups(updatedGroups) }
+            SystemClock.sleep(400)
+            var targetPageAdapterCreatedBeforeNavigation = true
+            scenario.onActivity {
+                targetPageAdapterCreatedBeforeNavigation = proxyPageAdapterExists(design, "selector-4")
+            }
+            assertFalse(
+                "The far-off selector page should remain unbound until it is selected",
+                targetPageAdapterCreatedBeforeNavigation,
+            )
+
+            scenario.onActivity { design.binding.viewPager.setCurrentItem(4, false) }
+            awaitProxyPageBounds(scenario, design, pagePosition = 4, itemCount = 2)
+            var targetPageAdapterCreatedAfterNavigation = false
+            scenario.onActivity {
+                targetPageAdapterCreatedAfterNavigation = proxyPageAdapterExists(design, "selector-4")
+            }
+            assertTrue("Selecting the far-off page should create its adapter", targetPageAdapterCreatedAfterNavigation)
+
+            var delayedSelectionEntry: ProxyDisplayEntry? = null
+            scenario.onActivity {
+                val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                    ?: return@onActivity
+                val page = proxyPageRecycler(pagerRecycler, 4) ?: return@onActivity
+                delayedSelectionEntry = (page.findViewHolderForAdapterPosition(1)?.itemView as? ProxyCardView)
+                    ?.entry
+            }
+
+            val entry = delayedSelectionEntry
+            assertNotNull("The delayed selected node should be bound", entry)
+            assertTrue("The cached entry should retain its original marker and deadline", entry?.animateSelectionChange == true)
+            assertFalse("The cached marker should be expired by first bind", entry?.isSelectionAnimationActive(SystemClock.uptimeMillis()) == true)
+        }
+    }
+
+    @Test
+    fun consecutiveProxySelectionsKeepEarlierNodesMarkedForTransition() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = createProxyDesign(
+                    activity,
+                    listOf(proxyGroupWithNodes("selector", "Selector", listOf("node-a", "node-b", "node-c"))),
+                )
+                assertTrue(design.applyProxySelection("selector", "node-b"))
+                assertTrue(design.applyProxySelection("selector", "node-c"))
+            }
+
+            var transitionMarkers = emptyList<Boolean>()
+            val deadline = SystemClock.uptimeMillis() + 5_000
+            while (transitionMarkers.size != 3 && SystemClock.uptimeMillis() < deadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                        ?: return@onActivity
+                    val page = proxyPageRecycler(pagerRecycler, 0) ?: return@onActivity
+                    transitionMarkers = (0..2).mapNotNull { position ->
+                        (page.findViewHolderForAdapterPosition(position)?.itemView as? ProxyCardView)
+                            ?.entry
+                            ?.animateSelectionChange
+                    }
+                }
+                if (transitionMarkers.size != 3) SystemClock.sleep(50)
+            }
+
+            assertEquals(listOf(true, true, true), transitionMarkers)
         }
     }
 
@@ -912,6 +1113,42 @@ class AppUiNavigationInstrumentedTest {
         val pageRoot = pagerRecycler.findViewHolderForAdapterPosition(position)?.itemView
             as? ViewGroup ?: return null
         return pageRoot.getChildAt(0) as? RecyclerView
+    }
+
+    private fun proxyPageAdapterExists(design: ProxyDesign, groupName: String): Boolean {
+        val pagerAdapterField = ProxyDesign::class.java.declaredFields
+            .first { it.name == "pagerAdapter" }
+            .apply { isAccessible = true }
+        val pagerAdapter = pagerAdapterField.get(design) ?: return false
+        val pageAdaptersField = pagerAdapter.javaClass.declaredFields
+            .first { it.name == "pageAdapters" }
+            .apply { isAccessible = true }
+        val pageAdapters = pageAdaptersField.get(pagerAdapter) as? Map<*, *> ?: return false
+        return pageAdapters.containsKey(groupName)
+    }
+
+    private fun awaitProxySelectionMarkers(
+        scenario: ActivityScenario<MetaMainActivity>,
+        design: ProxyDesign,
+        expected: List<Boolean>,
+    ): List<Boolean> {
+        var markers = emptyList<Boolean>()
+        val deadline = SystemClock.uptimeMillis() + 5_000
+        while (markers != expected && SystemClock.uptimeMillis() < deadline) {
+            instrumentation.waitForIdleSync()
+            scenario.onActivity {
+                val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                    ?: return@onActivity
+                val page = proxyPageRecycler(pagerRecycler, 0) ?: return@onActivity
+                markers = (0..1).mapNotNull { position ->
+                    (page.findViewHolderForAdapterPosition(position)?.itemView as? ProxyCardView)
+                        ?.entry
+                        ?.animateSelectionChange
+                }
+            }
+            if (markers != expected) SystemClock.sleep(50)
+        }
+        return markers
     }
 
     private fun clearPreferences() {

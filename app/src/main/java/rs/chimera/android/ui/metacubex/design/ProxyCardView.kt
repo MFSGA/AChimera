@@ -6,7 +6,9 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
+import android.os.SystemClock
 import android.util.TypedValue
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.View
 import androidx.core.view.ViewCompat
 import androidx.core.content.ContextCompat
@@ -32,6 +34,7 @@ class ProxyCardView(context: Context) : View(context) {
         set(value) {
             val previous = field
             field = value
+            val frameTime = SystemClock.uptimeMillis()
             contentDescription = value?.let { item ->
                 listOfNotNull(
                     item.name,
@@ -39,16 +42,26 @@ class ProxyCardView(context: Context) : View(context) {
                     item.delayText.takeIf(String::isNotBlank),
                 ).joinToString(", ")
             }
-            isSelected = value?.isSelected == true
-            ViewCompat.setStateDescription(this, if (isSelected) context.getString(R.string.selected) else null)
-            selectionColorTransition.bind(previous, value, backgroundColor(value), System.currentTimeMillis())
+            ViewCompat.setStateDescription(
+                this,
+                if (value?.isSelected == true) context.getString(R.string.selected) else null,
+            )
+            selectionColorTransition.bind(
+                previous,
+                value,
+                backgroundColor(value),
+                frameTime,
+            )
             requestLayout()
             invalidate()
         }
 
     var columns: Int = ProxyDisplayOptions.DEFAULT_COLUMNS
         set(value) {
-            field = ProxyDisplayPolicy.normalizeColumns(value)
+            val normalized = ProxyDisplayPolicy.normalizeColumns(value)
+            if (field == normalized) return
+            field = normalized
+            entry?.let { selectionColorTransition.snap(backgroundColor(it), SystemClock.uptimeMillis()) }
             requestLayout()
             invalidate()
         }
@@ -77,6 +90,11 @@ class ProxyCardView(context: Context) : View(context) {
         isFocusable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         setLayerType(LAYER_TYPE_SOFTWARE, null)
+    }
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        info.isSelected = entry?.isSelected == true
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -116,14 +134,13 @@ class ProxyCardView(context: Context) : View(context) {
         val useCard = columns != 1
         val frame = selectionColorTransition.advance(
             backgroundColor(item),
-            System.currentTimeMillis(),
+            SystemClock.uptimeMillis(),
         )
         if (frame.animating) {
             postInvalidate()
         }
 
         paint.reset()
-        paint.isAntiAlias = true
         paint.color = frame.color
         paint.style = Paint.Style.FILL
         if (useCard) {
