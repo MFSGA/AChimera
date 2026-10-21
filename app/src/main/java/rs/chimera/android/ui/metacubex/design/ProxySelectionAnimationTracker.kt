@@ -18,6 +18,24 @@ internal class ProxySelectionAnimationTracker {
         return snapshot(frameTime)
     }
 
+    fun updateSelection(
+        groupName: String,
+        previousSelection: String?,
+        currentSelection: String?,
+        frameTime: Long,
+    ) {
+        when {
+            currentSelection == null -> clearGroup(groupName)
+            previousSelection != currentSelection -> record(
+                groupName,
+                previousSelection,
+                currentSelection,
+                frameTime,
+            )
+            else -> clearGroup(groupName)
+        }
+    }
+
     fun snapshot(frameTime: Long): Map<String, Map<String, Long>> {
         pruneExpired(frameTime)
         return nodesByGroup.mapValues { (_, changedNodes) -> changedNodes.toMap() }

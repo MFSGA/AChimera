@@ -173,21 +173,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             val previous = previousGroups[snapshot.name] ?: return@forEach
             val selector = snapshot.proxyDetails[snapshot.name]
             if (selector?.isGroup != true || selector.type != SELECTOR_TYPE) return@forEach
-            val currentSelection = snapshot.selected
-            if (currentSelection == null) {
-                selectionAnimationTracker.clearGroup(snapshot.name)
-                return@forEach
-            }
-            if (previous.selected != currentSelection) {
-                selectionAnimationTracker.record(
-                    snapshot.name,
-                    previous.selected,
-                    currentSelection,
-                    SystemClock.uptimeMillis(),
-                )
-            } else {
-                selectionAnimationTracker.clearGroup(snapshot.name)
-            }
+            selectionAnimationTracker.updateSelection(
+                snapshot.name,
+                previous.selected,
+                snapshot.selected,
+                SystemClock.uptimeMillis(),
+            )
         }
         sourceGroups = snapshots
         val lastGroupStillExists = snapshots.any { snapshot ->

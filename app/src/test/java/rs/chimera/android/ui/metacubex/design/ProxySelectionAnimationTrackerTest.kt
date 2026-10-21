@@ -44,6 +44,26 @@ class ProxySelectionAnimationTrackerTest {
     }
 
     @Test
+    fun unchangedSnapshotClearsTheGroupTransition() {
+        val tracker = ProxySelectionAnimationTracker()
+        tracker.record("selector", "node-a", "node-b", frameTime = 100L)
+
+        tracker.updateSelection("selector", "node-b", "node-b", frameTime = 150L)
+
+        assertEquals(emptyMap<String, Map<String, Long>>(), tracker.snapshot(frameTime = 151L))
+    }
+
+    @Test
+    fun missingSelectionClearsTheGroupTransition() {
+        val tracker = ProxySelectionAnimationTracker()
+        tracker.record("selector", "node-a", "node-b", frameTime = 100L)
+
+        tracker.updateSelection("selector", "node-b", null, frameTime = 150L)
+
+        assertEquals(emptyMap<String, Map<String, Long>>(), tracker.snapshot(frameTime = 151L))
+    }
+
+    @Test
     fun selectionsInDifferentGroupsKeepSeparateTransitionNodes() {
         val tracker = ProxySelectionAnimationTracker()
 
