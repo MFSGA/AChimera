@@ -359,6 +359,11 @@
     <string name="profile_import_error">导入失败：%1$s</string>
     <string name="profile_update">更新配置</string>
     <string name="profile_edit">编辑</string>
+    <string name="profile_menu_update">更新</string>
+    <string name="profile_menu_edit">编辑</string>
+    <string name="profile_menu_duplicate">复制</string>
+    <string name="profile_menu_share_qr_code">二维码分享</string>
+    <string name="profile_menu_delete">删除</string>
     <string name="profile_edit_settings">编辑远程设置</string>
     <string name="profile_duplicate">复制</string>
     <string name="profile_duplicating">正在复制配置…</string>

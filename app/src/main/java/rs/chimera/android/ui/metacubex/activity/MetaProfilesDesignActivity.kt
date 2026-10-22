@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.view.View
 import android.widget.EditText
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -170,6 +171,29 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         val dialog = MetaBottomSheetDialog(this)
         val binding = MetaDialogProfileMenuBinding.inflate(layoutInflater)
         val actionBindings = mutableMapOf<MetaProfileAction, MetaProfileActionItemBinding>()
+        fun updateActionMenuViewport() {
+            val scrollView = binding.profileActionsScrollView
+            val rowWidth = scrollView.width.takeIf { it > 0 } ?: resources.displayMetrics.widthPixels
+            val rowHeights = actions.associateWith { action ->
+                val actionRoot = actionBindings.getValue(action).actionRoot
+                actionRoot.measure(
+                    View.MeasureSpec.makeMeasureSpec(rowWidth, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                )
+                actionRoot.measuredHeight
+            }
+            val sheet = dialog.findViewById<View>(com.google.android.material.R.id.design_bottom_sheet)
+            val parentHeight = (sheet?.parent as? View)?.height ?: 0
+            val availableHeight = if (parentHeight > 0 && sheet != null) {
+                parentHeight - sheet.paddingTop - sheet.paddingBottom
+            } else {
+                (resources.configuration.screenHeightDp * resources.displayMetrics.density).toInt()
+            }
+            val viewportHeight = profileActionMenuViewportHeight(actions, rowHeights, availableHeight)
+            scrollView.layoutParams = scrollView.layoutParams.apply {
+                height = viewportHeight
+            }
+        }
         fun renderDeleteAvailability(blockedMessage: String?) {
             val deleteBinding = actionBindings[MetaProfileAction.Delete] ?: return
             deleteBinding.actionRoot.isEnabled = blockedMessage == null
@@ -180,6 +204,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             deleteBinding.actionSubtext.visibility =
                 if (blockedMessage == null) android.view.View.GONE else android.view.View.VISIBLE
             deleteBinding.actionSubtext.text = blockedMessage.orEmpty()
+            updateActionMenuViewport()
         }
         actions.forEach { action ->
             val actionBinding = MetaProfileActionItemBinding.inflate(
@@ -232,6 +257,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         }
         dialog.setOnDismissListener { availabilityObserver.cancel() }
         dialog.show()
+        binding.profileActionsScrollView.post { updateActionMenuViewport() }
     }
 
     private fun profileDeleteBlockedMessage(

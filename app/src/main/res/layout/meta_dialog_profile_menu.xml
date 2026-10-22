@@ -7,10 +7,12 @@
         android:orientation="vertical">
 
         <ScrollView
+            android:id="@+id/profile_actions_scroll_view"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fillViewport="false"
-            android:overScrollMode="ifContentScrolls">
+            android:overScrollMode="ifContentScrolls"
+            android:scrollbars="none">
 
             <LinearLayout
                 android:id="@+id/profile_actions_container"
