@@ -98,7 +98,14 @@ class ProvidersDesign(context: Context) : Design<ProvidersDesign.Request>(contex
     }
 
     private fun requestUpdateAll() {
-        rows.forEachIndexed { index, row ->
+        val pendingIndexes = rows.indices.filter { index ->
+            val row = rows[index]
+            !row.updating && !row.provider.vehicleType.equals("inline", ignoreCase = true)
+        }
+        if (pendingIndexes.isEmpty()) return
+
+        pendingIndexes.forEach { index ->
+            val row = rows[index]
             requestUpdate(index, row.provider)
         }
     }

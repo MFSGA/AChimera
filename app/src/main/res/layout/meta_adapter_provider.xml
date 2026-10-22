@@ -18,8 +18,6 @@
             android:id="@+id/provider_name"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
 
         <TextView
@@ -35,7 +33,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerVertical="true"
-        android:layout_marginEnd="@dimen/metacubex_item_tailing_margin"
+        android:layout_marginEnd="@dimen/metacubex_item_middle_margin"
         android:layout_toStartOf="@id/provider_update_container" />
 
     <View
