@@ -21,7 +21,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenConnections,
         OpenLogs,
         OpenSettings,
-        OpenWatfaq,
         OpenHelp,
         OpenAbout,
     }
@@ -58,7 +57,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.cardSettings.setOnClickListener { request(Request.OpenSettings) }
         cardHelp.setOnClickListener { request(Request.OpenHelp) }
         cardAbout.setOnClickListener { request(Request.OpenAbout) }
-        binding.buttonOpenWatfaq.setOnClickListener { request(Request.OpenWatfaq) }
 
         setProfileName(null)
         setMode(context.getString(R.string.not_available))

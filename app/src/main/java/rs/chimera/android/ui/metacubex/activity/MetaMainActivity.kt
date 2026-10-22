@@ -25,7 +25,6 @@ import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.metacubex.design.MainDesign
 import rs.chimera.android.ui.metacubex.design.ProviderDisplayPolicy
-import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.backend.model.ProxyMode
 
 class MetaMainActivity : AppCompatActivity() {
@@ -155,12 +154,11 @@ class MetaMainActivity : AppCompatActivity() {
                 startActivity(Intent(this, MetaConnectionsActivity::class.java))
             }
             MainDesign.Request.OpenLogs -> {
-                startActivity(Intent(this, MetaLogsDesignActivity::class.java))
+                startActivity(Intent(this, MetaLogsHomeActivity::class.java))
             }
             MainDesign.Request.OpenSettings -> {
                 startActivity(Intent(this, MetaSettingsHomeActivity::class.java))
             }
-            MainDesign.Request.OpenWatfaq -> DefaultAppUiRouter.openWatfaq(this)
             MainDesign.Request.OpenHelp -> {
                 startActivity(Intent(this, MetaHelpActivity::class.java))
             }

@@ -213,7 +213,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/profile_screen"
+                        android:text="@string/cmfa_main_profile_title"
                         android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
 
                 <TextView
@@ -231,26 +231,26 @@
             android:id="@+id/card_providers"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="2dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             android:visibility="gone"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="20dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_swap_vertical_circle" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="20dp"
+                android:layout_marginEnd="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:text="@string/meta_providers_title"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
         </LinearLayout>
@@ -259,24 +259,25 @@
             android:id="@+id/card_logs"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_assignment" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:text="@string/logs_screen"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
         </LinearLayout>
@@ -285,24 +286,25 @@
             android:id="@+id/card_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_settings" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:text="@string/settings_screen"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
         </LinearLayout>
@@ -311,24 +313,25 @@
             android:id="@+id/card_help"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_help_center" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:text="@string/cmfa_help_title"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
         </LinearLayout>
@@ -337,24 +340,25 @@
             android:id="@+id/card_about"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_info" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:text="@string/about_title"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
         </LinearLayout>
@@ -363,24 +367,25 @@
             android:id="@+id/card_connections"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:background="?attr/selectableItemBackground"
             android:clickable="true"
             android:focusable="true"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_swap_horiz" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginEnd="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:text="@string/connections_title"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
         </LinearLayout>
@@ -389,15 +394,15 @@
             android:id="@+id/card_memory"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
+            android:layout_marginVertical="@dimen/metacubex_main_label_margin_vertical"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingVertical="15dp">
+            android:paddingVertical="@dimen/metacubex_main_label_padding_vertical">
 
             <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
+                android:layout_width="@dimen/metacubex_main_icon_size"
+                android:layout_height="@dimen/metacubex_main_icon_size"
+                android:layout_marginHorizontal="@dimen/metacubex_main_action_icon_margin_horizontal"
                 android:contentDescription="@null"
                 app:srcCompat="@drawable/ic_baseline_memory" />
 
@@ -417,37 +422,12 @@
                     android:id="@+id/text_memory"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="@dimen/metacubex_main_label_text_margin"
                     android:text="@string/not_available"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
             </LinearLayout>
         </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/button_open_watfaq"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginVertical="5dp"
-            android:background="?attr/selectableItemBackground"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingVertical="15dp">
-
-            <ImageView
-                android:layout_width="70dp"
-                android:layout_height="30dp"
-                android:layout_marginHorizontal="5dp"
-                android:contentDescription="@null"
-                app:srcCompat="@drawable/ic_baseline_link" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/switch_to_watfaq_ui"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
-        </LinearLayout>
         </LinearLayout>
         </ScrollView>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

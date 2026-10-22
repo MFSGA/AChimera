@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/metacubex_toolbar_height"
+        android:background="?android:attr/windowBackground"
+        android:paddingEnd="@dimen/metacubex_item_tailing_margin">
+
+        <ImageView
+            android:id="@+id/toolbar_navigation"
+            android:layout_width="@dimen/metacubex_item_header_component_size"
+            android:layout_height="@dimen/metacubex_item_header_component_size"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:layout_marginHorizontal="@dimen/metacubex_item_header_margin"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/back"
+            android:focusable="true"
+            android:paddingHorizontal="@dimen/metacubex_toolbar_image_action_padding"
+            android:src="@drawable/ic_baseline_arrow_back" />
+
+        <TextView
+            android:id="@+id/toolbar_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerVertical="true"
+            android:layout_toEndOf="@id/toolbar_navigation"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/logs_screen"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+
+        <ImageView
+            android:id="@+id/delete_all"
+            android:layout_width="@dimen/metacubex_item_tailing_component_size"
+            android:layout_height="@dimen/metacubex_item_tailing_component_size"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="@dimen/metacubex_item_tailing_margin"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/meta_logs_clear_runtime"
+            android:focusable="true"
+            android:padding="@dimen/metacubex_toolbar_image_action_padding"
+            android:src="@drawable/ic_baseline_clear_all_metacubex" />
+    </RelativeLayout>
+
+    <LinearLayout
+        android:id="@+id/start_logcat"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:gravity="center_vertical"
+        android:minHeight="@dimen/metacubex_item_min_height"
+        android:orientation="horizontal"
+        android:paddingVertical="@dimen/metacubex_item_padding_vertical">
+
+        <ImageView
+            android:layout_width="@dimen/metacubex_item_header_component_size"
+            android:layout_height="@dimen/metacubex_item_header_component_size"
+            android:layout_marginHorizontal="@dimen/metacubex_item_header_margin"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_baseline_adb_metacubex" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/meta_logs_runtime_title"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/metacubex_item_text_margin"
+                android:text="@string/meta_logs_view_runtime"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

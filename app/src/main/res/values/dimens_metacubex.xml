@@ -27,7 +27,6 @@
     <dimen name="metacubex_divider_size">1dp</dimen>
     <dimen name="metacubex_item_header_component_size">30dp</dimen>
     <dimen name="metacubex_item_header_margin">17.5dp</dimen>
-    <dimen name="metacubex_item_header_start_padding">65dp</dimen>
     <dimen name="metacubex_item_min_height">75dp</dimen>
     <dimen name="metacubex_item_padding_vertical">16dp</dimen>
     <dimen name="metacubex_item_middle_margin">10dp</dimen>

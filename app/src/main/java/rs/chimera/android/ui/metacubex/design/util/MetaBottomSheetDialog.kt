@@ -45,7 +45,10 @@ class MetaBottomSheetDialog(context: Context) : BottomSheetDialog(context) {
         val sheet = findViewById<FrameLayout>(com.google.android.material.R.id.design_bottom_sheet)
             ?: return
         ViewCompat.setBackgroundTintList(sheet, null)
-        sheet.background = ContextCompat.getDrawable(context, R.drawable.meta_profile_bottom_sheet_background)
+        sheet.background = ContextCompat.getDrawable(
+            sheet.context,
+            R.drawable.meta_profile_bottom_sheet_background,
+        )
         val surfaceColor = MaterialColors.getColor(sheet, com.google.android.material.R.attr.colorSurface)
         val isLightSurface = ColorUtils.calculateLuminance(surfaceColor) > 0.5
         WindowInsetsControllerCompat(dialogWindow, dialogWindow.decorView).apply {
@@ -65,7 +68,10 @@ class MetaBottomSheetDialog(context: Context) : BottomSheetDialog(context) {
             params.bottomMargin = 0
             view.layoutParams = params
             view.background = InsetDrawable(
-                ContextCompat.getDrawable(context, R.drawable.meta_profile_bottom_sheet_background),
+                ContextCompat.getDrawable(
+                    view.context,
+                    R.drawable.meta_profile_bottom_sheet_background,
+                ),
                 0,
                 0,
                 0,

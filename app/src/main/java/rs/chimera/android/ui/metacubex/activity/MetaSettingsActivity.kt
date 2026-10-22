@@ -65,7 +65,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.NavigateBack -> finish()
             SettingsDesign.Request.EditPorts -> showPortDialog()
             SettingsDesign.Request.OpenLogs -> {
-                startActivity(Intent(this, MetaLogsDesignActivity::class.java))
+                startActivity(Intent(this, MetaLogsHomeActivity::class.java))
             }
             SettingsDesign.Request.ShareDiagnostics -> shareDiagnostics()
             SettingsDesign.Request.OpenDnsDiagnostics -> showDnsDialog()
