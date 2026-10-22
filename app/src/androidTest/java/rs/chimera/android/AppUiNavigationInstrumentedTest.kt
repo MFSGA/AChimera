@@ -31,6 +31,7 @@ import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiSelector
+import com.google.android.material.tabs.TabLayout
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -1381,6 +1382,42 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
+    fun restoredProxyGroupSelectsAndRevealsItsTab() {
+        val groups = (0..6).map { index ->
+            proxyGroupWithNodes("restored-group-$index", "Selector", listOf("node-$index"))
+        }
+        val selectedPosition = groups.lastIndex
+
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                ProxyDisplayPreferences(activity).updateLastGroupName(groups.last().name)
+                design = createProxyDesign(activity, groups)
+            }
+
+            awaitProxyPageBounds(scenario, design, selectedPosition, itemCount = 1)
+
+            var selectedTabVisible = false
+            val deadline = SystemClock.uptimeMillis() + 5_000
+            while (!selectedTabVisible && SystemClock.uptimeMillis() < deadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val tabLayout = design.binding.tabLayout
+                    selectedTabVisible = design.binding.viewPager.currentItem == selectedPosition &&
+                        tabLayout.selectedTabPosition == selectedPosition &&
+                        isTabCenterVisible(tabLayout, selectedPosition)
+                }
+                if (!selectedTabVisible) SystemClock.sleep(50)
+            }
+
+            assertTrue(
+                "Restored group tab at position $selectedPosition should be selected and visible",
+                selectedTabVisible,
+            )
+        }
+    }
+
+    @Test
     fun metaConnectionsLayoutStartsWithCloseAllDisabled() {
         val themedContext = ContextThemeWrapper(context, R.style.Theme_Chimera_MetaCubeX)
         val root = LayoutInflater.from(themedContext).inflate(R.layout.meta_design_connections, null)
@@ -1641,6 +1678,21 @@ class AppUiNavigationInstrumentedTest {
         val pageRoot = pagerRecycler.findViewHolderForAdapterPosition(position)?.itemView
             as? ViewGroup ?: return null
         return pageRoot.getChildAt(0) as? RecyclerView
+    }
+
+    private fun isTabCenterVisible(tabLayout: TabLayout, position: Int): Boolean {
+        val tabStrip = tabLayout.getChildAt(0) as? ViewGroup ?: return false
+        val tabView = tabStrip.getChildAt(position) ?: return false
+        if (tabView.width <= 0 || tabLayout.width <= 0) return false
+
+        val tabLocation = IntArray(2)
+        val layoutLocation = IntArray(2)
+        tabView.getLocationOnScreen(tabLocation)
+        tabLayout.getLocationOnScreen(layoutLocation)
+        val tabCenter = tabLocation[0] + tabView.width / 2
+        val viewportStart = layoutLocation[0] + tabLayout.paddingLeft
+        val viewportEnd = layoutLocation[0] + tabLayout.width - tabLayout.paddingRight
+        return tabCenter in viewportStart..viewportEnd
     }
 
     private fun proxyPageAdapterExists(design: ProxyDesign, groupName: String): Boolean {

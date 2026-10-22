@@ -243,10 +243,46 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             stateContainer.visibility = View.GONE
             setDelayTestActionVisible(true)
             binding.viewPager.setCurrentItem(currentGroupIndex, false)
+            groups.getOrNull(currentGroupIndex)?.name?.let(::restoreCurrentGroupTabVisibility)
             updateDelayTestActionState()
         } finally {
             renderingGroups = false
         }
+    }
+
+    private fun restoreCurrentGroupTabVisibility(groupName: String) {
+        val position = currentGroupIndex
+        binding.tabLayout.doOnPreDraw {
+            if (
+                groups.getOrNull(position)?.name != groupName ||
+                currentGroupIndex != position ||
+                binding.viewPager.currentItem != position
+            ) {
+                return@doOnPreDraw
+            }
+
+            if (
+                binding.tabLayout.selectedTabPosition != position ||
+                !isTabCenterVisible(position)
+            ) {
+                binding.tabLayout.getTabAt(position)?.select()
+            }
+        }
+    }
+
+    private fun isTabCenterVisible(position: Int): Boolean {
+        val tabStrip = binding.tabLayout.getChildAt(0) as? ViewGroup ?: return false
+        val tabView = tabStrip.getChildAt(position) ?: return false
+        if (tabView.width <= 0 || binding.tabLayout.width <= 0) return false
+
+        val tabLocation = IntArray(2)
+        val layoutLocation = IntArray(2)
+        tabView.getLocationOnScreen(tabLocation)
+        binding.tabLayout.getLocationOnScreen(layoutLocation)
+        val tabCenter = tabLocation[0] + tabView.width / 2
+        val viewportStart = layoutLocation[0] + binding.tabLayout.paddingLeft
+        val viewportEnd = layoutLocation[0] + binding.tabLayout.width - binding.tabLayout.paddingRight
+        return tabCenter in viewportStart..viewportEnd
     }
 
     fun setDelayTestProgress(groupName: String, current: Int, total: Int) {
