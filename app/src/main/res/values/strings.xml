@@ -371,7 +371,12 @@
     <string name="profile_import_success">Imported %1$s</string>
     <string name="profile_import_error">Import failed: %1$s</string>
     <string name="profile_update">Update</string>
+    <string name="profile_edit">Edit</string>
     <string name="profile_edit_settings">Edit remote settings</string>
+    <string name="profile_duplicate">Duplicate</string>
+    <string name="profile_duplicating">Creating profile copy…</string>
+    <string name="profile_duplicate_success">Duplicated %1$s</string>
+    <string name="profile_duplicate_error">Failed to duplicate profile: %1$s</string>
     <string name="profile_share_qr_code">Share QR code</string>
     <string name="profile_qr_code_close">Close</string>
     <string name="profile_qr_code_generation_failed">Unable to generate a QR code for this link.</string>

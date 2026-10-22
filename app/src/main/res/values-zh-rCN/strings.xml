@@ -358,7 +358,12 @@
     <string name="profile_import_success">已导入 %1$s</string>
     <string name="profile_import_error">导入失败：%1$s</string>
     <string name="profile_update">更新配置</string>
+    <string name="profile_edit">编辑</string>
     <string name="profile_edit_settings">编辑远程设置</string>
+    <string name="profile_duplicate">复制</string>
+    <string name="profile_duplicating">正在复制配置…</string>
+    <string name="profile_duplicate_success">已复制 %1$s</string>
+    <string name="profile_duplicate_error">复制配置失败：%1$s</string>
     <string name="profile_share_qr_code">分享二维码</string>
     <string name="profile_qr_code_close">关闭</string>
     <string name="profile_qr_code_generation_failed">无法为此链接生成二维码。</string>

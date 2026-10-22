@@ -10,18 +10,18 @@ internal enum class MetaProfileAction(
     @param:DrawableRes @get:DrawableRes val iconRes: Int,
 ) {
     Update(R.string.profile_update, R.drawable.ic_baseline_update),
-    EditRemoteSettings(R.string.profile_edit_settings, R.drawable.ic_baseline_edit),
+    Edit(R.string.profile_edit, R.drawable.ic_baseline_edit),
+    Duplicate(R.string.profile_duplicate, R.drawable.ic_baseline_content_copy),
     ShareQrCode(R.string.profile_share_qr_code, R.drawable.baseline_qr_code_scanner),
+    Delete(R.string.profile_delete, R.drawable.ic_outline_delete),
     Details(R.string.profile_details, R.drawable.ic_baseline_info),
     Verify(R.string.profile_verify, R.drawable.ic_outline_check_circle),
-    Rename(R.string.profile_rename, R.drawable.ic_baseline_edit),
-    Delete(R.string.profile_delete, R.drawable.ic_outline_delete),
     ;
 
     fun isAvailableFor(profile: ProfileSummary): Boolean = when (this) {
-        Details, Rename, Delete -> true
+        Edit, Details, Duplicate, Delete -> true
         Verify -> profile.isActive
-        EditRemoteSettings, Update -> profile.isRemote
+        Update -> profile.isRemote
         ShareQrCode -> profile.isRemote && !profile.url.isNullOrBlank()
     }
 }

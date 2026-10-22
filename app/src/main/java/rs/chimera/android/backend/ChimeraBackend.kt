@@ -51,6 +51,7 @@ interface ChimeraBackend {
     suspend fun listProfiles(): List<ProfileSummary>
     suspend fun activateProfile(id: String)
     suspend fun deleteProfile(id: String)
+    suspend fun duplicateProfile(id: String): String
     suspend fun renameProfile(id: String, newName: String)
     suspend fun importLocalProfile(uri: Uri, name: String?): String
     suspend fun importRemoteProfile(

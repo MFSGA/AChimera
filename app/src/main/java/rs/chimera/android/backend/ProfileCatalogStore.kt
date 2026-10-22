@@ -33,6 +33,11 @@ internal data class RemoteProfileCatalogEntry(
     val lastUpdated: Long? = null,
 )
 
+internal data class ProfileDuplicateSource(
+    val name: String,
+    val filePath: String,
+)
+
 internal class ProfileCatalogStore(
     private val profilePrefs: SharedPreferences,
     private val catalogCoordinator: ProfileCatalogCoordinator,
@@ -82,6 +87,15 @@ internal class ProfileCatalogStore(
             lastUpdated = profile.takeIf { it.has("lastUpdated") }
                 ?.optLong("lastUpdated")
                 ?.takeIf { it > 0L },
+        )
+    }
+
+    fun readProfileForDuplication(id: String): ProfileDuplicateSource = catalogCoordinator.withLock {
+        val profile = readJson().findById(id)
+            ?: throw IllegalArgumentException("Profile not found")
+        ProfileDuplicateSource(
+            name = profile.getString("name"),
+            filePath = profile.getString("filePath"),
         )
     }
 

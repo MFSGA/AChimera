@@ -16,10 +16,10 @@ class MetaProfileActionTest {
     @Test
     fun remoteActionsRequireRemoteProfile() {
         assertFalse(MetaProfileAction.Update.isAvailableFor(profile()))
-        assertFalse(MetaProfileAction.EditRemoteSettings.isAvailableFor(profile()))
         assertFalse(MetaProfileAction.ShareQrCode.isAvailableFor(profile()))
         assertTrue(MetaProfileAction.Update.isAvailableFor(profile(isRemote = true)))
-        assertTrue(MetaProfileAction.EditRemoteSettings.isAvailableFor(profile(isRemote = true)))
+        assertTrue(MetaProfileAction.Edit.isAvailableFor(profile()))
+        assertTrue(MetaProfileAction.Edit.isAvailableFor(profile(isRemote = true)))
         assertTrue(MetaProfileAction.ShareQrCode.isAvailableFor(profile(isRemote = true)))
         assertFalse(MetaProfileAction.ShareQrCode.isAvailableFor(profile(isRemote = true, url = " ")))
     }
@@ -29,8 +29,10 @@ class MetaProfileActionTest {
         val profile = profile()
 
         assertTrue(MetaProfileAction.Details.isAvailableFor(profile))
-        assertTrue(MetaProfileAction.Rename.isAvailableFor(profile))
+        assertTrue(MetaProfileAction.Edit.isAvailableFor(profile))
         assertTrue(MetaProfileAction.Delete.isAvailableFor(profile))
+        assertTrue(MetaProfileAction.Duplicate.isAvailableFor(profile))
+        assertTrue(MetaProfileAction.Duplicate.isAvailableFor(profile(isRemote = true)))
     }
 
     private fun profile(

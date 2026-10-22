@@ -77,6 +77,58 @@ internal class ProfileImportOperations(
             isFirst to safeName
         }
 
+    suspend fun duplicateProfile(id: String): String = withContext(Dispatchers.IO) {
+        val sourceEntry = profileCatalogStore.readProfileForDuplication(id)
+        val sourceFile = ProfileDuplicatePolicy.requireManagedSource(
+            filesDirectory = context.filesDir,
+            sourcePath = sourceEntry.filePath,
+        )
+        val duplicateId = UUID.randomUUID().toString()
+        val duplicateName = sourceEntry.name
+        val destinationFile = File(
+            context.filesDir,
+            ProfileRemotePolicy.storageFileName(duplicateId, sourceFile.name),
+        )
+        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
+
+        ProfileFilePolicy.writeOrRollback(stagedFile) {
+            sourceFile.inputStream().use { input ->
+                it.outputStream().use { output ->
+                    ProfileImportPolicy.copyWithLimit(input, output)
+                }
+            }
+        }
+        try {
+            verifyImportedProfile(stagedFile)
+        } catch (error: Throwable) {
+            ProfileFilePolicy.deleteAfterFailure(stagedFile, error)
+            throw error
+        }
+
+        val profileJson = JSONObject().apply {
+            put("id", duplicateId)
+            put("name", duplicateName)
+            put("filePath", destinationFile.absolutePath)
+            put("createdAt", System.currentTimeMillis())
+            put("isActive", false)
+            put("fileSize", stagedFile.length())
+            put("type", ProfileType.LOCAL.name)
+        }
+
+        ProfileImportTransactionPolicy.run(
+            stagedFile = stagedFile,
+            destinationFile = destinationFile,
+            beginImportTransaction = profileStagingStore::markImportPending,
+            persistMetadata = { file ->
+                profileJson.put("filePath", file.absolutePath)
+                profileJson.put("fileSize", file.length())
+                profileCatalogStore.append(profileJson, pendingImport = file)
+            },
+            clearImportTransaction = profileStagingStore::clearImportPending,
+        )
+        duplicateId
+    }
+
     suspend fun importRemoteProfile(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,

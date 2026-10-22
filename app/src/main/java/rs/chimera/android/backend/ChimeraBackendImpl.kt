@@ -296,6 +296,11 @@ class ChimeraBackendImpl(
         }
     }
 
+    private suspend fun duplicateProfileReady(id: String): String =
+        profileUpdateCoordinator.withLock(id) {
+            profileImportOperations.duplicateProfile(id)
+        }
+
     private fun renameProfileLocked(id: String, newName: String) {
         val normalizedName = newName.trim()
         require(normalizedName.isNotEmpty()) { "Profile name is empty" }
@@ -588,6 +593,12 @@ class ChimeraBackendImpl(
         withContext(Dispatchers.IO) {
             awaitReady()
             renameProfileReady(id, newName)
+        }
+
+    override suspend fun duplicateProfile(id: String): String =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            duplicateProfileReady(id)
         }
 
     override suspend fun importLocalProfile(uri: Uri, name: String?): String =

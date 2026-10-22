@@ -27,6 +27,7 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ProfileDeletionRuntimePolicy
+import rs.chimera.android.backend.ProfileDuplicatePolicy
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
@@ -262,7 +263,14 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                     .show()
             }
             MetaProfileAction.Verify -> verifyProfile(profile)
-            MetaProfileAction.EditRemoteSettings -> showRemoteSettingsDialog(profile)
+            MetaProfileAction.Duplicate -> duplicateProfile(profile)
+            MetaProfileAction.Edit -> {
+                if (profile.isRemote) {
+                    showRemoteSettingsDialog(profile)
+                } else {
+                    showRenameDialog(profile.id, profile.name)
+                }
+            }
             MetaProfileAction.ShareQrCode -> showProfileQrCode(profile)
             MetaProfileAction.Update -> performOperation(
                 progressMessage = getString(R.string.profile_updating),
@@ -271,8 +279,22 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             ) {
                 backend.updateRemoteProfile(profile.id)
             }
-            MetaProfileAction.Rename -> showRenameDialog(profile.id, profile.name)
             MetaProfileAction.Delete -> confirmDelete(profile.id, profile.name)
+        }
+    }
+
+    private suspend fun duplicateProfile(profile: ProfileSummary) {
+        val duplicateName = profile.name
+        var duplicateId: String? = null
+        val succeeded = performOperation(
+            progressMessage = getString(R.string.profile_duplicating),
+            successMessage = getString(R.string.profile_duplicate_success, duplicateName),
+            errorMessageRes = R.string.profile_duplicate_error,
+        ) {
+            duplicateId = backend.duplicateProfile(profile.id)
+        }
+        if (succeeded) {
+            duplicateId?.let { showRenameDialog(it, duplicateName) }
         }
     }
 
