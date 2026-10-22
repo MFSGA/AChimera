@@ -28,7 +28,6 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ProfileDeletionRuntimePolicy
-import rs.chimera.android.backend.ProfileDuplicatePolicy
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
