@@ -2,6 +2,7 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -33,6 +34,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         design = ProxyDesign(this)
         design.onProxySelectionQueueChanged = { enqueued ->
             if (enqueued) {
