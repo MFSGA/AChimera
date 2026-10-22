@@ -21,19 +21,32 @@ class MetaProxyDesignActivity : AppCompatActivity() {
     private lateinit var design: ProxyDesign
     private var initialLoadComplete = false
     private var refreshing = false
-    private var selecting = false
-    private var testing = false
+    private var pendingProxySelections = 0
+    private var switchingMode = false
+    private val selecting: Boolean
+        get() = pendingProxySelections > 0 || switchingMode
+    private val proxyDelayTestTracker = ProxyDelayTestTracker()
+    private val testing: Boolean
+        get() = proxyDelayTestTracker.isTesting
+    private val proxyGroupRefreshGate = ProxyGroupRefreshGate()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         design = ProxyDesign(this)
+        design.onProxySelectionQueueChanged = { enqueued ->
+            if (enqueued) {
+                proxyGroupRefreshGate.selectionStarted()
+                pendingProxySelections++
+            } else {
+                pendingProxySelections = (pendingProxySelections - 1).coerceAtLeast(0)
+                finishProxyMutationsIfIdle()
+            }
+        }
         setContentView(design.root)
 
         lifecycleScope.launch {
-            for (request in design.requests) {
-                handleRequest(request)
-            }
+            consumeProxyRequests(design.requests, ::handleRequest)
         }
 
         observeProxyGroups()
@@ -89,14 +102,23 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 }
 
                 launch {
+                    backend.proxyModeOverride.collect(design::setModeOverride)
+                }
+
+                launch {
                     backend.runtimeError.collect { error ->
+                        val runtimeError = error ?: return@collect
                         if (
-                            error?.source == BackendRuntimeErrorSource.PROXY_GROUPS &&
-                            backend.serviceState.value == ServiceState.RUNNING &&
-                            initialLoadComplete &&
-                            !refreshing
+                            shouldShowProxyGroupRuntimeError(
+                                errorSource = runtimeError.source,
+                                serviceState = backend.serviceState.value,
+                                initialLoadComplete = initialLoadComplete,
+                                selecting = selecting,
+                                refreshing = refreshing,
+                                testing = testing,
+                            )
                         ) {
-                            design.showError(error.message)
+                            design.showError(runtimeError.message)
                         }
                     }
                 }
@@ -107,20 +129,31 @@ class MetaProxyDesignActivity : AppCompatActivity() {
     private suspend fun handleRequest(request: ProxyDesign.Request) {
         when (request) {
             is ProxyDesign.Request.SelectProxy -> selectProxy(request)
-            is ProxyDesign.Request.DelayTest -> testGroupDelay(request)
+            is ProxyDesign.Request.DelayTest -> startGroupDelayTest(request)
             is ProxyDesign.Request.SwitchMode -> switchMode(request)
             ProxyDesign.Request.Refresh -> refreshGroups(showLoading = true)
             ProxyDesign.Request.NavigateBack -> finish()
         }
     }
 
+    private fun startGroupDelayTest(request: ProxyDesign.Request.DelayTest) {
+        if (request.proxyNames.isEmpty()) return
+        if (!proxyDelayTestTracker.start(request.groupName, request.proxyNames.size)) return
+
+        // CMFA handles URL tests in a child coroutine so selection requests keep flowing.
+        design.setDelayTestProgress(request.groupName, 1, request.proxyNames.size)
+        lifecycleScope.launch {
+            testGroupDelay(request)
+        }
+    }
+
     private suspend fun refreshGroups(showLoading: Boolean = false) {
         if (backend.serviceState.value != ServiceState.RUNNING) {
+            design.restoreConfirmedProxyGroups()
             design.showNotRunning()
             return
         }
-        if (refreshing) return
-
+        val refreshRevision = proxyGroupRefreshGate.requestRefresh(selecting, refreshing) ?: return
         refreshing = true
         if (showLoading) design.showLoading()
         try {
@@ -128,87 +161,127 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 withContext(Dispatchers.IO) { backend.listProxyGroups() }
             }.onSuccess { snapshots ->
                 initialLoadComplete = true
-                val proxyError = backend.runtimeError.value
-                    ?.takeIf { it.source == BackendRuntimeErrorSource.PROXY_GROUPS }
-                if (snapshots.isEmpty() && proxyError != null) {
-                    design.showError(proxyError.message)
-                } else {
-                    design.setGroups(snapshots)
+                if (
+                    proxyGroupRefreshGate.shouldApply(
+                        refreshRevision,
+                        selecting,
+                        serviceRunning = backend.serviceState.value == ServiceState.RUNNING,
+                    )
+                ) {
+                    val proxyError = backend.runtimeError.value
+                        ?.takeIf { it.source == BackendRuntimeErrorSource.PROXY_GROUPS }
+                    if (snapshots.isEmpty() && proxyError != null) {
+                        design.showError(proxyError.message)
+                    } else {
+                        design.setGroups(snapshots)
+                    }
                 }
             }.onFailure { error ->
                 initialLoadComplete = true
-                design.showError(error.message ?: getString(R.string.proxy_refresh_failed))
+                if (
+                    proxyGroupRefreshGate.shouldApply(
+                        refreshRevision,
+                        selecting,
+                        serviceRunning = backend.serviceState.value == ServiceState.RUNNING,
+                    )
+                ) {
+                    design.restoreConfirmedProxyGroups()
+                    design.showError(error.message ?: getString(R.string.proxy_refresh_failed))
+                }
             }
         } finally {
             refreshing = false
+            refreshPendingGroupsIfNeeded()
+        }
+    }
+
+    private fun refreshPendingGroupsIfNeeded() {
+        if (backend.serviceState.value != ServiceState.RUNNING) return
+        if (!proxyGroupRefreshGate.takePendingRefresh(selecting, refreshing)) return
+        lifecycleScope.launch {
+            refreshGroups()
         }
     }
 
     private suspend fun selectProxy(request: ProxyDesign.Request.SelectProxy) {
-        if (selecting || testing) return
-
-        selecting = true
+        if (pendingProxySelections == 0) {
+            proxyGroupRefreshGate.selectionStarted()
+            pendingProxySelections = 1
+        }
         try {
-            runCatchingPreservingCancellation {
-                withContext(Dispatchers.IO) {
-                    backend.selectProxy(request.groupName, request.proxyName)
-                }
-            }.onSuccess {
-                if (!design.applyProxySelection(request.groupName, request.proxyName)) {
-                    refreshGroups()
-                }
-            }.onFailure { error ->
-                design.showToast(
-                    getString(
-                        R.string.proxy_select_failed,
-                        error.message ?: getString(R.string.profile_unknown_error),
-                    ),
-                )
-            }
+            runProxySelection(
+                selectionProjected = request.selectionProjected,
+                select = {
+                    withContext(Dispatchers.IO) {
+                        backend.selectProxy(request.groupName, request.proxyName)
+                    }
+                },
+                confirmSelection = {
+                    design.confirmProxySelection(request.groupName, request.proxyName)
+                },
+                refresh = { refreshGroups() },
+                onFailure = { error ->
+                    design.showToast(
+                        getString(
+                            R.string.proxy_select_failed,
+                            error.message ?: getString(R.string.profile_unknown_error),
+                        ),
+                    )
+                },
+            )
         } finally {
-            selecting = false
+            pendingProxySelections = (pendingProxySelections - 1).coerceAtLeast(0)
+            finishProxyMutationsIfIdle()
         }
     }
 
+    private fun finishProxyMutationsIfIdle() {
+        if (selecting) return
+        proxyGroupRefreshGate.selectionFinished()
+        refreshPendingGroupsIfNeeded()
+    }
+
     private suspend fun switchMode(request: ProxyDesign.Request.SwitchMode) {
-        if (selecting || testing || refreshing) return
+        if (!canStartProxyModeSwitch(switchingMode)) return
         if (backend.serviceState.value != ServiceState.RUNNING) {
             design.showNotRunning()
             return
         }
 
         design.showModeSwitchTips()
-        selecting = true
-        design.setSelecting(true)
+        proxyGroupRefreshGate.selectionStarted()
+        switchingMode = true
         try {
-            val result = runCatchingPreservingCancellation {
-                withContext(Dispatchers.IO) { backend.setMode(request.mode) }
-            }
-            result.onSuccess {
-                design.setMode(request.mode)
-                refreshGroups()
-            }.onFailure { error ->
-                design.showToast(
-                    getString(
-                        R.string.proxy_mode_switch_failed,
-                        error.message ?: getString(R.string.profile_unknown_error),
-                    ),
-                )
-            }
+            runProxyModeSwitch(
+                mode = request.mode,
+                applyMode = { mode ->
+                    withContext(Dispatchers.IO) { backend.setMode(mode) }
+                },
+                currentMode = { backend.proxyModeOverride.value },
+                setDisplayedMode = design::setModeOverride,
+                refresh = { refreshGroups() },
+                onFailure = { error ->
+                    design.showToast(
+                        getString(
+                            R.string.proxy_mode_switch_failed,
+                            error.message ?: getString(R.string.profile_unknown_error),
+                        ),
+                    )
+                },
+            )
         } finally {
-            selecting = false
-            design.setSelecting(false)
+            switchingMode = false
+            finishProxyMutationsIfIdle()
         }
     }
 
     private suspend fun testGroupDelay(request: ProxyDesign.Request.DelayTest) {
-        if (testing || selecting || request.proxyNames.isEmpty()) return
-
-        testing = true
         var failures = 0
         try {
             request.proxyNames.forEachIndexed { index, proxyName ->
-                design.setDelayTestProgress(index + 1, request.proxyNames.size)
+                val current = index + 1
+                proxyDelayTestTracker.update(request.groupName, current, request.proxyNames.size)
+                design.setDelayTestProgress(request.groupName, current, request.proxyNames.size)
                 val result = runCatchingPreservingCancellation {
                     withContext(Dispatchers.IO) {
                         backend.testProxyDelay(proxyName)
@@ -230,8 +303,24 @@ class MetaProxyDesignActivity : AppCompatActivity() {
             design.showToast(message)
             refreshGroups()
         } finally {
-            testing = false
-            design.finishDelayTest()
+            proxyDelayTestTracker.finish(request.groupName)
+            design.finishDelayTest(request.groupName)
+            refreshPendingGroupsIfNeeded()
         }
     }
 }
+
+internal fun shouldShowProxyGroupRuntimeError(
+    errorSource: BackendRuntimeErrorSource?,
+    serviceState: ServiceState,
+    initialLoadComplete: Boolean,
+    selecting: Boolean,
+    refreshing: Boolean,
+    testing: Boolean,
+): Boolean =
+    errorSource == BackendRuntimeErrorSource.PROXY_GROUPS &&
+        serviceState == ServiceState.RUNNING &&
+        initialLoadComplete &&
+        !selecting &&
+        !refreshing &&
+        !testing

@@ -132,6 +132,11 @@ class ChimeraBackendImpl(
         recordRuntimeError = ::recordRuntimeError,
         clearRuntimeError = ::clearRuntimeError,
     )
+    private val sessionProxyModeCoordinator = SessionProxyModeCoordinator(
+        readCurrentMode = controllerOperations::currentMode,
+        applyMode = controllerOperations::setMode,
+    )
+    override val proxyModeOverride = sessionProxyModeCoordinator.override
     private val runtimeTelemetry = RuntimeTelemetryObserver(
         scope = backendScope,
         serviceState = serviceState,
@@ -164,6 +169,13 @@ class ChimeraBackendImpl(
     }
 
     init {
+        backendScope.launch {
+            serviceState.collect { state ->
+                if (state != ServiceState.RUNNING) {
+                    sessionProxyModeCoordinator.resetSession()
+                }
+            }
+        }
         backendScope.launch {
             awaitReady()
             synchronizeProfileAutoUpdateSchedule()
@@ -412,11 +424,21 @@ class ChimeraBackendImpl(
         controllerOperations.listProxyGroups()
 
     override suspend fun selectProxy(groupName: String, proxyName: String) {
-        controllerOperations.selectProxy(groupName, proxyName)
+        runtimeTelemetry.invalidateProxyGroupsSnapshot()
+        try {
+            controllerOperations.selectProxy(groupName, proxyName)
+        } finally {
+            runtimeTelemetry.refreshProxyGroupsSoon()
+        }
     }
 
-    override suspend fun setMode(mode: ProxyMode) {
-        controllerOperations.setMode(mode)
+    override suspend fun setMode(mode: ProxyMode?) {
+        runtimeTelemetry.invalidateProxyGroupsSnapshot()
+        try {
+            sessionProxyModeCoordinator.setMode(mode)
+        } finally {
+            runtimeTelemetry.refreshProxyGroupsSoon()
+        }
     }
 
     override suspend fun resetNetwork() {

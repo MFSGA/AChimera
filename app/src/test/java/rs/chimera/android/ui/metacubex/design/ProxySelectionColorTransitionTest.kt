@@ -8,10 +8,10 @@ import org.junit.Test
 
 class ProxySelectionColorTransitionTest {
     @Test
-    fun selectionAnimatesButConfirmedRefreshSnaps() {
+    fun selectionAnimationContinuesAcrossConfirmedRefresh() {
         val previous = entry(name = "node-b", selected = false)
-        val selectedAfterTap = entry(name = "node-b", selected = true, animate = true)
-        val confirmedRefresh = entry(name = "node-b", selected = true)
+        val selectedAfterTap = entry(name = "node-b", selected = true)
+        val confirmedRefresh = selectedAfterTap.copy(delayText = "42")
         val transition = ProxySelectionColorTransition()
 
         transition.snap(UNSELECTED, frameTime = 100L)
@@ -21,18 +21,18 @@ class ProxySelectionColorTransitionTest {
         assertEquals(0xff000040.toInt(), intermediate.color)
         assertTrue(intermediate.animating)
 
-        assertFalse(transition.bind(selectedAfterTap, confirmedRefresh, SELECTED, frameTime = 164L))
-        val snapped = transition.advance(SELECTED, frameTime = 165L)
-        assertEquals(SELECTED, snapped.color)
-        assertFalse(snapped.animating)
+        assertTrue(transition.bind(selectedAfterTap, confirmedRefresh, SELECTED, frameTime = 164L))
+        val continued = transition.advance(SELECTED, frameTime = 180L)
+        assertNotEquals(SELECTED, continued.color)
+        assertTrue(continued.animating)
 
-        val recycled = entry(name = "node-a", selected = false, animate = true)
+        val recycled = entry(name = "node-a", selected = false)
         val recycledTransition = ProxySelectionColorTransition()
         recycledTransition.snap(UNSELECTED, frameTime = 100L)
         assertTrue(recycledTransition.bind(previous, selectedAfterTap, SELECTED, frameTime = 101L))
         assertTrue(recycledTransition.advance(SELECTED, frameTime = 164L).animating)
 
-        assertFalse(ProxySelectionTransitionPolicy.shouldAnimate(selectedAfterTap, recycled, frameTime = 165L))
+        assertFalse(ProxySelectionTransitionPolicy.shouldAnimate(selectedAfterTap, recycled))
         assertFalse(recycledTransition.bind(selectedAfterTap, recycled, UNSELECTED, frameTime = 165L))
         val recycledFrame = recycledTransition.advance(UNSELECTED, frameTime = 166L)
         assertEquals(UNSELECTED, recycledFrame.color)
@@ -42,7 +42,7 @@ class ProxySelectionColorTransitionTest {
     @Test
     fun selectionUsesTimeSincePreviousDrawRatherThanTapTime() {
         val previous = entry(name = "node-b", selected = false)
-        val selected = entry(name = "node-b", selected = true, animate = true)
+        val selected = entry(name = "node-b", selected = true)
         val transition = ProxySelectionColorTransition()
 
         transition.snap(UNSELECTED, frameTime = 100L)
@@ -83,7 +83,7 @@ class ProxySelectionColorTransitionTest {
     @Test
     fun selectionAfterLongIdleUsesTheElapsedTimeSincePreviousDraw() {
         val previous = entry(name = "node-b", selected = false)
-        val selected = entry(name = "node-b", selected = true, animate = true)
+        val selected = entry(name = "node-b", selected = true)
         val transition = ProxySelectionColorTransition()
 
         transition.snap(UNSELECTED, frameTime = 100L)
@@ -96,8 +96,8 @@ class ProxySelectionColorTransitionTest {
     }
 
     @Test
-    fun markedSelectionOnFirstBindSnapsToCurrentSelection() {
-        val selected = entry(name = "node-b", selected = true, animate = true)
+    fun firstBindSnapsToCurrentSelection() {
+        val selected = entry(name = "node-b", selected = true)
         val transition = ProxySelectionColorTransition()
 
         assertFalse(transition.bind(previous = null, current = selected, target = SELECTED, frameTime = 100L))
@@ -111,7 +111,7 @@ class ProxySelectionColorTransitionTest {
     fun sameNodeInAnotherGroupDoesNotContinueTheOldTransition() {
         val transition = ProxySelectionColorTransition()
         val previous = entry("node-a", selected = false).copy(selectionGroupName = "selector-a")
-        val selected = previous.copy(isSelected = true, animateSelectionChange = true)
+        val selected = previous.copy(isSelected = true)
         val recycled = entry("node-a", selected = false).copy(selectionGroupName = "selector-b")
         transition.snap(UNSELECTED, frameTime = 100L)
 
@@ -125,21 +125,9 @@ class ProxySelectionColorTransitionTest {
     }
 
     @Test
-    fun delayedFirstBindDoesNotReplayAnActiveSelectionMarker() {
-        val delayedEntry = entry(name = "node-b", selected = true, animate = true)
-            .copy(selectionAnimationExpiresAt = 420L)
-        val transition = ProxySelectionColorTransition()
-
-        assertTrue(delayedEntry.isSelectionAnimationActive(frameTime = 419L))
-        assertFalse(transition.bind(previous = null, current = delayedEntry, target = SELECTED, frameTime = 419L))
-        assertEquals(SELECTED, transition.advance(SELECTED, frameTime = 420L).color)
-        assertFalse(delayedEntry.isSelectionAnimationActive(frameTime = 420L))
-    }
-
-    @Test
     fun confirmationRebindKeepsAnInFlightSelectionTransition() {
         val previous = entry(name = "node-b", selected = false)
-        val selected = entry(name = "node-b", selected = true, animate = true)
+        val selected = entry(name = "node-b", selected = true)
         val refreshed = selected.copy(delayText = "42")
         val transition = ProxySelectionColorTransition()
         transition.snap(UNSELECTED, frameTime = 100L)
@@ -154,8 +142,8 @@ class ProxySelectionColorTransitionTest {
     }
 
     private companion object {
-        fun entry(name: String, selected: Boolean, animate: Boolean = false) =
-            ProxyDisplayEntry(name, "VLESS", "", null, selected, animate)
+        fun entry(name: String, selected: Boolean) =
+            ProxyDisplayEntry(name, "VLESS", "", null, selected)
 
         const val UNSELECTED = 0xff000000.toInt()
         const val SELECTED = 0xff0000ff.toInt()

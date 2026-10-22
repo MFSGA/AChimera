@@ -40,6 +40,7 @@ interface ChimeraBackend {
     val traffic: StateFlow<TrafficSnapshot>
     val memoryInfo: StateFlow<MemoryInfo>
     val proxyGroups: StateFlow<List<ProxyGroupSnapshot>>
+    val proxyModeOverride: StateFlow<ProxyMode?>
     val runtimeError: StateFlow<BackendRuntimeError?>
 
     suspend fun prepareStartVpn(): StartVpnResult
@@ -64,7 +65,7 @@ interface ChimeraBackend {
     suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)
-    suspend fun setMode(mode: ProxyMode)
+    suspend fun setMode(mode: ProxyMode?)
     suspend fun resetNetwork()
     suspend fun testProxyDelay(proxyName: String): String
     suspend fun listConnections(): ConnectionsSnapshot

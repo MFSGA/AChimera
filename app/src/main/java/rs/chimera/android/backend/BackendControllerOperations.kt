@@ -67,6 +67,10 @@ internal class BackendControllerOperations(
         }
     }
 
+    suspend fun currentMode(): ProxyMode = withControllerContext {
+        controller.getMode()?.toProxyMode() ?: ProxyMode.RULE
+    }
+
     suspend fun resetNetwork() {
         runProxyOperation("Failed to reset network state") {
             controller.resetNetwork()

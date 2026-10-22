@@ -3,6 +3,8 @@ package rs.chimera.android.ui.metacubex.design
 import android.animation.ValueAnimator
 import android.content.Context
 import android.view.View
+import android.view.animation.Animation
+import android.view.animation.AnimationUtils
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -39,6 +41,8 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
         onItemClick = { profile -> request(Request.SelectProfile(profile.id)) },
         onMenuClick = { profile -> request(Request.ProfileMenu(profile.id)) },
     )
+    private val refreshAnimation: Animation =
+        AnimationUtils.loadAnimation(context, R.anim.metacubex_rotate_infinite)
 
     init {
         root.applySystemBarInsets()
@@ -69,6 +73,16 @@ class ProfilesDesign(context: Context) : Design<ProfilesDesign.Request>(context)
         stateProgress.visibility = View.VISIBLE
         stateAction.visibility = View.GONE
         stateMessage.text = message
+    }
+
+    fun setRefreshInProgress(inProgress: Boolean) {
+        if (inProgress) {
+            if (refreshAction.animation !== refreshAnimation) {
+                refreshAction.startAnimation(refreshAnimation)
+            }
+        } else {
+            refreshAction.clearAnimation()
+        }
     }
 
     fun submitList(profiles: List<ProfileSummary>) {

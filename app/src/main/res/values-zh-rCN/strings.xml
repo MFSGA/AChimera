@@ -256,6 +256,7 @@
     <string name="proxy_mode_rule">规则</string>
     <string name="proxy_mode_global">全局</string>
     <string name="proxy_mode_direct">直连</string>
+    <string name="proxy_mode_dont_modify">不修改</string>
     <string name="proxy_mode_switch_tips">仅在本次会话中有效</string>
     <string name="cmfa_main_mode_rule">规则模式</string>
     <string name="cmfa_main_mode_global">全局模式</string>
@@ -263,7 +264,7 @@
     <string name="proxy_mode_switch_failed">切换代理模式失败：%1$s</string>
     <string name="proxy_loading_title">正在加载节点</string>
     <string name="proxy_loading_message">正在从运行中的核心读取代理组。</string>
-    <string name="proxy_empty_message">当前配置没有提供可选择的代理组。</string>
+    <string name="proxy_empty_tips">没有可以显示的组</string>
     <string name="proxy_refresh_failed">刷新代理组失败。</string>
     <string name="proxy_select_not_applied">核心未能应用 %1$s。</string>
     <string name="proxy_select_failed">选择代理失败：%1$s</string>
@@ -272,11 +273,11 @@
     <string name="proxy_menu_filter">过滤</string>
     <string name="proxy_exclude_not_selectable">不可选择</string>
     <string name="proxy_menu_layout">布局</string>
-    <string name="proxy_menu_sort">排序方式</string>
+    <string name="proxy_menu_sort">排序</string>
     <string name="proxy_layout_single">单列</string>
     <string name="proxy_layout_double">双列</string>
-    <string name="proxy_layout_multiple">三列</string>
-    <string name="proxy_sort_default">默认顺序</string>
+    <string name="proxy_layout_multiple">多列</string>
+    <string name="proxy_sort_default">默认</string>
     <string name="proxy_sort_name">名称</string>
     <string name="proxy_sort_delay">延迟</string>
     <string name="proxy_delay_complete">%1$s 的延迟测试已完成。</string>

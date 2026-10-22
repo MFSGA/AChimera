@@ -1,6 +1,7 @@
 package rs.chimera.android.backend
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -9,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
@@ -17,6 +19,158 @@ import rs.chimera.android.backend.model.ProxyMode as Mode
 import java.util.concurrent.atomic.AtomicInteger
 
 class RuntimeTelemetryObserverTest {
+    @Test
+    fun staleProxyGroupPollCannotOverwriteSnapshotRefreshedAfterSelection() = runBlocking {
+        val serviceState = MutableStateFlow(ServiceState.RUNNING)
+        val appForeground = MutableStateFlow(true)
+        val firstFetchStarted = CompletableDeferred<Unit>()
+        val releaseFirstFetch = CompletableDeferred<Unit>()
+        val fetchCalls = AtomicInteger()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val observer = RuntimeTelemetryObserver(
+            scope = scope,
+            serviceState = serviceState,
+            appForeground = appForeground,
+            fetchTraffic = { rs.chimera.android.backend.model.TrafficSnapshot(0, 0, 0) },
+            fetchMemory = { MemoryInfo(0, 0) },
+            fetchProxyGroups = {
+                if (fetchCalls.incrementAndGet() == 1) {
+                    firstFetchStarted.complete(Unit)
+                    releaseFirstFetch.await()
+                    proxyGroupsSnapshot("old-proxy")
+                } else {
+                    proxyGroupsSnapshot("new-proxy")
+                }
+            },
+            recordError = { _, _, error -> throw AssertionError(error) },
+            clearError = {},
+            initialTrafficDelayMs = 0,
+            trafficPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+        )
+
+        try {
+            observer.start()
+            firstFetchStarted.await()
+
+            observer.invalidateProxyGroupsSnapshot()
+            observer.refreshProxyGroupsSoon()
+            waitUntil { observer.proxyGroups.value.firstOrNull()?.selected == "new-proxy" }
+
+            releaseFirstFetch.complete(Unit)
+            delay(TEST_SETTLE_MS)
+
+            assertEquals("new-proxy", observer.proxyGroups.value.firstOrNull()?.selected)
+            assertTrue(fetchCalls.get() >= 2)
+        } finally {
+            releaseFirstFetch.complete(Unit)
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun oneShotProxyRefreshCannotRestoreSnapshotOrErrorAfterServiceStops() = runBlocking {
+        val serviceState = MutableStateFlow(ServiceState.RUNNING)
+        val appForeground = MutableStateFlow(false)
+        val fetchStarted = CompletableDeferred<Unit>()
+        val releaseFetch = CompletableDeferred<Unit>()
+        val stopHandled = CompletableDeferred<Unit>()
+        val recordedErrors = AtomicInteger()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val observer = RuntimeTelemetryObserver(
+            scope = scope,
+            serviceState = serviceState,
+            appForeground = appForeground,
+            fetchTraffic = { rs.chimera.android.backend.model.TrafficSnapshot(0, 0, 0) },
+            fetchMemory = { MemoryInfo(0, 0) },
+            fetchProxyGroups = {
+                fetchStarted.complete(Unit)
+                releaseFetch.await()
+                throw IllegalStateException("stale refresh failure")
+            },
+            recordError = { _, _, _ -> recordedErrors.incrementAndGet() },
+            clearError = { source ->
+                if (source == rs.chimera.android.backend.model.BackendRuntimeErrorSource.PROXY_GROUPS &&
+                    serviceState.value == ServiceState.STOPPED
+                ) {
+                    stopHandled.complete(Unit)
+                }
+            },
+            initialTrafficDelayMs = 0,
+            trafficPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+        )
+
+        try {
+            observer.start()
+            observer.refreshProxyGroupsSoon()
+            waitUntil { fetchStarted.isCompleted }
+
+            serviceState.value = ServiceState.STOPPED
+            waitUntil { stopHandled.isCompleted }
+            releaseFetch.complete(Unit)
+            delay(TEST_SETTLE_MS)
+
+            assertEquals(0, recordedErrors.get())
+            assertTrue(observer.proxyGroups.value.isEmpty())
+        } finally {
+            releaseFetch.complete(Unit)
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun oneShotProxyRefreshCannotRestoreSnapshotAfterServiceStops() = runBlocking {
+        val serviceState = MutableStateFlow(ServiceState.RUNNING)
+        val appForeground = MutableStateFlow(false)
+        val fetchStarted = CompletableDeferred<Unit>()
+        val releaseFetch = CompletableDeferred<Unit>()
+        val stopHandled = CompletableDeferred<Unit>()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val observer = RuntimeTelemetryObserver(
+            scope = scope,
+            serviceState = serviceState,
+            appForeground = appForeground,
+            fetchTraffic = { rs.chimera.android.backend.model.TrafficSnapshot(0, 0, 0) },
+            fetchMemory = { MemoryInfo(0, 0) },
+            fetchProxyGroups = {
+                fetchStarted.complete(Unit)
+                releaseFetch.await()
+                proxyGroupsSnapshot("old-proxy")
+            },
+            recordError = { _, _, error -> throw AssertionError(error) },
+            clearError = { source ->
+                if (source == rs.chimera.android.backend.model.BackendRuntimeErrorSource.PROXY_GROUPS &&
+                    serviceState.value == ServiceState.STOPPED
+                ) {
+                    stopHandled.complete(Unit)
+                }
+            },
+            initialTrafficDelayMs = 0,
+            trafficPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            memoryPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+            proxyGroupPollIntervalMs = TEST_SLOW_POLL_INTERVAL_MS,
+        )
+
+        try {
+            observer.start()
+            observer.refreshProxyGroupsSoon()
+            waitUntil { fetchStarted.isCompleted }
+
+            serviceState.value = ServiceState.STOPPED
+            waitUntil { stopHandled.isCompleted }
+            releaseFetch.complete(Unit)
+            delay(TEST_SETTLE_MS)
+
+            assertTrue(observer.proxyGroups.value.isEmpty())
+        } finally {
+            releaseFetch.complete(Unit)
+            scope.cancel()
+        }
+    }
+
     @Test
     fun pollingPausesWhileAppIsBackgrounded() = runBlocking {
         val serviceState = MutableStateFlow(ServiceState.RUNNING)
@@ -239,6 +393,17 @@ class RuntimeTelemetryObserverTest {
         }
         throw AssertionError("Condition was not met")
     }
+
+    private fun proxyGroupsSnapshot(selected: String): List<ProxyGroupSnapshot> =
+        listOf(
+            ProxyGroupSnapshot(
+                name = "AUTO",
+                proxies = listOf("old-proxy", "new-proxy"),
+                selected = selected,
+                mode = Mode.RULE,
+                proxyDetails = emptyMap(),
+            ),
+        )
 
     private companion object {
         const val TEST_POLL_INTERVAL_MS = 10L

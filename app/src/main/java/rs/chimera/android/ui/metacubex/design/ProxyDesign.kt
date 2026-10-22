@@ -1,7 +1,6 @@
 package rs.chimera.android.ui.metacubex.design
 
 import android.content.Context
-import android.os.SystemClock
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
@@ -31,9 +30,13 @@ import rs.chimera.android.ui.metacubex.design.util.root
 
 class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     sealed class Request {
-        data class SelectProxy(val groupName: String, val proxyName: String) : Request()
+        data class SelectProxy(
+            val groupName: String,
+            val proxyName: String,
+            val selectionProjected: Boolean = false,
+        ) : Request()
         data class DelayTest(val groupName: String, val proxyNames: List<String>) : Request()
-        data class SwitchMode(val mode: ProxyMode) : Request()
+        data class SwitchMode(val mode: ProxyMode?) : Request()
         data object Refresh : Request()
         data object NavigateBack : Request()
     }
@@ -44,18 +47,22 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     override val root: View
         get() = binding.root
 
+    private val activityBar = root.findViewById<View>(R.id.proxy_activity_bar)
     private val content = root.findViewById<LinearLayout>(R.id.proxy_content)
+    private val emptyView = root.findViewById<TextView>(R.id.proxy_empty_view)
     private val stateContainer = root.findViewById<LinearLayout>(R.id.proxy_state)
     private val stateProgress = root.findViewById<ProgressBar>(R.id.proxy_state_progress)
     private val stateTitle = root.findViewById<TextView>(R.id.proxy_state_title)
     private val stateMessage = root.findViewById<TextView>(R.id.proxy_state_message)
     private val retryButton = root.findViewById<MaterialButton>(R.id.proxy_state_retry)
     private val groups = mutableListOf<ProxyDisplayGroup>()
-    private var sourceGroups = emptyList<ProxyGroupSnapshot>()
+    private val proxySelectionState = ProxySelectionState()
+    private val sourceGroups: List<ProxyGroupSnapshot>
+        get() = proxySelectionState.displayedGroups
+    internal var onProxySelectionQueueChanged: ((Boolean) -> Unit)? = null
     private val displayPreferences = ProxyDisplayPreferences(context)
     private var displayOptions = displayPreferences.read()
     private var lastGroupName = displayPreferences.readLastGroupName()
-    private val selectionAnimationTracker = ProxySelectionAnimationTracker()
     private val pagerAdapter = ProxyPagerAdapter()
     private val proxyMenu by lazy {
         PopupMenu(context, binding.proxyOverflowButton).apply {
@@ -64,9 +71,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
     }
     private var currentGroupIndex = 0
+    private var modeOverride: ProxyMode? = null
     private var renderingGroups = false
-    private var interactionEnabled = true
-    private var testing = false
+    private val delayTestProgressByGroup = mutableMapOf<String, DelayTestProgress>()
     private var horizontalScrolling = false
     private val bottomGroups = mutableSetOf<String>()
     private var bottomStateRefreshPending = false
@@ -95,7 +102,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 override fun onPageSelected(position: Int) {
                     currentGroupIndex = position
                     pagerAdapter.refreshPageBottomState(position)
-                    updateDelayTestFabVisibility()
+                    updateDelayTestActionState()
                     if (!renderingGroups) {
                         groups.getOrNull(position)?.name?.let { name ->
                             lastGroupName = name
@@ -153,6 +160,14 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         )
     }
 
+    private fun showEmptyGroups() {
+        content.visibility = View.GONE
+        binding.fabDelayTest.hide()
+        setDelayTestActionVisible(false)
+        stateContainer.visibility = View.GONE
+        emptyView.visibility = View.VISIBLE
+    }
+
     suspend fun showModeSwitchTips() {
         withContext(Dispatchers.Main) {
             Toast.makeText(context, R.string.proxy_mode_switch_tips, Toast.LENGTH_LONG).show()
@@ -160,27 +175,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
-        val previousGroups = sourceGroups.associateBy(ProxyGroupSnapshot::name)
-        val selectorGroupNames = snapshots.asSequence()
-            .filter { snapshot ->
-                val group = snapshot.proxyDetails[snapshot.name]
-                group?.isGroup == true && group.type == SELECTOR_TYPE
-            }
-            .map(ProxyGroupSnapshot::name)
-            .toSet()
-        selectionAnimationTracker.retainGroups(selectorGroupNames)
-        snapshots.forEach { snapshot ->
-            val previous = previousGroups[snapshot.name] ?: return@forEach
-            val selector = snapshot.proxyDetails[snapshot.name]
-            if (selector?.isGroup != true || selector.type != SELECTOR_TYPE) return@forEach
-            selectionAnimationTracker.updateSelection(
-                snapshot.name,
-                previous.selected,
-                snapshot.selected,
-                SystemClock.uptimeMillis(),
-            )
-        }
-        sourceGroups = snapshots
+        proxySelectionState.acceptBackendSnapshot(snapshots)
         val lastGroupStillExists = snapshots.any { snapshot ->
             snapshot.name == lastGroupName && snapshot.proxyDetails[snapshot.name]?.isGroup == true
         }
@@ -188,42 +183,28 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             lastGroupName = null
             displayPreferences.updateLastGroupName(null)
         }
-        renderGroups(
-            selectionAnimationExpirations = selectionAnimationTracker.snapshot(SystemClock.uptimeMillis()),
-        )
+        renderGroups()
     }
 
     fun applyProxySelection(groupName: String, proxyName: String): Boolean {
-        val group = sourceGroups.firstOrNull { it.name == groupName } ?: return false
-        if (group.proxyDetails[groupName]
-                ?.let { it.isGroup && it.type == SELECTOR_TYPE } != true
-        ) {
-            return false
-        }
-        if (proxyName !in group.proxies) return false
-
-        val selectionAnimationExpirations = selectionAnimationTracker.record(
-            groupName,
-            group.selected,
-            proxyName,
-            SystemClock.uptimeMillis(),
+        if (!proxySelectionState.projectSelection(groupName, proxyName)) return false
+        renderGroups(
+            rebindVisibleRowsImmediately = true,
         )
-        sourceGroups = sourceGroups.map { snapshot ->
-            val linkedSelector = snapshot.proxyDetails[groupName]
-                ?.takeIf { it.isGroup }
-                ?: return@map snapshot
-            snapshot.copy(
-                selected = if (snapshot.name == groupName) proxyName else snapshot.selected,
-                proxyDetails = snapshot.proxyDetails +
-                    (groupName to linkedSelector.copy(now = proxyName)),
-            )
-        }
-        renderGroups(selectionAnimationExpirations = selectionAnimationExpirations)
         return true
     }
 
+    /** Advances rollback state without replacing a newer optimistic selection already on screen. */
+    fun confirmProxySelection(groupName: String, proxyName: String): Boolean =
+        proxySelectionState.confirmSelection(groupName, proxyName)
+
+    fun restoreConfirmedProxyGroups() {
+        proxySelectionState.restoreConfirmedSnapshot()
+        renderGroups(rebindVisibleRowsImmediately = true)
+    }
+
     private fun renderGroups(
-        selectionAnimationExpirations: Map<String, Map<String, Long>> = emptyMap(),
+        rebindVisibleRowsImmediately: Boolean = false,
     ) {
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         groups.clear()
@@ -231,20 +212,14 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             sourceGroups,
             unavailableType = context.getString(R.string.not_available),
             excludeNotSelectable = displayOptions.excludeNotSelectable,
-            selectionAnimationExpirations = selectionAnimationExpirations,
         )
         bottomGroups.retainAll(groups.map { it.name }.toSet())
-        updateModeSelection(sourceGroups.firstOrNull()?.mode)
+        updateModeSelection(modeOverride)
         updateSelectableFilterSelection()
 
         if (groups.isEmpty()) {
             bottomStateRefreshPending = false
-            showState(
-                title = context.getString(R.string.no_proxy_groups),
-                message = context.getString(R.string.proxy_empty_message),
-                showProgress = false,
-                showRetry = true,
-            )
+            showEmptyGroups()
             return
         }
 
@@ -259,52 +234,40 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         renderingGroups = true
         try {
             pagerAdapter.submitPages(sortedPages())
+            if (rebindVisibleRowsImmediately) pagerAdapter.rebindVisibleRowsImmediately()
+            emptyView.visibility = View.GONE
             content.visibility = View.VISIBLE
             stateContainer.visibility = View.GONE
             setDelayTestActionVisible(true)
             binding.viewPager.setCurrentItem(currentGroupIndex, false)
-            setInteractionEnabled(!testing)
-            updateDelayTestFabVisibility()
+            updateDelayTestActionState()
         } finally {
             renderingGroups = false
         }
     }
 
-    fun setDelayTestProgress(current: Int, total: Int) {
-        testing = true
-        updateDelayTestFabVisibility()
-        setInteractionEnabled(false)
-        binding.fabDelayTest.contentDescription = context.getString(
-            R.string.proxy_delay_testing_progress,
-            current,
-            total,
-        )
-        updateDelayTestActionProgress(true)
+    fun setDelayTestProgress(groupName: String, current: Int, total: Int) {
+        delayTestProgressByGroup[groupName] = DelayTestProgress(current, total)
+        updateDelayTestActionState()
     }
 
-    fun finishDelayTest() {
-        testing = false
-        binding.fabDelayTest.contentDescription = context.getString(R.string.proxy_delay_test)
-        updateDelayTestActionProgress(false)
-        setInteractionEnabled(groups.isNotEmpty())
-        updateDelayTestFabVisibility()
+    fun finishDelayTest(groupName: String) {
+        delayTestProgressByGroup.remove(groupName)
+        updateDelayTestActionState()
     }
 
-    fun setSelecting(selecting: Boolean) {
-        setInteractionEnabled(!selecting && !testing)
-    }
-
-    fun setMode(mode: ProxyMode) {
+    fun setModeOverride(mode: ProxyMode?) {
+        modeOverride = mode
         updateModeSelection(mode)
     }
 
-    private fun requestMode(mode: ProxyMode) {
-        if (interactionEnabled) request(Request.SwitchMode(mode))
+    private fun requestMode(mode: ProxyMode?) {
+        request(Request.SwitchMode(mode))
     }
 
     private fun requestDelayTest() {
-        if (!interactionEnabled) return
         val group = groups.getOrNull(currentGroupIndex) ?: return
+        if (group.name in delayTestProgressByGroup) return
         request(Request.DelayTest(group.name, group.proxies.map { it.name }))
     }
 
@@ -328,6 +291,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     private fun onProxyMenuItemClick(item: MenuItem): Boolean {
         when (item.itemId) {
+            R.id.action_mode_dont_modify -> requestMode(null)
             R.id.action_mode_rule -> requestMode(ProxyMode.RULE)
             R.id.action_mode_global -> requestMode(ProxyMode.GLOBAL)
             R.id.action_mode_direct -> requestMode(ProxyMode.DIRECT)
@@ -358,6 +322,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         showRetry: Boolean,
     ) {
         content.visibility = View.GONE
+        emptyView.visibility = View.GONE
         binding.fabDelayTest.hide()
         setDelayTestActionVisible(false)
         stateContainer.visibility = View.VISIBLE
@@ -367,13 +332,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         retryButton.visibility = if (showRetry) View.VISIBLE else View.GONE
     }
 
-    private fun setInteractionEnabled(enabled: Boolean) {
-        interactionEnabled = enabled
-        binding.viewPager.isUserInputEnabled = enabled
+    private fun updateDelayTestControls() {
+        val currentGroupName = groups.getOrNull(currentGroupIndex)?.name
+        val currentGroupTesting = currentGroupName?.let(delayTestProgressByGroup::containsKey) == true
+        val enabled = !currentGroupTesting && groups.isNotEmpty()
         binding.fabDelayTest.isEnabled = enabled
         binding.proxyDelayTestIcon.isEnabled = enabled
-        binding.proxyOverflowButton.isEnabled = enabled
-        MENU_ACTION_IDS.forEach { id -> proxyMenu.menu.findItem(id)?.isEnabled = enabled }
     }
 
     private fun setDelayTestActionVisible(visible: Boolean) {
@@ -387,7 +351,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             !bottomStateRefreshPending &&
             currentGroup !in bottomGroups &&
             !horizontalScrolling &&
-            !testing
+            currentGroup !in delayTestProgressByGroup
         if (shouldShow) {
             binding.fabDelayTest.show()
         } else {
@@ -402,14 +366,31 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             if (isTesting) View.VISIBLE else View.GONE
     }
 
+    private fun updateDelayTestActionState() {
+        val groupName = groups.getOrNull(currentGroupIndex)?.name
+        val progress = groupName?.let(delayTestProgressByGroup::get)
+        binding.fabDelayTest.contentDescription = if (progress == null) {
+            context.getString(R.string.proxy_delay_test)
+        } else {
+            context.getString(
+                R.string.proxy_delay_testing_progress,
+                progress.current,
+                progress.total,
+            )
+        }
+        updateDelayTestActionProgress(progress != null)
+        updateDelayTestControls()
+        updateDelayTestFabVisibility()
+    }
+
     private fun updateModeSelection(mode: ProxyMode?) {
         val selectedId = when (mode) {
+            null -> R.id.action_mode_dont_modify
             ProxyMode.RULE -> R.id.action_mode_rule
             ProxyMode.GLOBAL -> R.id.action_mode_global
             ProxyMode.DIRECT -> R.id.action_mode_direct
-            null -> null
         }
-        selectedId?.let { proxyMenu.menu.findItem(it)?.isChecked = true }
+        proxyMenu.menu.findItem(selectedId)?.isChecked = true
     }
 
     private fun updateLayoutSelection() {
@@ -434,6 +415,16 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         requests.trySend(request)
     }
 
+    private fun requestProxySelection(groupName: String, proxyName: String) {
+        val projected = applyProxySelection(groupName, proxyName)
+        val request = Request.SelectProxy(groupName, proxyName, selectionProjected = projected)
+        onProxySelectionQueueChanged?.invoke(true)
+        if (requests.trySend(request).isFailure) {
+            onProxySelectionQueueChanged?.invoke(false)
+            if (projected) restoreConfirmedProxyGroups()
+        }
+    }
+
     private fun applyProxySystemBarInsets() {
         val defaultFabBottomMargin =
             (binding.fabDelayTest.layoutParams as CoordinatorLayout.LayoutParams).bottomMargin
@@ -442,10 +433,11 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
             view.setPaddingRelative(
                 if (isRtl) bars.right else bars.left,
-                bars.top,
+                0,
                 if (isRtl) bars.left else bars.right,
                 0,
             )
+            activityBar.setPadding(0, bars.top, 0, 0)
             pagerAdapter.setBottomInset(bars.bottom)
             (binding.fabDelayTest.layoutParams as CoordinatorLayout.LayoutParams).apply {
                 bottomMargin = defaultFabBottomMargin + bars.bottom
@@ -501,6 +493,21 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
         fun refreshPages() {
             if (pages.isNotEmpty()) groups.indices.forEach(::updatePageAdapter)
+        }
+
+        fun rebindVisibleRowsImmediately() {
+            val pagerRecycler = binding.viewPager.getChildAt(0) as? RecyclerView ?: return
+            repeat(itemCount) { position ->
+                val pageHolder = pagerRecycler.findViewHolderForAdapterPosition(position) as? PageHolder
+                    ?: return@repeat
+                val group = groups.getOrNull(position) ?: return@repeat
+                val pageAdapter = pageAdapters[group.name] ?: return@repeat
+                if (pageHolder.recyclerView.adapter !== pageAdapter) return@repeat
+                pageAdapter.rebindVisibleItems(
+                    pageHolder.recyclerView,
+                    pages.getOrNull(position).orEmpty(),
+                )
+            }
         }
 
         fun refreshPageBottomState(position: Int) {
@@ -566,9 +573,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             bottomGroups.remove(groupName)
             if (position == currentGroupIndex) bottomStateRefreshPending = true
             val proxyAdapter = pageAdapters.getOrPut(groupName) {
-                ProxyAdapter { proxyName ->
-                    if (interactionEnabled) request(Request.SelectProxy(groupName, proxyName))
-                }
+                ProxyAdapter { proxyName -> requestProxySelection(groupName, proxyName) }
             }.apply {
                 columns = displayOptions.columns
                 selectable = group.isSelectable
@@ -636,25 +641,8 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         ) : RecyclerView.ViewHolder(root)
     }
 
-    private companion object {
-        const val SELECTOR_TYPE = "Selector"
-
-        val MODE_MENU_IDS = listOf(
-            R.id.action_mode_rule,
-            R.id.action_mode_global,
-            R.id.action_mode_direct,
-        )
-        val LAYOUT_MENU_IDS = listOf(
-            R.id.action_layout_single,
-            R.id.action_layout_double,
-            R.id.action_layout_multiple,
-        )
-        val SORT_MENU_IDS = listOf(
-            R.id.action_sort_default,
-            R.id.action_sort_name,
-            R.id.action_sort_delay,
-        )
-        val MENU_ACTION_IDS = MODE_MENU_IDS + LAYOUT_MENU_IDS + SORT_MENU_IDS +
-            R.id.action_filter_not_selectable
-    }
+    private data class DelayTestProgress(
+        val current: Int,
+        val total: Int,
+    )
 }

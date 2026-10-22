@@ -19,41 +19,42 @@ import rs.chimera.android.R
 @RunWith(AndroidJUnit4::class)
 class ProxyCardSelectionTransitionInstrumentedTest {
     @Test
-    fun selectionTransitionAnimatesAndConfirmedRefreshSnaps() {
+    fun selectionTransitionContinuesAcrossConfirmedRefresh() {
         val card = newCard()
         val transition = card.selectionTransition()
         val previous = entry("node-a", selected = false)
-        val selected = previous.copy(isSelected = true, animateSelectionChange = true)
-        val confirmed = selected.copy(type = "Vless", animateSelectionChange = false)
+        val selected = previous.copy(isSelected = true)
+        val confirmed = selected.copy(delayText = "42")
         val recycled = entry("node-b", selected = false)
         val selectedColor = card.backgroundColor(selected)
         val unselectedColor = card.backgroundColor(previous)
+        val frameStart = SystemClock.uptimeMillis()
 
         card.entry = previous
-        transition.snap(unselectedColor, SystemClock.uptimeMillis())
+        transition.snap(unselectedColor, frameStart)
         card.entry = selected
 
-        val firstFrame = transition.advance(selectedColor, SystemClock.uptimeMillis() + 64L)
+        val firstFrame = transition.advance(selectedColor, frameStart + 64L)
         assertNotEquals(selectedColor, firstFrame.color)
         assertTrue(firstFrame.animating)
 
         card.entry = confirmed
-        val confirmedFrame = transition.advance(selectedColor, SystemClock.uptimeMillis() + 80L)
-        assertEquals(selectedColor, confirmedFrame.color)
-        assertFalse(confirmedFrame.animating)
+        val confirmedFrame = transition.advance(selectedColor, frameStart + 80L)
+        assertNotEquals(selectedColor, confirmedFrame.color)
+        assertTrue(confirmedFrame.animating)
 
         val recycledColor = card.backgroundColor(recycled)
         card.entry = recycled
-        val recycledFrame = transition.advance(recycledColor, SystemClock.uptimeMillis() + 1L)
+        val recycledFrame = transition.advance(recycledColor, frameStart + 81L)
         assertEquals(recycledColor, recycledFrame.color)
         assertFalse(recycledFrame.animating)
     }
 
     @Test
-    fun markedSelectionOnFirstBindSnapsToCurrentSelection() {
+    fun firstBindSnapsToCurrentSelection() {
         val card = newCard()
         val transition = card.selectionTransition()
-        val selected = entry("node-a", selected = true).copy(animateSelectionChange = true)
+        val selected = entry("node-a", selected = true)
         val selectedColor = card.backgroundColor(selected)
 
         card.entry = selected
@@ -64,28 +65,11 @@ class ProxyCardSelectionTransitionInstrumentedTest {
     }
 
     @Test
-    fun expiredMarkerOnDelayedFirstBindSnapsToTheCurrentSelection() {
-        val card = newCard()
-        val transition = card.selectionTransition()
-        val selected = entry("node-a", selected = true).copy(
-            animateSelectionChange = true,
-            selectionAnimationExpiresAt = SystemClock.uptimeMillis() - 1L,
-        )
-        val selectedColor = card.backgroundColor(selected)
-
-        card.entry = selected
-
-        val frame = transition.advance(selectedColor, SystemClock.uptimeMillis() + 1L)
-        assertEquals(selectedColor, frame.color)
-        assertFalse(frame.animating)
-    }
-
-    @Test
     fun selectionTransitionDrawsAnIntermediateCardFill() {
         val card = newCard()
         val transition = card.selectionTransition()
         val previous = entry("node-a", selected = false)
-        val selected = entry("node-a", selected = true).copy(animateSelectionChange = true)
+        val selected = entry("node-a", selected = true)
         val selectedColor = card.backgroundColor(selected)
         val unselectedColor = card.backgroundColor(previous)
 
@@ -119,7 +103,7 @@ class ProxyCardSelectionTransitionInstrumentedTest {
         transition.snap(unselectedColor, frameStart)
         transition.bind(
             unselected,
-            selected.copy(animateSelectionChange = true),
+            selected,
             selectedColor,
             frameStart,
         )
@@ -138,7 +122,7 @@ class ProxyCardSelectionTransitionInstrumentedTest {
         val card = newCard()
         val transition = card.selectionTransition()
         val previous = entry("node-a", selected = false, group = "selector-a")
-        val selected = previous.copy(isSelected = true, animateSelectionChange = true)
+        val selected = previous.copy(isSelected = true)
         val recycled = entry("node-a", selected = false, group = "selector-b")
         val selectedColor = card.backgroundColor(selected)
         val recycledColor = card.backgroundColor(recycled)

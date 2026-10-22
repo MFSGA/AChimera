@@ -38,6 +38,9 @@ internal class RuntimeTelemetryObserver(
     private val _proxyGroups = MutableStateFlow<List<ProxyGroupSnapshot>>(emptyList())
     val proxyGroups: StateFlow<List<ProxyGroupSnapshot>> = _proxyGroups.asStateFlow()
 
+    private val proxyGroupsRevisionLock = Any()
+    private var proxyGroupsRevision = 0L
+
     private var started = false
 
     @Synchronized
@@ -47,6 +50,22 @@ internal class RuntimeTelemetryObserver(
         observeTraffic()
         observeMemory()
         observeProxyGroups()
+    }
+
+    fun invalidateProxyGroupsSnapshot() {
+        synchronized(proxyGroupsRevisionLock) {
+            proxyGroupsRevision++
+        }
+    }
+
+    fun refreshProxyGroupsSoon() {
+        val revision = synchronized(proxyGroupsRevisionLock) {
+            if (serviceState.value != ServiceState.RUNNING) return
+            ++proxyGroupsRevision
+        }
+        scope.launch {
+            refreshProxyGroups(revision)
+        }
     }
 
     private fun observeTraffic() {
@@ -113,28 +132,44 @@ internal class RuntimeTelemetryObserver(
             combine(serviceState, appForeground, ::shouldPollRuntimeTelemetry)
                 .collectLatest { shouldPoll ->
                     if (serviceState.value != ServiceState.RUNNING) {
-                        _proxyGroups.value = emptyList()
+                        synchronized(proxyGroupsRevisionLock) {
+                            proxyGroupsRevision++
+                            _proxyGroups.value = emptyList()
+                        }
                         clearError(BackendRuntimeErrorSource.PROXY_GROUPS)
                         return@collectLatest
                     }
                     if (!shouldPoll) return@collectLatest
 
                     while (true) {
-                        runCatchingPreservingCancellation { fetchProxyGroups() }
-                            .onSuccess { groups ->
-                                clearError(BackendRuntimeErrorSource.PROXY_GROUPS)
-                                _proxyGroups.value = groups
-                            }.onFailure { error ->
-                                recordError(
-                                    BackendRuntimeErrorSource.PROXY_GROUPS,
-                                    "Failed to refresh proxy groups",
-                                    error,
-                                )
-                            }
+                        val revision = synchronized(proxyGroupsRevisionLock) { proxyGroupsRevision }
+                        refreshProxyGroups(revision)
                         delay(proxyGroupPollIntervalMs)
                     }
                 }
         }
+    }
+
+    private suspend fun refreshProxyGroups(revision: Long) {
+        runCatchingPreservingCancellation { fetchProxyGroups() }
+            .onSuccess { groups ->
+                synchronized(proxyGroupsRevisionLock) {
+                    if (revision == proxyGroupsRevision && serviceState.value == ServiceState.RUNNING) {
+                        clearError(BackendRuntimeErrorSource.PROXY_GROUPS)
+                        _proxyGroups.value = groups
+                    }
+                }
+            }.onFailure { error ->
+                synchronized(proxyGroupsRevisionLock) {
+                    if (revision == proxyGroupsRevision && serviceState.value == ServiceState.RUNNING) {
+                        recordError(
+                            BackendRuntimeErrorSource.PROXY_GROUPS,
+                            "Failed to refresh proxy groups",
+                            error,
+                        )
+                    }
+                }
+            }
     }
 
     private companion object {

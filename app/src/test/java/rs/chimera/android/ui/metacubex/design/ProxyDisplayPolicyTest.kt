@@ -18,26 +18,42 @@ class ProxyDisplayPolicyTest {
     }
 
     @Test
-    fun nameAndDelaySortKeepUnknownDelayAtTheEndLikeCmfa() {
+    fun missingAndZeroDelaySortLastLikeCmfa() {
         val entries = listOf(
             ProxyDisplayEntry("Zulu", "SS", "-", null, false),
-            ProxyDisplayEntry("Zero", "SS", "", null, false),
+            ProxyDisplayEntry(
+                "Zero",
+                "SS",
+                "",
+                null,
+                false,
+                delayValue = UNKNOWN_PROXY_DELAY,
+            ),
             ProxyDisplayEntry("Beta", "SS", "40", 40, false),
             ProxyDisplayEntry("Alpha", "SS", "12", 12, true),
+            ProxyDisplayEntry(
+                "Long",
+                "SS",
+                "",
+                null,
+                false,
+                delayValue = Short.MAX_VALUE + 1,
+            ),
         )
 
         assertEquals(
-            listOf("Zulu", "Zero", "Beta", "Alpha"),
+            listOf("Zulu", "Zero", "Beta", "Alpha", "Long"),
             ProxyDisplayPolicy.sort(entries, ProxySortOrder.DEFAULT).map { it.name },
         )
         assertEquals(
-            listOf("Alpha", "Beta", "Zero", "Zulu"),
+            listOf("Alpha", "Beta", "Long", "Zero", "Zulu"),
             ProxyDisplayPolicy.sort(entries, ProxySortOrder.NAME).map { it.name },
         )
         assertEquals(
-            listOf("Alpha", "Beta", "Zulu", "Zero"),
+            listOf("Alpha", "Beta", "Long", "Zulu", "Zero"),
             ProxyDisplayPolicy.sort(entries, ProxySortOrder.DELAY).map { it.name },
         )
+        assertEquals("", entries.first { it.name == "Zero" }.delayText)
     }
 
     @Test
@@ -138,7 +154,11 @@ class ProxyDisplayPolicyTest {
         assertEquals("Fallback(node-b)", pages[0].proxies[1].type)
         assertEquals("42", pages[0].proxies.first().delayText)
         assertEquals(null, pages[0].proxies[2].delayMillis)
+        assertEquals(UNKNOWN_PROXY_DELAY, pages[0].proxies[2].delayValue)
         assertEquals("", pages[0].proxies[2].delayText)
+        assertEquals(null, pages[2].proxies.first().delayMillis)
+        assertEquals(UNKNOWN_PROXY_DELAY, pages[2].proxies.first().delayValue)
+        assertEquals("", pages[2].proxies.first().delayText)
 
         val selectablePages = ProxyDisplayPolicy.groupPages(
             snapshots,
@@ -147,43 +167,6 @@ class ProxyDisplayPolicyTest {
         )
         assertEquals(listOf("手动选择"), selectablePages.map { it.name })
         assertEquals("Fallback", selectablePages.single().proxies[1].type)
-    }
-
-    @Test
-    fun selectionAnimationMarksOnlyChangedNodesInTheirSelectorGroup() {
-        val selector = ProxyGroupSnapshot(
-            name = "selector",
-            proxies = listOf("old", "new", "other"),
-            selected = "new",
-            mode = ProxyMode.RULE,
-            proxyDetails = mapOf(
-                "selector" to ProxySnapshot("selector", "Selector", emptyList(), isGroup = true),
-                "old" to ProxySnapshot("old", "Vless", emptyList()),
-                "new" to ProxySnapshot("new", "Vless", emptyList()),
-                "other" to ProxySnapshot("other", "Vless", emptyList()),
-            ),
-        )
-        val otherGroup = ProxyGroupSnapshot(
-            name = "other-group",
-            proxies = listOf("old", "new"),
-            selected = "old",
-            mode = ProxyMode.RULE,
-            proxyDetails = mapOf(
-                "other-group" to ProxySnapshot("other-group", "Selector", emptyList(), isGroup = true),
-                "old" to ProxySnapshot("old", "Vless", emptyList()),
-                "new" to ProxySnapshot("new", "Vless", emptyList()),
-            ),
-        )
-
-        val groups = ProxyDisplayPolicy.groupPages(
-            listOf(selector, otherGroup),
-            unavailableType = "Unavailable",
-            selectionAnimationExpirations = mapOf("selector" to mapOf("old" to 420L, "new" to 420L)),
-        )
-
-        assertEquals(listOf(true, true, false), groups[0].proxies.map { it.animateSelectionChange })
-        assertEquals(listOf(false, false), groups[1].proxies.map { it.animateSelectionChange })
-        assertEquals(listOf(420L, 420L, null), groups[0].proxies.map { it.selectionAnimationExpiresAt })
     }
 
     @Test

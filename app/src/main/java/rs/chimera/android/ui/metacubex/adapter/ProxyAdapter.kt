@@ -32,6 +32,22 @@ class ProxyAdapter(
         holder.bind(getItem(position), columns, selectable, onItemClick)
     }
 
+    /** Immediately updates attached rows while the submitted list diff is still pending. */
+    fun rebindVisibleItems(
+        recyclerView: RecyclerView,
+        entries: List<ProxyDisplayEntry>,
+    ) {
+        repeat(recyclerView.childCount) { childIndex ->
+            val child = recyclerView.getChildAt(childIndex) ?: return@repeat
+            val holder = recyclerView.getChildViewHolder(child) as? ViewHolder ?: return@repeat
+            val position = holder.bindingAdapterPosition
+            if (position == RecyclerView.NO_POSITION) return@repeat
+            val entry = entries.getOrNull(position) ?: return@repeat
+            if (currentList.getOrNull(position)?.name != entry.name) return@repeat
+            holder.bind(entry, columns, selectable, onItemClick)
+        }
+    }
+
     class ViewHolder(
         private val view: ProxyCardView,
     ) : RecyclerView.ViewHolder(view) {

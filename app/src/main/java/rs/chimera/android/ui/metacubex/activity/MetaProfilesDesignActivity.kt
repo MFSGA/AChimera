@@ -455,22 +455,22 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
 
     private suspend fun updateRemoteProfiles() {
         if (operationInProgress) return
-        val profiles = try {
-            withContext(Dispatchers.IO) { backend.listProfiles().filter { it.isRemote } }
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            design.showToast(profileError(R.string.profile_list_error, error))
-            return
-        }
-        if (profiles.isEmpty()) {
-            design.showToast(getString(R.string.profile_no_remote_profiles))
-            return
-        }
-
         operationInProgress = true
-        design.showOperation(getString(R.string.profile_refreshing))
+        design.setRefreshInProgress(true)
         try {
+            val profiles = try {
+                withContext(Dispatchers.IO) { backend.listProfiles().filter { it.isRemote } }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                design.showToast(profileError(R.string.profile_list_error, error))
+                return
+            }
+            if (profiles.isEmpty()) {
+                design.showToast(getString(R.string.profile_no_remote_profiles))
+                return
+            }
+
             val batch = updateRemoteProfilesBatch(
                 profileIds = profiles.map { it.id },
                 updateProfile = { id -> backend.updateRemoteProfile(id) },
@@ -497,6 +497,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 design.showToast(message)
             }
         } finally {
+            design.setRefreshInProgress(false)
             operationInProgress = false
         }
     }

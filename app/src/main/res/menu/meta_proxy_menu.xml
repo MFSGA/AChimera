@@ -13,6 +13,9 @@
         <menu>
             <group android:checkableBehavior="single">
                 <item
+                    android:id="@+id/action_mode_dont_modify"
+                    android:title="@string/proxy_mode_dont_modify" />
+                <item
                     android:id="@+id/action_mode_direct"
                     android:title="@string/cmfa_main_mode_direct" />
                 <item

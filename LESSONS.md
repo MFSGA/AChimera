@@ -16,6 +16,7 @@
 | 编号 | 日期 | 范围 | 描述 | 证据 | 状态 |
 | --- | --- | --- | --- | --- | --- |
 | LESSON-20261017-001 | 2026-10-17 | Android instrumentation tests | CI 测试断言与测试上下文不匹配 | [失败 run 38995671505](https://github.com/MFSGA/AChimera/actions/runs/38995671505)、[修复验证 run 38996990027](https://github.com/MFSGA/AChimera/actions/runs/38996990027) | Verified |
+| LESSON-20261022-001 | 2026-10-22 | Android instrumentation tests | 本机 instrumentation 后 debug 应用与配置不可用 | `connectedDebugAndroidTest` 后 `adb shell pm path rs.chimera.android.dev` 无输出；随后通过 `installDebug` 和应用内重新导入恢复 | Mitigated |
 
 ## 条目模板
 
@@ -54,5 +55,22 @@
 - 修复改动及其归属：测试改为断言唯一的 `settings_general` 内容、使用 `Theme_Chimera_MetaCubeX` 包装布局 context，并验证 store 层不会绑定缺指纹的旧状态；未改动应用运行逻辑。
 - 预防措施：UI 导航测试选择唯一页面内容；inflate Material 布局的测试显式使用应用主题；旧数据绑定只在具备来源快照校验的 catalog 层测试，存储层维持 fail-closed。
 - 复验命令、场景和真实结果：本地 `./gradlew :app:ktlintCheck :app:compileDebugAndroidTestKotlin :app:testDebugUnitTest --tests 'rs.chimera.android.backend.ProfileAutoUpdateStateWritePolicyTest'` 和 `git diff --check` 通过；CI run 38996990027 中 Rust、UniFFI、Android quality、Debug APK、KVM 加速、模拟器启动及完整 instrumentation tests 全部通过。未在本地设备运行 instrumentation tests。
+- 关联独立事件（用于累计出现次数）：无
+- 是否提议升级治理规范及审批链接：否
+
+### LESSON-20261022-001: 本机 instrumentation 后 debug 应用与配置不可用
+
+- 发生/确认时间（含时区）：2026-10-22，Asia/Shanghai
+- 模块：Android instrumentation tests / 本机模拟器配置数据
+- 严重度：Medium（仅本机 debug 配置受影响，已重新导入恢复；未影响仓库文件或远端数据）
+- 状态：Mitigated
+- Issue、PR、commit、CI 运行或复现证据：运行 `./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=rs.chimera.android.AppUiNavigationInstrumentedTest#proxyPagerPagesFillTheViewport` 后，`adb shell pm path rs.chimera.android.dev` 没有返回已安装 APK 路径；之后 `./gradlew :app:installDebug` 重新安装应用。
+- 环境：本机 Android API 36 x86_64 模拟器 `emulator-5554`，debug application id `rs.chimera.android.dev`。
+- 预期行为：instrumentation 验证不应被假定为保留该模拟器中 debug 应用的安装和私有数据；若测试期间应用被卸载，必须先确认测试设备是可丢弃环境或有可恢复备份。
+- 实际失败与可复现步骤：模拟器 debug 应用原先保存了用于 UI 验证的 profile。执行上述 instrumentation 命令后，debug 包不再可由 Package Manager 定位，应用私有数据随之不可用；profile 需要在重新安装后通过应用 UI 重新导入。完整配置、订阅 URL 和节点凭据不在此记录。
+- 根本原因及证据（仍存疑点需注明）：直接证据表明 instrumentation 运行结束后目标 debug package 已卸载，且随后 `installDebug` 可重新安装。未隔离 Gradle/Android Test 哪个内部清理步骤触发卸载，因此不推断更具体的实现原因；已确认的流程缺口是把有本地配置的模拟器误当作运行 instrumentation 后仍保留 app 数据的环境。
+- 修复改动及其归属：重新安装 debug APK，并在应用内恢复本机 profile；重新导入时关闭自动更新。没有停止参考应用 VPN，也没有启动 Chimera VPN。
+- 预防措施：今后优先用独立、可丢弃的 AVD 跑 instrumentation；若只能使用保存了本机配置的模拟器，执行前先准备并验证可恢复备份，或明确接受重置；测试后检查 package 与数据状态，再继续截图/手动验收。不得把用户配置写入仓库；CMFA 对比截图继续保存在仓库外。
+- 复验命令、场景和真实结果：`./gradlew :app:testDebugUnitTest --tests 'rs.chimera.android.ui.metacubex.activity.ProxyRequestLoopTest' --tests 'rs.chimera.android.ui.metacubex.activity.ProxySelectionActionTest' --tests 'rs.chimera.android.ui.metacubex.activity.ProxyModeSwitchActionTest' --tests 'rs.chimera.android.ui.metacubex.design.ProxySelectionAnimationTrackerTest' --tests 'rs.chimera.android.ui.metacubex.design.ProxySelectionColorTransitionTest' --tests 'rs.chimera.android.ui.metacubex.design.ProxyDisplayPolicyTest'` 通过；重新安装/导入后确认主页显示 `CMFA_UI_Parity Activated`、服务为 `Stopped`，`vpn_management` 仍仅显示参考应用持有 VPN。没有为避免再次清除本机配置而重跑 instrumentation；截图视觉对比使用之前保存在仓库外的同设备参考/实现截图。
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否

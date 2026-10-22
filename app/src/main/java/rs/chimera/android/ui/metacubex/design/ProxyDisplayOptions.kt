@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.core.content.edit
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 
+internal const val PROXY_SELECTOR_TYPE = "Selector"
+internal const val UNKNOWN_PROXY_DELAY = 0xffff
+
 enum class ProxySortOrder {
     DEFAULT,
     NAME,
@@ -16,16 +19,13 @@ data class ProxyDisplayEntry(
     val delayText: String,
     val delayMillis: Int?,
     val isSelected: Boolean,
-    /** Set only for a successful selector change that should animate like CMFA's redraw path. */
-    val animateSelectionChange: Boolean = false,
     /** Keeps transition identity scoped when RecyclerViews share holders across selector pages. */
     val selectionGroupName: String = "",
-    /** Absolute uptime deadline prevents cached off-screen pages from replaying stale animations. */
-    val selectionAnimationExpiresAt: Long? = null,
+    /** Effective delay used by CMFA's display state and native delay sort. */
+    val delayValue: Int = delayMillis
+        ?.takeIf { it in 1..UNKNOWN_PROXY_DELAY }
+        ?: UNKNOWN_PROXY_DELAY,
 )
-
-internal fun ProxyDisplayEntry.isSelectionAnimationActive(frameTime: Long): Boolean =
-    animateSelectionChange && (selectionAnimationExpiresAt == null || frameTime < selectionAnimationExpiresAt)
 
 data class ProxyDisplayOptions(
     val columns: Int = DEFAULT_COLUMNS,
@@ -58,10 +58,7 @@ object ProxyDisplayPolicy {
         ProxySortOrder.NAME -> entries.sortedWith { left, right ->
             compareCodePointStrings(left.name, right.name)
         }
-        ProxySortOrder.DELAY -> entries.sortedWith(
-            compareBy<ProxyDisplayEntry> { it.delayMillis == null }
-                .thenBy { it.delayMillis },
-        )
+        ProxySortOrder.DELAY -> entries.sortedBy(ProxyDisplayEntry::delayValue)
     }
 
     private fun compareCodePointStrings(left: String, right: String): Int {
@@ -85,12 +82,11 @@ object ProxyDisplayPolicy {
         snapshots: List<ProxyGroupSnapshot>,
         unavailableType: String,
         excludeNotSelectable: Boolean = false,
-        selectionAnimationExpirations: Map<String, Map<String, Long>> = emptyMap(),
     ): List<ProxyDisplayGroup> {
         val visibleGroupNames = snapshots.asSequence()
             .filter { snapshot ->
                 val group = snapshot.proxyDetails[snapshot.name]
-                group?.isGroup == true && (!excludeNotSelectable || group.type == SELECTOR_TYPE)
+                group?.isGroup == true && (!excludeNotSelectable || group.type == PROXY_SELECTOR_TYPE)
             }
             .map(ProxyGroupSnapshot::name)
             .toSet()
@@ -99,11 +95,11 @@ object ProxyDisplayPolicy {
             val group = snapshot.proxyDetails[snapshot.name]
                 ?.takeIf { it.isGroup }
                 ?: return@mapNotNull null
-            if (excludeNotSelectable && group.type != SELECTOR_TYPE) return@mapNotNull null
+            if (excludeNotSelectable && group.type != PROXY_SELECTOR_TYPE) return@mapNotNull null
 
             ProxyDisplayGroup(
                 name = snapshot.name,
-                isSelectable = group.type == SELECTOR_TYPE,
+                isSelectable = group.type == PROXY_SELECTOR_TYPE,
                 proxies = snapshot.proxies.map { name ->
                     val proxy = snapshot.proxyDetails[name]
                     val type = when {
@@ -112,25 +108,24 @@ object ProxyDisplayPolicy {
                             "${proxy.type}(${proxy.now?.takeIf(String::isNotEmpty) ?: "*"})"
                         else -> proxy.type
                     }
-                    val delay = proxy?.history?.lastOrNull()?.delay
-                        ?.takeIf { it in 1..Short.MAX_VALUE }
-                    val animationExpiresAt = selectionAnimationExpirations[snapshot.name]?.get(name)
+                    val historyDelay = proxy?.history?.lastOrNull()?.delay
+                    val delayValue = historyDelay
+                        ?.takeIf { it in 1..UNKNOWN_PROXY_DELAY }
+                        ?: UNKNOWN_PROXY_DELAY
+                    val delay = delayValue.takeIf { it in 0..Short.MAX_VALUE }
                     ProxyDisplayEntry(
                         name = name,
                         type = type,
                         delayText = delay?.toString().orEmpty(),
                         delayMillis = delay,
                         isSelected = name == snapshot.selected,
-                        animateSelectionChange = animationExpiresAt != null,
                         selectionGroupName = snapshot.name,
-                        selectionAnimationExpiresAt = animationExpiresAt,
+                        delayValue = delayValue,
                     )
                 },
             )
         }
     }
-
-    private const val SELECTOR_TYPE = "Selector"
 }
 
 class ProxyDisplayPreferences(context: Context) {

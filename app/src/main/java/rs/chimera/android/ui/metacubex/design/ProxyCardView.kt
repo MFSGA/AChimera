@@ -24,6 +24,7 @@ class ProxyCardView(context: Context) : View(context) {
     private val cardRadius = dimension(R.dimen.metacubex_proxy_card_radius)
     private val shadowColor = Color.argb(0x15, 0x44, 0x44, 0x44)
     private val selectionColorTransition = ProxySelectionColorTransition()
+    private val delayTextState = ProxyDelayTextState()
     private val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
     private val colorOnPrimary = resolveThemeColor(com.google.android.material.R.attr.colorOnPrimary)
     private val colorOnSurface = resolveThemeColor(com.google.android.material.R.attr.colorOnSurface)
@@ -35,11 +36,12 @@ class ProxyCardView(context: Context) : View(context) {
             val previous = field
             field = value
             val frameTime = SystemClock.uptimeMillis()
+            val delayText = delayTextState.update(value)
             contentDescription = value?.let { item ->
                 listOfNotNull(
                     item.name,
                     item.type.takeIf(String::isNotBlank),
-                    item.delayText.takeIf(String::isNotBlank),
+                    delayText.takeIf(String::isNotBlank),
                 ).joinToString(", ")
             }
             ViewCompat.setStateDescription(
@@ -89,7 +91,6 @@ class ProxyCardView(context: Context) : View(context) {
         isClickable = false
         isFocusable = false
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
     }
 
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
@@ -171,6 +172,7 @@ class ProxyCardView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val item = entry ?: return
+        val delayText = delayTextState.text
 
         paint.reset()
         paint.isAntiAlias = true
@@ -179,12 +181,12 @@ class ProxyCardView(context: Context) : View(context) {
         paint.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
 
         val delayCount = paint.breakText(
-            item.delayText,
+            delayText,
             false,
             max(0f, width - layoutPadding * 2 - contentPadding * 2),
             null,
         )
-        paint.getTextBounds(item.delayText, 0, delayCount, bounds)
+        paint.getTextBounds(delayText, 0, delayCount, bounds)
         val delayWidth = bounds.width().toFloat()
         val mainTextWidth = max(
             0f,
@@ -196,7 +198,7 @@ class ProxyCardView(context: Context) : View(context) {
 
         if (delayCount > 0) {
             canvas.drawText(
-                item.delayText,
+                delayText,
                 0,
                 delayCount,
                 width - layoutPadding - contentPadding - delayWidth,
