@@ -8,8 +8,17 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.VpnRuntimeStatus
 
 internal object ProviderDisplayPolicy {
-    fun isVisible(provider: ProviderSnapshot): Boolean =
-        !provider.vehicleType.equals("Compatible", ignoreCase = true)
+    fun sorted(providers: List<ProviderSnapshot>): List<ProviderSnapshot> =
+        providers.sortedWith(
+            compareBy<ProviderSnapshot> { providerTypeOrder(it.type) }
+                .thenBy { it.name },
+        )
+
+    private fun providerTypeOrder(type: String): Int = when (type.lowercase()) {
+        "proxy" -> 0
+        "rule" -> 1
+        else -> 2
+    }
 }
 
 internal fun Flow<VpnRuntimeStatus>.providerRuntimeStates(): Flow<ServiceState> =

@@ -9,8 +9,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.chimera.android.backend.model.ProviderSnapshot
 import rs.chimera.android.backend.model.ServiceState
@@ -18,22 +16,19 @@ import rs.chimera.android.backend.model.VpnRuntimeStatus
 
 class ProviderDisplayPolicyTest {
     @Test
-    fun compatibleProvidersAreExcludedLikeCmfa() {
-        assertFalse(provider(vehicleType = "Compatible").let(ProviderDisplayPolicy::isVisible))
-        assertFalse(provider(vehicleType = "compatible").let(ProviderDisplayPolicy::isVisible))
-    }
+    fun allProviderVehicleTypesRemainVisibleInCmfaOrder() {
+        val providers = listOf(
+            provider(name = "inline", vehicleType = "Inline", type = "Proxy"),
+            provider(name = "compatible-rule", vehicleType = "Compatible", type = "Rule"),
+            provider(name = "file", vehicleType = "File", type = "Proxy"),
+            provider(name = "compatible-proxy", vehicleType = "Compatible", type = "Proxy"),
+            provider(name = "http", vehicleType = "HTTP", type = "Proxy"),
+        )
 
-    @Test
-    fun fileHttpAndInlineProvidersRemainVisible() {
-        listOf("File", "HTTP", "Inline").forEach { vehicleType ->
-            assertTrue(provider(vehicleType).let(ProviderDisplayPolicy::isVisible))
-        }
-    }
-
-    @Test
-    fun ruleProvidersUseTheSameCompatibleFilter() {
-        assertTrue(provider(vehicleType = "HTTP", type = "Rule").let(ProviderDisplayPolicy::isVisible))
-        assertFalse(provider(vehicleType = "Compatible", type = "Rule").let(ProviderDisplayPolicy::isVisible))
+        assertEquals(
+            listOf("compatible-proxy", "file", "http", "inline", "compatible-rule"),
+            ProviderDisplayPolicy.sorted(providers).map(ProviderSnapshot::name),
+        )
     }
 
     @Test
@@ -91,8 +86,12 @@ class ProviderDisplayPolicyTest {
         assertEquals(2, loadCount)
     }
 
-    private fun provider(vehicleType: String, type: String = "Proxy") = ProviderSnapshot(
-        name = "test",
+    private fun provider(
+        vehicleType: String,
+        type: String = "Proxy",
+        name: String = "test",
+    ) = ProviderSnapshot(
+        name = name,
         type = type,
         vehicleType = vehicleType,
         updatedAtMillis = null,

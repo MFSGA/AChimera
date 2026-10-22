@@ -24,7 +24,6 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.metacubex.design.MainDesign
-import rs.chimera.android.ui.metacubex.design.ProviderDisplayPolicy
 import rs.chimera.android.backend.model.ProxyMode
 
 class MetaMainActivity : AppCompatActivity() {
@@ -79,7 +78,7 @@ class MetaMainActivity : AppCompatActivity() {
                             if (state == ServiceState.RUNNING) {
                                 val hasProviders = try {
                                     withContext(Dispatchers.IO) {
-                                        backend.listProviders().any(ProviderDisplayPolicy::isVisible)
+                                        backend.listProviders().isNotEmpty()
                                     }
                                 } catch (error: CancellationException) {
                                     throw error

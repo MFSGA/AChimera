@@ -66,12 +66,7 @@ class MetaProvidersActivity : AppCompatActivity() {
                 throw IllegalStateException(getString(R.string.stat_vpn_stopped))
             }
             val providers = withContext(Dispatchers.IO) {
-                backend.listProviders()
-                    .filter(ProviderDisplayPolicy::isVisible)
-                    .sortedWith(
-                        compareBy<ProviderSnapshot> { providerTypeOrder(it.type) }
-                            .thenBy { it.name },
-                    )
+                ProviderDisplayPolicy.sorted(backend.listProviders())
             }
             design.submitProviders(providers)
         } catch (error: CancellationException) {
@@ -110,11 +105,5 @@ class MetaProvidersActivity : AppCompatActivity() {
                 )
             }
         }
-    }
-
-    private fun providerTypeOrder(type: String): Int = when (type.lowercase()) {
-        "proxy" -> 0
-        "rule" -> 1
-        else -> 2
     }
 }
