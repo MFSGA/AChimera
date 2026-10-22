@@ -38,6 +38,7 @@
     <string name="logs_screen">Logs</string>
     <string name="meta_logs_runtime_title">Chimera Runtime Logs</string>
     <string name="meta_logs_view_runtime">Tap to view</string>
+    <string name="meta_logs_history">History</string>
     <string name="meta_logs_clear_runtime">Clear runtime logs</string>
     <string name="meta_logs_delete_runtime_confirm">Clear the current runtime log buffer? This cannot be undone.</string>
     <string name="logs_autoscroll_title">Auto Scroll</string>

@@ -90,4 +90,18 @@
         </LinearLayout>
     </LinearLayout>
 
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/metacubex_divider_size"
+        android:background="?attr/colorControlHighlight" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingVertical="@dimen/metacubex_item_padding_vertical"
+        android:paddingStart="@dimen/metacubex_item_header_padding_start"
+        android:paddingEnd="@dimen/metacubex_item_tailing_margin"
+        android:text="@string/meta_logs_history"
+        android:textColor="?attr/colorControlActivated" />
+
 </LinearLayout>
