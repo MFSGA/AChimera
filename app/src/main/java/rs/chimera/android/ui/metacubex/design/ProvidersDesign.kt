@@ -114,7 +114,7 @@ class ProvidersDesign(context: Context) : Design<ProvidersDesign.Request>(contex
         val elevated = list.canScrollVertically(-1)
         if (appBarElevated == elevated) return
         appBarElevated = elevated
-        elevationAnimator?.cancel()
+        elevationAnimator?.end()
         val targetElevation = if (elevated) {
             5 * context.resources.displayMetrics.density
         } else {

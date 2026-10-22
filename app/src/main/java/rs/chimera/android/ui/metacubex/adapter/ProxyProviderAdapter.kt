@@ -66,10 +66,11 @@ class ProxyProviderAdapter(
             action.visibility = if (inline) View.GONE else View.VISIBLE
             updateIcon.visibility = if (row.updating) View.GONE else View.VISIBLE
             progress.visibility = if (row.updating) View.VISIBLE else View.GONE
-            action.isEnabled = !row.updating
             action.setOnClickListener {
                 if (!row.updating) onUpdate(position, provider)
             }
+            action.isClickable = !row.updating
+            action.isFocusable = !row.updating
         }
     }
 
