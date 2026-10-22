@@ -21,6 +21,8 @@
 
     <style name="Theme.Chimera.MetaCubeXBase" parent="Theme.MaterialComponents.NoActionBar">
         <item name="android:windowBackground">#FF121212</item>
+        <item name="android:ambientShadowAlpha">0.08</item>
+        <item name="android:spotShadowAlpha">0.08</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="colorPrimary">@color/metacubex_primary_dark</item>
