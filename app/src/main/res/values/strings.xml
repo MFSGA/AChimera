@@ -176,8 +176,9 @@
     <string name="settings_saved_apply_failed">Settings were saved, but applying them to the running VPN failed: %1$s</string>
     <string name="settings_fake_ip">Enable Fake IP</string>
     <string name="settings_fake_ip_desc">Use virtual IP addresses for DNS resolution.</string>
-    <string name="settings_ipv6">Enable IPv6</string>
-    <string name="settings_ipv6_desc">Allow network connections using IPv6.</string>
+    <string name="settings_ipv6">Allow Ipv6</string>
+    <string name="settings_ipv6_desc">Allows ipv6 traffic via VpnService</string>
+    <string name="cmfa_options_unavailable">Options Unavailable until VPN Stopped</string>
     <string name="settings_app_filter">App Filter</string>
     <string name="access_control_mode">Access Control Mode</string>
     <string name="allow_all_apps">Allow all apps</string>
