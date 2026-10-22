@@ -17,8 +17,8 @@
 | --- | --- | --- | --- | --- | --- |
 | LESSON-20261017-001 | 2026-10-17 | Android instrumentation tests | CI 测试断言与测试上下文不匹配 | [失败 run 38995671505](https://github.com/MFSGA/AChimera/actions/runs/38995671505)、[修复验证 run 38996990027](https://github.com/MFSGA/AChimera/actions/runs/38996990027) | Verified |
 | LESSON-20261022-001 | 2026-10-22 | Android instrumentation tests | 本机 instrumentation 后 debug 应用与配置不可用 | `connectedDebugAndroidTest` 后 `adb shell pm path rs.chimera.android.dev` 无输出；随后通过 `installDebug` 和应用内重新导入恢复 | Mitigated |
-| LESSON-20261022-002 | 2026-10-22 | CI Android instrumentation | Headless AVD 测试期间窗口失焦 | [失败 run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637) | Mitigated; CI rerun pending |
-| LESSON-20261022-003 | 2026-10-22 | CI Android SDK setup | Emulator SDK 下载遇到 Premature EOF，后续检查未运行 | [失败 run 39699535693](https://github.com/MFSGA/AChimera/actions/runs/39699535693) | Mitigated; CI rerun pending |
+| LESSON-20261022-002 | 2026-10-22 | CI Android instrumentation | Headless AVD 测试期间窗口失焦 | [失败 run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637)、[修复验证 run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292) | Verified |
+| LESSON-20261022-003 | 2026-10-22 | CI Android SDK setup | Emulator SDK 下载遇到 Premature EOF，后续检查未运行 | [失败 run 39699535693](https://github.com/MFSGA/AChimera/actions/runs/39699535693)、[修复验证 run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292) | Verified |
 
 ## 条目模板
 
@@ -82,15 +82,15 @@
 - 发生/确认时间（含时区）：2026-10-22，Asia/Shanghai
 - 模块：CI / Android instrumentation tests
 - 严重度：Medium
-- 状态：Mitigated（新 CI 验证待完成）
-- Issue、PR、commit、CI 运行或复现证据：[失败 CI run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637)
+- 状态：Verified
+- Issue、PR、commit、CI 运行或复现证据：[失败 CI run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637)，完整通过的[修复验证 CI run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292)
 - 环境：GitHub Actions `ubuntu-24.04`，Android API 36 x86_64 headless AVD
 - 预期行为：模拟器运行 instrumentation tests 时，应用窗口保持唤醒并获得输入焦点。
 - 实际失败与可复现步骤：run 39697174637 的 Android 构建和前置检查通过；instrumentation 中四项测试报告 `RootViewWithoutFocusException`（`has-window-focus=false`），代理页横向滑动测试仍停留在第 0 页。
 - 根本原因及证据（仍存疑点需注明）：CI 的 AVD 启动步骤此前未设置保持唤醒或显式唤醒屏幕；失焦与滑动失败与显示器进入非交互状态相符。但失败日志没有记录当时的电源/屏幕状态，不能断言设备确实已休眠。
 - 修复改动及其归属：在 CI AVD 完成启动后、运行 instrumentation 前执行 `svc power stayon true` 和 `input keyevent KEYCODE_WAKEUP`；未更改应用行为、测试断言、检查项或权限。
 - 预防措施：headless UI 测试显式保持设备唤醒并唤醒屏幕；若复验仍失败，应从设备电源与前台窗口状态继续诊断，而不是移除失效测试。
-- 复验命令、场景和真实结果：`ANDROID_SERIAL=emulator-5558 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=rs.chimera.android.AppUiNavigationInstrumentedTest` 在 API 36 x86_64 `CMFA_ProxyParityAPI36` 临时 AVD 上通过，26/26 项通过；`svc power stayon true` 后确认 `stay_on_while_plugged_in=15` 且 `mWakefulness=Awake`。带修复的 GitHub CI 尚未运行，不能标记为已验证。
+- 复验命令、场景和真实结果：`ANDROID_SERIAL=emulator-5558 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=rs.chimera.android.AppUiNavigationInstrumentedTest` 在 API 36 x86_64 `CMFA_ProxyParityAPI36` 临时 AVD 上通过，26/26 项通过；`svc power stayon true` 后确认 `stay_on_while_plugged_in=15` 且 `mWakefulness=Awake`。GitHub CI run 39700416292 中 API 36 x86_64 模拟器上的全部 88 项 instrumentation tests 及其余 CI 检查通过。
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否
 
@@ -99,14 +99,14 @@
 - 发生/确认时间（含时区）：2026-10-22，Asia/Shanghai
 - 模块：CI / Android SDK
 - 严重度：Low（CI 预备步骤失败，未运行代码检查；没有应用数据影响）
-- 状态：Mitigated（GitHub CI 复验待完成）
-- Issue、PR、commit、CI 运行或复现证据：[失败 CI run 39699535693](https://github.com/MFSGA/AChimera/actions/runs/39699535693)
+- 状态：Verified
+- Issue、PR、commit、CI 运行或复现证据：[失败 CI run 39699535693](https://github.com/MFSGA/AChimera/actions/runs/39699535693)，完整通过的[修复验证 CI run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292)
 - 环境：GitHub Actions `ubuntu-24.04`，Android SDK command-line tools
 - 预期行为：Android SDK 包暂时安装失败时可有限重试；持续失败时仍让 CI 明确失败。
 - 实际失败与可复现步骤：在 `Configure Android SDK` 中安装 SDK 包时，Android Emulator 包下载至约 21% 后报告 `Premature EOF` 并以退出码 1 结束；Rust/Android 质量检查和测试步骤均未运行。
 - 根本原因及证据（仍存疑点需注明）：下载流意外提前结束是日志中直接确认的现象。缺少失败后重试是工作流可恢复性缺口；底层网络为何中断尚不能由该日志确认。
 - 修复改动及其归属：在 CI SDK 安装脚本中为整组固定 SDK 包安装增加最多 3 次尝试，失败间隔为 15 秒、30 秒；最终仍失败则返回错误，不跳过后续步骤。
-- 预防措施：对 SDK 包安装失败有限重试并保留失败门禁；通过下一次 GitHub CI 验证重试逻辑及完整后续检查。
-- 复验命令、场景和真实结果：`python3 .github/check_action_pins.py` 和 `git diff --check` 通过；抽取后的 Android SDK 安装 Bash 片段通过 `bash -n` 语法检查。未安装 YAML 专用静态检查器；带修复的 GitHub CI 运行待完成，不能把下载重试或后续检查标记为已验证。
+- 预防措施：对 SDK 包安装失败有限重试并保留失败门禁；完整 GitHub CI 验证重试步骤及其后的全部质量检查和 instrumentation tests。
+- 复验命令、场景和真实结果：`python3 .github/check_action_pins.py`、`git diff --check`、抽取后的 Bash `bash -n` 语法检查及重试成功/最终失败的本地故障注入均通过。GitHub CI run 39700416292 中 SDK 配置在首次尝试成功，Rust 格式、Clippy、测试、UniFFI 绑定、Android quality、Debug APK、KVM、API 36 x86_64 模拟器和全部 88 项 instrumentation tests 均通过；实际重试路径由本地故障注入覆盖。
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否
