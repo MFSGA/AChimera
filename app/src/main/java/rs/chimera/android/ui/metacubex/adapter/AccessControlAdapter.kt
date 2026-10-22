@@ -11,13 +11,16 @@ class AccessControlAdapter(
 ) : RecyclerView.Adapter<AccessControlAdapter.ViewHolder>() {
     private var apps: List<AccessControlDesign.InstalledApp> = emptyList()
     private var selected: Set<String> = emptySet()
+    private var selectionEnabled = true
 
     fun submitState(
         apps: List<AccessControlDesign.InstalledApp>,
         selected: Set<String>,
+        selectionEnabled: Boolean,
     ) {
         this.apps = apps
         this.selected = selected
+        this.selectionEnabled = selectionEnabled
         notifyDataSetChanged()
     }
 
@@ -35,7 +38,12 @@ class AccessControlAdapter(
         val isSelected = app.packageName in selected
         holder.binding.app = app
         holder.binding.selected = isSelected
-        holder.binding.root.setOnClickListener { onToggle(app, !isSelected) }
+        holder.binding.root.setOnClickListener {
+            if (selectionEnabled) onToggle(app, !isSelected)
+        }
+        holder.binding.root.isClickable = selectionEnabled
+        holder.binding.root.isFocusable = selectionEnabled
+        holder.binding.appSelected.isEnabled = selectionEnabled
         holder.binding.executePendingBindings()
     }
 

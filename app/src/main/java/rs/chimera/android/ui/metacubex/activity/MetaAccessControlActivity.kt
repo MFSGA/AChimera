@@ -89,9 +89,7 @@ class MetaAccessControlActivity : AppCompatActivity() {
                 render()
             }
             is AccessControlDesign.Request.SetQuery -> {
-                if (AccessControlSelectionPolicy.canSelectApps(mode)) {
-                    query = request.query
-                }
+                query = request.query
                 render()
             }
             is AccessControlDesign.Request.SetShowSystemApps -> {

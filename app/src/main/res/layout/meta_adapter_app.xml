@@ -15,17 +15,18 @@
         android:background="?attr/selectableItemBackground"
         android:clickable="true"
         android:focusable="true"
-        android:minHeight="75dp"
-        android:paddingEnd="17.5dp">
+        android:minHeight="@dimen/metacubex_item_min_height"
+        android:paddingEnd="@dimen/metacubex_item_tailing_margin">
 
-        <ImageView
+        <View
             android:id="@+id/app_icon"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="@dimen/metacubex_item_header_component_size"
+            android:layout_height="@dimen/metacubex_item_header_component_size"
             android:layout_centerVertical="true"
-            android:layout_marginHorizontal="17.5dp"
-            android:contentDescription="@null"
-            android:src="@{app.icon}" />
+            android:layout_marginHorizontal="@dimen/metacubex_item_header_margin"
+            android:background="@{app.icon}"
+            android:clickable="false"
+            android:focusable="false" />
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -46,15 +47,15 @@
                 android:id="@+id/app_package_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="@dimen/metacubex_item_text_margin"
                 android:text="@{app.packageName}"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
         </LinearLayout>
 
         <com.google.android.material.checkbox.MaterialCheckBox
             android:id="@+id/app_selected"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="@dimen/metacubex_item_tailing_component_size"
+            android:layout_height="@dimen/metacubex_item_tailing_component_size"
             android:layout_alignParentEnd="true"
             android:layout_centerVertical="true"
             android:checked="@{selected}"

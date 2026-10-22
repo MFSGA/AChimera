@@ -1,5 +1,6 @@
 package rs.chimera.android.ui.metacubex.design
 
+import android.animation.ValueAnimator
 import android.app.Dialog
 import android.content.Context
 import android.content.res.Configuration
@@ -10,12 +11,15 @@ import android.view.View
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -84,9 +88,11 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
     )
 
     private val toolbarBack = root.findViewById<ImageView>(R.id.toolbar_back)
+    private val toolbar = root.findViewById<View>(R.id.toolbar)
     private val toolbarSearch = root.findViewById<ImageView>(R.id.access_control_search_button)
     private val toolbarMenu = root.findViewById<ImageView>(R.id.access_control_menu_button)
     private val appList = root.findViewById<RecyclerView>(R.id.app_list)
+    private val stateLayer = root.findViewById<FrameLayout>(R.id.state_layer)
     private val stateContainer = root.findViewById<LinearLayout>(R.id.state_container)
     private val loading = root.findViewById<ProgressBar>(R.id.loading)
     private val stateMessage = root.findViewById<TextView>(R.id.empty_message)
@@ -99,15 +105,47 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
     private var searchAdapter: AccessControlAdapter? = null
     private var displayedApps = emptyList<InstalledApp>()
     private var displayedSelection = emptySet<String>()
+    private var displayedSelectionEnabled: Boolean? = null
     private var displayedSearchApps = emptyList<InstalledApp>()
     private var displayedSearchSelection = emptySet<String>()
+    private var displayedSearchSelectionEnabled: Boolean? = null
     private var currentState: State? = null
     private var rendering = false
+    private var appBarElevated = false
+    private var elevationAnimator: ValueAnimator? = null
 
     init {
-        root.applySystemBarInsets()
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            view.setPaddingRelative(
+                if (isRtl) bars.right else bars.left,
+                0,
+                if (isRtl) bars.left else bars.right,
+                0,
+            )
+            toolbar.setPaddingRelative(
+                toolbar.paddingStart,
+                bars.top,
+                toolbar.paddingEnd,
+                toolbar.paddingBottom,
+            )
+            val listTop = bars.top +
+                context.resources.getDimensionPixelSize(R.dimen.metacubex_toolbar_height)
+            appList.setPadding(appList.paddingLeft, listTop, appList.paddingRight, bars.bottom)
+            stateLayer.setPadding(stateLayer.paddingLeft, listTop, stateLayer.paddingRight, bars.bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
         appList.adapter = adapter
         appList.layoutManager = LinearLayoutManager(context)
+        appList.addOnScrollListener(
+            object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    updateToolbarElevation()
+                }
+            },
+        )
         toolbarBack.setOnClickListener { request(Request.NavigateBack) }
         toolbarSearch.setOnClickListener { showSearchDialog() }
         toolbarMenu.setOnClickListener { showOptionsMenu() }
@@ -119,19 +157,24 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         rendering = true
         val canSelectApps = AccessControlSelectionPolicy.canSelectApps(state.mode)
         val showState = state.loading || state.loadError != null || state.apps.isEmpty()
-        toolbarSearch.visibility = if (canSelectApps) View.VISIBLE else View.GONE
-        appList.visibility = if (canSelectApps && !showState) View.VISIBLE else View.GONE
-        stateContainer.visibility = if (canSelectApps && showState) View.VISIBLE else View.GONE
+        toolbarSearch.visibility = View.VISIBLE
+        appList.visibility = if (!showState) View.VISIBLE else View.GONE
+        stateContainer.visibility = if (showState) View.VISIBLE else View.GONE
         loading.visibility = if (state.loading) View.VISIBLE else View.GONE
         stateMessage.visibility = if (state.loading) View.GONE else View.VISIBLE
         stateMessage.text = state.loadError ?: context.getString(R.string.app_selector_empty)
         retry.visibility = if (state.loadError != null) View.VISIBLE else View.GONE
         retry.isEnabled = !state.saving
 
-        if (displayedApps != state.apps || displayedSelection != state.selected) {
+        if (displayedApps != state.apps ||
+            displayedSelection != state.selected ||
+            displayedSelectionEnabled != canSelectApps
+        ) {
             displayedApps = state.apps
             displayedSelection = state.selected
-            adapter.submitState(state.apps, state.selected)
+            displayedSelectionEnabled = canSelectApps
+            adapter.submitState(state.apps, state.selected, canSelectApps)
+            appList.post { updateToolbarElevation() }
         }
         val searchApps = if (state.query.isBlank()) {
             emptyList()
@@ -141,10 +184,14 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
                     app.packageName.contains(state.query, ignoreCase = true)
             }
         }
-        if (displayedSearchApps != searchApps || displayedSearchSelection != state.selected) {
+        if (displayedSearchApps != searchApps ||
+            displayedSearchSelection != state.selected ||
+            displayedSearchSelectionEnabled != canSelectApps
+        ) {
             displayedSearchApps = searchApps
             displayedSearchSelection = state.selected
-            searchAdapter?.submitState(searchApps, state.selected)
+            displayedSearchSelectionEnabled = canSelectApps
+            searchAdapter?.submitState(searchApps, state.selected, canSelectApps)
         }
         if (searchInput?.text?.toString() != state.query) {
             searchInput?.setText(state.query)
@@ -276,6 +323,7 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
             searchAdapter = null
             displayedSearchApps = emptyList()
             displayedSearchSelection = emptySet()
+            displayedSearchSelectionEnabled = null
             request(Request.SetQuery(""))
         }
         dialog.setOnShowListener {
@@ -309,6 +357,23 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         }
         dialog.show()
+    }
+
+    private fun updateToolbarElevation() {
+        val elevated = appList.canScrollVertically(-1)
+        if (appBarElevated == elevated) return
+        appBarElevated = elevated
+        elevationAnimator?.end()
+        val targetElevation = if (elevated) {
+            5 * context.resources.displayMetrics.density
+        } else {
+            0f
+        }
+        elevationAnimator = ValueAnimator.ofFloat(toolbar.elevation, targetElevation).apply {
+            duration = 300L
+            addUpdateListener { toolbar.elevation = it.animatedValue as Float }
+            start()
+        }
     }
 
     private fun request(request: Request) {
