@@ -217,6 +217,9 @@ jobs:
           "$ADB" shell settings put global window_animation_scale 0
           "$ADB" shell settings put global transition_animation_scale 0
           "$ADB" shell settings put global animator_duration_scale 0
+          # Headless Android UI tests need the application window to keep focus.
+          "$ADB" shell svc power stayon true
+          "$ADB" shell input keyevent KEYCODE_WAKEUP
 
       - name: Run Android instrumentation tests
         run: ./gradlew connectedDebugAndroidTest

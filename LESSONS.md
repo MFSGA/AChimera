@@ -17,6 +17,7 @@
 | --- | --- | --- | --- | --- | --- |
 | LESSON-20261017-001 | 2026-10-17 | Android instrumentation tests | CI 测试断言与测试上下文不匹配 | [失败 run 38995671505](https://github.com/MFSGA/AChimera/actions/runs/38995671505)、[修复验证 run 38996990027](https://github.com/MFSGA/AChimera/actions/runs/38996990027) | Verified |
 | LESSON-20261022-001 | 2026-10-22 | Android instrumentation tests | 本机 instrumentation 后 debug 应用与配置不可用 | `connectedDebugAndroidTest` 后 `adb shell pm path rs.chimera.android.dev` 无输出；随后通过 `installDebug` 和应用内重新导入恢复 | Mitigated |
+| LESSON-20261022-002 | 2026-10-22 | CI Android instrumentation | Headless AVD 测试期间窗口失焦 | [失败 run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637) | Mitigated; CI rerun pending |
 
 ## 条目模板
 
@@ -72,5 +73,22 @@
 - 修复改动及其归属：重新安装 debug APK，并在应用内恢复本机 profile；重新导入时关闭自动更新。没有停止参考应用 VPN，也没有启动 Chimera VPN。
 - 预防措施：今后优先用独立、可丢弃的 AVD 跑 instrumentation；若只能使用保存了本机配置的模拟器，执行前先准备并验证可恢复备份，或明确接受重置；测试后检查 package 与数据状态，再继续截图/手动验收。不得把用户配置写入仓库；CMFA 对比截图继续保存在仓库外。
 - 复验命令、场景和真实结果：`./gradlew :app:testDebugUnitTest --tests 'rs.chimera.android.ui.metacubex.activity.ProxyRequestLoopTest' --tests 'rs.chimera.android.ui.metacubex.activity.ProxySelectionActionTest' --tests 'rs.chimera.android.ui.metacubex.activity.ProxyModeSwitchActionTest' --tests 'rs.chimera.android.ui.metacubex.design.ProxySelectionAnimationTrackerTest' --tests 'rs.chimera.android.ui.metacubex.design.ProxySelectionColorTransitionTest' --tests 'rs.chimera.android.ui.metacubex.design.ProxyDisplayPolicyTest'` 通过；重新安装/导入后确认主页显示 `CMFA_UI_Parity Activated`、服务为 `Stopped`，`vpn_management` 仍仅显示参考应用持有 VPN。没有为避免再次清除本机配置而重跑 instrumentation；截图视觉对比使用之前保存在仓库外的同设备参考/实现截图。
+- 关联独立事件（用于累计出现次数）：无
+- 是否提议升级治理规范及审批链接：否
+
+### LESSON-20261022-002: Headless CI AVD 在 instrumentation 期间窗口失焦
+
+- 发生/确认时间（含时区）：2026-10-22，Asia/Shanghai
+- 模块：CI / Android instrumentation tests
+- 严重度：Medium
+- 状态：Mitigated（新 CI 验证待完成）
+- Issue、PR、commit、CI 运行或复现证据：[失败 CI run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637)
+- 环境：GitHub Actions `ubuntu-24.04`，Android API 36 x86_64 headless AVD
+- 预期行为：模拟器运行 instrumentation tests 时，应用窗口保持唤醒并获得输入焦点。
+- 实际失败与可复现步骤：run 39697174637 的 Android 构建和前置检查通过；instrumentation 中四项测试报告 `RootViewWithoutFocusException`（`has-window-focus=false`），代理页横向滑动测试仍停留在第 0 页。
+- 根本原因及证据（仍存疑点需注明）：CI 的 AVD 启动步骤此前未设置保持唤醒或显式唤醒屏幕；失焦与滑动失败与显示器进入非交互状态相符。但失败日志没有记录当时的电源/屏幕状态，不能断言设备确实已休眠。
+- 修复改动及其归属：在 CI AVD 完成启动后、运行 instrumentation 前执行 `svc power stayon true` 和 `input keyevent KEYCODE_WAKEUP`；未更改应用行为、测试断言、检查项或权限。
+- 预防措施：headless UI 测试显式保持设备唤醒并唤醒屏幕；若复验仍失败，应从设备电源与前台窗口状态继续诊断，而不是移除失效测试。
+- 复验命令、场景和真实结果：`ANDROID_SERIAL=emulator-5558 ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=rs.chimera.android.AppUiNavigationInstrumentedTest` 在 API 36 x86_64 `CMFA_ProxyParityAPI36` 临时 AVD 上通过，26/26 项通过；`svc power stayon true` 后确认 `stay_on_while_plugged_in=15` 且 `mWakefulness=Awake`。带修复的 GitHub CI 尚未运行，不能标记为已验证。
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否
