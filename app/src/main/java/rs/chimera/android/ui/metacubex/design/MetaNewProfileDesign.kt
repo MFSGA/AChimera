@@ -15,6 +15,7 @@ class MetaNewProfileDesign(context: Context) : Design<MetaNewProfileDesign.Reque
         NavigateBack,
         ImportFile,
         ImportUrl,
+        ImportQrCode,
     }
 
     override val root: View = context.layoutInflater.inflate(
@@ -37,6 +38,8 @@ class MetaNewProfileDesign(context: Context) : Design<MetaNewProfileDesign.Reque
             .setOnClickListener { request(Request.ImportFile) }
         root.findViewById<View>(R.id.provider_url)
             .setOnClickListener { request(Request.ImportUrl) }
+        root.findViewById<View>(R.id.provider_qr_code)
+            .setOnClickListener { request(Request.ImportQrCode) }
         scrollRoot.setOnScrollChangeListener { _, _, scrollY, _, _ ->
             setToolbarElevated(scrollY > 0)
         }

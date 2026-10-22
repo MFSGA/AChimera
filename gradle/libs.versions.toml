@@ -19,6 +19,7 @@ compose = "1.7.8"
 ktlint-compose = "0.5.8"
 material3 = "1.4.0"
 zxing = "3.5.3"
+quickie = "1.11.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -47,6 +48,7 @@ compose-destinations-core = { group = "io.github.raamcosta.compose-destinations"
 compose-destinations-ksp = { group = "io.github.raamcosta.compose-destinations", name = "ksp", version.ref = "composeDestinations" }
 ktlint-compose-rules = { group = "io.nlopez.compose.rules", name = "ktlint", version.ref = "ktlint-compose" }
 zxing-core = { module = "com.google.zxing:core", version.ref = "zxing" }
+quickie-bundled = { group = "io.github.g00fy2.quickie", name = "quickie-bundled", version.ref = "quickie" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

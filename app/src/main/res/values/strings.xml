@@ -446,6 +446,11 @@
     <string name="profile_provider_file_summary">Import from File</string>
     <string name="profile_provider_url">URL</string>
     <string name="profile_provider_url_summary">Import from URL</string>
+    <string name="profile_provider_qr" translatable="false">QR Code</string>
+    <string name="profile_provider_qr_summary">Import from QR Code</string>
+    <string name="profile_qr_no_camera_permission">Camera access is restricted. Please enable it in Settings.</string>
+    <string name="profile_qr_scan_failed">An unhandled system exception occurred.</string>
+    <string name="profile_qr_empty_result">The QR code does not contain a readable value.</string>
     <string name="profile_delete">Delete</string>
     <string name="profile_delete_confirm">Delete this profile?</string>
     <string name="profile_loading">Loading profiles…</string>

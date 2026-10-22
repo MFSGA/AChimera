@@ -62,6 +62,14 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         when (result.data?.getStringExtra(MetaNewProfileActivity.EXTRA_SOURCE)) {
             MetaNewProfileActivity.SOURCE_URL -> showUrlImportDialog()
             MetaNewProfileActivity.SOURCE_FILE -> filePickerLauncher.launch("*/*")
+            MetaNewProfileActivity.SOURCE_QR -> {
+                val scannedUrl = result.data?.getStringExtra(MetaNewProfileActivity.EXTRA_QR_URL)
+                if (scannedUrl.isNullOrBlank()) {
+                    design.showToast(getString(R.string.profile_qr_empty_result))
+                } else {
+                    showUrlImportDialog(scannedUrl)
+                }
+            }
         }
     }
 
@@ -417,11 +425,13 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         newProfileLauncher.launch(Intent(this, MetaNewProfileActivity::class.java))
     }
 
-    private fun showUrlImportDialog() {
+    private fun showUrlImportDialog(
+        initialUrl: String = getString(R.string.profile_url_scheme_prefix),
+    ) {
         showMetaRemoteProfileDialog(
             context = this,
             titleRes = R.string.profile_import_url,
-            initialUrl = getString(R.string.profile_url_scheme_prefix),
+            initialUrl = initialUrl,
             requireName = false,
         ) { form, dismiss, setSubmitting ->
             lifecycleScope.launch {

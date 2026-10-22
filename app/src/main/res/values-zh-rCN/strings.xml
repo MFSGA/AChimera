@@ -431,6 +431,10 @@
     <string name="profile_provider_file_summary">从文件导入</string>
     <string name="profile_provider_url">URL</string>
     <string name="profile_provider_url_summary">从 URL 导入</string>
+    <string name="profile_provider_qr_summary">从二维码导入</string>
+    <string name="profile_qr_no_camera_permission">相机权限受限，请前往设置开启。</string>
+    <string name="profile_qr_scan_failed">发生系统未知异常，操作失败。</string>
+    <string name="profile_qr_empty_result">二维码中没有可读取的内容。</string>
     <string name="profile_delete_confirm">确定删除此配置吗？</string>
     <string name="profile_loading">正在加载配置…</string>
     <string name="profile_empty">暂无配置。请添加本地或远程配置后继续。</string>
