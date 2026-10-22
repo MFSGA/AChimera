@@ -182,6 +182,15 @@ class AppUiNavigationInstrumentedTest {
             while (measurement == null && SystemClock.uptimeMillis() < deadline) {
                 instrumentation.waitForIdleSync()
                 scenario.onActivity {
+                    ViewCompat.dispatchApplyWindowInsets(
+                        design.root,
+                        WindowInsetsCompat.Builder()
+                            .setInsets(
+                                WindowInsetsCompat.Type.systemBars(),
+                                Insets.of(0, 0, 0, 28),
+                            )
+                            .build(),
+                    )
                     val viewPager = design.binding.viewPager
                     val pageRecycler = viewPager.getChildAt(0) as? RecyclerView ?: return@onActivity
                     val page = proxyPageRecycler(pageRecycler, 0) ?: return@onActivity
