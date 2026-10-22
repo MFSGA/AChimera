@@ -17,6 +17,7 @@ import rs.chimera.android.R
 import rs.chimera.android.databinding.MetaDesignConnectionsBinding
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.metacubex.adapter.ConnectionsAdapter
+import rs.chimera.android.ui.metacubex.design.util.applySystemBarInsets
 import rs.chimera.android.viewmodel.ConnectionsViewModel
 
 class MetaConnectionsActivity : AppCompatActivity() {
@@ -28,8 +29,9 @@ class MetaConnectionsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = MetaDesignConnectionsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.root.applySystemBarInsets()
 
-        binding.toolbar.setNavigationOnClickListener { finish() }
+        binding.toolbarNavigation.setOnClickListener { finish() }
         binding.connectionList.layoutManager = LinearLayoutManager(this)
         binding.connectionList.adapter = adapter
         binding.closeAll.setOnClickListener { confirmCloseAll() }
