@@ -17,6 +17,8 @@ class ProfileSubscriptionPresentationTest {
         )
 
         assertEquals("1000.00 GiB/2.00 TiB", presentation.usageText)
+        assertEquals("1000.00 GiB/", presentation.usageUsedText)
+        assertEquals("2.00 TiB", presentation.usageTotalText)
         assertNull(presentation.expiresText)
         assertEquals(488, presentation.progressPermille)
     }
@@ -33,6 +35,22 @@ class ProfileSubscriptionPresentationTest {
 
         assertNull(presentation.usageText)
         assertNull(presentation.expiresText)
+        assertNull(presentation.progressPermille)
+    }
+
+    @Test
+    fun keepsUsageSeparatorWhenQuotaIsUnavailable() {
+        val presentation = profileSubscriptionPresentation(
+            uploadBytes = 3L,
+            downloadBytes = 5L,
+            totalBytes = null,
+            expiresAtMillis = null,
+            locale = Locale.US,
+        )
+
+        assertEquals("8 Bytes/", presentation.usageText)
+        assertEquals("8 Bytes/", presentation.usageUsedText)
+        assertNull(presentation.usageTotalText)
         assertNull(presentation.progressPermille)
     }
 

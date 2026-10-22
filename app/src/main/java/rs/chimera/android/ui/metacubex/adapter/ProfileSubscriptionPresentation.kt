@@ -5,10 +5,14 @@ import java.util.Date
 import java.util.Locale
 
 internal data class ProfileSubscriptionPresentation(
-    val usageText: String?,
+    val usageUsedText: String?,
+    val usageTotalText: String?,
     val expiresText: String?,
     val progressPermille: Int?,
-)
+) {
+    val usageText: String?
+        get() = usageUsedText?.plus(usageTotalText.orEmpty())
+}
 
 internal fun profileSubscriptionPresentation(
     uploadBytes: Long?,
@@ -20,9 +24,12 @@ internal fun profileSubscriptionPresentation(
     val upload = uploadBytes?.coerceAtLeast(0L) ?: 0L
     val download = downloadBytes?.coerceAtLeast(0L) ?: 0L
     val used = if (Long.MAX_VALUE - upload < download) Long.MAX_VALUE else upload + download
-    val usageText = downloadBytes?.takeIf { it >= 2L }?.let {
-        "${used.toBytesString(locale)}/${totalBytes?.takeIf { total -> total > 1L }?.toBytesString(locale).orEmpty()}"
+    val usageUsedText = downloadBytes?.takeIf { it >= 2L }?.let {
+        "${used.toBytesString(locale)}/"
     }
+    val usageTotalText = totalBytes
+        ?.takeIf { it > 1L && usageUsedText != null }
+        ?.toBytesString(locale)
     val expiresText = expiresAtMillis?.takeIf { it > 0L }?.let {
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss", locale).format(Date(it))
     }
@@ -31,7 +38,7 @@ internal fun profileSubscriptionPresentation(
             .toInt()
             .coerceIn(0, PROGRESS_MAX)
     }
-    return ProfileSubscriptionPresentation(usageText, expiresText, progress)
+    return ProfileSubscriptionPresentation(usageUsedText, usageTotalText, expiresText, progress)
 }
 
 private fun Long.toBytesString(locale: Locale): String {

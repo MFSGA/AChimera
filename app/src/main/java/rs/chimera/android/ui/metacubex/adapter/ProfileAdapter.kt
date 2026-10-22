@@ -72,12 +72,15 @@ class ProfileAdapter(
                 totalBytes = profile.subscriptionTotalBytes,
                 expiresAtMillis = profile.subscriptionExpiresAtMillis,
             )
-            binding.subscriptionUsageText = subscription.usageText
+            binding.subscriptionUsageText = subscription.usageUsedText
+            binding.subscriptionUsageTotalText = subscription.usageTotalText
             binding.subscriptionExpireText = subscription.expiresText
             binding.subscriptionProgressVisible = subscription.progressPermille != null
             binding.subscriptionProgress = subscription.progressPermille ?: 0
-            binding.textProfileSubscriptionUsage.visibility =
+            binding.profileSubscriptionUsageRow.visibility =
                 if (subscription.usageText == null) View.GONE else View.VISIBLE
+            binding.textProfileSubscriptionTotal.visibility =
+                if (subscription.usageTotalText == null) View.GONE else View.VISIBLE
             binding.textProfileSubscriptionExpire.visibility =
                 if (subscription.expiresText == null) View.GONE else View.VISIBLE
             binding.isActive = profile.isActive
