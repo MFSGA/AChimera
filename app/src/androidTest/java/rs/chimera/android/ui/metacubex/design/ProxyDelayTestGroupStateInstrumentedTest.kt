@@ -7,6 +7,7 @@ import androidx.core.content.edit
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.viewpager2.widget.ViewPager2
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,6 +20,8 @@ import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ProxyMode
 import rs.chimera.android.backend.model.ProxySnapshot
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 @RunWith(AndroidJUnit4::class)
 class ProxyDelayTestGroupStateInstrumentedTest {
@@ -98,6 +101,47 @@ class ProxyDelayTestGroupStateInstrumentedTest {
                 assertEquals(View.GONE, design.binding.proxyDelayTestProgress.visibility)
                 assertTrue(design.binding.proxyDelayTestIcon.isEnabled)
                 assertTrue(design.binding.fabDelayTest.isEnabled)
+            }
+        }
+    }
+
+    @Test
+    fun delayTestFabReturnsAfterSwitchingToAnotherProxyGroup() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                activity.getSharedPreferences("metacubex_ui", Context.MODE_PRIVATE).edit {
+                    remove("proxy_last_group")
+                }
+                design = ProxyDesign(activity)
+                activity.setContentView(design.root)
+                design.setGroups(listOf(group("group-one", "node-one"), group("group-two", "node-two")))
+            }
+            instrumentation.waitForIdleSync()
+
+            val pagerIdle = CountDownLatch(1)
+            scenario.onActivity { activity ->
+                assertEquals(View.VISIBLE, design.binding.fabDelayTest.visibility)
+                design.binding.viewPager.registerOnPageChangeCallback(
+                    object : ViewPager2.OnPageChangeCallback() {
+                        override fun onPageScrollStateChanged(state: Int) {
+                            if (state == ViewPager2.SCROLL_STATE_IDLE &&
+                                design.binding.viewPager.currentItem == 1
+                            ) {
+                                design.binding.viewPager.unregisterOnPageChangeCallback(this)
+                                pagerIdle.countDown()
+                            }
+                        }
+                    },
+                )
+                design.binding.viewPager.setCurrentItem(1, true)
+            }
+
+            assertTrue("proxy page did not settle", pagerIdle.await(5, TimeUnit.SECONDS))
+            instrumentation.waitForIdleSync()
+            scenario.onActivity {
+                assertEquals(View.VISIBLE, design.binding.fabDelayTest.visibility)
             }
         }
     }

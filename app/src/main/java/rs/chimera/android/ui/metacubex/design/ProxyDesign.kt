@@ -113,6 +113,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
                 override fun onPageScrollStateChanged(state: Int) {
                     horizontalScrolling = state != ViewPager2.SCROLL_STATE_IDLE
+                    if (!horizontalScrolling) pagerAdapter.refreshPageBottomState(currentGroupIndex)
                     updateDelayTestFabVisibility()
                 }
             },
