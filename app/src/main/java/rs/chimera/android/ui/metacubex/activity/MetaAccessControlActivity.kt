@@ -11,6 +11,7 @@ import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -20,6 +21,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.ui.metacubex.design.AccessControlDesign
 import rs.chimera.android.ui.metacubex.design.AccessControlSelectionPolicy
+import rs.chimera.android.ui.metacubex.design.NetworkSettingsAvailabilityPolicy
 import rs.chimera.android.viewmodel.AppFilterMode
 
 class MetaAccessControlActivity : AppCompatActivity() {
@@ -156,6 +158,13 @@ class MetaAccessControlActivity : AppCompatActivity() {
     }
 
     private suspend fun save() {
+        if (!NetworkSettingsAvailabilityPolicy.canChangeSettings(backend.serviceState.value)) {
+            design.showToast(
+                getString(R.string.cmfa_options_unavailable),
+                Snackbar.LENGTH_INDEFINITE,
+            )
+            return
+        }
         val selection = currentSelection()
         if (selection == savedSelection) return
 

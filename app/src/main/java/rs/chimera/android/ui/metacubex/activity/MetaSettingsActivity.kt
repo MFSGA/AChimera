@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
 import rs.chimera.android.service.PortPreference
@@ -21,6 +22,7 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.format
 import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
+import rs.chimera.android.ui.metacubex.design.NetworkSettingsAvailabilityPolicy
 import rs.chimera.android.ui.resolvePresentation
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
@@ -35,6 +37,8 @@ import rs.chimera.android.util.toUserVisibleMessage
 class MetaSettingsActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private lateinit var design: SettingsDesign
+    private var optionsUnavailableSnackbar: Snackbar? = null
+    private var optionsUnavailableShown = false
     private val category: SettingsDesign.Category by lazy {
         SettingsDesign.Category.values().firstOrNull {
             it.name == intent.getStringExtra(SettingsDesign.EXTRA_CATEGORY)
@@ -58,15 +62,46 @@ class MetaSettingsActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { backend.vpnSystemStatus.collect { design.render(loadState()) } }
                 launch { backend.settings.collect { design.render(loadState()) } }
-                launch { backend.serviceState.collect { design.render(loadState()) } }
+                launch {
+                    backend.serviceState.collect { serviceState ->
+                        design.render(loadState())
+                        if (
+                            category == SettingsDesign.Category.NETWORK &&
+                            serviceState == ServiceState.RUNNING &&
+                            !optionsUnavailableShown
+                        ) {
+                            optionsUnavailableShown = true
+                            optionsUnavailableSnackbar = Snackbar.make(
+                                design.root,
+                                R.string.cmfa_options_unavailable,
+                                Snackbar.LENGTH_INDEFINITE,
+                            ).also(Snackbar::show)
+                        } else if (
+                            category == SettingsDesign.Category.NETWORK &&
+                            serviceState in setOf(ServiceState.STOPPED, ServiceState.ERROR)
+                        ) {
+                            optionsUnavailableSnackbar?.dismiss()
+                            optionsUnavailableSnackbar = null
+                            optionsUnavailableShown = false
+                        }
+                    }
+                }
             }
         }
+    }
+
+    override fun onDestroy() {
+        optionsUnavailableSnackbar?.dismiss()
+        optionsUnavailableSnackbar = null
+        super.onDestroy()
     }
 
     private suspend fun handleRequest(request: SettingsDesign.Request) {
         when (request) {
             SettingsDesign.Request.NavigateBack -> finish()
-            SettingsDesign.Request.EditPorts -> showPortDialog()
+            SettingsDesign.Request.EditPorts -> {
+                if (canChangeVpnSettings()) showPortDialog()
+            }
             SettingsDesign.Request.OpenLogs -> {
                 startActivity(Intent(this, MetaLogsHomeActivity::class.java))
             }
@@ -75,10 +110,12 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.OpenRuleDiagnostics -> showRuleDiagnostics()
             SettingsDesign.Request.OpenProxyProviders -> showProxyProviders()
             SettingsDesign.Request.OpenAccessControl -> {
-                startActivity(Intent(this, MetaAccessControlActivity::class.java))
+                if (canChangeVpnSettings()) {
+                    startActivity(Intent(this, MetaAccessControlActivity::class.java))
+                }
             }
             is SettingsDesign.Request.SetAccessControlMode -> {
-                if (canChangeAccessControlMode()) {
+                if (canChangeVpnSettings()) {
                     saveSettings(
                         SettingsPatch(appFilterMode = request.mode.name),
                         R.string.access_control_mode_saved,
@@ -86,7 +123,9 @@ class MetaSettingsActivity : AppCompatActivity() {
                 }
             }
             SettingsDesign.Request.ResetNetwork -> resetNetwork()
-            SettingsDesign.Request.ResetRuntimeSettings -> showResetRuntimeSettingsDialog()
+            SettingsDesign.Request.ResetRuntimeSettings -> {
+                if (canChangeVpnSettings()) showResetRuntimeSettingsDialog()
+            }
             SettingsDesign.Request.ChooseLanguage -> showLanguageDialog()
             SettingsDesign.Request.ChooseAppearance -> showAppearanceDialog()
             SettingsDesign.Request.ChooseUiVariant -> showUiVariantDialog()
@@ -95,13 +134,13 @@ class MetaSettingsActivity : AppCompatActivity() {
                 design.render(loadState())
             }
             is SettingsDesign.Request.SetAllowLan -> {
-                saveSettings(SettingsPatch(allowLan = request.enabled))
+                if (canChangeVpnSettings()) saveSettings(SettingsPatch(allowLan = request.enabled))
             }
             is SettingsDesign.Request.SetFakeIp -> {
-                saveSettings(SettingsPatch(fakeIp = request.enabled))
+                if (canChangeVpnSettings()) saveSettings(SettingsPatch(fakeIp = request.enabled))
             }
             is SettingsDesign.Request.SetIpv6 -> {
-                saveSettings(SettingsPatch(ipv6 = request.enabled))
+                if (canChangeVpnSettings()) saveSettings(SettingsPatch(ipv6 = request.enabled))
             }
         }
     }
@@ -129,6 +168,11 @@ class MetaSettingsActivity : AppCompatActivity() {
         patch: SettingsPatch,
         successMessage: Int = R.string.cmfa_settings_saved,
     ) {
+        if (!canChangeVpnSettings()) {
+            design.showToast(getString(R.string.cmfa_options_unavailable), Snackbar.LENGTH_INDEFINITE)
+            design.render(loadState())
+            return
+        }
         runCatchingPreservingCancellation { backend.updateSettings(patch) }
             .onSuccess {
                 design.render(loadState())
@@ -498,7 +542,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
             appFilterMode = appFilterMode,
-            canChangeAccessControlMode = canChangeAccessControlMode(),
+            canChangeVpnSettings = canChangeVpnSettings(),
             mixedPort = settings.mixedPort.toInt(),
             httpPort = settings.httpPort?.toInt(),
             socksPort = settings.socksPort?.toInt(),
@@ -511,10 +555,8 @@ class MetaSettingsActivity : AppCompatActivity() {
         )
     }
 
-    private fun canChangeAccessControlMode(): Boolean = when (backend.serviceState.value) {
-        ServiceState.STOPPED, ServiceState.ERROR -> true
-        ServiceState.STARTING, ServiceState.RUNNING, ServiceState.STOPPING -> false
-    }
+    private fun canChangeVpnSettings(): Boolean =
+        NetworkSettingsAvailabilityPolicy.canChangeSettings(backend.serviceState.value)
 
     private companion object {
         const val DEFAULT_DNS_QUERY_NAME = "example.com"

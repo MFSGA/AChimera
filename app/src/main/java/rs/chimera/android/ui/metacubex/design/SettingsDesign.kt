@@ -61,7 +61,7 @@ class SettingsDesign(
         val fakeIp: Boolean,
         val ipv6: Boolean,
         val appFilterMode: AppFilterMode,
-        val canChangeAccessControlMode: Boolean,
+        val canChangeVpnSettings: Boolean,
         val mixedPort: Int,
         val httpPort: Int?,
         val socksPort: Int?,
@@ -101,6 +101,15 @@ class SettingsDesign(
         root.findViewById<TextView>(R.id.text_access_control_mode_summary)
     private val cardResetNetwork = root.findViewById<View>(R.id.card_reset_network)
     private val cardResetSettings = root.findViewById<View>(R.id.card_reset_settings)
+    private val vpnSettingRows = listOf(
+        rowAllowLan,
+        rowFakeIp,
+        rowIpv6,
+        cardPorts,
+        rowAccessControlMode,
+        cardAccessControl,
+        cardResetSettings,
+    )
     private val rowAutoRestart = root.findViewById<View>(R.id.row_auto_restart)
     private val switchAutoRestart = root.findViewById<SwitchMaterial>(R.id.switch_auto_restart)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
@@ -162,7 +171,7 @@ class SettingsDesign(
         cardAccessControl.setOnClickListener { request(Request.OpenAccessControl) }
         rowAccessControlMode.setOnClickListener {
             val state = currentState ?: return@setOnClickListener
-            if (state.canChangeAccessControlMode) showAccessControlModeMenu(state.appFilterMode)
+            if (state.canChangeVpnSettings) showAccessControlModeMenu(state.appFilterMode)
         }
         cardResetNetwork.setOnClickListener {
             cardResetNetwork.isEnabled = false
@@ -193,8 +202,13 @@ class SettingsDesign(
         switchAllowLan.isChecked = state.allowLan
         switchFakeIp.isChecked = state.fakeIp
         switchIpv6.isChecked = state.ipv6
-        rowAccessControlMode.isEnabled = state.canChangeAccessControlMode
-        rowAccessControlMode.alpha = if (state.canChangeAccessControlMode) 1f else 0.38f
+        vpnSettingRows.forEach { row ->
+            row.isEnabled = state.canChangeVpnSettings
+            row.alpha = if (state.canChangeVpnSettings) 1f else 0.38f
+        }
+        listOf(switchAllowLan, switchFakeIp, switchIpv6).forEach { switch ->
+            switch.isEnabled = state.canChangeVpnSettings
+        }
         accessControlModeSummary.setText(
             when (state.appFilterMode) {
                 AppFilterMode.ALL -> R.string.allow_all_apps
