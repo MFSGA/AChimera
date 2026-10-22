@@ -10,6 +10,9 @@ import android.view.View
 import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.graphics.Insets
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -174,6 +177,7 @@ class AppUiNavigationInstrumentedTest {
                 )
             }
             var measurement: Pair<IntArray, CharSequence?>? = null
+            var pagerOverlaysHeader = false
             val deadline = SystemClock.uptimeMillis() + 5_000
             while (measurement == null && SystemClock.uptimeMillis() < deadline) {
                 instrumentation.waitForIdleSync()
@@ -183,9 +187,32 @@ class AppUiNavigationInstrumentedTest {
                     val page = proxyPageRecycler(pageRecycler, 0) ?: return@onActivity
                     if (page.adapter?.itemCount == 1) {
                         val card = page.findViewHolderForAdapterPosition(0)?.itemView
-                        if (card != null) {
+                        val toolbar = design.root.findViewById<View>(R.id.proxy_activity_bar)
+                        val tabs = design.root.findViewById<View>(R.id.tab_layout)
+                        if (
+                            card != null && toolbar.height > 0 && tabs.height > 0
+                        ) {
+                            val pagerLocation = IntArray(2)
+                            val toolbarLocation = IntArray(2)
+                            val tabsLocation = IntArray(2)
+                            viewPager.getLocationOnScreen(pagerLocation)
+                            toolbar.getLocationOnScreen(toolbarLocation)
+                            tabs.getLocationOnScreen(tabsLocation)
+                            pagerOverlaysHeader = pagerLocation[1] <= toolbarLocation[1] &&
+                                pagerLocation[1] + viewPager.height >=
+                                toolbarLocation[1] + toolbar.height &&
+                                pagerLocation[1] <= tabsLocation[1] &&
+                                pagerLocation[1] + viewPager.height >= tabsLocation[1] + tabs.height
                             measurement = Pair(
-                                intArrayOf(viewPager.width, viewPager.height, page.width, page.height),
+                                intArrayOf(
+                                    viewPager.width,
+                                    viewPager.height,
+                                    page.width,
+                                    page.height,
+                                    page.paddingTop,
+                                    toolbar.height,
+                                    tabs.height,
+                                ),
                                 card.contentDescription,
                             )
                         }
@@ -197,6 +224,8 @@ class AppUiNavigationInstrumentedTest {
             val rendered = measurement ?: throw AssertionError("Proxy item did not render")
             assertEquals(rendered.first[0], rendered.first[2])
             assertEquals(rendered.first[1], rendered.first[3])
+            assertTrue("Proxy pager should extend behind the toolbar and tabs", pagerOverlaysHeader)
+            assertEquals(rendered.first[5] + rendered.first[6], rendered.first[4])
             assertNotNull(rendered.second)
             assertEquals("test-node, Vless, 42", rendered.second.toString())
 
@@ -356,15 +385,113 @@ class AppUiNavigationInstrumentedTest {
             assertFalse(nonSelectorClickHandled)
             assertFalse(design.requests.tryReceive().isSuccess)
 
-            var stateVisibility = View.GONE
-            var contentVisibility = View.VISIBLE
+            var errorStateVisibility = View.GONE
+            var errorContentVisibility = View.VISIBLE
+            var errorPagerVisibility = View.VISIBLE
+            var recoveredStateVisibility = View.VISIBLE
+            var recoveredContentVisibility = View.GONE
+            var recoveredPagerVisibility = View.GONE
+            var emptyVisibility = View.GONE
+            var emptyPagerVisibility = View.VISIBLE
             scenario.onActivity {
                 design.showError("Test error")
-                stateVisibility = design.root.findViewById<View>(R.id.proxy_state).visibility
-                contentVisibility = design.root.findViewById<View>(R.id.proxy_content).visibility
+                errorStateVisibility = design.root.findViewById<View>(R.id.proxy_state).visibility
+                errorContentVisibility = design.root.findViewById<View>(R.id.proxy_content).visibility
+                errorPagerVisibility = design.binding.viewPager.visibility
+                design.setGroups(listOf(proxyGroupWithNodes("recovered", "Selector", listOf("node"))))
+                recoveredStateVisibility = design.root.findViewById<View>(R.id.proxy_state).visibility
+                recoveredContentVisibility = design.root.findViewById<View>(R.id.proxy_content).visibility
+                recoveredPagerVisibility = design.binding.viewPager.visibility
+                design.setGroups(emptyList())
+                emptyVisibility = design.root.findViewById<View>(R.id.proxy_empty_view).visibility
+                emptyPagerVisibility = design.binding.viewPager.visibility
             }
-            assertEquals(View.VISIBLE, stateVisibility)
-            assertEquals(View.GONE, contentVisibility)
+            assertEquals(View.VISIBLE, errorStateVisibility)
+            assertEquals(View.GONE, errorContentVisibility)
+            assertEquals(View.GONE, errorPagerVisibility)
+            assertEquals(View.GONE, recoveredStateVisibility)
+            assertEquals(View.VISIBLE, recoveredContentVisibility)
+            assertEquals(View.VISIBLE, recoveredPagerVisibility)
+            assertEquals(View.VISIBLE, emptyVisibility)
+            assertEquals(View.GONE, emptyPagerVisibility)
+        }
+    }
+
+    @Test
+    fun cachedProxyPagesReceiveUpdatedSystemBarInsets() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var design: ProxyDesign
+            scenario.onActivity { activity ->
+                design = ProxyDesign(activity)
+                activity.addContentView(
+                    design.root,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                design.setGroups(
+                    (0..3).map { index ->
+                        proxyGroupWithNodes("group-$index", "Selector", listOf("node-$index"))
+                    },
+                )
+            }
+
+            val firstInsets = WindowInsetsCompat.Builder()
+                .setInsets(
+                    WindowInsetsCompat.Type.systemBars(),
+                    Insets.of(0, 12, 0, 16),
+                )
+                .build()
+            scenario.onActivity {
+                ViewCompat.dispatchApplyWindowInsets(design.root, firstInsets)
+            }
+            awaitProxyPageBounds(scenario, design, 0, 1)
+            lateinit var originalPage: RecyclerView
+            scenario.onActivity {
+                val pagerRecycler = design.binding.viewPager.getChildAt(0) as RecyclerView
+                originalPage = proxyPageRecycler(pagerRecycler, 0)
+                    ?: throw AssertionError("Initial proxy page did not render")
+                design.binding.viewPager.setCurrentItem(3, false)
+            }
+            awaitProxyPageBounds(scenario, design, 3, 1)
+
+            val updatedInsets = WindowInsetsCompat.Builder()
+                .setInsets(
+                    WindowInsetsCompat.Type.systemBars(),
+                    Insets.of(0, 24, 0, 28),
+                )
+                .build()
+            scenario.onActivity {
+                ViewCompat.dispatchApplyWindowInsets(design.root, updatedInsets)
+                design.binding.viewPager.setCurrentItem(0, false)
+            }
+            awaitProxyPageBounds(scenario, design, 0, 1)
+
+            var pageInsets: IntArray? = null
+            var restoredPage: RecyclerView? = null
+            val deadline = SystemClock.uptimeMillis() + 5_000
+            while (pageInsets == null && SystemClock.uptimeMillis() < deadline) {
+                instrumentation.waitForIdleSync()
+                scenario.onActivity {
+                    val pagerRecycler = design.binding.viewPager.getChildAt(0) as? RecyclerView
+                        ?: return@onActivity
+                    val page = proxyPageRecycler(pagerRecycler, 0) ?: return@onActivity
+                    if (page.adapter?.itemCount == 1) {
+                        restoredPage = page
+                        pageInsets = intArrayOf(page.paddingTop, page.paddingBottom)
+                    }
+                }
+                if (pageInsets == null) SystemClock.sleep(50)
+            }
+
+            val insets = pageInsets ?: throw AssertionError("Cached proxy page did not reattach")
+            assertSame(originalPage, restoredPage)
+            val expectedTopInset = 24 + context.resources.getDimensionPixelSize(
+                R.dimen.metacubex_toolbar_height,
+            ) + context.resources.getDimensionPixelSize(R.dimen.metacubex_tab_layout_height)
+            assertEquals(expectedTopInset, insets[0])
+            assertEquals(28, insets[1])
         }
     }
 

@@ -162,6 +162,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     private fun showEmptyGroups() {
         content.visibility = View.GONE
+        binding.viewPager.visibility = View.GONE
         binding.fabDelayTest.hide()
         setDelayTestActionVisible(false)
         stateContainer.visibility = View.GONE
@@ -236,6 +237,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             pagerAdapter.submitPages(sortedPages())
             if (rebindVisibleRowsImmediately) pagerAdapter.rebindVisibleRowsImmediately()
             emptyView.visibility = View.GONE
+            binding.viewPager.visibility = View.VISIBLE
             content.visibility = View.VISIBLE
             stateContainer.visibility = View.GONE
             setDelayTestActionVisible(true)
@@ -322,6 +324,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         showRetry: Boolean,
     ) {
         content.visibility = View.GONE
+        binding.viewPager.visibility = View.GONE
         emptyView.visibility = View.GONE
         binding.fabDelayTest.hide()
         setDelayTestActionVisible(false)
@@ -428,6 +431,8 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private fun applyProxySystemBarInsets() {
         val defaultFabBottomMargin =
             (binding.fabDelayTest.layoutParams as CoordinatorLayout.LayoutParams).bottomMargin
+        val toolbarHeight = context.resources.getDimensionPixelSize(R.dimen.metacubex_toolbar_height)
+        val tabHeight = context.resources.getDimensionPixelSize(R.dimen.metacubex_tab_layout_height)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
@@ -438,7 +443,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 0,
             )
             activityBar.setPadding(0, bars.top, 0, 0)
+            pagerAdapter.setTopInset(bars.top + toolbarHeight + tabHeight)
             pagerAdapter.setBottomInset(bars.bottom)
+            (stateContainer.layoutParams as CoordinatorLayout.LayoutParams).apply {
+                topMargin = bars.top + toolbarHeight
+                stateContainer.layoutParams = this
+            }
             (binding.fabDelayTest.layoutParams as CoordinatorLayout.LayoutParams).apply {
                 bottomMargin = defaultFabBottomMargin + bars.bottom
                 binding.fabDelayTest.layoutParams = this
@@ -453,17 +463,28 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         private var groupNames = emptyList<String>()
         private val childrenPool = RecyclerView.RecycledViewPool()
         private val pageAdapters = mutableMapOf<String, ProxyAdapter>()
+        private var topInset = 0
         private var bottomInset = 0
+
+        fun setTopInset(inset: Int) {
+            if (topInset == inset) return
+            topInset = inset
+            updateVisiblePageInsets()
+        }
 
         fun setBottomInset(inset: Int) {
             if (bottomInset == inset) return
             bottomInset = inset
 
+            updateVisiblePageInsets()
+        }
+
+        private fun updateVisiblePageInsets() {
             val pagerRecycler = binding.viewPager.getChildAt(0) as? RecyclerView ?: return
             repeat(itemCount) { position ->
                 (pagerRecycler.findViewHolderForAdapterPosition(position) as? PageHolder)
                     ?.recyclerView
-                    ?.setPaddingRelative(0, 0, 0, bottomInset)
+                    ?.setPaddingRelative(0, topInset, 0, bottomInset)
             }
         }
 
@@ -542,7 +563,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 isNestedScrollingEnabled = false
                 clipToPadding = false
                 setRecycledViewPool(childrenPool)
-                setPaddingRelative(0, 0, 0, bottomInset)
+                setPaddingRelative(0, topInset, 0, bottomInset)
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -569,6 +590,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         override fun onBindViewHolder(holder: PageHolder, position: Int) {
             val items = pages.getOrNull(position).orEmpty()
             val group = groups.getOrNull(position) ?: return
+            applyPageInsets(holder.recyclerView)
             val groupName = group.name
             bottomGroups.remove(groupName)
             if (position == currentGroupIndex) bottomStateRefreshPending = true
@@ -586,6 +608,15 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 holder.recyclerView.adapter = proxyAdapter
             }
             if (position == currentGroupIndex) updateDelayTestFabVisibility()
+        }
+
+        override fun onViewAttachedToWindow(holder: PageHolder) {
+            super.onViewAttachedToWindow(holder)
+            applyPageInsets(holder.recyclerView)
+        }
+
+        private fun applyPageInsets(recyclerView: RecyclerView) {
+            recyclerView.setPaddingRelative(0, topInset, 0, bottomInset)
         }
 
         private fun refreshBottomState(

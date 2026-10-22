@@ -17,9 +17,14 @@
             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
             android:visibility="gone" />
 
+        <androidx.viewpager2.widget.ViewPager2
+            android:id="@+id/view_pager"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="vertical">
 
             <FrameLayout
@@ -111,87 +116,70 @@
                 </RelativeLayout>
             </FrameLayout>
 
-            <FrameLayout
+            <LinearLayout
+                android:id="@+id/proxy_content"
                 android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1">
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
 
-                <LinearLayout
-                    android:id="@+id/proxy_content"
+                <com.google.android.material.tabs.TabLayout
+                    android:id="@+id/tab_layout"
                     android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:orientation="vertical">
-
-                    <com.google.android.material.tabs.TabLayout
-                        android:id="@+id/tab_layout"
-                        android:layout_width="match_parent"
-                        android:layout_height="@dimen/metacubex_tab_layout_height"
-                        android:alpha="0.96"
-                        android:background="?android:windowBackground"
-                        android:elevation="@dimen/metacubex_tab_layout_elevation"
-                        app:tabBackground="@android:color/transparent"
-                        app:tabIndicatorColor="?attr/colorPrimary"
-                        app:tabMode="scrollable" />
-
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1">
-
-                        <androidx.viewpager2.widget.ViewPager2
-                            android:id="@+id/view_pager"
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent" />
-
-                        <View
-                            android:layout_width="match_parent"
-                            android:layout_height="@dimen/metacubex_divider_size"
-                            android:alpha="0.96"
-                            android:background="?android:windowBackground"
-                            android:elevation="@dimen/metacubex_tab_layout_elevation" />
-                    </FrameLayout>
-                </LinearLayout>
-
-                <LinearLayout
-                    android:id="@+id/proxy_state"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
+                    android:layout_height="@dimen/metacubex_tab_layout_height"
+                    android:alpha="0.96"
                     android:background="?android:windowBackground"
-                    android:gravity="center"
-                    android:orientation="vertical"
-                    android:padding="32dp">
+                    app:tabBackground="@android:color/transparent"
+                    app:tabIndicatorColor="?attr/colorPrimary"
+                    app:tabMode="scrollable" />
 
-                    <ProgressBar
-                        android:id="@+id/proxy_state_progress"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp" />
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="@dimen/metacubex_divider_size"
+                    android:alpha="0.96"
+                    android:background="?android:windowBackground"
+                    android:elevation="@dimen/metacubex_tab_layout_elevation" />
+            </LinearLayout>
+        </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/proxy_state_title"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+        <LinearLayout
+            android:id="@+id/proxy_state"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginTop="@dimen/metacubex_toolbar_height"
+            android:background="?android:windowBackground"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="32dp">
 
-                    <TextView
-                        android:id="@+id/proxy_state_message"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:gravity="center"
-                        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+            <ProgressBar
+                android:id="@+id/proxy_state_progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="20dp" />
 
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/proxy_state_retry"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="20dp"
-                        android:text="@string/retry"
-                        android:visibility="gone" />
-                </LinearLayout>
-            </FrameLayout>
+            <TextView
+                android:id="@+id/proxy_state_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+
+            <TextView
+                android:id="@+id/proxy_state_message"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/proxy_state_retry"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:text="@string/retry"
+                android:visibility="gone" />
         </LinearLayout>
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
