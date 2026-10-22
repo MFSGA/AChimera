@@ -115,13 +115,38 @@ jobs:
             echo "sdkmanager was not found under ANDROID_HOME=${ANDROID_HOME}."
             exit 1
           fi
-          "$sdkmanager_path" \
-            "platforms;android-${ANDROID_PLATFORM_VERSION}" \
-            "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
-            "ndk;${ANDROID_NDK_VERSION}" \
-            "platform-tools" \
-            "emulator" \
-            "system-images;android-${ANDROID_PLATFORM_VERSION};google_apis;x86_64"
+          install_android_packages() {
+            local attempt=1
+            local max_attempts=3
+            local delay
+
+            while (( attempt <= max_attempts )); do
+              echo "::group::Install Android SDK packages (attempt ${attempt}/${max_attempts})"
+              if "$sdkmanager_path" \
+                "platforms;android-${ANDROID_PLATFORM_VERSION}" \
+                "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" \
+                "ndk;${ANDROID_NDK_VERSION}" \
+                "platform-tools" \
+                "emulator" \
+                "system-images;android-${ANDROID_PLATFORM_VERSION};google_apis;x86_64"; then
+                echo "::endgroup::"
+                return 0
+              fi
+              echo "::endgroup::"
+
+              if (( attempt == max_attempts )); then
+                echo "::error::Android SDK package installation failed after ${max_attempts} attempts."
+                return 1
+              fi
+
+              delay=$((attempt * 15))
+              echo "::warning::Android SDK package download failed; retrying in ${delay}s."
+              sleep "$delay"
+              attempt=$((attempt + 1))
+            done
+          }
+
+          install_android_packages
           echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
           echo "sdk.dir=${ANDROID_HOME}" > local.properties
 

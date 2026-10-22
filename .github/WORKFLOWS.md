@@ -6,7 +6,7 @@
 
 | 工作流 | 真实触发方式 | 作用与权限 |
 | --- | --- | --- |
-| `ci.yml` | `main` push / PR | 固定 Ubuntu 24.04（兼容 `cargo-ndk` 所需的 GLIBC 2.39）；只读 Token；配置后检查并验证 runner 用户的 KVM 加速权限；核验 Actions 引用、Cargo dependency policy、Rust fmt/Clippy/tests、UniFFI 绑定、Gradle ktlint/JVM/lint、Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests |
+| `ci.yml` | `main` push / PR | 固定 Ubuntu 24.04（兼容 `cargo-ndk` 所需的 GLIBC 2.39）；只读 Token；Android SDK 包安装失败时最多尝试 3 次（含首次安装）；配置后检查并验证 runner 用户的 KVM 加速权限；核验 Actions 引用、Cargo dependency policy、Rust fmt/Clippy/tests、UniFFI 绑定、Gradle ktlint/JVM/lint、Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests |
 | `nightly.yml` | 每日 19:17 UTC / 手工 dispatch | 构建全 ABI Debug APK，上传 Artifact，使用 `contents: write` 更新滚动 `nightly` GitHub 预发布 |
 | `release.yml` | `v*` 标签 push / 手工 dispatch（仅 main） | 手工 dispatch 可更改版本并推 tag；必须配置签名 Secrets，否则失败；校验 tag 提交属于 main 且版本匹配；构建后逐个用 `apksigner` 验证 APK 与固定证书指纹，再生成依赖清单、校验和并发布 GitHub Release |
 
