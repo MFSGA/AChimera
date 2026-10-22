@@ -2,6 +2,8 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.widget.EditText
@@ -10,12 +12,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.color.MaterialColors
+import com.google.zxing.WriterException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -28,11 +33,13 @@ import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.databinding.MetaDialogProfileQrCodeBinding
 import rs.chimera.android.databinding.MetaDialogProfileMenuBinding
 import rs.chimera.android.databinding.MetaProfileActionItemBinding
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
 import rs.chimera.android.ui.metacubex.design.util.MetaBottomSheetDialog
 import rs.chimera.android.ui.profileDetailsText
+import kotlin.coroutines.resume
 
 class MetaProfilesDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -248,6 +255,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             }
             MetaProfileAction.Verify -> verifyProfile(profile)
             MetaProfileAction.EditRemoteSettings -> showRemoteSettingsDialog(profile)
+            MetaProfileAction.ShareQrCode -> showProfileQrCode(profile)
             MetaProfileAction.Update -> performOperation(
                 progressMessage = getString(R.string.profile_updating),
                 successMessage = getString(R.string.profile_update_success, profile.name),
@@ -257,6 +265,40 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             }
             MetaProfileAction.Rename -> showRenameDialog(profile.id, profile.name)
             MetaProfileAction.Delete -> confirmDelete(profile.id, profile.name)
+        }
+    }
+
+    private suspend fun showProfileQrCode(profile: ProfileSummary) {
+        val url = profile.url?.takeIf(String::isNotBlank) ?: return
+        val bitmap = try {
+            withContext(Dispatchers.Default) {
+                val matrix = ProfileQrCodeEncoder.encode(url)
+                val pixels = IntArray(matrix.width * matrix.height) { index ->
+                    if (matrix[index % matrix.width, index / matrix.width]) Color.BLACK else Color.WHITE
+                }
+                Bitmap.createBitmap(pixels, matrix.width, matrix.height, Bitmap.Config.ARGB_8888)
+            }
+        } catch (_: WriterException) {
+            design.showToast(getString(R.string.profile_qr_code_generation_failed))
+            return
+        }
+
+        withContext(Dispatchers.Main) {
+            val binding = MetaDialogProfileQrCodeBinding.inflate(layoutInflater)
+            binding.qrCode.setImageBitmap(bitmap)
+
+            suspendCancellableCoroutine { continuation ->
+                val dialog = MaterialAlertDialogBuilder(this@MetaProfilesDesignActivity)
+                    .setTitle(R.string.profile_share_qr_code)
+                    .setView(binding.root)
+                    .setPositiveButton(R.string.profile_qr_code_close) { _, _ -> }
+                    .setOnDismissListener {
+                        if (continuation.isActive) continuation.resume(Unit)
+                    }
+                    .show()
+
+                continuation.invokeOnCancellation { dialog.dismiss() }
+            }
         }
     }
 

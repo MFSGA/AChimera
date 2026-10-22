@@ -17,8 +17,11 @@ class MetaProfileActionTest {
     fun remoteActionsRequireRemoteProfile() {
         assertFalse(MetaProfileAction.Update.isAvailableFor(profile()))
         assertFalse(MetaProfileAction.EditRemoteSettings.isAvailableFor(profile()))
+        assertFalse(MetaProfileAction.ShareQrCode.isAvailableFor(profile()))
         assertTrue(MetaProfileAction.Update.isAvailableFor(profile(isRemote = true)))
         assertTrue(MetaProfileAction.EditRemoteSettings.isAvailableFor(profile(isRemote = true)))
+        assertTrue(MetaProfileAction.ShareQrCode.isAvailableFor(profile(isRemote = true)))
+        assertFalse(MetaProfileAction.ShareQrCode.isAvailableFor(profile(isRemote = true, url = " ")))
     }
 
     @Test
@@ -33,6 +36,7 @@ class MetaProfileActionTest {
     private fun profile(
         isActive: Boolean = false,
         isRemote: Boolean = false,
+        url: String? = if (isRemote) "https://example.com/profile.yaml" else null,
     ) = ProfileSummary(
         id = "profile-1",
         name = "profile",
@@ -42,7 +46,7 @@ class MetaProfileActionTest {
         isRemote = isRemote,
         lastUpdated = 100L,
         fileSize = 42L,
-        url = if (isRemote) "https://example.com/profile.yaml" else null,
+        url = url,
         autoUpdate = false,
         userAgent = null,
         proxyUrl = null,

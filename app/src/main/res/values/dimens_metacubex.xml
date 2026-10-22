@@ -10,6 +10,8 @@
     <dimen name="metacubex_main_card_margin_vertical">5dp</dimen>
     <dimen name="metacubex_main_label_padding_vertical">15dp</dimen>
     <dimen name="metacubex_main_label_margin_vertical">2dp</dimen>
+    <dimen name="metacubex_main_label_text_margin">5dp</dimen>
+    <dimen name="metacubex_main_action_icon_margin_horizontal">20dp</dimen>
     <dimen name="metacubex_proxy_layout_padding">3dp</dimen>
     <dimen name="metacubex_proxy_content_padding">15dp</dimen>
     <dimen name="metacubex_proxy_content_padding_compact">12dp</dimen>
@@ -25,11 +27,15 @@
     <dimen name="metacubex_divider_size">1dp</dimen>
     <dimen name="metacubex_item_header_component_size">30dp</dimen>
     <dimen name="metacubex_item_header_margin">17.5dp</dimen>
+    <dimen name="metacubex_item_header_start_padding">65dp</dimen>
     <dimen name="metacubex_item_min_height">75dp</dimen>
+    <dimen name="metacubex_item_padding_vertical">16dp</dimen>
+    <dimen name="metacubex_item_middle_margin">10dp</dimen>
     <dimen name="metacubex_item_text_margin">5dp</dimen>
     <dimen name="metacubex_item_tailing_component_size">30dp</dimen>
     <dimen name="metacubex_item_tailing_margin">17.5dp</dimen>
     <dimen name="metacubex_bottom_sheet_top_padding">10dp</dimen>
     <dimen name="metacubex_bottom_sheet_handle_height">5dp</dimen>
+    <dimen name="metacubex_profile_action_padding_vertical">20dp</dimen>
     <dimen name="metacubex_dialog_padding">20dp</dimen>
 </resources>

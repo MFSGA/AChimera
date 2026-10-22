@@ -34,8 +34,13 @@
     <string name="service_stop_failed">Failed to stop VPN: %1$s</string>
     <string name="cmfa_about_body">Chimera Lite %1$s\n\nAndroid proxy client powered by the Chimera core. The CMFA interface shares profiles, settings, and runtime state with the Watfaq interface.</string>
     <string name="switch_to_metacubex_ui">Switch to MetaCubeX UI</string>
-    <string name="switch_to_watfaq_ui">Switch to Watfaq UI</string>
+    <string name="cmfa_main_profile_title">Profile</string>
     <string name="logs_screen">Logs</string>
+    <string name="meta_logs_runtime_title">Chimera Runtime Logs</string>
+    <string name="meta_logs_view_runtime">Tap to view</string>
+    <string name="meta_logs_history">History</string>
+    <string name="meta_logs_clear_runtime">Clear runtime logs</string>
+    <string name="meta_logs_delete_runtime_confirm">Clear the current runtime log buffer? This cannot be undone.</string>
     <string name="logs_autoscroll_title">Auto Scroll</string>
     <string name="logs_autoscroll_hint">Keep the log view pinned to the latest line.</string>
     <string name="logs_pause_title">Pause Refresh</string>
@@ -367,6 +372,9 @@
     <string name="profile_import_error">Import failed: %1$s</string>
     <string name="profile_update">Update</string>
     <string name="profile_edit_settings">Edit remote settings</string>
+    <string name="profile_share_qr_code">Share QR code</string>
+    <string name="profile_qr_code_close">Close</string>
+    <string name="profile_qr_code_generation_failed">Unable to generate a QR code for this link.</string>
     <string name="profile_settings_saved">Remote profile settings saved.</string>
     <string name="profile_settings_error">Failed to save remote profile settings: %1$s</string>
     <string name="profile_saving_settings">Saving remote profile settings…</string>

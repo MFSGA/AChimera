@@ -11,6 +11,7 @@ internal enum class MetaProfileAction(
 ) {
     Update(R.string.profile_update, R.drawable.ic_baseline_update),
     EditRemoteSettings(R.string.profile_edit_settings, R.drawable.ic_baseline_edit),
+    ShareQrCode(R.string.profile_share_qr_code, R.drawable.baseline_qr_code_scanner),
     Details(R.string.profile_details, R.drawable.ic_baseline_info),
     Verify(R.string.profile_verify, R.drawable.ic_outline_check_circle),
     Rename(R.string.profile_rename, R.drawable.ic_baseline_edit),
@@ -21,5 +22,6 @@ internal enum class MetaProfileAction(
         Details, Rename, Delete -> true
         Verify -> profile.isActive
         EditRemoteSettings, Update -> profile.isRemote
+        ShareQrCode -> profile.isRemote && !profile.url.isNullOrBlank()
     }
 }

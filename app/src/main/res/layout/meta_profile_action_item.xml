@@ -13,9 +13,9 @@
         android:minHeight="60dp"
         android:orientation="horizontal"
         android:paddingStart="5dp"
-        android:paddingTop="15dp"
+        android:paddingTop="@dimen/metacubex_profile_action_padding_vertical"
         android:paddingEnd="5dp"
-        android:paddingBottom="15dp">
+        android:paddingBottom="@dimen/metacubex_profile_action_padding_vertical">
 
         <ImageView
             android:id="@+id/action_icon"
