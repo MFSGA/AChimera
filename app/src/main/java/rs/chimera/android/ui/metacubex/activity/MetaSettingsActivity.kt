@@ -17,6 +17,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.DiagnosticsShareCoordinator
 import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
+import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.format
 import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
@@ -26,6 +27,7 @@ import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
 import rs.chimera.android.ui.preferences.UiVariant
+import rs.chimera.android.viewmodel.AppFilterMode
 import java.util.Locale
 import rs.chimera.android.util.runCatchingPreservingCancellation
 import rs.chimera.android.util.toUserVisibleMessage
@@ -56,6 +58,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { backend.vpnSystemStatus.collect { design.render(loadState()) } }
                 launch { backend.settings.collect { design.render(loadState()) } }
+                launch { backend.serviceState.collect { design.render(loadState()) } }
             }
         }
     }
@@ -73,6 +76,14 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.OpenProxyProviders -> showProxyProviders()
             SettingsDesign.Request.OpenAccessControl -> {
                 startActivity(Intent(this, MetaAccessControlActivity::class.java))
+            }
+            is SettingsDesign.Request.SetAccessControlMode -> {
+                if (canChangeAccessControlMode()) {
+                    saveSettings(
+                        SettingsPatch(appFilterMode = request.mode.name),
+                        R.string.access_control_mode_saved,
+                    )
+                }
             }
             SettingsDesign.Request.ResetNetwork -> resetNetwork()
             SettingsDesign.Request.ResetRuntimeSettings -> showResetRuntimeSettingsDialog()
@@ -114,11 +125,14 @@ class MetaSettingsActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun saveSettings(patch: SettingsPatch) {
+    private suspend fun saveSettings(
+        patch: SettingsPatch,
+        successMessage: Int = R.string.cmfa_settings_saved,
+    ) {
         runCatchingPreservingCancellation { backend.updateSettings(patch) }
             .onSuccess {
                 design.render(loadState())
-                design.showToast(getString(R.string.cmfa_settings_saved))
+                design.showToast(getString(successMessage))
             }
             .onFailure { error ->
                 design.render(loadState())
@@ -476,11 +490,15 @@ class MetaSettingsActivity : AppCompatActivity() {
 
     private fun loadState(): SettingsDesign.State {
         val settings = backend.settings.value
+        val appFilterMode = runCatching { AppFilterMode.valueOf(settings.appFilterMode) }
+            .getOrDefault(AppFilterMode.ALL)
         val vpnPresentation = backend.vpnSystemStatus.value.resolvePresentation()
         return SettingsDesign.State(
             allowLan = settings.allowLan,
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
+            appFilterMode = appFilterMode,
+            canChangeAccessControlMode = canChangeAccessControlMode(),
             mixedPort = settings.mixedPort.toInt(),
             httpPort = settings.httpPort?.toInt(),
             socksPort = settings.socksPort?.toInt(),
@@ -491,6 +509,11 @@ class MetaSettingsActivity : AppCompatActivity() {
             vpnSystemStatus = vpnPresentation.format(this),
             vpnSystemRestricted = vpnPresentation.restricted,
         )
+    }
+
+    private fun canChangeAccessControlMode(): Boolean = when (backend.serviceState.value) {
+        ServiceState.STOPPED, ServiceState.ERROR -> true
+        ServiceState.STARTING, ServiceState.RUNNING, ServiceState.STOPPING -> false
     }
 
     private companion object {

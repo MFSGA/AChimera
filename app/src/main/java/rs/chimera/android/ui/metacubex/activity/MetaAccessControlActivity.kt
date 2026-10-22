@@ -77,17 +77,6 @@ class MetaAccessControlActivity : AppCompatActivity() {
             AccessControlDesign.Request.NavigateBack -> navigateBack()
             AccessControlDesign.Request.Save -> save()
             AccessControlDesign.Request.RetryLoad -> loadApps()
-            is AccessControlDesign.Request.SetMode -> {
-                if (mode != request.mode) {
-                    mode = request.mode
-                    when (mode) {
-                        AppFilterMode.ALL -> Unit
-                        AppFilterMode.ALLOWED -> allowedApps = emptySet()
-                        AppFilterMode.DISALLOWED -> disallowedApps = emptySet()
-                    }
-                }
-                render()
-            }
             is AccessControlDesign.Request.SetQuery -> {
                 query = request.query
                 render()

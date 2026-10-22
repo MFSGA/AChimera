@@ -53,25 +53,6 @@
         </menu>
     </item>
 
-    <item android:title="@string/app_selector_mode">
-        <menu>
-            <group android:checkableBehavior="single">
-                <item
-                    android:id="@+id/access_control_mode_all"
-                    android:checkable="true"
-                    android:title="@string/app_selector_mode_all" />
-                <item
-                    android:id="@+id/access_control_mode_allowed"
-                    android:checkable="true"
-                    android:title="@string/app_selector_mode_allowed" />
-                <item
-                    android:id="@+id/access_control_mode_disallowed"
-                    android:checkable="true"
-                    android:title="@string/app_selector_mode_disallowed" />
-            </group>
-        </menu>
-    </item>
-
     <item
         android:id="@+id/access_control_save"
         android:title="@string/save" />

@@ -68,7 +68,6 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         data object NavigateBack : Request()
         data object Save : Request()
         data object RetryLoad : Request()
-        data class SetMode(val mode: AppFilterMode) : Request()
         data class SetQuery(val query: String) : Request()
         data class SetShowSystemApps(val enabled: Boolean) : Request()
         data class SetSort(val sort: Sort) : Request()
@@ -206,9 +205,6 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         val popup = PopupMenu(context, toolbarMenu)
         popup.menuInflater.inflate(R.menu.menu_access_control, popup.menu)
         popup.menu.apply {
-            findItem(R.id.access_control_mode_all).isChecked = state.mode == AppFilterMode.ALL
-            findItem(R.id.access_control_mode_allowed).isChecked = state.mode == AppFilterMode.ALLOWED
-            findItem(R.id.access_control_mode_disallowed).isChecked = state.mode == AppFilterMode.DISALLOWED
             findItem(R.id.access_control_system_apps).isChecked = state.showSystemApps
             findItem(R.id.access_control_sort_name).isChecked = state.sort == Sort.NAME
             findItem(R.id.access_control_sort_package).isChecked = state.sort == Sort.PACKAGE_NAME
@@ -228,18 +224,6 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         }
         popup.setOnMenuItemClickListener { item ->
             when (item.itemId) {
-                R.id.access_control_mode_all -> {
-                    request(Request.SetMode(AppFilterMode.ALL))
-                    true
-                }
-                R.id.access_control_mode_allowed -> {
-                    request(Request.SetMode(AppFilterMode.ALLOWED))
-                    true
-                }
-                R.id.access_control_mode_disallowed -> {
-                    request(Request.SetMode(AppFilterMode.DISALLOWED))
-                    true
-                }
                 R.id.access_control_system_apps -> {
                     request(Request.SetShowSystemApps(!state.showSystemApps))
                     true
