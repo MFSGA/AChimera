@@ -35,7 +35,7 @@ class SettingsHomeDesign(context: Context) : Design<SettingsHomeDesign.Request>(
             val elevated = scrollY > 0
             if (appBarElevated != elevated) {
                 appBarElevated = elevated
-                appBarElevationAnimator?.cancel()
+                appBarElevationAnimator?.end()
                 val targetElevation = if (elevated) {
                     5 * context.resources.displayMetrics.density
                 } else {
