@@ -16,13 +16,12 @@ import rs.chimera.android.R
 import rs.chimera.android.service.PortPreference
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.DiagnosticsShareCoordinator
+import rs.chimera.android.backend.VpnSettingsAvailabilityPolicy
 import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
-import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.format
 import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
-import rs.chimera.android.ui.metacubex.design.NetworkSettingsAvailabilityPolicy
 import rs.chimera.android.ui.resolvePresentation
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
@@ -63,11 +62,15 @@ class MetaSettingsActivity : AppCompatActivity() {
                 launch { backend.vpnSystemStatus.collect { design.render(loadState()) } }
                 launch { backend.settings.collect { design.render(loadState()) } }
                 launch {
-                    backend.serviceState.collect { serviceState ->
+                    backend.profileDeletionAvailability.collect { availability ->
                         design.render(loadState())
+                        val canChangeSettings = VpnSettingsAvailabilityPolicy.canChangeSettings(
+                            availability.serviceState,
+                            availability.hasRunRequest,
+                        )
                         if (
                             category == SettingsDesign.Category.NETWORK &&
-                            serviceState == ServiceState.RUNNING &&
+                            !canChangeSettings &&
                             !optionsUnavailableShown
                         ) {
                             optionsUnavailableShown = true
@@ -78,7 +81,7 @@ class MetaSettingsActivity : AppCompatActivity() {
                             ).also(Snackbar::show)
                         } else if (
                             category == SettingsDesign.Category.NETWORK &&
-                            serviceState in setOf(ServiceState.STOPPED, ServiceState.ERROR)
+                            canChangeSettings
                         ) {
                             optionsUnavailableSnackbar?.dismiss()
                             optionsUnavailableSnackbar = null
@@ -556,7 +559,12 @@ class MetaSettingsActivity : AppCompatActivity() {
     }
 
     private fun canChangeVpnSettings(): Boolean =
-        NetworkSettingsAvailabilityPolicy.canChangeSettings(backend.serviceState.value)
+        backend.profileDeletionAvailability.value.let { availability ->
+            VpnSettingsAvailabilityPolicy.canChangeSettings(
+                availability.serviceState,
+                availability.hasRunRequest,
+            )
+        }
 
     private companion object {
         const val DEFAULT_DNS_QUERY_NAME = "example.com"

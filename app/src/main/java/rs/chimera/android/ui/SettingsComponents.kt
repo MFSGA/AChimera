@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -66,6 +67,7 @@ internal fun SettingsItem(
         modifier = modifier
             .fillMaxWidth()
             .clickable(enabled = enabled, onClick = onClick)
+            .alpha(if (enabled) 1f else 0.38f)
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -111,6 +113,7 @@ internal fun SettingsSwitchItem(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = modifier
@@ -118,6 +121,7 @@ internal fun SettingsSwitchItem(
             .toggleable(
                 value = checked,
                 role = Role.Switch,
+                enabled = enabled,
                 onValueChange = onCheckedChange,
             ).padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -149,6 +153,7 @@ internal fun SettingsSwitchItem(
         Switch(
             checked = checked,
             onCheckedChange = null,
+            enabled = enabled,
         )
     }
 }

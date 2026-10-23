@@ -502,9 +502,13 @@ class ChimeraBackendImpl(
         withContext(Dispatchers.IO) {
             settingsUpdateMutex.withLock {
                 val applyEffect = patch.requiredApplyEffect()
-                settingsRepository.update(patch)
-                if (applyEffect != SettingsApplyEffect.IMMEDIATE && serviceState.value == ServiceState.RUNNING) {
-                    restartVpn()
+                VpnRuntimeRegistry.withSettingsMutation(
+                    serviceState = serviceState.value,
+                    unavailableMessage = {
+                        context.getString(rs.chimera.android.R.string.cmfa_options_unavailable)
+                    },
+                ) {
+                    settingsRepository.update(patch)
                 }
                 applyEffect
             }

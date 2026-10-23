@@ -43,8 +43,7 @@ internal class BackendVpnOperations(
         check(profilePath().isNotBlank()) {
             context.getString(rs.chimera.android.R.string.service_profile_required)
         }
-        desiredStateStore.markRunning()
-        VpnRuntimeRegistry.requestStart()
+        VpnRuntimeRegistry.requestStart { desiredStateStore.markRunning() }
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
         try {
             ContextCompat.startForegroundService(

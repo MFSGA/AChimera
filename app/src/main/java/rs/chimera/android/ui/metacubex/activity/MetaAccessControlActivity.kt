@@ -18,10 +18,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.VpnSettingsAvailabilityPolicy
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.ui.metacubex.design.AccessControlDesign
 import rs.chimera.android.ui.metacubex.design.AccessControlSelectionPolicy
-import rs.chimera.android.ui.metacubex.design.NetworkSettingsAvailabilityPolicy
 import rs.chimera.android.viewmodel.AppFilterMode
 
 class MetaAccessControlActivity : AppCompatActivity() {
@@ -158,7 +158,8 @@ class MetaAccessControlActivity : AppCompatActivity() {
     }
 
     private suspend fun save() {
-        if (!NetworkSettingsAvailabilityPolicy.canChangeSettings(backend.serviceState.value)) {
+        val availability = backend.profileDeletionAvailability.value
+        if (!VpnSettingsAvailabilityPolicy.canChangeSettings(availability.serviceState, availability.hasRunRequest)) {
             design.showToast(
                 getString(R.string.cmfa_options_unavailable),
                 Snackbar.LENGTH_INDEFINITE,

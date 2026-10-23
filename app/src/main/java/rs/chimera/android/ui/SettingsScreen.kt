@@ -190,6 +190,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_app_filter),
                         subtitle = viewModel.getAppFilterSummary(),
                         onClick = onAppFilterClick,
+                        enabled = viewModel.canChangeVpnSettings,
                     )
                 }
             }
@@ -222,6 +223,7 @@ fun SettingsScreen(
                             viewModel.socksPort?.toString() ?: "—",
                         ),
                         onClick = { showPortDialog = true },
+                        enabled = viewModel.canChangeVpnSettings,
                     )
                     SettingsSwitchItem(
                         icon = Icons.Default.Lan,
@@ -229,6 +231,7 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_allow_lan_desc),
                         checked = viewModel.allowLan,
                         onCheckedChange = viewModel::updateAllowLan,
+                        enabled = viewModel.canChangeVpnSettings,
                     )
                     SettingsSwitchItem(
                         icon = Icons.Default.Dns,
@@ -236,6 +239,7 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_fake_ip_desc),
                         checked = viewModel.fakeIpEnabled,
                         onCheckedChange = viewModel::updateFakeIpEnabled,
+                        enabled = viewModel.canChangeVpnSettings,
                     )
                     SettingsSwitchItem(
                         icon = Icons.Default.Public,
@@ -243,6 +247,7 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_ipv6_desc),
                         checked = viewModel.ipv6Enabled,
                         onCheckedChange = viewModel::updateIpv6Enabled,
+                        enabled = viewModel.canChangeVpnSettings,
                     )
                     SettingsItem(
                         icon = Icons.Default.Refresh,
@@ -256,6 +261,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_reset_defaults),
                         subtitle = stringResource(R.string.settings_reset_defaults_summary),
                         onClick = { showResetDialog = true },
+                        enabled = viewModel.canChangeVpnSettings,
                     )
                 }
             }

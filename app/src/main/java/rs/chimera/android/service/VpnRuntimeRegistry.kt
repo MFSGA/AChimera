@@ -3,6 +3,7 @@ package rs.chimera.android.service
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import rs.chimera.android.backend.model.ServiceState
 
 internal class VpnStopInProgressException : IllegalStateException("VPN service is stopping")
 
@@ -23,6 +24,9 @@ internal object VpnRuntimeRegistry {
     private var control: VpnRuntimeControl? = null
     private val runRequested = AtomicBoolean(false)
     private val mutableRunRequested = MutableStateFlow(false)
+    private val settingsMutationGate = VpnSettingsMutationGate(lock) {
+        runRequested.get() || VpnDesiredStateRuntimeState.shouldRun.value
+    }
 
     val runRequestedState = mutableRunRequested.asStateFlow()
 
@@ -32,7 +36,14 @@ internal object VpnRuntimeRegistry {
     val shouldRun: Boolean
         get() = runRequested.get()
 
-    fun requestStart() = synchronized(lock) {
+    fun <T> withSettingsMutation(
+        serviceState: ServiceState,
+        unavailableMessage: () -> String,
+        action: () -> T,
+    ): T = settingsMutationGate.withSettingsMutation(serviceState, unavailableMessage, action)
+
+    fun requestStart(onRequest: () -> Unit = {}) = synchronized(lock) {
+        onRequest()
         runRequested.set(true)
         mutableRunRequested.value = true
     }

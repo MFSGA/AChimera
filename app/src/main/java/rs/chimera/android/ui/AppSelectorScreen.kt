@@ -54,11 +54,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
@@ -197,9 +200,15 @@ fun AppSelectorScreen(
 			)
 		},
 		floatingActionButton = {
+			val canSave = viewModel.canChangeVpnSettings && !isSaving
 			FloatingActionButton(
+				modifier = Modifier.alpha(
+					if (canSave) 1f else 0.38f,
+				).semantics {
+					if (!canSave) disabled()
+				},
 				onClick = {
-					if (!isSaving) {
+					if (canSave) {
 						isSaving = true
 						coroutineScope.launch {
 							runCatchingPreservingCancellation {
@@ -239,7 +248,10 @@ fun AppSelectorScreen(
 						modifier =
 							Modifier
 								.fillMaxWidth()
-								.clickable { showModeDialog = true },
+                                .alpha(if (viewModel.canChangeVpnSettings) 1f else 0.38f)
+                                .clickable(enabled = viewModel.canChangeVpnSettings) {
+                                    showModeDialog = true
+                                },
 						horizontalArrangement = Arrangement.SpaceBetween,
 						verticalAlignment = Alignment.CenterVertically,
 					) {
@@ -295,7 +307,9 @@ fun AppSelectorScreen(
 
 					Row(
 						verticalAlignment = Alignment.CenterVertically,
-						modifier = Modifier.clickable { showSystemApps = !showSystemApps },
+                        modifier = Modifier.clickable {
+                            showSystemApps = !showSystemApps
+                        },
 					) {
 						Switch(
 							checked = showSystemApps,
@@ -354,6 +368,7 @@ fun AppSelectorScreen(
 						AppListItem(
 							app = app,
 							isSelected = selectedApps.contains(app.packageName),
+                            enabled = viewModel.canChangeVpnSettings,
 							onToggle = {
 								selectedApps =
 									if (selectedApps.contains(app.packageName)) {
@@ -369,7 +384,7 @@ fun AppSelectorScreen(
 		}
 
 		// Mode Selection Dialog
-		if (showModeDialog) {
+        if (showModeDialog && viewModel.canChangeVpnSettings) {
 			AlertDialog(
 				onDismissRequest = { showModeDialog = false },
 				title = { Text(stringResource(R.string.app_selector_mode)) },
@@ -393,6 +408,7 @@ fun AppSelectorScreen(
 												}
 												showModeDialog = false
 											},
+                                            enabled = viewModel.canChangeVpnSettings,
 											role = Role.RadioButton,
 										).padding(vertical = 12.dp),
 								verticalAlignment = Alignment.CenterVertically,
@@ -400,6 +416,7 @@ fun AppSelectorScreen(
 								RadioButton(
 									selected = tempFilterMode == mode,
 									onClick = null,
+                                    enabled = viewModel.canChangeVpnSettings,
 								)
 								Spacer(modifier = Modifier.width(8.dp))
 								Text(
@@ -428,6 +445,7 @@ fun AppSelectorScreen(
 private fun AppListItem(
 	app: AppInfo,
 	isSelected: Boolean,
+	enabled: Boolean,
 	onToggle: () -> Unit,
 ) {
 	val iconBitmap = remember(app.packageName, app.icon) {
@@ -438,7 +456,8 @@ private fun AppListItem(
 		modifier =
 			Modifier
 				.fillMaxWidth()
-				.clickable(onClick = onToggle),
+				.alpha(if (enabled) 1f else 0.38f)
+				.clickable(enabled = enabled, onClick = onToggle),
 		elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
 	) {
 		Row(
@@ -466,6 +485,7 @@ private fun AppListItem(
 			Checkbox(
 				checked = isSelected,
 				onCheckedChange = { onToggle() },
+				enabled = enabled,
 			)
 		}
 	}

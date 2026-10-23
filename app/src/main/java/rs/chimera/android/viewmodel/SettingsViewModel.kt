@@ -13,6 +13,8 @@ import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.VpnSettingsAvailabilityPolicy
+import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.SettingsDefaults
@@ -98,6 +100,16 @@ class SettingsViewModel(
     var disallowedApps: Set<String> by mutableStateOf(backend.settings.value.disallowedApps)
     var vpnSystemStatus: VpnSystemStatus by mutableStateOf(backend.vpnSystemStatus.value)
         private set
+    var vpnSettingsAvailability: ProfileDeletionAvailability by mutableStateOf(
+        backend.profileDeletionAvailability.value,
+    )
+        private set
+
+    val canChangeVpnSettings: Boolean
+        get() = VpnSettingsAvailabilityPolicy.canChangeSettings(
+            vpnSettingsAvailability.serviceState,
+            vpnSettingsAvailability.hasRunRequest,
+        )
 
     init {
         viewModelScope.launch {
@@ -105,6 +117,11 @@ class SettingsViewModel(
         }
         viewModelScope.launch {
             backend.vpnSystemStatus.collect { status -> vpnSystemStatus = status }
+        }
+        viewModelScope.launch {
+            backend.profileDeletionAvailability.collect { availability ->
+                vpnSettingsAvailability = availability
+            }
         }
     }
 
