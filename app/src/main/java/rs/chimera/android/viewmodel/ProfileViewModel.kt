@@ -19,6 +19,7 @@ import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
+import rs.chimera.android.backend.VpnSettingsAvailabilityPolicy
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.RemoteProfileRequest
@@ -62,6 +63,12 @@ class ProfileViewModel : ViewModel() {
         backend.profileDeletionAvailability.value,
     )
         private set
+
+    val canChangeRemoteProfileSettings: Boolean
+        get() = VpnSettingsAvailabilityPolicy.canChangeSettings(
+            profileDeletionAvailability.serviceState,
+            profileDeletionAvailability.hasRunRequest,
+        )
 
     var savedFilePath by mutableStateOf<String?>(null)
         private set

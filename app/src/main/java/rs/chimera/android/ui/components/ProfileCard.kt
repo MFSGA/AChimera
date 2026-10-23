@@ -52,6 +52,7 @@ internal fun ProfileCard(
     modifier: Modifier = Modifier,
     profile: Profile,
     mutationEnabled: Boolean,
+    canChangeRemoteSettings: Boolean,
     deleteBlockedMessage: String?,
     onActivate: () -> Unit,
     onDelete: () -> Unit,
@@ -194,7 +195,7 @@ internal fun ProfileCard(
                         if (profile.type == ProfileType.REMOTE && onEditRemoteSettings != null) {
                             DropdownMenuItem(
                                 text = { Text(text = stringResource(id = R.string.profile_edit_settings)) },
-                                enabled = mutationEnabled,
+                                enabled = mutationEnabled && canChangeRemoteSettings,
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Edit,

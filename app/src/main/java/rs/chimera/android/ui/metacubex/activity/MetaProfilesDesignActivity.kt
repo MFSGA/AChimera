@@ -29,6 +29,7 @@ import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ProfileDeletionRuntimePolicy
 import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
+import rs.chimera.android.backend.VpnSettingsAvailabilityPolicy
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
@@ -169,6 +170,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         var profileIsActive = backend.activeProfile.value?.id?.let { it == profileId } ?: profile.isActive
         var availability = backend.profileDeletionAvailability.value
         var deleteBlockedMessage = profileDeleteBlockedMessage(profileIsActive, availability)
+        var canChangeRemoteSettings = canChangeRemoteProfileSettings(profile, availability)
         val dialog = MetaBottomSheetDialog(this)
         val binding = MetaDialogProfileMenuBinding.inflate(layoutInflater)
         val actionBindings = mutableMapOf<MetaProfileAction, MetaProfileActionItemBinding>()
@@ -204,6 +206,11 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 getString(R.string.profile_delete_blocked_action, getString(R.string.profile_delete), it)
             } ?: getString(R.string.profile_delete)
         }
+        fun renderRemoteSettingsAvailability(canChange: Boolean) {
+            val editBinding = actionBindings[MetaProfileAction.Edit] ?: return
+            editBinding.actionRoot.isEnabled = !profile.isRemote || canChange
+            editBinding.actionRoot.alpha = if (!profile.isRemote || canChange) 1f else 0.38f
+        }
         actions.forEach { action ->
             val actionBinding = MetaProfileActionItemBinding.inflate(
                 layoutInflater,
@@ -220,7 +227,14 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 actionBinding.actionIcon.setColorFilter(errorColor)
                 actionBinding.actionLabel.setTextColor(errorColor)
             }
+            if (action == MetaProfileAction.Edit && profile.isRemote) {
+                actionBinding.actionRoot.isEnabled = canChangeRemoteSettings
+                actionBinding.actionRoot.alpha = if (canChangeRemoteSettings) 1f else 0.38f
+            }
             actionBinding.actionRoot.setOnClickListener {
+                val remoteSettingsBlocked = action == MetaProfileAction.Edit &&
+                    profile.isRemote &&
+                    !canChangeRemoteProfileSettings(profile, backend.profileDeletionAvailability.value)
                 val currentBlockMessage = if (action == MetaProfileAction.Delete) {
                     profileDeleteBlockedMessage(
                         profileIsActive = backend.activeProfile.value?.id?.let { it == profileId }
@@ -233,6 +247,9 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 if (currentBlockMessage != null) {
                     renderDeleteAvailability(currentBlockMessage)
                     design.showToast(currentBlockMessage)
+                } else if (remoteSettingsBlocked) {
+                    renderRemoteSettingsAvailability(canChange = false)
+                    design.showToast(getString(R.string.cmfa_options_unavailable))
                 } else {
                     dialog.dismiss()
                     lifecycleScope.launch { handleProfileAction(profile, action) }
@@ -251,7 +268,9 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 availability = updatedAvailability
                 profileIsActive = updatedProfileIsActive
                 deleteBlockedMessage = profileDeleteBlockedMessage(profileIsActive, availability)
+                canChangeRemoteSettings = canChangeRemoteProfileSettings(profile, availability)
                 renderDeleteAvailability(deleteBlockedMessage)
+                renderRemoteSettingsAvailability(canChangeRemoteSettings)
             }
         }
         dialog.setOnDismissListener { availabilityObserver.cancel() }
@@ -276,6 +295,17 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 getString(R.string.profile_delete_blocked_active_short)
 
             null -> null
+    }
+
+    private fun canChangeRemoteProfileSettings(
+        profile: ProfileSummary,
+        availability: ProfileDeletionAvailability,
+    ): Boolean {
+        if (!profile.isRemote) return true
+        return VpnSettingsAvailabilityPolicy.canChangeSettings(
+            availability.serviceState,
+            availability.hasRunRequest,
+        )
     }
 
     private suspend fun handleProfileAction(profile: ProfileSummary, action: MetaProfileAction) {

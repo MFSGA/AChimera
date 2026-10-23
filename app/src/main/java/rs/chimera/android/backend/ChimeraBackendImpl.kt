@@ -339,13 +339,24 @@ class ChimeraBackendImpl(
             profileUpdateCoordinator.withLock(id) {
                 val normalized = ProfileRemotePolicy.normalizeSettings(settings)
                 val current = profileCatalogStore.readRemoteProfile(id)
-                profileCatalogStore.updateRemoteProfileSettings(id, normalized)
-                if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized) &&
-                    !profileAutoUpdateStateStore.clear(id)
+                VpnRuntimeRegistry.withSettingsMutation(
+                    serviceState = serviceState.value,
+                    unavailableMessage = {
+                        context.getString(rs.chimera.android.R.string.cmfa_options_unavailable)
+                    },
                 ) {
-                    PrivacySafeLog.warningDetail(TAG, "Failed to clear edited auto-update state", "profileId=$id")
+                    profileCatalogStore.updateRemoteProfileSettings(id, normalized)
+                    if (ProfileRemotePolicy.invalidatesAutoUpdateState(current, normalized) &&
+                        !profileAutoUpdateStateStore.clear(id)
+                    ) {
+                        PrivacySafeLog.warningDetail(
+                            TAG,
+                            "Failed to clear edited auto-update state",
+                            "profileId=$id",
+                        )
+                    }
+                    refreshActiveProfile()
                 }
-                refreshActiveProfile()
                 synchronizeProfileAutoUpdateSchedule()
             }
         }
