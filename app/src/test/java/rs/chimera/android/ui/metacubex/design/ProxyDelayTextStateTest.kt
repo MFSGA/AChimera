@@ -55,7 +55,7 @@ class ProxyDelayTextStateTest {
         groupName: String = "group",
     ) = ProxyDisplayEntry(
         name = name,
-        type = "Vless",
+        subtitle = "Vless",
         delayText = delayMillis?.toString().orEmpty(),
         delayMillis = delayMillis,
         isSelected = false,

@@ -39,8 +39,8 @@ class ProxyCardView(context: Context) : View(context) {
             val delayText = delayTextState.update(value)
             contentDescription = value?.let { item ->
                 listOfNotNull(
-                    item.name,
-                    item.type.takeIf(String::isNotBlank),
+                    item.title,
+                    item.subtitle.takeIf(String::isNotBlank),
                     delayText.takeIf(String::isNotBlank),
                 ).joinToString(", ")
             }
@@ -192,8 +192,8 @@ class ProxyCardView(context: Context) : View(context) {
             0f,
             width - layoutPadding * 2 - contentPadding * 2 - delayWidth - textMargin * 2,
         )
-        val titleCount = paint.breakText(item.name, false, mainTextWidth, null)
-        val typeCount = paint.breakText(item.type, false, mainTextWidth, null)
+        val titleCount = paint.breakText(item.title, false, mainTextWidth, null)
+        val typeCount = paint.breakText(item.subtitle, false, mainTextWidth, null)
         val textOffset = (paint.descent() + paint.ascent()) / 2f
 
         if (delayCount > 0) {
@@ -208,7 +208,7 @@ class ProxyCardView(context: Context) : View(context) {
         }
         val textX = layoutPadding + contentPadding
         canvas.drawText(
-            item.name,
+            item.title,
             0,
             titleCount,
             textX,
@@ -216,7 +216,7 @@ class ProxyCardView(context: Context) : View(context) {
             paint,
         )
         canvas.drawText(
-            item.type,
+            item.subtitle,
             0,
             typeCount,
             textX,

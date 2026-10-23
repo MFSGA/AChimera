@@ -2,7 +2,9 @@ package rs.chimera.android.ui.metacubex.design
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotSame
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
@@ -62,15 +64,19 @@ class ProxySelectionProjectionTest {
             unavailableType = "Unavailable",
         ).first { it.name == PARENT_GROUP }
         val linkedCard = renderedParent.proxies.single()
-        assertEquals("$PROXY_SELECTOR_TYPE($NEW_NODE)", linkedCard.type)
+        assertEquals("$PROXY_SELECTOR_TYPE($NEW_NODE)", linkedCard.subtitle)
         assertTrue(linkedCard.isSelected)
 
         val renderedSecondParent = ProxyDisplayPolicy.groupPages(
             projection.groups,
             unavailableType = "Unavailable",
         ).first { it.name == SECOND_PARENT_GROUP }
-        assertEquals("$PROXY_SELECTOR_TYPE($NEW_NODE)", renderedSecondParent.proxies.single().type)
+        assertEquals("$PROXY_SELECTOR_TYPE($NEW_NODE)", renderedSecondParent.proxies.single().subtitle)
         assertTrue(renderedSecondParent.proxies.single().isSelected)
+        assertNotSame(
+            projection.groups[1].proxyDetails,
+            projection.groups[2].proxyDetails,
+        )
 
         assertEquals(OLD_NODE, groups.first { it.name == SELECTOR }.selected)
         assertEquals(OLD_NODE, groups[1].proxyDetails[SELECTOR]?.now)
@@ -96,6 +102,38 @@ class ProxySelectionProjectionTest {
 
         assertTrue(projection!!.groups.last() === unrelated)
         assertEquals(unrelated, projection.groups.last())
+    }
+
+    @Test
+    fun projectionReusesUpdatedDetailsMapForGroupsThatShareTheSourceMap() {
+        val sharedDetails = mapOf(
+            SELECTOR to ProxySnapshot(SELECTOR, PROXY_SELECTOR_TYPE, emptyList(), true, OLD_NODE),
+            PARENT_GROUP to ProxySnapshot(PARENT_GROUP, "Fallback", emptyList(), true, SELECTOR),
+            OLD_NODE to ProxySnapshot(OLD_NODE, "Vless", emptyList()),
+            NEW_NODE to ProxySnapshot(NEW_NODE, "Vless", emptyList()),
+        )
+        val groups = listOf(
+            ProxyGroupSnapshot(
+                name = SELECTOR,
+                proxies = listOf(OLD_NODE, NEW_NODE),
+                selected = OLD_NODE,
+                mode = ProxyMode.RULE,
+                proxyDetails = sharedDetails,
+            ),
+            ProxyGroupSnapshot(
+                name = PARENT_GROUP,
+                proxies = listOf(SELECTOR),
+                selected = SELECTOR,
+                mode = ProxyMode.RULE,
+                proxyDetails = sharedDetails,
+            ),
+        )
+
+        val projection = projectProxySelection(groups, SELECTOR, NEW_NODE)!!
+
+        assertSame(projection.groups[0].proxyDetails, projection.groups[1].proxyDetails)
+        assertEquals(NEW_NODE, projection.groups[1].proxyDetails[SELECTOR]?.now)
+        assertEquals(OLD_NODE, sharedDetails[SELECTOR]?.now)
     }
 
     @Test

@@ -96,7 +96,7 @@ class ProxyAdapterImmediateRebindInstrumentedTest {
 
     private fun entry(name: String, isSelected: Boolean = false) = ProxyDisplayEntry(
         name = name,
-        type = "Vless",
+        subtitle = "Vless",
         delayText = "",
         delayMillis = null,
         isSelected = isSelected,

@@ -1,6 +1,8 @@
 package rs.chimera.android.ui.metacubex.design
 
+import java.util.IdentityHashMap
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
+import rs.chimera.android.backend.model.ProxySnapshot
 
 /** Mirrors CMFA's update of the selected node and linked ProxyState.now values. */
 internal data class ProxySelectionProjection(
@@ -44,14 +46,18 @@ internal fun projectProxySelection(
     if (selector?.isGroup != true || selector.type != PROXY_SELECTOR_TYPE) return null
     if (proxyName !in selectorGroup.proxies) return null
 
+    val projectedDetailsBySource =
+        IdentityHashMap<Map<String, ProxySnapshot>, Map<String, ProxySnapshot>>()
     val projectedGroups = groups.map { snapshot ->
         val linkedSelector = snapshot.proxyDetails[groupName]
             ?.takeIf { it.isGroup }
             ?: return@map snapshot
+        val projectedDetails = projectedDetailsBySource.getOrPut(snapshot.proxyDetails) {
+            snapshot.proxyDetails + (groupName to linkedSelector.copy(now = proxyName))
+        }
         snapshot.copy(
             selected = if (snapshot.name == groupName) proxyName else snapshot.selected,
-            proxyDetails = snapshot.proxyDetails +
-                (groupName to linkedSelector.copy(now = proxyName)),
+            proxyDetails = projectedDetails,
         )
     }
     return ProxySelectionProjection(projectedGroups)

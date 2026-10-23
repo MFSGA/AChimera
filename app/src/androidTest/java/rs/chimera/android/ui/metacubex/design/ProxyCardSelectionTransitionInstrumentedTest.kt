@@ -164,7 +164,7 @@ class ProxyCardSelectionTransitionInstrumentedTest {
     private fun entry(name: String, selected: Boolean, group: String = "selector") =
         ProxyDisplayEntry(
             name = name,
-            type = "Vless",
+            subtitle = "Vless",
             delayText = "",
             delayMillis = null,
             isSelected = selected,

@@ -703,6 +703,7 @@ dependencies = [
  "tracing-subscriber",
  "uniffi",
  "urlencoding",
+ "yaml_serde",
 ]
 
 [[package]]

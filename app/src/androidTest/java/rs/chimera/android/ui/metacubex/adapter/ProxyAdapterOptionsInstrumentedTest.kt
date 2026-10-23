@@ -30,7 +30,7 @@ class ProxyAdapterOptionsInstrumentedTest {
                 listOf(
                     ProxyDisplayEntry(
                         name = "node-a",
-                        type = "Vless",
+                        subtitle = "Vless",
                         delayText = "",
                         delayMillis = null,
                         isSelected = true,

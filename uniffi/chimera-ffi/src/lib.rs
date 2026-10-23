@@ -8,6 +8,7 @@ mod core_runtime;
 mod core_state;
 mod jni_bridge;
 pub mod log;
+mod profile_ui_metadata;
 #[cfg(test)]
 mod protocol_compat_tests;
 mod runtime_config;
@@ -160,6 +161,11 @@ fn verify_config(config_path: String) -> Result<String, ChimeraError> {
         .map_err(|error| runtime_error(format!("invalid runtime config: {error}")))?;
 
     Ok("Config is valid".to_string())
+}
+
+#[uniffi::export]
+fn read_ui_subtitle_pattern(config_path: String) -> Option<String> {
+    profile_ui_metadata::read_ui_subtitle_pattern(Path::new(&config_path))
 }
 
 #[uniffi::export]

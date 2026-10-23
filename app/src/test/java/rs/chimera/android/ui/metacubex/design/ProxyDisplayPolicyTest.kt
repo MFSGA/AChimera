@@ -71,6 +71,33 @@ class ProxyDisplayPolicyTest {
     }
 
     @Test
+    fun nameSortUsesDisplayedTitleWhileKeepingOriginalProxyName() {
+        val entries = listOf(
+            ProxyDisplayEntry(
+                name = "🇺🇸 New York",
+                subtitle = "🇺🇸",
+                delayText = "",
+                delayMillis = null,
+                isSelected = false,
+                title = "New York",
+            ),
+            ProxyDisplayEntry(
+                name = "🇭🇰 Hong Kong",
+                subtitle = "🇭🇰",
+                delayText = "",
+                delayMillis = null,
+                isSelected = false,
+                title = "Hong Kong",
+            ),
+        )
+
+        assertEquals(
+            listOf("🇭🇰 Hong Kong", "🇺🇸 New York"),
+            ProxyDisplayPolicy.sort(entries, ProxySortOrder.NAME).map { it.name },
+        )
+    }
+
+    @Test
     fun nameSortOrdersSupplementaryCharactersLikeUtf8Reference() {
         val privateUse = "\uE000"
         val supplementary = "\uD83D\uDE00"
@@ -98,6 +125,8 @@ class ProxyDisplayPolicyTest {
                     "node-a",
                     "Shadowsocks",
                     listOf(ProxyDelayHistory(delay = 42, time = 1L)),
+                    title = "Hong Kong 01",
+                    subtitle = "🇭🇰",
                 ),
                 "fallback" to ProxySnapshot(
                     "fallback",
@@ -151,7 +180,10 @@ class ProxyDisplayPolicyTest {
         assertEquals(true, pages[0].isSelectable)
         assertEquals(false, pages[1].isSelectable)
         assertEquals(true, pages[0].proxies.first().isSelected)
-        assertEquals("Fallback(node-b)", pages[0].proxies[1].type)
+        assertEquals("node-a", pages[0].proxies.first().name)
+        assertEquals("Hong Kong 01", pages[0].proxies.first().title)
+        assertEquals("🇭🇰", pages[0].proxies.first().subtitle)
+        assertEquals("Fallback(node-b)", pages[0].proxies[1].subtitle)
         assertEquals("42", pages[0].proxies.first().delayText)
         assertEquals(null, pages[0].proxies[2].delayMillis)
         assertEquals(UNKNOWN_PROXY_DELAY, pages[0].proxies[2].delayValue)
@@ -166,7 +198,7 @@ class ProxyDisplayPolicyTest {
             excludeNotSelectable = true,
         )
         assertEquals(listOf("手动选择"), selectablePages.map { it.name })
-        assertEquals("Fallback", selectablePages.single().proxies[1].type)
+        assertEquals("Fallback", selectablePages.single().proxies[1].subtitle)
     }
 
     @Test

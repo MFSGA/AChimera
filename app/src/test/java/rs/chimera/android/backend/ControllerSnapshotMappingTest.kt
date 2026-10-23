@@ -3,6 +3,7 @@ package rs.chimera.android.backend
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import java.util.regex.Pattern
 import uniffi.chimera_ffi.Connection
 import uniffi.chimera_ffi.ConnectionsResponse
 import uniffi.chimera_ffi.DelayHistory
@@ -100,6 +101,29 @@ class ControllerSnapshotMappingTest {
         assertEquals(true, mapped.getValue("automatic").proxyDetails.getValue("automatic").isGroup)
         assertEquals(true, mapped.getValue("fallback").proxyDetails.getValue("fallback").isGroup)
         assertEquals(false, mapped.getValue("node-a").proxyDetails.getValue("node-a").isGroup)
+    }
+
+    @Test
+    fun subtitlePatternFormatsOnlyLeafProxyAndPreservesSelectionIdentity() {
+        val proxies = listOf(
+            Proxy("AUTO 香港", "Selector", listOf("香港-节点 01"), "香港-节点 01", emptyList()),
+            Proxy("香港-节点 01", "VLESS", emptyList(), null, emptyList()),
+        )
+
+        val mapped = proxies.toProxyGroupSnapshots(
+            Mode.RULE,
+            Pattern.compile("香港", Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE),
+        )
+        val snapshot = mapped.first { it.name == "AUTO 香港" }
+        val group = snapshot.proxyDetails.getValue("AUTO 香港")
+        val node = snapshot.proxyDetails.getValue("香港-节点 01")
+
+        assertEquals("AUTO 香港", group.title)
+        assertEquals("Selector", group.subtitle)
+        assertEquals("香港-节点 01", snapshot.proxies.single())
+        assertEquals("香港-节点 01", node.name)
+        assertEquals("-节点 01", node.title)
+        assertEquals("香港", node.subtitle)
     }
 
     @Test

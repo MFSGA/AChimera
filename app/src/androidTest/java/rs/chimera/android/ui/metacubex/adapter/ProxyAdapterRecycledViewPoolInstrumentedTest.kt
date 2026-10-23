@@ -99,7 +99,7 @@ class ProxyAdapterRecycledViewPoolInstrumentedTest {
 
     private fun entry(name: String) = ProxyDisplayEntry(
         name = name,
-        type = "Vless",
+        subtitle = "Vless",
         delayText = "",
         delayMillis = null,
         isSelected = false,

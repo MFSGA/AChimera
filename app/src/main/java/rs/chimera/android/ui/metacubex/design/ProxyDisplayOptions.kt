@@ -15,7 +15,7 @@ enum class ProxySortOrder {
 
 data class ProxyDisplayEntry(
     val name: String,
-    val type: String,
+    val subtitle: String,
     val delayText: String,
     val delayMillis: Int?,
     val isSelected: Boolean,
@@ -25,6 +25,7 @@ data class ProxyDisplayEntry(
     val delayValue: Int = delayMillis
         ?.takeIf { it in 1..UNKNOWN_PROXY_DELAY }
         ?: UNKNOWN_PROXY_DELAY,
+    val title: String = name,
 )
 
 data class ProxyDisplayOptions(
@@ -56,7 +57,7 @@ object ProxyDisplayPolicy {
     ): List<ProxyDisplayEntry> = when (order) {
         ProxySortOrder.DEFAULT -> entries
         ProxySortOrder.NAME -> entries.sortedWith { left, right ->
-            compareCodePointStrings(left.name, right.name)
+            compareCodePointStrings(left.title, right.title)
         }
         ProxySortOrder.DELAY -> entries.sortedBy(ProxyDisplayEntry::delayValue)
     }
@@ -102,11 +103,11 @@ object ProxyDisplayPolicy {
                 isSelectable = group.type == PROXY_SELECTOR_TYPE,
                 proxies = snapshot.proxies.map { name ->
                     val proxy = snapshot.proxyDetails[name]
-                    val type = when {
+                    val subtitle = when {
                         proxy == null -> unavailableType
                         proxy.isGroup && proxy.name in visibleGroupNames ->
                             "${proxy.type}(${proxy.now?.takeIf(String::isNotEmpty) ?: "*"})"
-                        else -> proxy.type
+                        else -> proxy.subtitle
                     }
                     val historyDelay = proxy?.history?.lastOrNull()?.delay
                     val delayValue = historyDelay
@@ -115,12 +116,13 @@ object ProxyDisplayPolicy {
                     val delay = delayValue.takeIf { it in 0..Short.MAX_VALUE }
                     ProxyDisplayEntry(
                         name = name,
-                        type = type,
+                        subtitle = subtitle,
                         delayText = delay?.toString().orEmpty(),
                         delayMillis = delay,
                         isSelected = name == snapshot.selected,
                         selectionGroupName = snapshot.name,
                         delayValue = delayValue,
+                        title = proxy?.title ?: name,
                     )
                 },
             )

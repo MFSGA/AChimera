@@ -10,8 +10,12 @@ import rs.chimera.android.backend.model.ProxySnapshot
 import uniffi.chimera_ffi.ConnectionsResponse
 import uniffi.chimera_ffi.Mode
 import uniffi.chimera_ffi.Proxy
+import java.util.regex.Pattern
 
-internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnapshot> {
+internal fun List<Proxy>.toProxyGroupSnapshots(
+    mode: Mode,
+    subtitlePattern: Pattern? = null,
+): List<ProxyGroupSnapshot> {
     if (mode == Mode.DIRECT) {
         val direct = ProxySnapshot(
             name = DIRECT_PROXY_NAME,
@@ -52,7 +56,7 @@ internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnaps
         }
     }
     val proxyDetails = orderedProxies.associate { proxy ->
-        proxy.name to proxy.toSnapshot()
+        proxy.name to proxy.toSnapshot(subtitlePattern)
     }
     return orderedProxies.map { proxy ->
         ProxyGroupSnapshot(
@@ -65,8 +69,14 @@ internal fun List<Proxy>.toProxyGroupSnapshots(mode: Mode): List<ProxyGroupSnaps
     }
 }
 
-private fun Proxy.toSnapshot(): ProxySnapshot =
-    ProxySnapshot(
+private fun Proxy.toSnapshot(subtitlePattern: Pattern?): ProxySnapshot {
+    val isGroup = all.isNotEmpty() || proxyType in PROXY_GROUP_TYPES
+    val displayText = if (isGroup) {
+        ProxyDisplayText(name, proxyType)
+    } else {
+        formatProxyDisplayText(name, proxyType, subtitlePattern)
+    }
+    return ProxySnapshot(
         name = name,
         type = proxyType,
         history = history.map { entry ->
@@ -75,9 +85,12 @@ private fun Proxy.toSnapshot(): ProxySnapshot =
                 time = entry.time.toLongOrNull() ?: 0L,
             )
         },
-        isGroup = all.isNotEmpty() || proxyType in PROXY_GROUP_TYPES,
+        isGroup = isGroup,
         now = now,
+        title = displayText.title,
+        subtitle = displayText.subtitle,
     )
+}
 
 private const val GLOBAL_PROXY_NAME = "GLOBAL"
 private const val DIRECT_PROXY_NAME = "DIRECT"

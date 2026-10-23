@@ -8,6 +8,8 @@ data class ProxySnapshot(
     val history: List<ProxyDelayHistory>,
     val isGroup: Boolean = false,
     val now: String? = null,
+    val title: String = name,
+    val subtitle: String = type,
 )
 
 data class ProxyDelayHistory(

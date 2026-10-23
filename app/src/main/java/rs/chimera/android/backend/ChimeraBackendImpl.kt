@@ -47,6 +47,7 @@ import rs.chimera.android.backend.model.toProfileSubscriptionUsage
 import rs.chimera.android.util.toUserVisibleMessage
 import uniffi.chimera_ffi.DownloadProgressCallback
 import uniffi.chimera_ffi.downloadFileWithProgress
+import uniffi.chimera_ffi.readUiSubtitlePattern
 import uniffi.chimera_ffi.verifyConfig
 import java.io.File
 
@@ -123,9 +124,11 @@ class ChimeraBackendImpl(
         updateRuntimePath = Global::updateProfilePath,
         refreshActiveProfile = ::refreshActiveProfile,
     )
+    private val proxySubtitlePatternProvider = ProxySubtitlePatternProvider(::readUiSubtitlePattern)
     private val controllerOperations = BackendControllerOperations(
         socketPath = "${context.cacheDir}/clash.sock",
         serviceState = serviceState,
+        proxySubtitlePattern = { proxySubtitlePatternProvider.patternFor(Global.profilePath) },
         notRunningMessage = {
             context.getString(rs.chimera.android.R.string.panel_not_running_message)
         },

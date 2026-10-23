@@ -669,6 +669,8 @@ internal object IntegrityCheckingUniffiLib {
     }
     external fun uniffi_chimera_ffi_checksum_func_hello(
     ): Short
+    external fun uniffi_chimera_ffi_checksum_func_read_ui_subtitle_pattern(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_func_run_clash(
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_shutdown(
@@ -791,6 +793,8 @@ internal object UniffiLib {
     external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
     ): Unit
     external fun uniffi_chimera_ffi_fn_func_hello(uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
+    external fun uniffi_chimera_ffi_fn_func_read_ui_subtitle_pattern(`configPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_run_clash(`configPath`: RustBuffer.ByValue,`workDir`: RustBuffer.ByValue,`over`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
@@ -922,6 +926,9 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_chimera_ffi_checksum_func_hello() != 60002.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_chimera_ffi_checksum_func_read_ui_subtitle_pattern() != 59211.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_chimera_ffi_checksum_func_run_clash() != 8198.toShort()) {
@@ -3578,6 +3585,16 @@ public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.Str
     UniffiLib.uniffi_chimera_ffi_fn_func_hello(
 
         _status)
+}
+    )
+    }
+
+ fun `readUiSubtitlePattern`(`configPath`: kotlin.String): kotlin.String? {
+            return FfiConverterOptionalString.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_read_ui_subtitle_pattern(
+
+        FfiConverterString.lower(`configPath`),_status)
 }
     )
     }

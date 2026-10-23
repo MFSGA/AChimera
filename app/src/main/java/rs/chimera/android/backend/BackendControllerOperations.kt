@@ -21,6 +21,7 @@ import uniffi.chimera_ffi.Mode
 internal class BackendControllerOperations(
     socketPath: String,
     private val serviceState: StateFlow<ServiceState>,
+    private val proxySubtitlePattern: () -> java.util.regex.Pattern?,
     private val notRunningMessage: () -> String,
     private val recordRuntimeError: (BackendRuntimeErrorSource, String, Throwable) -> Unit,
     private val clearRuntimeError: (BackendRuntimeErrorSource) -> Unit,
@@ -49,7 +50,7 @@ internal class BackendControllerOperations(
 
     suspend fun fetchProxyGroups(): List<ProxyGroupSnapshot> = withControllerContext {
         val mode = controller.getMode() ?: Mode.RULE
-        controller.getProxies().toProxyGroupSnapshots(mode)
+        controller.getProxies().toProxyGroupSnapshots(mode, proxySubtitlePattern())
     }
 
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
