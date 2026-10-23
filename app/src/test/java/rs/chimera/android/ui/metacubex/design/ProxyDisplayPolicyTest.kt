@@ -134,6 +134,7 @@ class ProxyDisplayPolicyTest {
                     emptyList(),
                     isGroup = true,
                     now = "node-b",
+                    title = "formatted group title",
                 ),
                 "zero-delay" to ProxySnapshot(
                     "zero-delay",
@@ -183,6 +184,7 @@ class ProxyDisplayPolicyTest {
         assertEquals("node-a", pages[0].proxies.first().name)
         assertEquals("Hong Kong 01", pages[0].proxies.first().title)
         assertEquals("🇭🇰", pages[0].proxies.first().subtitle)
+        assertEquals("fallback", pages[0].proxies[1].title)
         assertEquals("Fallback(node-b)", pages[0].proxies[1].subtitle)
         assertEquals("42", pages[0].proxies.first().delayText)
         assertEquals(null, pages[0].proxies[2].delayMillis)

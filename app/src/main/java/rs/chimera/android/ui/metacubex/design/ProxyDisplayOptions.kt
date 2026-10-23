@@ -122,7 +122,11 @@ object ProxyDisplayPolicy {
                         isSelected = name == snapshot.selected,
                         selectionGroupName = snapshot.name,
                         delayValue = delayValue,
-                        title = proxy?.title ?: name,
+                        title = if (proxy?.isGroup == true) {
+                            proxy.name
+                        } else {
+                            proxy?.title ?: name
+                        },
                     )
                 },
             )
