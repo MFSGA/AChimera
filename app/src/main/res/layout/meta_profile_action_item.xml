@@ -39,14 +39,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
-
-            <TextView
-                android:id="@+id/action_subtext"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-                android:visibility="gone" />
         </LinearLayout>
     </LinearLayout>
 </layout>

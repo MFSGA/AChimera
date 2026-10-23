@@ -195,15 +195,12 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         }
         fun renderDeleteAvailability(blockedMessage: String?) {
             val deleteBinding = actionBindings[MetaProfileAction.Delete] ?: return
-            deleteBinding.actionRoot.isEnabled = blockedMessage == null
-            deleteBinding.actionRoot.alpha = if (blockedMessage == null) 1f else 0.45f
+            // Keep the CMFA action appearance; the click path and backend still reject unsafe deletes.
+            deleteBinding.actionRoot.isEnabled = true
+            deleteBinding.actionRoot.alpha = 1f
             deleteBinding.actionRoot.contentDescription = blockedMessage?.let {
                 getString(R.string.profile_delete_blocked_action, getString(R.string.profile_delete), it)
             } ?: getString(R.string.profile_delete)
-            deleteBinding.actionSubtext.visibility =
-                if (blockedMessage == null) android.view.View.GONE else android.view.View.VISIBLE
-            deleteBinding.actionSubtext.text = blockedMessage.orEmpty()
-            updateActionMenuViewport()
         }
         actions.forEach { action ->
             val actionBinding = MetaProfileActionItemBinding.inflate(
@@ -243,6 +240,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             actionBindings[action] = actionBinding
         }
         renderDeleteAvailability(deleteBlockedMessage)
+        updateActionMenuViewport()
         dialog.setContentView(binding.root)
         val availabilityObserver = lifecycleScope.launch {
             combine(backend.profileDeletionAvailability, backend.activeProfile) { updatedAvailability, activeProfile ->

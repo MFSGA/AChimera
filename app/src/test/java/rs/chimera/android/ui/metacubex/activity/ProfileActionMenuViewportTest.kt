@@ -49,13 +49,4 @@ class ProfileActionMenuViewportTest {
             profileActionMenuViewportHeight(MetaProfileAction.entries, rowHeights, 280),
         )
     }
-
-    @Test
-    fun viewportIncludesUpdatedDeleteHintHeight() {
-        val withoutHint = MetaProfileAction.entries.associateWith { 70 }
-        val withHint = withoutHint + (MetaProfileAction.Delete to 96)
-
-        assertEquals(350, profileActionMenuViewportHeight(MetaProfileAction.entries, withoutHint, 500))
-        assertEquals(376, profileActionMenuViewportHeight(MetaProfileAction.entries, withHint, 500))
-    }
 }
