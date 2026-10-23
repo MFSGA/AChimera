@@ -196,6 +196,9 @@
     <string name="dark_mode_system">System Default</string>
     <string name="dark_mode_light">Light</string>
     <string name="dark_mode_dark">Dark</string>
+    <string name="meta_dark_mode_system">Follow System (Android 10+)</string>
+    <string name="meta_dark_mode_light">Always Light</string>
+    <string name="meta_dark_mode_dark">Always Dark</string>
     <string name="settings_general">General</string>
     <string name="settings_interface">Interface</string>
     <string name="settings_about">About</string>

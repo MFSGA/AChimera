@@ -505,9 +505,9 @@ class MetaSettingsActivity : AppCompatActivity() {
     private fun appearanceLabel(preference: AppearancePreference): String =
         getString(
             when (preference) {
-                AppearancePreference.SYSTEM -> R.string.dark_mode_system
-                AppearancePreference.LIGHT -> R.string.dark_mode_light
-                AppearancePreference.DARK -> R.string.dark_mode_dark
+                AppearancePreference.SYSTEM -> R.string.meta_dark_mode_system
+                AppearancePreference.LIGHT -> R.string.meta_dark_mode_light
+                AppearancePreference.DARK -> R.string.meta_dark_mode_dark
             },
         )
 

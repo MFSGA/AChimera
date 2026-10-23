@@ -190,6 +190,9 @@
     <string name="dark_mode_system">跟随系统</string>
     <string name="dark_mode_light">浅色</string>
     <string name="dark_mode_dark">深色</string>
+    <string name="meta_dark_mode_system">跟随系统 (Android 10+)</string>
+    <string name="meta_dark_mode_light">总是明亮模式</string>
+    <string name="meta_dark_mode_dark">总是暗黑模式</string>
     <string name="settings_general">通用</string>
     <string name="settings_interface">界面</string>
     <string name="settings_about">关于</string>
