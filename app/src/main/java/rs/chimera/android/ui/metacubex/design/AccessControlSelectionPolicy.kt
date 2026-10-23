@@ -29,5 +29,6 @@ internal object AccessControlSelectionPolicy {
         AppFilterMode.DISALLOWED -> Selection(mode, emptySet(), disallowedApps)
     }
 
-    fun canSelectApps(mode: AppFilterMode): Boolean = mode != AppFilterMode.ALL
+    fun canSelectApps(mode: AppFilterMode, canChangeSettings: Boolean = true): Boolean =
+        canChangeSettings && mode != AppFilterMode.ALL
 }

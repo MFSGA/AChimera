@@ -57,6 +57,18 @@ class AccessControlDesignSelectionModeInstrumentedTest {
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()
             scenario.onActivity {
                 assertSelectionEnabled(design, expected = false)
+                design.render(state(AppFilterMode.DISALLOWED, apps, canChangeVpnSettings = false))
+            }
+
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            scenario.onActivity {
+                assertSelectionEnabled(design, expected = false)
+                design.render(state(AppFilterMode.DISALLOWED, apps, canChangeVpnSettings = true))
+            }
+
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync()
+            scenario.onActivity {
+                assertSelectionEnabled(design, expected = true)
             }
         }
     }
@@ -75,6 +87,7 @@ class AccessControlDesignSelectionModeInstrumentedTest {
     private fun state(
         mode: AppFilterMode,
         apps: List<AccessControlDesign.InstalledApp>,
+        canChangeVpnSettings: Boolean = true,
     ) = AccessControlDesign.State(
         mode = mode,
         sort = AccessControlDesign.Sort.NAME,
@@ -87,5 +100,6 @@ class AccessControlDesignSelectionModeInstrumentedTest {
         loadError = null,
         saving = false,
         dirty = false,
+        canChangeVpnSettings = canChangeVpnSettings,
     )
 }

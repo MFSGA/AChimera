@@ -10,7 +10,9 @@ import android.os.Process
 import android.os.Bundle
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +45,7 @@ class MetaAccessControlActivity : AppCompatActivity() {
     private var loading = false
     private var saving = false
     private var loadError: String? = null
+    private var canChangeVpnSettings = currentVpnSettingsAvailability()
     private val uiPreferences by lazy {
         getSharedPreferences(ACCESS_CONTROL_UI_PREFERENCES, MODE_PRIVATE)
     }
@@ -68,6 +71,17 @@ class MetaAccessControlActivity : AppCompatActivity() {
         lifecycleScope.launch {
             for (request in design.requests) {
                 handleRequest(request)
+            }
+        }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                backend.profileDeletionAvailability.collect { availability ->
+                    canChangeVpnSettings = VpnSettingsAvailabilityPolicy.canChangeSettings(
+                        availability.serviceState,
+                        availability.hasRunRequest,
+                    )
+                    render()
+                }
             }
         }
         lifecycleScope.launch { loadApps() }
@@ -99,23 +113,23 @@ class MetaAccessControlActivity : AppCompatActivity() {
                 render()
             }
             AccessControlDesign.Request.SelectAll -> {
-                if (AccessControlSelectionPolicy.canSelectApps(mode)) {
+                if (AccessControlSelectionPolicy.canSelectApps(mode, canChangeVpnSettings())) {
                     setSelectedApps(visibleApps().map { it.packageName }.toSet())
                 }
             }
             AccessControlDesign.Request.SelectNone -> {
-                if (AccessControlSelectionPolicy.canSelectApps(mode)) {
+                if (AccessControlSelectionPolicy.canSelectApps(mode, canChangeVpnSettings())) {
                     setSelectedApps(emptySet())
                 }
             }
             AccessControlDesign.Request.SelectInvert -> {
-                if (AccessControlSelectionPolicy.canSelectApps(mode)) {
+                if (AccessControlSelectionPolicy.canSelectApps(mode, canChangeVpnSettings())) {
                     val visiblePackages = visibleApps().map { it.packageName }.toSet()
                     setSelectedApps(visiblePackages - selectedApps())
                 }
             }
             AccessControlDesign.Request.ImportFromClipboard -> {
-                if (AccessControlSelectionPolicy.canSelectApps(mode)) {
+                if (AccessControlSelectionPolicy.canSelectApps(mode, canChangeVpnSettings())) {
                     val clipboard = getSystemService(ClipboardManager::class.java)
                     val packages = clipboard?.primaryClip?.takeIf { it.itemCount > 0 }
                         ?.getItemAt(0)?.text?.toString().orEmpty()
@@ -132,7 +146,7 @@ class MetaAccessControlActivity : AppCompatActivity() {
                 }
             }
             is AccessControlDesign.Request.ToggleApp -> {
-                if (AccessControlSelectionPolicy.canSelectApps(mode)) {
+                if (AccessControlSelectionPolicy.canSelectApps(mode, canChangeVpnSettings())) {
                     setSelectedApps(selectedApps().toggle(request.packageName, request.selected))
                 }
             }
@@ -158,8 +172,7 @@ class MetaAccessControlActivity : AppCompatActivity() {
     }
 
     private suspend fun save() {
-        val availability = backend.profileDeletionAvailability.value
-        if (!VpnSettingsAvailabilityPolicy.canChangeSettings(availability.serviceState, availability.hasRunRequest)) {
+        if (!canChangeVpnSettings()) {
             design.showToast(
                 getString(R.string.cmfa_options_unavailable),
                 Snackbar.LENGTH_INDEFINITE,
@@ -225,7 +238,21 @@ class MetaAccessControlActivity : AppCompatActivity() {
                 loadError = loadError,
                 saving = saving,
                 dirty = currentSelection() != savedSelection,
+                canChangeVpnSettings = canChangeVpnSettings,
             ),
+        )
+    }
+
+    private fun canChangeVpnSettings(): Boolean {
+        canChangeVpnSettings = currentVpnSettingsAvailability()
+        return canChangeVpnSettings
+    }
+
+    private fun currentVpnSettingsAvailability(): Boolean {
+        val availability = backend.profileDeletionAvailability.value
+        return VpnSettingsAvailabilityPolicy.canChangeSettings(
+            availability.serviceState,
+            availability.hasRunRequest,
         )
     }
 

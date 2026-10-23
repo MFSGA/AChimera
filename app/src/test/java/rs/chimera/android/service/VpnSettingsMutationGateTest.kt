@@ -4,6 +4,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -71,17 +72,17 @@ class VpnSettingsMutationGateTest {
 
     @Test
     fun settingsWriteSerializesWithVpnStartRequest() {
-        val lock = Any()
-        val runRequested = AtomicBoolean(false)
-        val gate = VpnSettingsMutationGate(lock, runRequested::get)
+        VpnRuntimeRegistry.requestStop()
+        VpnDesiredStateRuntimeState.update(false)
         val executor = Executors.newFixedThreadPool(2)
         val actionEntered = CountDownLatch(1)
         val releaseAction = CountDownLatch(1)
-        val startRequestStarted = CountDownLatch(1)
+        val startRequestAttempted = CountDownLatch(1)
+        val startThread = AtomicReference<Thread>()
 
         try {
             val update = executor.submit {
-                gate.withSettingsMutation(ServiceState.STOPPED, { "unavailable" }) {
+                VpnRuntimeRegistry.withSettingsMutation(ServiceState.STOPPED, { "unavailable" }) {
                     actionEntered.countDown()
                     assertTrue(releaseAction.await(5, TimeUnit.SECONDS))
                 }
@@ -89,26 +90,43 @@ class VpnSettingsMutationGateTest {
             assertTrue(actionEntered.await(5, TimeUnit.SECONDS))
 
             val start = executor.submit {
-                synchronized(lock) {
-                    startRequestStarted.countDown()
-                    runRequested.set(true)
+                startThread.set(Thread.currentThread())
+                startRequestAttempted.countDown()
+                VpnRuntimeRegistry.requestStart {
+                    VpnDesiredStateRuntimeState.update(true)
                 }
             }
-            assertFalse(startRequestStarted.await(100, TimeUnit.MILLISECONDS))
+            assertTrue(startRequestAttempted.await(5, TimeUnit.SECONDS))
+            assertTrue(awaitBlocked(startThread.get(), 5, TimeUnit.SECONDS))
             assertFalse(start.isDone)
 
             releaseAction.countDown()
-            assertTrue(startRequestStarted.await(5, TimeUnit.SECONDS))
             update.get(5, TimeUnit.SECONDS)
             start.get(5, TimeUnit.SECONDS)
 
             val result = runCatching {
-                gate.withSettingsMutation(ServiceState.STOPPED, { "unavailable" }) { "saved" }
+                VpnRuntimeRegistry.withSettingsMutation(
+                    ServiceState.STOPPED,
+                    { "unavailable" },
+                ) { "saved" }
             }
             assertEquals("unavailable", result.exceptionOrNull()?.message)
         } finally {
             releaseAction.countDown()
             executor.shutdownNow()
+            VpnRuntimeRegistry.requestStop()
+            VpnDesiredStateRuntimeState.update(false)
         }
+    }
+
+    private fun awaitBlocked(thread: Thread?, timeout: Long, unit: TimeUnit): Boolean {
+        if (thread == null) return false
+        val deadline = System.nanoTime() + unit.toNanos(timeout)
+        while (System.nanoTime() < deadline) {
+            if (thread.state == Thread.State.BLOCKED) return true
+            if (!thread.isAlive) return false
+            Thread.yield()
+        }
+        return thread.state == Thread.State.BLOCKED
     }
 }

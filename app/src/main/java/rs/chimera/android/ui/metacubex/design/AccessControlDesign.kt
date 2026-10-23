@@ -55,6 +55,7 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         val loadError: String?,
         val saving: Boolean,
         val dirty: Boolean,
+        val canChangeVpnSettings: Boolean,
     )
 
     enum class Sort {
@@ -109,6 +110,7 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
     private var displayedSearchSelection = emptySet<String>()
     private var displayedSearchSelectionEnabled: Boolean? = null
     private var currentState: State? = null
+    private var optionsPopup: PopupMenu? = null
     private var rendering = false
     private var appBarElevated = false
     private var elevationAnimator: ValueAnimator? = null
@@ -154,7 +156,11 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
     fun render(state: State) {
         currentState = state
         rendering = true
-        val canSelectApps = AccessControlSelectionPolicy.canSelectApps(state.mode)
+        val canSelectApps = AccessControlSelectionPolicy.canSelectApps(
+            state.mode,
+            state.canChangeVpnSettings,
+        )
+        if (!state.canChangeVpnSettings) optionsPopup?.dismiss()
         val showState = state.loading || state.loadError != null || state.apps.isEmpty()
         toolbarSearch.visibility = View.VISIBLE
         appList.visibility = if (!showState) View.VISIBLE else View.GONE
@@ -202,6 +208,10 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
     private fun showOptionsMenu() {
         val state = currentState ?: return
         val canSelectApps = AccessControlSelectionPolicy.canSelectApps(state.mode)
+        val canChangeSelection = AccessControlSelectionPolicy.canSelectApps(
+            state.mode,
+            state.canChangeVpnSettings,
+        )
         val popup = PopupMenu(context, toolbarMenu)
         popup.menuInflater.inflate(R.menu.menu_access_control, popup.menu)
         popup.menu.apply {
@@ -211,14 +221,14 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
             findItem(R.id.access_control_sort_install_time).isChecked = state.sort == Sort.INSTALL_TIME
             findItem(R.id.access_control_sort_update_time).isChecked = state.sort == Sort.UPDATE_TIME
             findItem(R.id.access_control_reverse).isChecked = state.reverse
-            findItem(R.id.access_control_select_all).isEnabled = canSelectApps && !state.saving
-            findItem(R.id.access_control_select_none).isEnabled = canSelectApps && !state.saving
-            findItem(R.id.access_control_select_invert).isEnabled = canSelectApps && !state.saving
-            findItem(R.id.access_control_import).isEnabled = canSelectApps && !state.saving
+            findItem(R.id.access_control_select_all).isEnabled = canChangeSelection && !state.saving
+            findItem(R.id.access_control_select_none).isEnabled = canChangeSelection && !state.saving
+            findItem(R.id.access_control_select_invert).isEnabled = canChangeSelection && !state.saving
+            findItem(R.id.access_control_import).isEnabled = canChangeSelection && !state.saving
             findItem(R.id.access_control_export).isEnabled = canSelectApps && !state.saving
             findItem(R.id.access_control_save).apply {
                 isVisible = state.dirty || state.saving
-                isEnabled = state.dirty && !state.saving
+                isEnabled = state.canChangeVpnSettings && state.dirty && !state.saving
                 title = context.getString(if (state.saving) R.string.app_selector_saving else R.string.save)
             }
         }
@@ -275,6 +285,8 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
                 else -> false
             }
         }
+        popup.setOnDismissListener { if (optionsPopup === popup) optionsPopup = null }
+        optionsPopup = popup
         popup.show()
     }
 
