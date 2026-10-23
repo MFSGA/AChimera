@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
@@ -45,7 +46,6 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import rs.chimera.android.ui.metacubex.activity.MetaConnectionsActivity
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
 import rs.chimera.android.ui.metacubex.activity.MetaOverrideActivity
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
@@ -131,11 +131,11 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun metaRootExposesMemoryTelemetry() {
+    fun metaRootOmitsEntriesNotPresentInReferenceHome() {
         ActivityScenario.launch(MetaMainActivity::class.java).use {
             waitForResumedActivity<MetaMainActivity>()
-            onView(withId(R.id.card_memory)).check(matches(isDisplayed()))
-            onView(withId(R.id.text_memory)).check(matches(isDisplayed()))
+            onView(withText(R.string.connections_title)).check(doesNotExist())
+            onView(withText(R.string.stat_memory)).check(doesNotExist())
         }
     }
 
@@ -1423,15 +1423,6 @@ class AppUiNavigationInstrumentedTest {
         val root = LayoutInflater.from(themedContext).inflate(R.layout.meta_design_connections, null)
 
         assertFalse(root.findViewById<android.view.View>(R.id.close_all).isEnabled)
-    }
-
-    @Test
-    fun metaConnectionsEntryOpensConnectionsScreen() {
-        ActivityScenario.launch(MetaMainActivity::class.java).use {
-            waitForResumedActivity<MetaMainActivity>()
-            onView(withId(R.id.card_connections)).perform(click())
-            waitForResumedActivity<MetaConnectionsActivity>()
-        }
     }
 
     @Test

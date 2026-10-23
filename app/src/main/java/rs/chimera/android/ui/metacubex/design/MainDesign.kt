@@ -18,7 +18,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenProxy,
         OpenProviders,
         OpenProfiles,
-        OpenConnections,
         OpenLogs,
         OpenSettings,
         OpenHelp,
@@ -52,7 +51,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.cardProxy.setOnClickListener { request(Request.OpenProxy) }
         cardProviders.setOnClickListener { request(Request.OpenProviders) }
         binding.cardProfiles.setOnClickListener { request(Request.OpenProfiles) }
-        binding.cardConnections.setOnClickListener { request(Request.OpenConnections) }
         binding.cardLogs.setOnClickListener { request(Request.OpenLogs) }
         binding.cardSettings.setOnClickListener { request(Request.OpenSettings) }
         cardHelp.setOnClickListener { request(Request.OpenHelp) }
@@ -169,16 +167,6 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     fun setMode(mode: String) {
         binding.mode = mode
         binding.executePendingBindings()
-    }
-
-    fun setMemory(inUse: String?, limit: String?) {
-        binding.textMemory.text = if (inUse == null || limit == null) {
-            context.getString(R.string.not_available)
-        } else {
-            context.getString(R.string.stat_memory_limit, limit).let { limitText ->
-                "$inUse · $limitText"
-            }
-        }
     }
 
     fun request(request: Request) {
