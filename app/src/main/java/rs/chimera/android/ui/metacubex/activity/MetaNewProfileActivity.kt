@@ -1,10 +1,17 @@
 package rs.chimera.android.ui.metacubex.activity
 
+import android.content.ComponentName
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import io.github.g00fy2.quickie.QRResult
 import io.github.g00fy2.quickie.QRResult.QRError
@@ -12,20 +19,21 @@ import io.github.g00fy2.quickie.QRResult.QRMissingPermission
 import io.github.g00fy2.quickie.QRResult.QRSuccess
 import io.github.g00fy2.quickie.QRResult.QRUserCanceled
 import io.github.g00fy2.quickie.ScanQRCode
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
-import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ProfileRemotePolicy
 import rs.chimera.android.backend.model.RemoteProfileRequest
-import rs.chimera.android.ui.metacubex.design.MetaRemoteProfileForm
 import rs.chimera.android.ui.metacubex.design.MetaNewProfileDesign
+import rs.chimera.android.ui.metacubex.design.MetaRemoteProfileForm
 import rs.chimera.android.ui.metacubex.design.MetaRemoteProfilePropertiesDesign
 
 class MetaNewProfileActivity : AppCompatActivity() {
     companion object {
+        const val ACTION_PROVIDE_URL = "com.github.kr328.clash.action.PROVIDE_URL"
+        const val EXTRA_PROVIDER_NAME = "name"
         const val EXTRA_SOURCE = "rs.chimera.android.ui.metacubex.profile_source"
         const val SOURCE_FILE = "file"
         const val SOURCE_IMPORTED = "remote_imported"
@@ -33,14 +41,25 @@ class MetaNewProfileActivity : AppCompatActivity() {
         private const val STATE_PROPERTIES_OPEN = "remote_profile_properties_open"
     }
 
-    private val backend = BackendProvider.provide()
+    private val importViewModel: MetaNewProfileViewModel by viewModels()
     private lateinit var design: MetaNewProfileDesign
     private var propertiesDesign: MetaRemoteProfilePropertiesDesign? = null
     private var requestJob: Job? = null
     private var importingProfile = false
+    private val externalProviderLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val data = result.data ?: return@registerForActivityResult
+        val uri = data.data ?: return@registerForActivityResult
+        if (importingProfile) return@registerForActivityResult
+        val name = data.getStringExtra(EXTRA_PROVIDER_NAME)
+        handleExternalProfileResult(uri, name)
+    }
     private val scanLauncher = registerForActivityResult(ScanQRCode(), ::handleScanResult)
     private val backCallback = object : OnBackPressedCallback(true) {
         override fun handleOnBackPressed() {
+            if (importingProfile) return
             if (propertiesDesign == null) finish() else requestPropertiesExit()
         }
     }
@@ -60,6 +79,11 @@ class MetaNewProfileActivity : AppCompatActivity() {
         } else {
             showChooser()
         }
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                importViewModel.importState.collect(::renderRemoteProfileImportState)
+            }
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -73,26 +97,80 @@ class MetaNewProfileActivity : AppCompatActivity() {
         propertiesDesign = null
         if (!::design.isInitialized) design = MetaNewProfileDesign(this)
         setContentView(design.root)
+        lifecycleScope.launch {
+            design.setExternalProviders(queryExternalProviders())
+        }
         requestJob = lifecycleScope.launch {
             for (request in design.requests) {
+                if (importingProfile) continue
                 when (request) {
                     MetaNewProfileDesign.Request.NavigateBack -> finish()
                     MetaNewProfileDesign.Request.ImportFile -> returnSource(SOURCE_FILE)
                     MetaNewProfileDesign.Request.ImportUrl -> showProperties("")
                     MetaNewProfileDesign.Request.ImportQrCode -> scanLauncher.launch(null)
+                    is MetaNewProfileDesign.Request.OpenExternalProvider -> {
+                        val intent = Intent(ACTION_PROVIDE_URL).setComponent(request.componentName)
+                        runCatching { externalProviderLauncher.launch(intent) }
+                            .onFailure { error ->
+                                design.showToast(
+                                    getString(
+                                        R.string.profile_import_error,
+                                        error.message ?: getString(R.string.profile_unknown_error),
+                                    ),
+                                )
+                            }
+                    }
+                    is MetaNewProfileDesign.Request.OpenExternalProviderDetails -> {
+                        startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", request.packageName, null)
+                            },
+                        )
+                    }
                 }
             }
         }
     }
 
-    private fun showProperties(initialUrl: String, restoredState: Bundle? = null) {
+    private suspend fun queryExternalProviders(): List<MetaNewProfileDesign.ExternalProvider> =
+        withContext(Dispatchers.IO) {
+            packageManager.queryIntentActivities(Intent(ACTION_PROVIDE_URL), 0)
+                .mapNotNull { resolveInfo ->
+                    val activity = resolveInfo.activityInfo ?: return@mapNotNull null
+                    MetaNewProfileDesign.ExternalProvider(
+                        packageName = activity.packageName,
+                        name = activity.applicationInfo.loadLabel(packageManager).toString(),
+                        summary = activity.loadLabel(packageManager).toString(),
+                        icon = activity.loadIcon(packageManager),
+                        componentName = ComponentName(activity.packageName, activity.name),
+                    )
+                }
+        }
+
+    private fun handleExternalProfileResult(uri: Uri, name: String?) {
+        val url = profileProviderResultUrl(uri.toString())
+        if (url == null) {
+            lifecycleScope.launch { design.showToast(getString(R.string.profile_url_invalid)) }
+            return
+        }
+        showProperties(
+            initialUrl = url,
+            initialName = profileProviderResultName(name, getString(R.string.profile_properties_new_name)),
+        )
+    }
+
+    private fun showProperties(
+        initialUrl: String,
+        initialName: String? = null,
+        restoredState: Bundle? = null,
+    ) {
         requestJob?.cancel()
         val page = MetaRemoteProfilePropertiesDesign(
             context = this,
             initialUrl = initialUrl,
             initialName = restoredState?.getString(
                 MetaRemoteProfilePropertiesDesign.STATE_ORIGINAL_NAME,
-            ) ?: getString(R.string.profile_properties_new_name),
+            ) ?: initialName ?: getString(R.string.profile_properties_new_name),
             initialAutoUpdate = restoredState?.getBoolean(
                 MetaRemoteProfilePropertiesDesign.STATE_ORIGINAL_AUTO_UPDATE,
             ) ?: false,
@@ -106,6 +184,8 @@ class MetaNewProfileActivity : AppCompatActivity() {
         )
         propertiesDesign = page
         setContentView(page.root)
+        importingProfile = importViewModel.importState.value == RemoteProfileImportState.Importing
+        page.setSubmitting(importingProfile)
         requestJob = lifecycleScope.launch {
             for (request in page.requests) {
                 when (request) {
@@ -149,42 +229,54 @@ class MetaNewProfileActivity : AppCompatActivity() {
             .show()
     }
 
-    private suspend fun submitRemoteProfile(form: MetaRemoteProfileForm) {
+    private fun submitRemoteProfile(form: MetaRemoteProfileForm) {
         val page = propertiesDesign ?: return
         if (importingProfile) return
-        importingProfile = true
-        page.setSubmitting(true)
-        try {
-            val importedName = withContext(Dispatchers.IO) {
-                backend.importRemoteProfile(
-                    RemoteProfileRequest(
-                        name = form.name,
-                        url = form.url,
-                        autoUpdate = form.autoUpdate,
-                        userAgent = form.userAgent,
-                        proxyUrl = form.proxyUrl,
-                    ),
-                )
+        val accepted = importViewModel.submit(
+            RemoteProfileRequest(
+                name = form.name,
+                url = form.url,
+                autoUpdate = form.autoUpdate,
+                userAgent = form.userAgent,
+                proxyUrl = form.proxyUrl,
+            )
+        )
+        if (accepted) {
+            importingProfile = true
+            page.setSubmitting(true)
+        }
+    }
+
+    private fun renderRemoteProfileImportState(state: RemoteProfileImportState) {
+        when (state) {
+            RemoteProfileImportState.Idle -> importingProfile = false
+            RemoteProfileImportState.Importing -> {
+                importingProfile = true
+                propertiesDesign?.setSubmitting(true)
             }
-            setResult(
-                RESULT_OK,
-                Intent()
-                    .putExtra(EXTRA_SOURCE, SOURCE_IMPORTED)
-                    .putExtra(EXTRA_IMPORTED_PROFILE_NAME, importedName),
-            )
-            finish()
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            page.showToast(
-                getString(
-                    R.string.profile_import_error,
-                    error.message ?: getString(R.string.profile_unknown_error),
-                ),
-            )
-            page.setSubmitting(false)
-        } finally {
-            importingProfile = false
+            is RemoteProfileImportState.Completed -> {
+                importingProfile = false
+                setResult(
+                    RESULT_OK,
+                    Intent()
+                        .putExtra(EXTRA_SOURCE, SOURCE_IMPORTED)
+                        .putExtra(EXTRA_IMPORTED_PROFILE_NAME, state.name),
+                )
+                finish()
+            }
+            is RemoteProfileImportState.Failed -> {
+                importingProfile = false
+                propertiesDesign?.let { page ->
+                    page.showToast(
+                        getString(
+                            R.string.profile_import_error,
+                            state.error.message ?: getString(R.string.profile_unknown_error),
+                        ),
+                    )
+                    page.setSubmitting(false)
+                }
+                importViewModel.acknowledgeFailure()
+            }
         }
     }
 
@@ -219,3 +311,9 @@ class MetaNewProfileActivity : AppCompatActivity() {
 internal fun profileUrlFromQr(rawValue: String?, rawBytes: ByteArray?): String? =
     rawValue?.takeIf(String::isNotBlank)
         ?: rawBytes?.let { String(it) }?.takeIf(String::isNotBlank)
+
+internal fun profileProviderResultName(name: String?, fallbackName: String): String =
+    name?.takeIf(String::isNotBlank) ?: fallbackName
+
+internal fun profileProviderResultUrl(value: String): String? =
+    value.takeIf(ProfileRemotePolicy::isValidUrl)
