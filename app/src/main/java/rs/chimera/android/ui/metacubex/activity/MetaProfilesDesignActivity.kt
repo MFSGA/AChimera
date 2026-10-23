@@ -36,9 +36,11 @@ import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.databinding.MetaDialogProfileQrCodeBinding
 import rs.chimera.android.databinding.MetaDialogProfileMenuBinding
 import rs.chimera.android.databinding.MetaProfileActionItemBinding
+import rs.chimera.android.ui.format
 import rs.chimera.android.ui.metacubex.design.ProfilesDesign
 import rs.chimera.android.ui.metacubex.design.util.MetaBottomSheetDialog
 import rs.chimera.android.ui.profileDetailsText
+import rs.chimera.android.ui.resolveProfileAutoUpdatePresentation
 import kotlin.coroutines.resume
 
 class MetaProfilesDesignActivity : AppCompatActivity() {
@@ -279,9 +281,20 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     private suspend fun handleProfileAction(profile: ProfileSummary, action: MetaProfileAction) {
         when (action) {
             MetaProfileAction.Details -> {
+                val autoUpdateStatus = resolveProfileAutoUpdatePresentation(
+                    autoUpdate = profile.autoUpdate,
+                    lastAttempt = profile.lastAutoUpdateAttempt,
+                    failureCount = profile.autoUpdateFailures,
+                    nextAttemptAt = profile.nextAutoUpdateAt,
+                    error = profile.lastAutoUpdateError,
+                )?.format(this)
+                val details = listOfNotNull(
+                    profile.profileDetailsText(this),
+                    autoUpdateStatus,
+                ).joinToString("\n")
                 AlertDialog.Builder(this)
                     .setTitle(profile.name)
-                    .setMessage(profile.profileDetailsText(this))
+                    .setMessage(details)
                     .setPositiveButton(android.R.string.ok, null)
                     .show()
             }
