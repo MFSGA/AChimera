@@ -103,10 +103,11 @@ class ChimeraBackendImpl(
         serviceState,
         VpnRuntimeRegistry.runRequestedState,
         VpnDesiredStateRuntimeState.shouldRun,
-    ) { currentServiceState, runtimeRunRequest, persistedRunRequest ->
+        VpnRuntimeRegistry.registeredState,
+    ) { currentServiceState, runtimeRunRequest, persistedRunRequest, runtimeRegistered ->
         ProfileDeletionAvailability(
             serviceState = currentServiceState,
-            hasRunRequest = runtimeRunRequest || persistedRunRequest,
+            hasRunRequest = runtimeRunRequest || persistedRunRequest || runtimeRegistered,
         )
     }.stateIn(
         scope = backendScope,

@@ -100,7 +100,9 @@ internal class BackendVpnOperations(
     }
 
     fun hasRunRequest(): Boolean =
-        VpnRuntimeRegistry.shouldRun || desiredStateStore.snapshot().shouldRun
+        VpnRuntimeRegistry.isRegistered ||
+            VpnRuntimeRegistry.shouldRun ||
+            desiredStateStore.snapshot().shouldRun
 
     private fun Throwable.toServiceError(): String =
         toUserVisibleMessage(context, rs.chimera.android.R.string.profile_unknown_error)

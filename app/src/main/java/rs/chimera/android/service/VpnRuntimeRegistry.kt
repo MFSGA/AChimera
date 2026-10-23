@@ -24,11 +24,13 @@ internal object VpnRuntimeRegistry {
     private var control: VpnRuntimeControl? = null
     private val runRequested = AtomicBoolean(false)
     private val mutableRunRequested = MutableStateFlow(false)
+    private val mutableRegistered = MutableStateFlow(false)
     private val settingsMutationGate = VpnSettingsMutationGate(lock) {
-        runRequested.get() || VpnDesiredStateRuntimeState.shouldRun.value
+        control != null || runRequested.get() || VpnDesiredStateRuntimeState.shouldRun.value
     }
 
     val runRequestedState = mutableRunRequested.asStateFlow()
+    val registeredState = mutableRegistered.asStateFlow()
 
     val isRegistered: Boolean
         get() = control != null
@@ -56,6 +58,7 @@ internal object VpnRuntimeRegistry {
     fun register(runtime: VpnRuntimeControl): Boolean = synchronized(lock) {
         if (!runRequested.get()) return@synchronized false
         control = runtime
+        mutableRegistered.value = true
         true
     }
 
@@ -63,6 +66,7 @@ internal object VpnRuntimeRegistry {
         synchronized(lock) {
             if (control === runtime) {
                 control = null
+                mutableRegistered.value = false
             }
         }
     }

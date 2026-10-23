@@ -96,6 +96,51 @@ class VpnSettingsMutationGateTest {
     }
 
     @Test
+    fun productionRegistryRejectsSettingsWhileRuntimeRemainsRegistered() {
+        VpnRuntimeRegistry.requestStop()
+        VpnDesiredStateRuntimeState.update(false)
+        var actionInvoked = false
+        val runtime = object : VpnRuntimeControl {
+            override fun protectSocket(fd: Int): Boolean = true
+
+            override fun onCoreStopped(message: String) = Unit
+
+            override suspend fun stopVpn() = Unit
+
+            override suspend fun restartVpn() = Unit
+        }
+
+        try {
+            VpnRuntimeRegistry.requestStart {
+                VpnDesiredStateRuntimeState.update(true)
+            }
+            assertTrue(VpnRuntimeRegistry.register(runtime))
+
+            // A stop request clears intent before asynchronous service cleanup unregisters runtime.
+            VpnRuntimeRegistry.requestStop()
+            VpnDesiredStateRuntimeState.update(false)
+
+            val result = runCatching {
+                VpnRuntimeRegistry.withSettingsMutation(
+                    serviceState = ServiceState.STOPPED,
+                    unavailableMessage = { "unavailable" },
+                ) {
+                    actionInvoked = true
+                    "saved"
+                }
+            }
+
+            assertEquals("unavailable", result.exceptionOrNull()?.message)
+            assertFalse(actionInvoked)
+            assertTrue(VpnRuntimeRegistry.registeredState.value)
+        } finally {
+            VpnRuntimeRegistry.unregister(runtime)
+            VpnRuntimeRegistry.requestStop()
+            VpnDesiredStateRuntimeState.update(false)
+        }
+    }
+
+    @Test
     fun settingsWriteSerializesWithVpnStartRequest() {
         VpnRuntimeRegistry.requestStop()
         VpnDesiredStateRuntimeState.update(false)
