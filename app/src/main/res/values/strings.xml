@@ -6,7 +6,7 @@
     <string name="home_logs_empty">No runtime logs yet.</string>
     <string name="home_logs_copy">Copy Logs</string>
     <string name="home_logs_clear">Clear Logs</string>
-    <string name="cmfa_traffic_forwarded">Forwarded: %1$s</string>
+    <string name="cmfa_traffic_forwarded">%1$s Forwarded</string>
     <string name="cmfa_profile_activated">%1$s Activated</string>
     <string name="cmfa_profile_not_selected">Not selected</string>
     <string name="cmfa_status_hint_start">Tap to start</string>

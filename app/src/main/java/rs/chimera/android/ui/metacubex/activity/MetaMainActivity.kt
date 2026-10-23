@@ -20,11 +20,11 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
+import rs.chimera.android.backend.model.ProxyMode
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
-import rs.chimera.android.formatSize
 import rs.chimera.android.ui.metacubex.design.MainDesign
-import rs.chimera.android.backend.model.ProxyMode
+import rs.chimera.android.ui.metacubex.design.formatMetaTrafficTotal
 
 class MetaMainActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
@@ -99,7 +99,7 @@ class MetaMainActivity : AppCompatActivity() {
                 launch {
                     backend.traffic.collect { traffic ->
                         design.setForwarded(
-                            formatSize(traffic.downloadTotal + traffic.uploadTotal),
+                            formatMetaTrafficTotal(traffic.downloadTotal + traffic.uploadTotal),
                         )
                     }
                 }

@@ -6,7 +6,7 @@
     <string name="home_logs_empty">暂无运行日志。</string>
     <string name="home_logs_copy">复制日志</string>
     <string name="home_logs_clear">清空日志</string>
-    <string name="cmfa_traffic_forwarded">已转发：%1$s</string>
+    <string name="cmfa_traffic_forwarded">%1$s 已转发</string>
     <string name="cmfa_profile_activated">%1$s 已激活</string>
     <string name="cmfa_profile_not_selected">未选择</string>
     <string name="cmfa_status_hint_start">点此启动</string>
