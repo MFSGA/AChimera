@@ -36,7 +36,7 @@
     <dimen name="metacubex_item_tailing_margin">17.5dp</dimen>
     <dimen name="metacubex_bottom_sheet_top_padding">10dp</dimen>
     <dimen name="metacubex_bottom_sheet_handle_height">5dp</dimen>
-    <dimen name="metacubex_profile_action_total_vertical_padding">20dp</dimen>
+    <dimen name="metacubex_profile_action_content_vertical_padding">15dp</dimen>
     <dimen name="metacubex_bottom_sheet_menu_item_padding">5dp</dimen>
     <dimen name="metacubex_dialog_padding">20dp</dimen>
     <dimen name="metacubex_dialog_menu_min_width">150dp</dimen>
