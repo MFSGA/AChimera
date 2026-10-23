@@ -212,6 +212,7 @@ fun ProfileScreen(
             userAgent = userAgent,
             proxyUrl = proxyUrl,
             isDownloading = vm.isSavingRemoteProfileSettings,
+            canEditSettings = vm.canChangeRemoteProfileSettings,
             workingMessageRes = R.string.profile_saving_settings,
             downloadProgress = null,
             onProfileNameChange = { name = it },
@@ -220,7 +221,7 @@ fun ProfileScreen(
             onUserAgentChange = { userAgent = it },
             onProxyUrlChange = { proxyUrl = it },
             onConfirm = {
-                if (!vm.isProfileOperationInProgress) {
+                if (!vm.isProfileOperationInProgress && vm.canChangeRemoteProfileSettings) {
                     awaitingRemoteSettingsSave = true
                     vm.updateRemoteProfileSettings(
                         context = context,

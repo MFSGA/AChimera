@@ -37,6 +37,7 @@ internal fun RemoteProfileDialog(
     userAgent: String,
     proxyUrl: String,
     isDownloading: Boolean,
+    canEditSettings: Boolean = true,
     workingMessageRes: Int = R.string.profile_downloading,
     downloadProgress: ProfileDownloadProgress?,
     onProfileNameChange: (String) -> Unit,
@@ -49,6 +50,7 @@ internal fun RemoteProfileDialog(
 ) {
     val urlValid = ProfileRemotePolicy.isValidUrl(profileUrl)
     val proxyValid = proxyUrl.isBlank() || ProfileRemotePolicy.isValidProxyUrl(proxyUrl)
+    val fieldsEnabled = canEditSettings && !isDownloading
 
     AlertDialog(
         onDismissRequest = {
@@ -91,7 +93,7 @@ internal fun RemoteProfileDialog(
                     label = { Text(text = stringResource(id = R.string.profile_name_label)) },
                     placeholder = { Text(text = stringResource(id = R.string.profile_remote_name_hint)) },
                     singleLine = true,
-                    enabled = !isDownloading,
+                    enabled = fieldsEnabled,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 OutlinedTextField(
@@ -106,7 +108,7 @@ internal fun RemoteProfileDialog(
                     },
                     isError = profileUrl.isNotBlank() && !urlValid,
                     singleLine = true,
-                    enabled = !isDownloading,
+                    enabled = fieldsEnabled,
                     keyboardOptions = RemoteUrlKeyboardOptions,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -116,7 +118,7 @@ internal fun RemoteProfileDialog(
                     label = { Text(text = stringResource(id = R.string.profile_user_agent_label)) },
                     placeholder = { Text(text = stringResource(id = R.string.profile_user_agent_hint)) },
                     singleLine = true,
-                    enabled = !isDownloading,
+                    enabled = fieldsEnabled,
                     keyboardOptions = RemoteUserAgentKeyboardOptions,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -132,7 +134,7 @@ internal fun RemoteProfileDialog(
                     },
                     isError = !proxyValid,
                     singleLine = true,
-                    enabled = !isDownloading,
+                    enabled = fieldsEnabled,
                     keyboardOptions = RemoteUrlKeyboardOptions,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -143,7 +145,7 @@ internal fun RemoteProfileDialog(
                     Checkbox(
                         checked = autoUpdate,
                         onCheckedChange = onAutoUpdateChange,
-                        enabled = !isDownloading,
+                        enabled = fieldsEnabled,
                     )
                     Text(
                         text = stringResource(id = R.string.profile_auto_update),
@@ -154,7 +156,7 @@ internal fun RemoteProfileDialog(
         },
         confirmButton = {
             TextButton(
-                enabled = urlValid && proxyValid && (!requireName || profileName.isNotBlank()) && !isDownloading,
+                enabled = urlValid && proxyValid && (!requireName || profileName.isNotBlank()) && fieldsEnabled,
                 onClick = onConfirm,
             ) {
                 Text(text = stringResource(id = confirmRes))

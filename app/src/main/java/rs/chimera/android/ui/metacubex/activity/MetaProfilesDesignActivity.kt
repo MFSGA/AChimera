@@ -430,7 +430,11 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     }
 
     private fun showRemoteSettingsDialog(profile: ProfileSummary) {
-        showMetaRemoteProfileDialog(
+        val initiallyEditable = canChangeRemoteProfileSettings(
+            profile,
+            backend.profileDeletionAvailability.value,
+        )
+        val dialogController = showMetaRemoteProfileDialog(
             context = this,
             titleRes = R.string.profile_edit_settings,
             positiveButtonRes = R.string.save,
@@ -440,6 +444,10 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             initialUserAgent = profile.userAgent.orEmpty(),
             initialProxyUrl = profile.proxyUrl.orEmpty(),
             requireName = true,
+            initiallyEditable = initiallyEditable,
+            canSubmit = {
+                canChangeRemoteProfileSettings(profile, backend.profileDeletionAvailability.value)
+            },
         ) { form, dismiss, setSubmitting ->
             lifecycleScope.launch {
                 val succeeded = performOperation(
@@ -461,6 +469,12 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 if (succeeded) dismiss() else setSubmitting(false)
             }
         }
+        val availabilityObserver = lifecycleScope.launch {
+            backend.profileDeletionAvailability.collect { availability ->
+                dialogController.setEditingEnabled(canChangeRemoteProfileSettings(profile, availability))
+            }
+        }
+        dialogController.setOnDismissListener { availabilityObserver.cancel() }
     }
 
     private fun showRenameDialog(profileId: String, currentName: String) {

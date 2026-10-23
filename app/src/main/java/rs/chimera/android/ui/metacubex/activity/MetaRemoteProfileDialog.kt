@@ -23,13 +23,14 @@ internal fun showMetaRemoteProfileDialog(
     initialUserAgent: String = "",
     initialProxyUrl: String = "",
     requireName: Boolean,
+    initiallyEditable: Boolean = true,
     canSubmit: () -> Boolean = { true },
     onSubmit: (
         MetaRemoteProfileForm,
         dismiss: () -> Unit,
         setSubmitting: (Boolean) -> Unit,
     ) -> Unit,
-) {
+): MetaRemoteProfileDialogController {
     val container = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         val padding = (20 * resources.displayMetrics.density).toInt()
@@ -70,18 +71,23 @@ internal fun showMetaRemoteProfileDialog(
         .setPositiveButton(positiveButtonRes, null)
         .setNegativeButton(android.R.string.cancel, null)
         .create()
+    var editingAllowed = initiallyEditable
+    var submitting = false
+    val inputs = listOf(nameInput, urlInput, userAgentInput, proxyInput, autoUpdateInput)
+    fun renderAvailability() {
+        val inputsEnabled = editingAllowed && !submitting
+        inputs.forEach { it.isEnabled = inputsEnabled }
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = inputsEnabled
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).isEnabled = !submitting
+        dialog.setCanceledOnTouchOutside(!submitting)
+        dialog.setCancelable(!submitting)
+    }
+    fun setSubmitting(value: Boolean) {
+        submitting = value
+        renderAvailability()
+    }
     dialog.setOnShowListener {
         val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-        fun setSubmitting(submitting: Boolean) {
-            dialog.setProfileSubmissionLocked(
-                submitting,
-                nameInput,
-                urlInput,
-                userAgentInput,
-                proxyInput,
-                autoUpdateInput,
-            )
-        }
         positiveButton.setOnClickListener {
             val name = nameInput.text.toString().trim()
             val url = urlInput.text.toString().trim()
@@ -98,7 +104,7 @@ internal fun showMetaRemoteProfileDialog(
                 proxyInput.error = context.getString(R.string.profile_proxy_invalid)
                 return@setOnClickListener
             }
-            if (!canSubmit()) return@setOnClickListener
+            if (!editingAllowed || !canSubmit()) return@setOnClickListener
 
             setSubmitting(true)
             onSubmit(
@@ -113,8 +119,13 @@ internal fun showMetaRemoteProfileDialog(
                 ::setSubmitting,
             )
         }
+        renderAvailability()
     }
     dialog.show()
+    return MetaRemoteProfileDialogController(dialog) { enabled ->
+        editingAllowed = enabled
+        if (dialog.isShowing) renderAvailability()
+    }
 }
 
 private fun EditText.configureSensitiveRemoteInput() {
