@@ -127,6 +127,13 @@ fn parse_providers(
         })?;
     Ok(providers
         .iter()
+        // CMFA's QueryProviders omits built-in Compatible groups from external resources.
+        .filter(|(_, provider)| {
+            provider
+                .get("vehicleType")
+                .and_then(serde_json::Value::as_str)
+                != Some("Compatible")
+        })
         .map(|(fallback_name, provider)| ProviderSnapshot {
             name: provider
                 .get("name")
@@ -228,6 +235,35 @@ mod tests {
         let error = parse_providers(serde_json::json!({}), "Proxy").unwrap_err();
 
         assert!(error.to_string().contains("providers object"));
+    }
+
+    #[test]
+    fn excludes_compatible_providers_like_cmfa_external_resources() {
+        let proxies = parse_providers(
+            serde_json::json!({
+                "providers": {
+                    "builtin-group": { "vehicleType": "Compatible" },
+                    "remote-proxies": { "vehicleType": "HTTP" }
+                }
+            }),
+            "Proxy",
+        )
+        .unwrap();
+        let rules = parse_providers(
+            serde_json::json!({
+                "providers": {
+                    "builtin-rules": { "vehicleType": "Compatible" },
+                    "remote-rules": { "vehicleType": "File" }
+                }
+            }),
+            "Rule",
+        )
+        .unwrap();
+
+        assert_eq!(proxies.len(), 1);
+        assert_eq!(proxies[0].name, "remote-proxies");
+        assert_eq!(rules.len(), 1);
+        assert_eq!(rules[0].name, "remote-rules");
     }
 
     #[test]
