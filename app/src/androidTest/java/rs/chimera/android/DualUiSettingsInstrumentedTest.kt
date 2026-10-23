@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -18,6 +19,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.scrollTo
 import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.ViewMatchers.isEnabled
 import androidx.test.espresso.matcher.ViewMatchers.isChecked
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
 import androidx.test.espresso.matcher.ViewMatchers.withId
@@ -25,13 +27,17 @@ import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.runBlocking
+import org.hamcrest.Matchers.not
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.BackendRuntimeState
+import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
@@ -156,6 +162,70 @@ class DualUiSettingsInstrumentedTest {
 
         launchMetaSettings(SettingsDesign.Category.NETWORK).use {
             onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
+        }
+    }
+
+    @Test
+    fun vpnRuntimeSettingsAreBlockedByBothUiRootsAndSharedBackendWhileRunning() {
+        val previousRuntimeStatus = backend.runtimeStatus.value
+        val previousSettings = backend.settings.value
+        BackendRuntimeState.updateServiceState(ServiceState.RUNNING)
+
+        try {
+            waitUntil("Backend did not publish the running VPN state") {
+                backend.profileDeletionAvailability.value.serviceState == ServiceState.RUNNING
+            }
+
+            ActivityScenario.launch(MainActivity::class.java).use {
+                openWatfaqSettings()
+                scrollWatfaqTo(context.getString(R.string.settings_app_filter))
+                    .assertIsNotEnabled()
+                scrollWatfaqTo(context.getString(R.string.settings_listener_ports))
+                    .assertIsNotEnabled()
+                scrollWatfaqTo(context.getString(R.string.settings_allow_lan))
+                    .assertIsNotEnabled()
+                scrollWatfaqTo(context.getString(R.string.settings_fake_ip))
+                    .assertIsNotEnabled()
+                scrollWatfaqTo(context.getString(R.string.settings_ipv6))
+                    .assertIsNotEnabled()
+                scrollWatfaqTo(context.getString(R.string.settings_reset_defaults))
+                    .assertIsNotEnabled()
+            }
+
+            launchMetaSettings(SettingsDesign.Category.NETWORK).use {
+                onView(withId(R.id.card_access_control))
+                    .perform(scrollTo())
+                    .check(matches(not(isEnabled())))
+                onView(withId(R.id.card_ports)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_allow_lan)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_fake_ip)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_ipv6)).check(matches(not(isEnabled())))
+                onView(withId(R.id.card_reset_settings))
+                    .perform(scrollTo())
+                    .check(matches(not(isEnabled())))
+            }
+
+            val updateResult = runCatching {
+                runBlocking {
+                    backend.updateSettings(
+                        SettingsPatch(
+                            allowLan = !previousSettings.allowLan,
+                            appFilterMode = "ALLOWED",
+                            allowedApps = setOf("example.test.blocked"),
+                            disallowedApps = emptySet(),
+                        ),
+                    )
+                }
+            }
+            assertTrue(updateResult.exceptionOrNull() is IllegalStateException)
+            assertEquals(previousSettings, backend.settings.value)
+            assertEquals(previousSettings.allowLan, prefs.getBoolean(ALLOW_LAN_KEY, false))
+        } finally {
+            if (previousRuntimeStatus.error != null) {
+                BackendRuntimeState.updateServiceError(previousRuntimeStatus.error)
+            } else {
+                BackendRuntimeState.updateServiceState(previousRuntimeStatus.state)
+            }
         }
     }
 
