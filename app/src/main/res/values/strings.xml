@@ -11,7 +11,7 @@
     <string name="cmfa_profile_not_selected">Not selected</string>
     <string name="cmfa_status_hint_start">Tap to start</string>
     <string name="cmfa_help_title">Help</string>
-    <string name="meta_help_tips"><![CDATA[Chimera Lite is <strong>free software</strong> and we do <strong>NOT</strong> provide any service for it, including subscriptions or proxy nodes. Please do not report issues unrelated to the app.]]></string>
+    <string name="meta_help_tips"><![CDATA[Chimera Lite is a <strong>freeware</strong> and we do <strong>NOT</strong> provide any service for it]]></string>
     <string name="meta_help_document">Document</string>
     <string name="meta_help_sources">Sources</string>
     <string name="meta_help_clash_wiki">Clash Wiki</string>

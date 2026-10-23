@@ -47,6 +47,7 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     private val toolbar = root.findViewById<View>(R.id.remote_profile_toolbar)
     private val scrollRoot = root.findViewById<ScrollView>(R.id.remote_profile_scroll)
+    private val saveContainer = root.findViewById<View>(R.id.remote_profile_save_container)
     private val saveAction = root.findViewById<ImageView>(R.id.remote_profile_save)
     private val saveProgress = root.findViewById<ProgressBar>(R.id.remote_profile_save_progress)
     private val nameRow = root.findViewById<View>(R.id.property_name)
@@ -176,7 +177,7 @@ internal class MetaRemoteProfilePropertiesDesign(
             val contentOffset = bars.top / 2f
             toolbar.findViewById<View>(R.id.toolbar_navigation).translationY = contentOffset
             toolbar.findViewById<TextView>(R.id.toolbar_title).translationY = contentOffset
-            saveAction.translationY = contentOffset
+            saveContainer.translationY = contentOffset
             insets
         }
         root.post { ViewCompat.requestApplyInsets(root) }
