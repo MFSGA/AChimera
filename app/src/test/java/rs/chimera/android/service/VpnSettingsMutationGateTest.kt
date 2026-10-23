@@ -71,6 +71,31 @@ class VpnSettingsMutationGateTest {
     }
 
     @Test
+    fun productionRegistryRejectsSettingsWhileVpnIsRunning() {
+        VpnRuntimeRegistry.requestStop()
+        VpnDesiredStateRuntimeState.update(false)
+        var actionInvoked = false
+
+        try {
+            val result = runCatching {
+                VpnRuntimeRegistry.withSettingsMutation(
+                    serviceState = ServiceState.RUNNING,
+                    unavailableMessage = { "unavailable" },
+                ) {
+                    actionInvoked = true
+                    "saved"
+                }
+            }
+
+            assertEquals("unavailable", result.exceptionOrNull()?.message)
+            assertFalse(actionInvoked)
+        } finally {
+            VpnRuntimeRegistry.requestStop()
+            VpnDesiredStateRuntimeState.update(false)
+        }
+    }
+
+    @Test
     fun settingsWriteSerializesWithVpnStartRequest() {
         VpnRuntimeRegistry.requestStop()
         VpnDesiredStateRuntimeState.update(false)
