@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="center_vertical"
+    android:minHeight="75dp"
+    android:orientation="horizontal"
+    android:paddingVertical="16dp">
+
+    <View
+        android:id="@+id/property_icon"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginHorizontal="17.5dp" />
+
+    <FrameLayout
+        android:id="@+id/property_action"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="17.5dp"
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/property_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Caption" />
+
+            <TextView
+                android:id="@+id/property_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:layout_marginEnd="30dp"
+                android:ellipsize="start"
+                android:singleLine="true"
+                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+
+            <View
+                android:id="@+id/property_divider"
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="?attr/colorControlNormal" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/property_edit"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:layout_gravity="bottom|end"
+            android:layout_marginBottom="1dp"
+            android:contentDescription="@string/profile_edit"
+            android:padding="5dp"
+            android:src="@drawable/ic_baseline_edit" />
+    </FrameLayout>
+</LinearLayout>

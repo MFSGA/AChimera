@@ -32,7 +32,6 @@ import rs.chimera.android.backend.ProfileUpdateRuntimeApplyResult
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
-import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.databinding.MetaDialogProfileQrCodeBinding
 import rs.chimera.android.databinding.MetaDialogProfileMenuBinding
@@ -61,14 +60,15 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     ) { result ->
         if (result.resultCode != RESULT_OK) return@registerForActivityResult
         when (result.data?.getStringExtra(MetaNewProfileActivity.EXTRA_SOURCE)) {
-            MetaNewProfileActivity.SOURCE_URL -> showUrlImportDialog()
             MetaNewProfileActivity.SOURCE_FILE -> filePickerLauncher.launch("*/*")
-            MetaNewProfileActivity.SOURCE_QR -> {
-                val scannedUrl = result.data?.getStringExtra(MetaNewProfileActivity.EXTRA_QR_URL)
-                if (scannedUrl.isNullOrBlank()) {
-                    design.showToast(getString(R.string.profile_qr_empty_result))
-                } else {
-                    showUrlImportDialog(scannedUrl)
+            MetaNewProfileActivity.SOURCE_IMPORTED -> {
+                val importedName = result.data?.getStringExtra(
+                    MetaNewProfileActivity.EXTRA_IMPORTED_PROFILE_NAME,
+                ).orEmpty()
+                lifecycleScope.launch {
+                    if (loadProfiles()) {
+                        design.showToast(getString(R.string.profile_import_success, importedName))
+                    }
                 }
             }
         }
@@ -470,40 +470,6 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
     private fun showAddDialog() {
         if (operationInProgress) return
         newProfileLauncher.launch(Intent(this, MetaNewProfileActivity::class.java))
-    }
-
-    private fun showUrlImportDialog(
-        initialUrl: String = getString(R.string.profile_url_scheme_prefix),
-    ) {
-        showMetaRemoteProfileDialog(
-            context = this,
-            titleRes = R.string.profile_import_url,
-            initialUrl = initialUrl,
-            requireName = false,
-        ) { form, dismiss, setSubmitting ->
-            lifecycleScope.launch {
-                var resolvedName = form.name ?: form.url
-                val succeeded = performOperation(
-                    progressMessage = getString(R.string.profile_importing),
-                    successMessage = getString(R.string.profile_import_success, resolvedName),
-                    errorMessageRes = R.string.profile_import_error,
-                    successMessageProvider = {
-                        getString(R.string.profile_import_success, resolvedName)
-                    },
-                ) {
-                    resolvedName = backend.importRemoteProfile(
-                        RemoteProfileRequest(
-                            name = form.name,
-                            url = form.url,
-                            autoUpdate = form.autoUpdate,
-                            userAgent = form.userAgent,
-                            proxyUrl = form.proxyUrl,
-                        ),
-                    )
-                }
-                if (succeeded) dismiss() else setSubmitting(false)
-            }
-        }
     }
 
     private suspend fun importLocalProfile(uri: Uri) {
