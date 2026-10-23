@@ -31,6 +31,7 @@ internal class MetaRemoteProfilePropertiesDesign(
     initialUserAgent: String = "",
     initialProxyUrl: String = "",
     restoredState: Bundle? = null,
+    private val snapshotMode: Boolean = false,
 ) : Design<MetaRemoteProfilePropertiesDesign.Request>(context) {
     sealed class Request {
         data object NavigateBack : Request()
@@ -61,7 +62,11 @@ internal class MetaRemoteProfilePropertiesDesign(
     private val originalProxyUrl = restoredState?.getString(STATE_ORIGINAL_PROXY_URL) ?: initialProxyUrl
     private var name = restoredState?.getString(STATE_NAME) ?: originalName
     private var url = restoredState?.getString(STATE_URL) ?: originalUrl
-    private var autoUpdate = restoredState?.getBoolean(STATE_AUTO_UPDATE) ?: originalAutoUpdate
+    private var autoUpdate = if (snapshotMode) {
+        false
+    } else {
+        restoredState?.getBoolean(STATE_AUTO_UPDATE) ?: originalAutoUpdate
+    }
     private var userAgent = restoredState?.getString(STATE_USER_AGENT) ?: originalUserAgent
     private var proxyUrl = restoredState?.getString(STATE_PROXY_URL) ?: originalProxyUrl
     private var appBarElevated = false
@@ -71,9 +76,16 @@ internal class MetaRemoteProfilePropertiesDesign(
         applySystemBarInsets()
         root.findViewById<TextView>(R.id.toolbar_title).setText(R.string.profile_properties_title)
         root.findViewById<TextView>(R.id.remote_profile_tips).text = HtmlCompat.fromHtml(
-            context.getString(R.string.profile_properties_tip),
+            context.getString(
+                if (snapshotMode) {
+                    R.string.profile_provider_snapshot_tip
+                } else {
+                    R.string.profile_properties_tip
+                },
+            ),
             HtmlCompat.FROM_HTML_MODE_COMPACT,
         )
+        if (snapshotMode) autoUpdateRow.visibility = View.GONE
         bindProperty(nameRow, R.drawable.ic_outline_label, R.string.profile_properties_name)
         bindProperty(urlRow, R.drawable.ic_outline_inbox, R.string.profile_properties_url)
         bindProperty(
@@ -304,7 +316,7 @@ internal class MetaRemoteProfilePropertiesDesign(
         val form = MetaRemoteProfileForm(
             name = name.trim().ifEmpty { null },
             url = url.trim(),
-            autoUpdate = autoUpdate,
+            autoUpdate = autoUpdate && !snapshotMode,
             userAgent = userAgent.trim().ifEmpty { null },
             proxyUrl = proxyUrl.trim().ifEmpty { null },
         )

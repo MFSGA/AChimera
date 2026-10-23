@@ -378,6 +378,7 @@
     <string name="profile_url_invalid">Please enter a valid http(s) URL.</string>
     <string name="profile_properties_title">Profile</string>
     <string name="profile_properties_tip"><![CDATA[Only accept <b>Clash configuration files</b> (including <b>proxies</b>/<b>rules</b>)]]></string>
+    <string name="profile_provider_snapshot_tip"><![CDATA[Only accept <b>Clash configuration files</b>. This provider result is downloaded once and saved locally; its source is not retained for refresh. Client options apply only to this download.]]></string>
     <string name="profile_properties_name">Name</string>
     <string name="profile_properties_new_name">New Profile</string>
     <string name="profile_properties_url">URL</string>

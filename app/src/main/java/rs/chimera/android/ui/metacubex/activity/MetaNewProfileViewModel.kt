@@ -21,18 +21,20 @@ internal sealed interface RemoteProfileImportState {
 
 internal class RemoteProfileImportCoordinator(
     private val scope: CoroutineScope,
-    private val importProfile: suspend (RemoteProfileRequest) -> String,
+    private val importProfile: suspend (RemoteProfileRequest, Boolean) -> String,
 ) {
     private val mutableState = MutableStateFlow<RemoteProfileImportState>(RemoteProfileImportState.Idle)
     val state: StateFlow<RemoteProfileImportState> = mutableState.asStateFlow()
 
-    fun submit(request: RemoteProfileRequest): Boolean {
+    fun submit(request: RemoteProfileRequest, asLocalSnapshot: Boolean = false): Boolean {
         if (mutableState.value != RemoteProfileImportState.Idle) return false
 
         mutableState.value = RemoteProfileImportState.Importing
         scope.launch {
             try {
-                mutableState.value = RemoteProfileImportState.Completed(importProfile(request))
+                mutableState.value = RemoteProfileImportState.Completed(
+                    importProfile(request, asLocalSnapshot),
+                )
             } catch (error: CancellationException) {
                 mutableState.value = RemoteProfileImportState.Idle
                 throw error
@@ -53,13 +55,18 @@ internal class RemoteProfileImportCoordinator(
 internal class MetaNewProfileViewModel(
     backend: ChimeraBackend = BackendProvider.provide(),
 ) : ViewModel() {
-    private val importCoordinator = RemoteProfileImportCoordinator(viewModelScope) { request ->
-        backend.importRemoteProfile(request)
+    private val importCoordinator = RemoteProfileImportCoordinator(viewModelScope) { request, asLocalSnapshot ->
+        if (asLocalSnapshot) {
+            backend.importRemoteProfileSnapshot(request)
+        } else {
+            backend.importRemoteProfile(request)
+        }
     }
 
     val importState: StateFlow<RemoteProfileImportState> = importCoordinator.state
 
-    fun submit(request: RemoteProfileRequest): Boolean = importCoordinator.submit(request)
+    fun submit(request: RemoteProfileRequest, asLocalSnapshot: Boolean = false): Boolean =
+        importCoordinator.submit(request, asLocalSnapshot)
 
     fun acknowledgeFailure() = importCoordinator.acknowledgeFailure()
 }

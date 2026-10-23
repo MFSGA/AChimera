@@ -14,11 +14,32 @@ import rs.chimera.android.backend.model.RemoteProfileRequest
 
 class RemoteProfileImportCoordinatorTest {
     @Test
+    fun forwardsSnapshotChoiceToTheBackendOperation() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
+        var importedAsSnapshot = false
+        val coordinator = RemoteProfileImportCoordinator(scope) { _, asLocalSnapshot ->
+            importedAsSnapshot = asLocalSnapshot
+            "Imported profile"
+        }
+
+        try {
+            assertTrue(coordinator.submit(request, asLocalSnapshot = true))
+            assertTrue(importedAsSnapshot)
+            assertEquals(
+                RemoteProfileImportState.Completed("Imported profile"),
+                coordinator.state.value,
+            )
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun retainsCompletionForAnActivityRecreatedDuringImport() = runBlocking {
         val importStarted = CompletableDeferred<Unit>()
         val importResult = CompletableDeferred<String>()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
-        val coordinator = RemoteProfileImportCoordinator(scope) {
+        val coordinator = RemoteProfileImportCoordinator(scope) { _, _ ->
             importStarted.complete(Unit)
             importResult.await()
         }
@@ -44,7 +65,7 @@ class RemoteProfileImportCoordinatorTest {
     fun acknowledgedFailureAllowsOneRetry() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         var attempts = 0
-        val coordinator = RemoteProfileImportCoordinator(scope) {
+        val coordinator = RemoteProfileImportCoordinator(scope) { _, _ ->
             attempts += 1
             if (attempts == 1) error("Temporary download failure")
             "Imported profile"

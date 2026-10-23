@@ -58,6 +58,10 @@ interface ChimeraBackend {
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit = {},
     ): String
+    suspend fun importRemoteProfileSnapshot(
+        request: RemoteProfileRequest,
+        onProgress: (ProfileDownloadProgress) -> Unit = {},
+    ): String
     suspend fun updateRemoteProfile(
         id: String,
         onProgress: (ProfileDownloadProgress) -> Unit = {},

@@ -180,6 +180,45 @@ internal class ProfileImportOperations(
         isFirst to resolvedName
     }
 
+    suspend fun importRemoteProfileSnapshot(
+        request: RemoteProfileRequest,
+        onProgress: (ProfileDownloadProgress) -> Unit,
+    ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
+        val normalizedRequest = ProfileRemoteSnapshotPolicy.normalizeRequest(request)
+        val resolvedName = normalizedRequest.name
+            ?: SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.getDefault()).format(Date())
+
+        val id = UUID.randomUUID().toString()
+        val destinationFile = File(
+            context.filesDir,
+            ProfileRemotePolicy.storageFileNameForUrl(id, normalizedRequest.url),
+        )
+        val stagedFile = ProfileImportRecoveryPolicy.createStage(destinationFile)
+        downloadProfileToFile(stagedFile, normalizedRequest, onProgress)
+
+        val profileJson = JSONObject(
+            ProfileRemoteSnapshotPolicy.catalogFields(
+                id = id,
+                name = resolvedName,
+                filePath = destinationFile.absolutePath,
+                createdAt = System.currentTimeMillis(),
+                fileSize = stagedFile.length(),
+            ),
+        )
+        val isFirst = ProfileImportTransactionPolicy.run(
+            stagedFile = stagedFile,
+            destinationFile = destinationFile,
+            beginImportTransaction = profileStagingStore::markImportPending,
+            persistMetadata = { file ->
+                profileJson.put("filePath", file.absolutePath)
+                profileJson.put("fileSize", file.length())
+                profileCatalogStore.append(profileJson, pendingImport = file)
+            },
+            clearImportTransaction = profileStagingStore::clearImportPending,
+        )
+        isFirst to resolvedName
+    }
+
     suspend fun verifyProfile(filePath: String): Result<String> =
         withContext(Dispatchers.IO) {
             runCatching {

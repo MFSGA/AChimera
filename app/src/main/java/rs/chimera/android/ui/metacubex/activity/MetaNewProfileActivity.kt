@@ -39,6 +39,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
         const val SOURCE_IMPORTED = "remote_imported"
         const val EXTRA_IMPORTED_PROFILE_NAME = "rs.chimera.android.ui.metacubex.imported_profile_name"
         private const val STATE_PROPERTIES_OPEN = "remote_profile_properties_open"
+        private const val STATE_PROVIDER_SNAPSHOT = "external_provider_snapshot"
     }
 
     private val importViewModel: MetaNewProfileViewModel by viewModels()
@@ -46,6 +47,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
     private var propertiesDesign: MetaRemoteProfilePropertiesDesign? = null
     private var requestJob: Job? = null
     private var importingProfile = false
+    private var providerSnapshot = false
     private val externalProviderLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
     ) { result ->
@@ -74,6 +76,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
                     MetaRemoteProfilePropertiesDesign.STATE_ORIGINAL_URL,
                     "",
                 ),
+                snapshotMode = savedInstanceState.getBoolean(STATE_PROVIDER_SNAPSHOT),
                 restoredState = savedInstanceState,
             )
         } else {
@@ -88,6 +91,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean(STATE_PROPERTIES_OPEN, propertiesDesign != null)
+        outState.putBoolean(STATE_PROVIDER_SNAPSHOT, providerSnapshot)
         propertiesDesign?.saveState(outState)
         super.onSaveInstanceState(outState)
     }
@@ -95,6 +99,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
     private fun showChooser() {
         requestJob?.cancel()
         propertiesDesign = null
+        providerSnapshot = false
         if (!::design.isInitialized) design = MetaNewProfileDesign(this)
         setContentView(design.root)
         lifecycleScope.launch {
@@ -156,15 +161,18 @@ class MetaNewProfileActivity : AppCompatActivity() {
         showProperties(
             initialUrl = url,
             initialName = profileProviderResultName(name, getString(R.string.profile_properties_new_name)),
+            snapshotMode = true,
         )
     }
 
     private fun showProperties(
         initialUrl: String,
         initialName: String? = null,
+        snapshotMode: Boolean = false,
         restoredState: Bundle? = null,
     ) {
         requestJob?.cancel()
+        providerSnapshot = restoredState?.getBoolean(STATE_PROVIDER_SNAPSHOT) ?: snapshotMode
         val page = MetaRemoteProfilePropertiesDesign(
             context = this,
             initialUrl = initialUrl,
@@ -181,6 +189,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
                 MetaRemoteProfilePropertiesDesign.STATE_ORIGINAL_PROXY_URL,
             ).orEmpty(),
             restoredState = restoredState,
+            snapshotMode = providerSnapshot,
         )
         propertiesDesign = page
         setContentView(page.root)
@@ -236,10 +245,11 @@ class MetaNewProfileActivity : AppCompatActivity() {
             RemoteProfileRequest(
                 name = form.name,
                 url = form.url,
-                autoUpdate = form.autoUpdate,
+                autoUpdate = form.autoUpdate && !providerSnapshot,
                 userAgent = form.userAgent,
                 proxyUrl = form.proxyUrl,
-            )
+            ),
+            asLocalSnapshot = providerSnapshot,
         )
         if (accepted) {
             importingProfile = true

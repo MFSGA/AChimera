@@ -239,6 +239,17 @@ class ChimeraBackendImpl(
         return resolvedName
     }
 
+    private suspend fun importRemoteProfileSnapshotReady(
+        request: RemoteProfileRequest,
+        onProgress: (ProfileDownloadProgress) -> Unit,
+    ): String {
+        val (isFirst, resolvedName) = profileImportOperations.importRemoteProfileSnapshot(request, onProgress)
+        if (isFirst) {
+            restoreImportedActiveProfile()
+        }
+        return resolvedName
+    }
+
     private suspend fun deleteProfileReady(id: String) {
         profileRuntimeMutationGate.withLock {
             profileUpdateCoordinator.withLock(id) {
@@ -631,6 +642,14 @@ class ChimeraBackendImpl(
             awaitReady()
             importRemoteProfileReady(request, onProgress)
         }
+
+    override suspend fun importRemoteProfileSnapshot(
+        request: RemoteProfileRequest,
+        onProgress: (ProfileDownloadProgress) -> Unit,
+    ): String = withContext(Dispatchers.IO) {
+        awaitReady()
+        importRemoteProfileSnapshotReady(request, onProgress)
+    }
 
     override suspend fun updateRemoteProfile(id: String, onProgress: (ProfileDownloadProgress) -> Unit): Unit =
         withContext(Dispatchers.IO) {

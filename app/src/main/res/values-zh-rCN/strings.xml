@@ -365,6 +365,7 @@
     <string name="profile_url_invalid">请输入有效的 http(s) URL。</string>
     <string name="profile_properties_title">配置</string>
     <string name="profile_properties_tip"><![CDATA[仅接受 <b>Clash 配置文件</b>(包含<b>代理</b>/<b>规则</b>)]]></string>
+    <string name="profile_provider_snapshot_tip"><![CDATA[仅接受 <b>Clash 配置文件</b>。该提供器返回的配置只下载一次并保存到本地，不保留来源用于刷新；客户端选项仅用于本次下载。]]></string>
     <string name="profile_properties_name">名称</string>
     <string name="profile_properties_new_name">新配置</string>
     <string name="profile_properties_url">URL</string>
