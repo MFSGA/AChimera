@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/profile_files_recycler"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false" />
+
+    <rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout
+        android:id="@+id/profile_files_activity_bar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:alpha="0.96"
+        android:background="?android:windowBackground">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingEnd="@dimen/metacubex_item_tailing_margin">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:layout_centerVertical="true"
+                android:gravity="center_vertical"
+                android:minHeight="@dimen/metacubex_toolbar_height"
+                android:orientation="horizontal">
+
+                <ImageView
+                    android:id="@+id/profile_files_back"
+                    android:layout_width="@dimen/metacubex_item_header_component_size"
+                    android:layout_height="@dimen/metacubex_item_header_component_size"
+                    android:layout_marginHorizontal="@dimen/metacubex_item_header_margin"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:clickable="true"
+                    android:contentDescription="@string/back"
+                    android:focusable="true"
+                    android:paddingHorizontal="@dimen/metacubex_toolbar_image_action_padding"
+                    android:src="@drawable/ic_baseline_arrow_back" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:text="@string/profile_files_title"
+                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+            </LinearLayout>
+        </RelativeLayout>
+    </rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

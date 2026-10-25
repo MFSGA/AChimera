@@ -185,7 +185,7 @@ internal class MetaRemoteProfilePropertiesDesign(
             row.alpha = if (available) 1f else 0.33f
             if (!available) row.findViewById<TextView>(R.id.property_value).setText(R.string.not_available)
         }
-        browseRow.isEnabled = !submitting && !existingProfile
+        browseRow.isEnabled = !submitting
         browseRow.alpha = if (browseRow.isEnabled) 1f else 0.33f
     }
 
@@ -231,7 +231,13 @@ internal class MetaRemoteProfilePropertiesDesign(
         browseRow.findViewById<TextView>(R.id.property_label_title)
             .setText(R.string.profile_properties_browse_files)
         browseRow.findViewById<TextView>(R.id.property_label_subtext)
-            .setText(if (existingProfile) R.string.profile_properties_files_pending else R.string.profile_properties_browse_summary)
+            .setText(
+                if (existingProfile) {
+                    R.string.profile_properties_files_available
+                } else {
+                    R.string.profile_properties_browse_summary
+                },
+            )
     }
 
     private fun updateValues() {

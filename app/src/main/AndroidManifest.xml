@@ -69,6 +69,10 @@
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />
         <activity
+            android:name="rs.chimera.android.ui.metacubex.activity.MetaProfileFilesActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera.MetaCubeX" />
+        <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaProvidersActivity"
             android:exported="false"
             android:theme="@style/Theme.Chimera.MetaCubeX" />

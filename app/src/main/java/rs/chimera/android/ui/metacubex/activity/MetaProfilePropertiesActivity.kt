@@ -88,7 +88,9 @@ class MetaProfilePropertiesActivity : AppCompatActivity() {
                 when (request) {
                     MetaRemoteProfilePropertiesDesign.Request.NavigateBack -> requestExit()
                     MetaRemoteProfilePropertiesDesign.Request.BrowseFiles ->
-                        page.showToast(getString(R.string.profile_properties_files_pending))
+                        startActivity(
+                            MetaProfileFilesActivity.intent(this@MetaProfilePropertiesActivity, profile.id),
+                        )
                     is MetaRemoteProfilePropertiesDesign.Request.Submit -> {
                         if (canEdit(profile)) model.save(profile, request.form)
                     }
