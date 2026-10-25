@@ -150,6 +150,12 @@ class MetaSettingsActivity : AppCompatActivity() {
                 }
                 design.render(loadState())
             }
+            is SettingsDesign.Request.SetShowTrafficInNotification -> {
+                if (canChangeVpnSettings()) {
+                    AppPreferences.updateShowTrafficInNotification(this, request.enabled)
+                }
+                design.render(loadState())
+            }
             is SettingsDesign.Request.SetAllowLan -> {
                 if (canChangeVpnSettings()) saveSettings(SettingsPatch(allowLan = request.enabled))
             }
@@ -585,6 +591,8 @@ class MetaSettingsActivity : AppCompatActivity() {
             autoRestart = AppPreferences.autoRestart(this),
             hideAppIcon = AppPreferences.hideAppIcon(this),
             hideFromRecents = AppPreferences.hideFromRecents(this),
+            showTrafficInNotification = AppPreferences.showTrafficInNotification(this),
+            canChangeTrafficNotification = canChangeVpnSettings(),
             vpnSystemStatus = vpnPresentation.format(this),
             vpnSystemRestricted = vpnPresentation.restricted,
         )

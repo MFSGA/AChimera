@@ -33,6 +33,7 @@ import rs.chimera.android.ffi.shutdownClash
 class TunService : VpnService(), VpnRuntimeControl {
     private var vpnInterface: ParcelFileDescriptor? = null
     private var tunFd: Int? = null
+    private var trafficNotificationJob: Job? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val lifecycleGate = VpnLifecycleGate()
     private val runtimeMutex = Mutex()
@@ -231,6 +232,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
         BackendRuntimeState.updateServiceState(ServiceState.RUNNING)
+        trafficNotificationJob = TrafficNotificationUpdater(this, backend).start(serviceScope)
     }
 
     private fun buildTunnel(settings: TunServiceSettings): ParcelFileDescriptor? {
@@ -357,6 +359,8 @@ class TunService : VpnService(), VpnRuntimeControl {
         stopCore: Boolean,
         removeForeground: Boolean,
     ): Throwable? {
+        trafficNotificationJob?.cancel()
+        trafficNotificationJob = null
         networkResetGeneration.invalidate()
         networkCoordinator?.stop()
         networkCoordinator = null

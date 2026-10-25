@@ -32,6 +32,7 @@ object AppPreferences {
     private const val KEY_AUTO_RESTART = "auto_restart"
     private const val KEY_HIDE_APP_ICON = "hide_app_icon"
     private const val KEY_HIDE_FROM_RECENTS = "hide_from_recents"
+    private const val KEY_SHOW_TRAFFIC_IN_NOTIFICATION = "show_traffic_in_notification"
     private const val MAIN_ACTIVITY_ALIAS = "rs.chimera.android.MainActivityAlias"
 
     fun apply(context: Context) {
@@ -53,6 +54,9 @@ object AppPreferences {
 
     fun hideFromRecents(context: Context): Boolean =
         preferences(context).getBoolean(KEY_HIDE_FROM_RECENTS, false)
+
+    fun showTrafficInNotification(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_SHOW_TRAFFIC_IN_NOTIFICATION, true)
 
     fun hideAppIcon(context: Context): Boolean = preferences(context).getBoolean(
         KEY_HIDE_APP_ICON,
@@ -82,6 +86,10 @@ object AppPreferences {
 
     fun updateHideFromRecents(context: Context, enabled: Boolean) {
         preferences(context).edit { putBoolean(KEY_HIDE_FROM_RECENTS, enabled) }
+    }
+
+    fun updateShowTrafficInNotification(context: Context, enabled: Boolean) {
+        preferences(context).edit { putBoolean(KEY_SHOW_TRAFFIC_IN_NOTIFICATION, enabled) }
     }
 
     fun updateHideAppIcon(context: Context, hidden: Boolean) {

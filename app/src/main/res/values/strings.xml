@@ -217,6 +217,10 @@
     <string name="settings_hide_from_recents">Hide from Recents</string>
     <string name="settings_hide_from_recents_summary">Hide app from the Recent apps screen</string>
     <string name="settings_hide_from_recents_accessibility">Hide from Recents. Hide app from the Recent apps screen</string>
+    <string name="settings_service">Service</string>
+    <string name="settings_show_traffic">Show Traffic</string>
+    <string name="settings_show_traffic_summary">Auto refresh traffic in notification</string>
+    <string name="settings_chimera_features">Chimera</string>
     <string name="settings_logs_summary">Inspect the runtime log file and live updates.</string>
     <string name="dns_diagnostics_title">DNS diagnostics</string>
     <string name="dns_diagnostics_summary">Query the active core resolver while the VPN is running.</string>
@@ -331,6 +335,8 @@
     <string name="service_notification_title_failed">Chimera failed</string>
     <string name="service_notification_text_starting">VPN service is starting.</string>
     <string name="service_notification_text_running">VPN service is active.</string>
+    <string name="service_notification_traffic_rate">%1$s upload · %2$s download</string>
+    <string name="service_notification_traffic_total">%1$s uploaded · %2$s downloaded</string>
     <string name="service_notification_text_failed">VPN service stopped unexpectedly.</string>
     <string name="profile_title">Imported Profile</string>
     <string name="profile_active_title">Active Profile</string>

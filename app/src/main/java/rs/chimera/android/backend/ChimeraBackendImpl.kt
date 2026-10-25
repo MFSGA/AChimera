@@ -37,6 +37,7 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsApplyEffect
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.backend.model.StartVpnResult
+import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.service.VpnDesiredStateRuntimeState
@@ -490,6 +491,9 @@ class ChimeraBackendImpl(
 
     override suspend fun testProxyDelay(proxyName: String): String =
         controllerOperations.testProxyDelay(proxyName)
+
+    override suspend fun fetchTrafficSnapshot(): TrafficSnapshot =
+        controllerOperations.fetchTraffic()
 
     override suspend fun listConnections(): ConnectionsSnapshot =
         controllerOperations.listConnections()

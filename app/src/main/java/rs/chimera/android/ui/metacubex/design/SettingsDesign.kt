@@ -57,6 +57,7 @@ class SettingsDesign(
         data class SetAutoRestart(val enabled: Boolean) : Request()
         data class SetHideAppIcon(val enabled: Boolean) : Request()
         data class SetHideFromRecents(val enabled: Boolean) : Request()
+        data class SetShowTrafficInNotification(val enabled: Boolean) : Request()
         data class SetAllowLan(val enabled: Boolean) : Request()
         data class SetFakeIp(val enabled: Boolean) : Request()
         data class SetIpv6(val enabled: Boolean) : Request()
@@ -77,6 +78,8 @@ class SettingsDesign(
         val autoRestart: Boolean,
         val hideAppIcon: Boolean,
         val hideFromRecents: Boolean,
+        val showTrafficInNotification: Boolean,
+        val canChangeTrafficNotification: Boolean,
         val vpnSystemStatus: String,
         val vpnSystemRestricted: Boolean,
     )
@@ -125,6 +128,8 @@ class SettingsDesign(
     private val rowHideFromRecents = root.findViewById<View>(R.id.row_hide_from_recents)
     private val switchHideFromRecents =
         root.findViewById<SwitchMaterial>(R.id.switch_hide_from_recents)
+    private val rowShowTraffic = root.findViewById<View>(R.id.row_show_traffic)
+    private val switchShowTraffic = root.findViewById<SwitchMaterial>(R.id.switch_show_traffic)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
     private val switchIpv6 = root.findViewById<SwitchMaterial>(R.id.switch_ipv6)
@@ -195,6 +200,11 @@ class SettingsDesign(
         rowHideFromRecents.setOnClickListener {
             switchHideFromRecents.isChecked = !switchHideFromRecents.isChecked
         }
+        rowShowTraffic.setOnClickListener {
+            if (switchShowTraffic.isEnabled) {
+                switchShowTraffic.isChecked = !switchShowTraffic.isChecked
+            }
+        }
         ViewCompat.setAccessibilityDelegate(
             rowHideFromRecents,
             object : AccessibilityDelegateCompat() {
@@ -248,6 +258,11 @@ class SettingsDesign(
                 request(Request.SetHideFromRecents(checked))
             }
         }
+        switchShowTraffic.setOnCheckedChangeListener { _, checked ->
+            if (!rendering && switchShowTraffic.isEnabled) {
+                request(Request.SetShowTrafficInNotification(checked))
+            }
+        }
         switchFakeIp.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetFakeIp(checked))
         }
@@ -265,6 +280,7 @@ class SettingsDesign(
         switchAutoRestart.isChecked = state.autoRestart
         switchHideAppIcon.isChecked = state.hideAppIcon
         switchHideFromRecents.isChecked = state.hideFromRecents
+        switchShowTraffic.isChecked = state.showTrafficInNotification
         switchAllowLan.isChecked = state.allowLan
         switchFakeIp.isChecked = state.fakeIp
         switchIpv6.isChecked = state.ipv6
@@ -275,6 +291,9 @@ class SettingsDesign(
         listOf(switchAllowLan, switchFakeIp, switchIpv6).forEach { switch ->
             switch.isEnabled = state.canChangeVpnSettings
         }
+        rowShowTraffic.isEnabled = state.canChangeTrafficNotification
+        rowShowTraffic.alpha = if (state.canChangeTrafficNotification) 1f else 0.38f
+        switchShowTraffic.isEnabled = state.canChangeTrafficNotification
         accessControlModeSummary.setText(
             when (state.appFilterMode) {
                 AppFilterMode.ALL -> R.string.allow_all_apps

@@ -74,6 +74,7 @@ interface ChimeraBackend {
     suspend fun setMode(mode: ProxyMode?)
     suspend fun resetNetwork()
     suspend fun testProxyDelay(proxyName: String): String
+    suspend fun fetchTrafficSnapshot(): TrafficSnapshot
     suspend fun listConnections(): ConnectionsSnapshot
     suspend fun closeConnection(id: String)
     suspend fun closeAllConnections()

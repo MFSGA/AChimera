@@ -13,6 +13,9 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import rs.chimera.android.MainActivity
 import rs.chimera.android.R
+import rs.chimera.android.backend.model.TrafficSnapshot
+import rs.chimera.android.formatSize
+import rs.chimera.android.service.TrafficNotificationRates
 
 object NotificationHelper {
     const val CHANNEL_ID = "chimera_service"
@@ -44,11 +47,36 @@ object NotificationHelper {
             .setContentText(context.getString(R.string.service_notification_text_starting))
             .build()
 
-    fun buildRunningNotification(context: Context): Notification =
-        baseBuilder(context)
+    internal fun buildRunningNotification(
+        context: Context,
+        traffic: TrafficSnapshot? = null,
+        rates: TrafficNotificationRates? = null,
+    ): Notification {
+        val builder = baseBuilder(context)
             .setContentTitle(context.getString(R.string.service_notification_title))
-            .setContentText(context.getString(R.string.service_notification_text_running))
-            .build()
+        if (traffic != null && rates != null) {
+            builder
+                .setContentText(
+                    context.getString(
+                        R.string.service_notification_traffic_rate,
+                        "${formatSize(rates.uploadBytesPerSecond)}/s",
+                        "${formatSize(rates.downloadBytesPerSecond)}/s",
+                    ),
+                )
+                .setSubText(
+                    context.getString(
+                        R.string.service_notification_traffic_total,
+                        formatSize(traffic.uploadTotal),
+                        formatSize(traffic.downloadTotal),
+                    ),
+                )
+        } else {
+            builder
+                .setContentText(context.getString(R.string.service_notification_text_running))
+                .setSubText(null)
+        }
+        return builder.build()
+    }
 
     fun buildFailedNotification(context: Context, message: String?): Notification =
         baseBuilder(context)
@@ -60,7 +88,11 @@ object NotificationHelper {
 
     // --- Notification posting helpers (AChimera style) ---
 
-    fun notifyRunning(context: Context) {
+    internal fun notifyRunning(
+        context: Context,
+        traffic: TrafficSnapshot? = null,
+        rates: TrafficNotificationRates? = null,
+    ) {
         if (
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(
@@ -73,7 +105,7 @@ object NotificationHelper {
 
         runCatching {
             NotificationManagerCompat.from(context)
-                .notify(NOTIFICATION_ID, buildRunningNotification(context))
+                .notify(NOTIFICATION_ID, buildRunningNotification(context, traffic, rates))
         }.getOrElse { error ->
             if (error !is SecurityException) throw error
         }

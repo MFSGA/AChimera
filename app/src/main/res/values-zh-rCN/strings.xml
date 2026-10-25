@@ -211,6 +211,10 @@
     <string name="settings_hide_from_recents">从最近任务隐藏</string>
     <string name="settings_hide_from_recents_summary">在最近任务中隐藏应用</string>
     <string name="settings_hide_from_recents_accessibility">从最近任务隐藏。在最近任务中隐藏应用</string>
+    <string name="settings_service">服务</string>
+    <string name="settings_show_traffic">显示流量</string>
+    <string name="settings_show_traffic_summary">在通知中自动刷新流量</string>
+    <string name="settings_chimera_features">Chimera 专属</string>
     <string name="settings_logs_summary">查看运行日志文件及实时刷新内容。</string>
     <string name="dns_diagnostics_title">DNS 诊断</string>
     <string name="dns_diagnostics_summary">在 VPN 运行时查询当前核心解析器。</string>
@@ -321,6 +325,8 @@
     <string name="service_notification_title_failed">Chimera 启动失败</string>
     <string name="service_notification_text_starting">VPN 服务正在启动。</string>
     <string name="service_notification_text_running">VPN 服务已激活。</string>
+    <string name="service_notification_traffic_rate">↑ %1$s  ↓ %2$s</string>
+    <string name="service_notification_traffic_total">↑ %1$s  ↓ %2$s</string>
     <string name="service_notification_text_failed">VPN 服务异常停止。</string>
     <string name="profile_title">已导入配置</string>
     <string name="profile_active_title">当前配置</string>
