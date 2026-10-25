@@ -80,6 +80,9 @@ class SettingsViewModel(
     var allowLan: Boolean by mutableStateOf(backend.settings.value.allowLan)
         private set
 
+    var allowBypassEnabled: Boolean by mutableStateOf(backend.settings.value.allowBypass)
+        private set
+
     var fakeIpEnabled: Boolean by mutableStateOf(backend.settings.value.fakeIp)
         private set
 
@@ -134,6 +137,9 @@ class SettingsViewModel(
     }
 
     fun updateAllowLan(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(allowLan = enabled))
+
+    fun updateAllowBypass(enabled: Boolean) =
+        updateRuntimeSetting(SettingsPatch(allowBypass = enabled))
 
     fun updateFakeIpEnabled(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(fakeIp = enabled))
 
@@ -258,6 +264,7 @@ class SettingsViewModel(
     private fun reloadPersistedSettings() {
         val settings = backend.settings.value
         allowLan = settings.allowLan
+        allowBypassEnabled = settings.allowBypass
         fakeIpEnabled = settings.fakeIp
         ipv6Enabled = settings.ipv6
         mixedPort = settings.mixedPort

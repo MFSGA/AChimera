@@ -247,7 +247,9 @@ class TunService : VpnService(), VpnRuntimeControl {
             builder.addDnsServer(TUN_DNS_V6)
         }
         TunAppFilter.apply(builder, settings, packageName)
-        builder.allowBypass()
+        if (settings.allowBypass) {
+            builder.allowBypass()
+        }
         return builder.establish()
     }
 

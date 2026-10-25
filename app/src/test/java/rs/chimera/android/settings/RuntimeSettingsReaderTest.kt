@@ -9,6 +9,13 @@ class RuntimeSettingsReaderTest {
     @Test
     fun emptyPreferencesUseSharedDefaults() {
         assertEquals(RuntimeSettings(), RuntimeSettingsReader.read(emptyMap<String, Any>()))
+        assertEquals(SettingsDefaults.ALLOW_BYPASS, RuntimeSettingsReader.read(emptyMap<String, Any>()).allowBypass)
+    }
+
+    @Test
+    fun allowBypassReadsStoredValueAndDefaultsToReferenceBehavior() {
+        assertEquals(false, RuntimeSettingsReader.read(mapOf("allow_bypass" to false)).allowBypass)
+        assertEquals(SettingsDefaults.ALLOW_BYPASS, RuntimeSettingsReader.read(emptyMap<String, Any>()).allowBypass)
     }
 
     @Test

@@ -159,6 +159,9 @@ class MetaSettingsActivity : AppCompatActivity() {
             is SettingsDesign.Request.SetAllowLan -> {
                 if (canChangeVpnSettings()) saveSettings(SettingsPatch(allowLan = request.enabled))
             }
+            is SettingsDesign.Request.SetAllowBypass -> {
+                if (canChangeVpnSettings()) saveSettings(SettingsPatch(allowBypass = request.enabled))
+            }
             is SettingsDesign.Request.SetFakeIp -> {
                 if (canChangeVpnSettings()) saveSettings(SettingsPatch(fakeIp = request.enabled))
             }
@@ -578,6 +581,7 @@ class MetaSettingsActivity : AppCompatActivity() {
         val vpnPresentation = backend.vpnSystemStatus.value.resolvePresentation()
         return SettingsDesign.State(
             allowLan = settings.allowLan,
+            allowBypass = settings.allowBypass,
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
             appFilterMode = appFilterMode,

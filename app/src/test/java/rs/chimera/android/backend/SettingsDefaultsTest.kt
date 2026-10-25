@@ -12,6 +12,7 @@ class SettingsDefaultsTest {
         val patch = SettingsDefaults.resetPatch()
 
         assertEquals(false, patch.allowLan)
+        assertEquals(SettingsDefaults.ALLOW_BYPASS, patch.allowBypass)
         assertEquals(SettingsDefaults.MIXED_PORT, patch.mixedPort)
         assertEquals(false, patch.fakeIp)
         assertEquals(false, patch.ipv6)

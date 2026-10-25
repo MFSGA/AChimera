@@ -26,8 +26,11 @@ class SettingsRepositoryInstrumentedTest {
             val first = PreferenceSettingsRepository(prefs)
             val second = PreferenceSettingsRepository(prefs)
             try {
-                first.update(SettingsPatch(allowLan = true, httpPort = 8080.toUShort()))
+                first.update(
+                    SettingsPatch(allowLan = true, allowBypass = false, httpPort = 8080.toUShort()),
+                )
                 assertTrue(second.settings.value.allowLan)
+                assertEquals(false, second.settings.value.allowBypass)
                 assertEquals(8080.toUShort(), second.settings.value.httpPort)
                 assertEquals(first.settings.value, second.settings.value)
                 first.update(SettingsPatch(clearHttpPort = true))

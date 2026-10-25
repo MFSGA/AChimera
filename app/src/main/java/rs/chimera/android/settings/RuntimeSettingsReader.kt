@@ -12,6 +12,7 @@ internal object RuntimeSettingsReader {
             allowedApps = (values["allowed_apps"] as? Set<*>)?.filterIsInstance<String>()?.toSet().orEmpty(),
             disallowedApps = (values["disallowed_apps"] as? Set<*>)?.filterIsInstance<String>()?.toSet().orEmpty(),
             allowLan = values["allow_lan"] as? Boolean ?: false,
+            allowBypass = values["allow_bypass"] as? Boolean ?: SettingsDefaults.ALLOW_BYPASS,
             mixedPort = PortPreference.parse(values["mixed_port"]) ?: SettingsDefaults.MIXED_PORT,
             httpPort = PortPreference.parse(values["http_port"]),
             socksPort = PortPreference.parse(values["socks_port"]),

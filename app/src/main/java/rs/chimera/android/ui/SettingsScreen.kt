@@ -243,6 +243,14 @@ fun SettingsScreen(
                         enabled = viewModel.canChangeVpnSettings,
                     )
                     SettingsSwitchItem(
+                        icon = Icons.Default.Security,
+                        title = stringResource(R.string.settings_allow_bypass),
+                        subtitle = stringResource(R.string.settings_allow_bypass_desc),
+                        checked = viewModel.allowBypassEnabled,
+                        onCheckedChange = viewModel::updateAllowBypass,
+                        enabled = viewModel.canChangeVpnSettings,
+                    )
+                    SettingsSwitchItem(
                         icon = Icons.Default.Public,
                         title = stringResource(R.string.settings_ipv6),
                         subtitle = stringResource(R.string.settings_ipv6_desc),

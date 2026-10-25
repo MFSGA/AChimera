@@ -8,6 +8,7 @@ enum class SettingsApplyEffect {
 
 data class SettingsPatch(
     val allowLan: Boolean? = null,
+    val allowBypass: Boolean? = null,
     val mixedPort: UShort? = null,
     val httpPort: UShort? = null,
     val socksPort: UShort? = null,
@@ -22,6 +23,7 @@ data class SettingsPatch(
     fun requiredApplyEffect(): SettingsApplyEffect =
         when {
             ipv6 != null ||
+                allowBypass != null ||
                 appFilterMode != null ||
                 allowedApps != null ||
                 disallowedApps != null -> SettingsApplyEffect.REBUILD_TUN

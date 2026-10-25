@@ -167,6 +167,8 @@
     <string name="diagnostics_share_failed">无法生成诊断支持包。</string>
     <string name="settings_allow_lan">允许局域网连接</string>
     <string name="settings_allow_lan_desc">允许局域网内其他设备连接本机代理端口。</string>
+    <string name="settings_allow_bypass">允许应用绕过</string>
+    <string name="settings_allow_bypass_desc">允许其他应用绕过 VPN</string>
     <string name="settings_listener_ports">监听端口</string>
     <string name="settings_mixed_port">混合端口</string>
     <string name="settings_http_port">HTTP 端口（可选）</string>

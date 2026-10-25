@@ -36,6 +36,7 @@ class SettingsPatchTest {
     fun tunnelSettingsRequireTunRebuild() {
         listOf(
             SettingsPatch(ipv6 = true),
+            SettingsPatch(allowBypass = false),
             SettingsPatch(appFilterMode = "ALLOWED"),
             SettingsPatch(allowedApps = setOf("example.allowed")),
             SettingsPatch(disallowedApps = setOf("example.disallowed")),

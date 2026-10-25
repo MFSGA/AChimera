@@ -8,6 +8,7 @@ data class RuntimeSettings(
     val allowedApps: Set<String> = emptySet(),
     val disallowedApps: Set<String> = emptySet(),
     val allowLan: Boolean = false,
+    val allowBypass: Boolean = SettingsDefaults.ALLOW_BYPASS,
     val mixedPort: UShort = SettingsDefaults.MIXED_PORT,
     val httpPort: UShort? = null,
     val socksPort: UShort? = null,

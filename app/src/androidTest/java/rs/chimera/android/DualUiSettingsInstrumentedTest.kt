@@ -38,6 +38,7 @@ import org.junit.runner.RunWith
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
+import rs.chimera.android.backend.model.SettingsDefaults
 import rs.chimera.android.backend.model.SettingsPatch
 import rs.chimera.android.ui.metacubex.activity.MetaSettingsActivity
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
@@ -78,6 +79,7 @@ class DualUiSettingsInstrumentedTest {
     fun backendSettingsAreRenderedByBothUiRoots() {
         updateRuntimeSettings(
             allowLan = true,
+            allowBypass = true,
             fakeIp = true,
             ipv6 = true,
             mixedPort = TEST_MIXED_PORT,
@@ -92,6 +94,7 @@ class DualUiSettingsInstrumentedTest {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             openWatfaqSettings()
             scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).assertIsOn()
+            scrollWatfaqTo(context.getString(R.string.settings_allow_bypass)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_fake_ip)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_ipv6)).assertIsOn()
             scenario.onActivity { activity ->
@@ -116,6 +119,7 @@ class DualUiSettingsInstrumentedTest {
                 )
             }
             onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
+            onView(withId(R.id.switch_allow_bypass)).check(matches(isChecked()))
             onView(withId(R.id.switch_fake_ip)).check(matches(isChecked()))
             onView(withId(R.id.switch_ipv6)).check(matches(isChecked()))
             onView(withId(R.id.text_ports_summary)).check(matches(withText(metaPortsSummary)))
@@ -154,14 +158,14 @@ class DualUiSettingsInstrumentedTest {
     fun watfaqSettingChangeIsObservedByMetaCubeX() {
         ActivityScenario.launch(MainActivity::class.java).use {
             openWatfaqSettings()
-            scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).performClick()
-            waitUntil("Watfaq LAN change was not persisted") {
-                prefs.getBoolean(ALLOW_LAN_KEY, false)
+            scrollWatfaqTo(context.getString(R.string.settings_allow_bypass)).performClick()
+            waitUntil("Watfaq allow-bypass change was not persisted") {
+                !prefs.getBoolean(ALLOW_BYPASS_KEY, true)
             }
         }
 
         launchMetaSettings(SettingsDesign.Category.NETWORK).use {
-            onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
+            onView(withId(R.id.switch_allow_bypass)).check(matches(not(isChecked())))
         }
     }
 
@@ -184,6 +188,8 @@ class DualUiSettingsInstrumentedTest {
                     .assertIsNotEnabled()
                 scrollWatfaqTo(context.getString(R.string.settings_allow_lan))
                     .assertIsNotEnabled()
+                scrollWatfaqTo(context.getString(R.string.settings_allow_bypass))
+                    .assertIsNotEnabled()
                 scrollWatfaqTo(context.getString(R.string.settings_fake_ip))
                     .assertIsNotEnabled()
                 scrollWatfaqTo(context.getString(R.string.settings_ipv6))
@@ -198,6 +204,7 @@ class DualUiSettingsInstrumentedTest {
                     .check(matches(not(isEnabled())))
                 onView(withId(R.id.card_ports)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_allow_lan)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_allow_bypass)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_fake_ip)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_ipv6)).check(matches(not(isEnabled())))
                 onView(withId(R.id.card_reset_settings))
@@ -210,6 +217,7 @@ class DualUiSettingsInstrumentedTest {
                     backend.updateSettings(
                         SettingsPatch(
                             allowLan = !previousSettings.allowLan,
+                            allowBypass = !previousSettings.allowBypass,
                             appFilterMode = "ALLOWED",
                             allowedApps = setOf("example.test.blocked"),
                             disallowedApps = emptySet(),
@@ -220,6 +228,7 @@ class DualUiSettingsInstrumentedTest {
             assertTrue(updateResult.exceptionOrNull() is IllegalStateException)
             assertEquals(previousSettings, backend.settings.value)
             assertEquals(previousSettings.allowLan, prefs.getBoolean(ALLOW_LAN_KEY, false))
+            assertEquals(previousSettings.allowBypass, prefs.getBoolean(ALLOW_BYPASS_KEY, true))
         } finally {
             if (previousRuntimeStatus.error != null) {
                 BackendRuntimeState.updateServiceError(previousRuntimeStatus.error)
@@ -262,6 +271,7 @@ class DualUiSettingsInstrumentedTest {
             backend.updateSettings(
                 SettingsPatch(
                     allowLan = false,
+                    allowBypass = SettingsDefaults.ALLOW_BYPASS,
                     fakeIp = false,
                     ipv6 = false,
                     mixedPort = DEFAULT_MIXED_PORT,
@@ -277,6 +287,7 @@ class DualUiSettingsInstrumentedTest {
 
     private fun updateRuntimeSettings(
         allowLan: Boolean,
+        allowBypass: Boolean,
         fakeIp: Boolean,
         ipv6: Boolean,
         mixedPort: UShort,
@@ -287,6 +298,7 @@ class DualUiSettingsInstrumentedTest {
             backend.updateSettings(
                 SettingsPatch(
                     allowLan = allowLan,
+                    allowBypass = allowBypass,
                     fakeIp = fakeIp,
                     ipv6 = ipv6,
                     mixedPort = mixedPort,
@@ -316,6 +328,7 @@ class DualUiSettingsInstrumentedTest {
         const val POLL_INTERVAL_MS = 50L
         const val SETTINGS_PREFS = "settings"
         const val ALLOW_LAN_KEY = "allow_lan"
+        const val ALLOW_BYPASS_KEY = "allow_bypass"
         val DEFAULT_MIXED_PORT: UShort = 7890u
         val TEST_MIXED_PORT: UShort = 19_090u
         val TEST_HTTP_PORT: UShort = 18_080u
