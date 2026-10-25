@@ -21,7 +21,6 @@ import androidx.test.espresso.action.ViewActions.replaceText
 import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom
 import androidx.test.espresso.matcher.ViewMatchers.withId
-import androidx.test.espresso.matcher.ViewMatchers.withHint
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CompletableDeferred
@@ -188,17 +187,35 @@ class ProfilePropertiesInstrumentedTest {
 
     @Test
     fun remotePropertiesSaveMetadataThroughTheRealBackendWithoutReplacingTheFile() = withProfile(remote = true) { id ->
+        val original = runBlocking(Dispatchers.IO) { backend.listProfiles().first { it.id == id } }
+        runBlocking(Dispatchers.IO) {
+            backend.updateRemoteProfileSettings(
+                id,
+                rs.chimera.android.backend.model.RemoteProfileSettings(
+                    name = original.name,
+                    url = requireNotNull(original.url),
+                    autoUpdate = original.autoUpdate,
+                    userAgent = "fixture-agent",
+                    proxyUrl = "http://127.0.0.1:7890",
+                    autoUpdateIntervalMillis = original.autoUpdateIntervalMillis,
+                ),
+                expectedIntervalMillis = original.autoUpdateIntervalMillis,
+            )
+        }
         val before = runBlocking(Dispatchers.IO) { backend.listProfiles().first { it.id == id } }
         val bytes = File(before.filePath).readBytes()
         ActivityScenario.launch<MetaProfilePropertiesActivity>(intent(id)).use { scenario ->
             awaitPage(scenario, ORIGINAL)
+            scenario.onActivity { activity ->
+                assertEquals(
+                    activity.getString(R.string.profile_properties_screen_title),
+                    activity.findViewById<TextView>(R.id.toolbar_title).text.toString(),
+                )
+                assertEquals(View.GONE, activity.findViewById<View>(R.id.property_options).visibility)
+            }
             editName(scenario)
             scenario.onActivity { assertTrue(action(it, R.id.property_url).performClick()) }
             onView(isAssignableFrom(EditText::class.java)).inRoot(isDialog()).perform(replaceText("https://example.com/profile.yaml"), closeSoftKeyboard())
-            onView(withId(android.R.id.button1)).inRoot(isDialog()).perform(click())
-            scenario.onActivity { assertTrue(action(it, R.id.property_options).performClick()) }
-            onView(withHint(R.string.profile_user_agent_hint)).inRoot(isDialog()).perform(replaceText("fixture-agent"), closeSoftKeyboard())
-            onView(withHint(R.string.profile_proxy_hint)).inRoot(isDialog()).perform(replaceText("http://127.0.0.1:7890"), closeSoftKeyboard())
             onView(withId(android.R.id.button1)).inRoot(isDialog()).perform(click())
             scenario.recreate()
             awaitPage(scenario, RENAMED)
@@ -208,8 +225,8 @@ class ProfilePropertiesInstrumentedTest {
         }
         val saved = runBlocking(Dispatchers.IO) { backend.listProfiles().first { it.id == id } }
         assertEquals("https://example.com/profile.yaml", saved.url)
-        assertEquals("fixture-agent", saved.userAgent)
-        assertEquals("http://127.0.0.1:7890", saved.proxyUrl)
+        assertEquals(before.userAgent, saved.userAgent)
+        assertEquals(before.proxyUrl, saved.proxyUrl)
         assertFalse(saved.autoUpdate)
         assertTrue(saved.isRemote)
         assertTrue("Editing metadata must not replace the downloaded configuration", bytes.contentEquals(File(saved.filePath).readBytes()))

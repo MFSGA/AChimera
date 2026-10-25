@@ -388,6 +388,7 @@
     <string name="profile_download_progress">%1$s / %2$s bytes</string>
     <string name="profile_url_invalid">Please enter a valid http(s) URL.</string>
     <string name="profile_properties_title">Properties</string>
+    <string name="profile_properties_screen_title">Profile</string>
     <string name="profile_properties_missing">This profile no longer exists.</string>
     <string name="profile_properties_age">Age Secret Key</string>
     <string name="profile_properties_save_failed">Failed to save profile settings: %1$s</string>

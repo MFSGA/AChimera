@@ -375,6 +375,7 @@
     <string name="profile_download_progress">%1$s / %2$s 字节</string>
     <string name="profile_url_invalid">请输入有效的 http(s) URL。</string>
     <string name="profile_properties_title">参数</string>
+    <string name="profile_properties_screen_title">配置</string>
     <string name="profile_properties_missing">此配置已不存在。</string>
     <string name="profile_properties_age">Age 私钥</string>
     <string name="profile_properties_save_failed">保存配置设置失败：%1$s</string>
