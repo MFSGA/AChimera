@@ -74,6 +74,7 @@ class ProxySelectionActionTest {
     fun cancelledBackendRequestRestoresPreviousSelection() = runBlocking {
         val backendStarted = CompletableDeferred<Unit>()
         val flow = SelectionRefreshHarness("previous", "previous")
+        var cancellationCleanupCalls = 0
         val request = launch {
             try {
                 flow.selected = "requested"
@@ -86,6 +87,10 @@ class ProxySelectionActionTest {
                     confirmSelection = { throw AssertionError("cancelled selection must not be confirmed") },
                     refresh = flow::refresh,
                     onFailure = { throw AssertionError("cancellation must not be reported as failure", it) },
+                    onCancellation = {
+                        cancellationCleanupCalls++
+                        flow.selected = "previous"
+                    },
                 )
             } finally {
                 flow.finishSelection()
@@ -95,6 +100,8 @@ class ProxySelectionActionTest {
         backendStarted.await()
         assertEquals("requested", flow.selected)
         request.cancelAndJoin()
+        assertEquals("previous", flow.selected)
+        assertEquals(1, cancellationCleanupCalls)
         flow.refreshPending()
 
         assertEquals("previous", flow.selected)

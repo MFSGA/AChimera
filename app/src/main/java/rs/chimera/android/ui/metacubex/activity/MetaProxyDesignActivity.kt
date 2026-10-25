@@ -243,6 +243,9 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                         ),
                     )
                 },
+                onCancellation = {
+                    design.rejectProxySelection(request.selectionToken)
+                },
             )
         } finally {
             pendingProxySelections = (pendingProxySelections - 1).coerceAtLeast(0)

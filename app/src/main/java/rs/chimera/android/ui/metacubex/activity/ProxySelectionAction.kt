@@ -11,11 +11,15 @@ internal suspend fun runProxySelection(
     confirmSelection: () -> Boolean,
     refresh: suspend () -> Unit,
     onFailure: suspend (Throwable) -> Unit,
+    onCancellation: suspend () -> Unit = {},
 ) {
     val result = try {
         runCatchingPreservingCancellation(select)
     } catch (cancellation: CancellationException) {
-        withContext(NonCancellable) { refresh() }
+        withContext(NonCancellable) {
+            onCancellation()
+            refresh()
+        }
         throw cancellation
     }
     if (result.isSuccess) {
