@@ -16,6 +16,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
@@ -24,6 +25,7 @@ import androidx.test.espresso.action.ViewActions.click
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withContentDescription
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -136,6 +138,32 @@ class AppUiNavigationInstrumentedTest {
             waitForResumedActivity<MetaMainActivity>()
             onView(withText(R.string.connections_title)).check(doesNotExist())
             onView(withText(R.string.stat_memory)).check(doesNotExist())
+        }
+    }
+
+    @Test
+    fun metaHomeSwitchButtonOpensWatfaqAndPersistsTheSelection() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use {
+            waitForResumedActivity<MetaMainActivity>()
+
+            onView(withContentDescription(R.string.switch_to_watfaq_ui)).perform(click())
+
+            waitForSingleActiveActivity<MainActivity>()
+            assertEquals(UiVariant.WATFAQ, AppPreferences.uiVariant(context))
+        }
+    }
+
+    @Test
+    fun watfaqHomeSwitchButtonOpensMetaAndPersistsTheSelection() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            waitForResumedActivity<MainActivity>()
+
+            composeRule
+                .onNodeWithContentDescription(context.getString(R.string.switch_to_metacubex_ui))
+                .performClick()
+
+            waitForSingleActiveActivity<MetaMainActivity>()
+            assertEquals(UiVariant.METACUBEX, AppPreferences.uiVariant(context))
         }
     }
 

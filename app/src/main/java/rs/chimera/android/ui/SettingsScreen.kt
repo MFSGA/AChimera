@@ -54,6 +54,7 @@ fun SettingsScreen(
     onLogsClick: () -> Unit,
     onAppFilterClick: () -> Unit,
     modifier: Modifier = Modifier,
+    uiSwitchEnabled: Boolean = true,
 ) {
     val viewModel: SettingsViewModel = viewModel()
     val context = LocalContext.current
@@ -283,6 +284,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_ui_style),
                         subtitle = uiVariantLabel(viewModel.uiVariant),
                         onClick = { showUiDialog = true },
+                        enabled = uiSwitchEnabled,
                     )
                 }
             }
@@ -324,16 +326,19 @@ fun SettingsScreen(
         if (showUiDialog) {
             UiDialog(
                 currentVariant = viewModel.uiVariant,
+                confirmEnabled = uiSwitchEnabled,
                 onDismiss = { showUiDialog = false },
-                onConfirm = { variant ->
-                    showUiDialog = false
-                    if (viewModel.uiVariant != variant) {
-                        viewModel.updateUiVariant(variant)
-                        when (variant) {
-                            UiVariant.WATFAQ -> DefaultAppUiRouter.openWatfaq(context)
-                            UiVariant.METACUBEX -> DefaultAppUiRouter.openMetaCubeX(context)
-                        }
+                onConfirm = onConfirm@{ variant ->
+                    if (!uiSwitchEnabled) return@onConfirm
+                    if (viewModel.uiVariant == variant) {
+                        showUiDialog = false
+                        return@onConfirm
                     }
+                    val switched = when (variant) {
+                        UiVariant.WATFAQ -> DefaultAppUiRouter.openWatfaq(context)
+                        UiVariant.METACUBEX -> DefaultAppUiRouter.openMetaCubeX(context)
+                    }
+                    if (switched) showUiDialog = false
                 },
             )
         }

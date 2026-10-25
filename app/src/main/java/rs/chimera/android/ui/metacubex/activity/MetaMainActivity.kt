@@ -25,11 +25,29 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.ui.metacubex.design.MainDesign
 import rs.chimera.android.ui.metacubex.design.formatMetaTrafficTotal
+import rs.chimera.android.ui.navigation.DefaultAppUiRouter
+import rs.chimera.android.ui.navigation.VpnUiActionGate
+import java.util.UUID
 
 class MetaMainActivity : AppCompatActivity() {
+    companion object {
+        private const val STATE_VPN_ACTION_OWNER = "vpn_action_owner"
+        private const val STATE_VPN_ACTION_STAGE = "vpn_action_stage"
+    }
+
+    private enum class VpnActionStage {
+        PREPARING_START,
+        WAITING_FOR_PERMISSION,
+        STARTING,
+        STOPPING,
+    }
+
     private val backend = BackendProvider.provide()
     private lateinit var design: MainDesign
     private var statusOperationInProgress = false
+    private var vpnActionOwner: String? = null
+    private var vpnActionLease: VpnUiActionGate.Lease? = null
+    private var vpnActionStage: VpnActionStage? = null
 
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
@@ -47,13 +65,40 @@ class MetaMainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        vpnActionOwner = savedInstanceState?.getString(STATE_VPN_ACTION_OWNER)
+        vpnActionLease = vpnActionOwner?.let(VpnUiActionGate::resumeVpnAction)
+        statusOperationInProgress = vpnActionLease != null
+        if (statusOperationInProgress) {
+            vpnActionStage = savedInstanceState
+                ?.getString(STATE_VPN_ACTION_STAGE)
+                ?.let { runCatching { VpnActionStage.valueOf(it) }.getOrNull() }
+        } else {
+            vpnActionOwner = null
+            vpnActionStage = null
+        }
+
         design = MainDesign(this)
         setContentView(design.root)
+        if (statusOperationInProgress) {
+            design.setStatusOperationInProgress(
+                true,
+                getString(
+                    if (vpnActionStage == VpnActionStage.STOPPING) {
+                        R.string.cmfa_service_stopping
+                    } else {
+                        R.string.cmfa_service_starting
+                    },
+                ),
+            )
+        }
 
         lifecycleScope.launch {
             for (request in design.requests) handleRequest(request)
         }
         observeBackend()
+        if (statusOperationInProgress) {
+            lifecycleScope.launch { resumeVpnActionAfterRecreation() }
+        }
     }
 
     private fun observeBackend() {
@@ -150,6 +195,11 @@ class MetaMainActivity : AppCompatActivity() {
                 startActivity(Intent(this, MetaHelpActivity::class.java))
             }
             MainDesign.Request.OpenAbout -> showAboutDialog()
+            MainDesign.Request.SwitchUi -> {
+                if (!DefaultAppUiRouter.openWatfaq(this)) {
+                    design.showToast(getString(R.string.ui_switch_wait_for_vpn_action))
+                }
+            }
         }
     }
 
@@ -170,11 +220,22 @@ class MetaMainActivity : AppCompatActivity() {
     }
 
     private suspend fun prepareVpnStart() {
-        beginStatusOperation(getString(R.string.cmfa_service_starting))
+        if (!beginStatusOperation(
+                getString(R.string.cmfa_service_starting),
+                VpnActionStage.PREPARING_START,
+            )
+        ) return
+        continueStartPreparation()
+    }
+
+    private suspend fun continueStartPreparation() {
         try {
             when (val result = withContext(Dispatchers.IO) { backend.prepareStartVpn() }) {
                 StartVpnResult.PermissionNotRequired -> startVpnAfterPermission()
-                is StartVpnResult.Prepared -> vpnPermissionLauncher.launch(result.intent)
+                is StartVpnResult.Prepared -> {
+                    vpnActionStage = VpnActionStage.WAITING_FOR_PERMISSION
+                    vpnPermissionLauncher.launch(result.intent)
+                }
                 is StartVpnResult.Error -> {
                     finishStatusOperation()
                     design.showToast(result.message)
@@ -190,6 +251,8 @@ class MetaMainActivity : AppCompatActivity() {
     }
 
     private suspend fun startVpnAfterPermission() {
+        if (!statusOperationInProgress) return
+        vpnActionStage = VpnActionStage.STARTING
         try {
             withContext(Dispatchers.IO) { backend.startVpnAfterPermission() }
         } catch (error: CancellationException) {
@@ -206,7 +269,14 @@ class MetaMainActivity : AppCompatActivity() {
         errorMessageRes: Int,
         operation: suspend () -> Unit,
     ) {
-        beginStatusOperation(progressMessage)
+        if (!beginStatusOperation(progressMessage, VpnActionStage.STOPPING)) return
+        performStatusOperationBody(errorMessageRes, operation)
+    }
+
+    private suspend fun performStatusOperationBody(
+        errorMessageRes: Int,
+        operation: suspend () -> Unit,
+    ) {
         try {
             withContext(Dispatchers.IO) { operation() }
         } catch (error: CancellationException) {
@@ -218,14 +288,60 @@ class MetaMainActivity : AppCompatActivity() {
         }
     }
 
-    private fun beginStatusOperation(message: String) {
+    private fun beginStatusOperation(
+        message: String,
+        stage: VpnActionStage,
+    ): Boolean {
+        if (statusOperationInProgress) return false
+        val owner = UUID.randomUUID().toString()
+        val lease = VpnUiActionGate.tryBeginVpnAction(owner) ?: return false
+        vpnActionOwner = owner
+        vpnActionLease = lease
+        vpnActionStage = stage
         statusOperationInProgress = true
         design.setStatusOperationInProgress(true, message)
+        return true
     }
 
     private fun finishStatusOperation() {
+        val lease = vpnActionLease ?: return
         statusOperationInProgress = false
+        vpnActionOwner = null
+        vpnActionLease = null
+        vpnActionStage = null
+        VpnUiActionGate.finishVpnAction(lease)
         design.setStatusOperationInProgress(false)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        vpnActionOwner?.let { outState.putString(STATE_VPN_ACTION_OWNER, it) }
+        vpnActionStage?.let { outState.putString(STATE_VPN_ACTION_STAGE, it.name) }
+        super.onSaveInstanceState(outState)
+    }
+
+    override fun onDestroy() {
+        if (isFinishing && vpnActionStage == VpnActionStage.WAITING_FOR_PERMISSION) {
+            vpnActionLease?.let(VpnUiActionGate::finishVpnAction)
+            vpnActionOwner = null
+            vpnActionLease = null
+            vpnActionStage = null
+            statusOperationInProgress = false
+        }
+        super.onDestroy()
+    }
+
+    private suspend fun resumeVpnActionAfterRecreation() {
+        when (vpnActionStage) {
+            VpnActionStage.PREPARING_START -> continueStartPreparation()
+            VpnActionStage.WAITING_FOR_PERMISSION -> Unit
+            VpnActionStage.STARTING -> startVpnAfterPermission()
+            VpnActionStage.STOPPING -> {
+                performStatusOperationBody(R.string.service_stop_failed) {
+                    backend.stopVpn()
+                }
+            }
+            null -> finishStatusOperation()
+        }
     }
 
     private fun errorMessage(messageRes: Int, error: Exception): String =

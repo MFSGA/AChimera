@@ -24,6 +24,8 @@ import rs.chimera.android.ui.formatRuleDiagnostics
 import rs.chimera.android.ui.metacubex.design.SettingsDesign
 import rs.chimera.android.ui.resolvePresentation
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
+import rs.chimera.android.ui.navigation.VpnUiActionGate
+import rs.chimera.android.ui.preferences.AppRecentTasksVisibility
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.AppearancePreference
 import rs.chimera.android.ui.preferences.LanguagePreference
@@ -134,6 +136,14 @@ class MetaSettingsActivity : AppCompatActivity() {
             SettingsDesign.Request.ChooseUiVariant -> showUiVariantDialog()
             is SettingsDesign.Request.SetAutoRestart -> {
                 AppPreferences.updateAutoRestart(this, request.enabled)
+                design.render(loadState())
+            }
+            is SettingsDesign.Request.SetHideFromRecents -> {
+                AppPreferences.updateHideFromRecents(this, request.enabled)
+                AppRecentTasksVisibility.apply(this, request.enabled)
+                window.decorView.post {
+                    AppRecentTasksVisibility.apply(this, request.enabled)
+                }
                 design.render(loadState())
             }
             is SettingsDesign.Request.SetAllowLan -> {
@@ -463,8 +473,24 @@ class MetaSettingsActivity : AppCompatActivity() {
             current = AppPreferences.uiVariant(this),
             label = ::uiVariantLabel,
         ) { variant ->
+            if (!VpnUiActionGate.canSwitchUi()) {
+                Snackbar.make(
+                    design.root,
+                    R.string.ui_switch_wait_for_vpn_action,
+                    Snackbar.LENGTH_SHORT,
+                ).show()
+                return@showChoiceDialog
+            }
             when (variant) {
-                UiVariant.WATFAQ -> DefaultAppUiRouter.openWatfaq(this)
+                UiVariant.WATFAQ -> {
+                    if (!DefaultAppUiRouter.openWatfaq(this)) {
+                        Snackbar.make(
+                            design.root,
+                            R.string.ui_switch_wait_for_vpn_action,
+                            Snackbar.LENGTH_SHORT,
+                        ).show()
+                    }
+                }
                 UiVariant.METACUBEX -> {
                     AppPreferences.updateUiVariant(this, variant)
                     design.render(loadState())
@@ -553,6 +579,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             appearance = appearanceLabel(AppPreferences.appearance(this)),
             uiVariant = uiVariantLabel(AppPreferences.uiVariant(this)),
             autoRestart = AppPreferences.autoRestart(this),
+            hideFromRecents = AppPreferences.hideFromRecents(this),
             vpnSystemStatus = vpnPresentation.format(this),
             vpnSystemRestricted = vpnPresentation.restricted,
         )

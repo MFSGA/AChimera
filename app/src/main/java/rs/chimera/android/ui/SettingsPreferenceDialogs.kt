@@ -29,6 +29,7 @@ import rs.chimera.android.ui.preferences.UiVariant
 @Composable
 internal fun UiDialog(
     currentVariant: UiVariant,
+    confirmEnabled: Boolean = true,
     onDismiss: () -> Unit,
     onConfirm: (UiVariant) -> Unit,
 ) {
@@ -52,7 +53,10 @@ internal fun UiDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(selectedVariant) }) {
+            TextButton(
+                onClick = { onConfirm(selectedVariant) },
+                enabled = confirmEnabled,
+            ) {
                 Text(stringResource(android.R.string.ok))
             }
         },

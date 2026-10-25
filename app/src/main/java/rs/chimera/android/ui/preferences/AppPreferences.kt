@@ -28,6 +28,7 @@ object AppPreferences {
     private const val KEY_LANGUAGE = "language"
     private const val KEY_APPEARANCE = "appearance"
     private const val KEY_AUTO_RESTART = "auto_restart"
+    private const val KEY_HIDE_FROM_RECENTS = "hide_from_recents"
 
     fun apply(context: Context) {
         applyLanguage(language(context))
@@ -46,6 +47,9 @@ object AppPreferences {
     fun autoRestart(context: Context): Boolean =
         preferences(context).getBoolean(KEY_AUTO_RESTART, true)
 
+    fun hideFromRecents(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_HIDE_FROM_RECENTS, false)
+
     fun updateUiVariant(context: Context, variant: UiVariant) {
         putEnum(context, KEY_UI_VARIANT, variant)
     }
@@ -62,6 +66,10 @@ object AppPreferences {
 
     fun updateAutoRestart(context: Context, enabled: Boolean) {
         preferences(context).edit { putBoolean(KEY_AUTO_RESTART, enabled) }
+    }
+
+    fun updateHideFromRecents(context: Context, enabled: Boolean) {
+        preferences(context).edit { putBoolean(KEY_HIDE_FROM_RECENTS, enabled) }
     }
 
     private fun applyLanguage(preference: LanguagePreference) {

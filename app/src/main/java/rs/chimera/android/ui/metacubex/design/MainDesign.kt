@@ -22,6 +22,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         OpenSettings,
         OpenHelp,
         OpenAbout,
+        SwitchUi,
     }
 
     val binding = MetaDesignMainBinding
@@ -33,6 +34,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     private val cardHelp: View = root.findViewById(R.id.card_help)
     private val cardAbout: View = root.findViewById(R.id.card_about)
     private val cardProviders: View = root.findViewById(R.id.card_providers)
+    private val switchUiButton: View = root.findViewById(R.id.button_switch_ui)
     private val statusIcon: ImageView = root.findViewById(R.id.icon_status)
     private val statusTitle: TextView = root.findViewById(R.id.text_status_title)
     private val statusSubtitle: TextView = root.findViewById(R.id.text_status_subtitle)
@@ -55,6 +57,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         binding.cardSettings.setOnClickListener { request(Request.OpenSettings) }
         cardHelp.setOnClickListener { request(Request.OpenHelp) }
         cardAbout.setOnClickListener { request(Request.OpenAbout) }
+        switchUiButton.setOnClickListener { request(Request.SwitchUi) }
 
         setProfileName(null)
         setMode(context.getString(R.string.not_available))
@@ -72,6 +75,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     fun setServiceState(state: ServiceState) {
         serviceState = state
         renderServiceState()
+        updateSwitchUiAvailability()
     }
 
     fun setHasProviders(hasProviders: Boolean) {
@@ -94,6 +98,14 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
                     ServiceState.STOPPING,
                 )
         binding.cardStatus.alpha = if (binding.cardStatus.isEnabled) 1f else 0.72f
+        updateSwitchUiAvailability()
+    }
+
+    private fun updateSwitchUiAvailability() {
+        switchUiButton.isEnabled =
+            !statusOperationInProgress &&
+                serviceState !in setOf(ServiceState.STARTING, ServiceState.STOPPING)
+        switchUiButton.alpha = if (switchUiButton.isEnabled) 1f else 0.72f
     }
 
     private fun renderServiceState() {

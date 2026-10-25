@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import rs.chimera.android.backend.AppForegroundState
 import rs.chimera.android.service.RuntimeLogStore
+import rs.chimera.android.ui.preferences.AppRecentTasksVisibility
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.util.PrivacySafeLog
 import uniffi.chimera_ffi.ChimeraException
@@ -18,6 +19,7 @@ class ChimeraApplication : android.app.Application() {
         AppPreferences.apply(this)
         setupUncaughtExceptionHandler()
         AppForegroundState.register(this)
+        AppRecentTasksVisibility.register(this)
         Global.init(this)
     }
 }

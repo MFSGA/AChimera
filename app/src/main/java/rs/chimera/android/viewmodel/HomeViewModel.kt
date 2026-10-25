@@ -26,10 +26,14 @@ import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProxyMode
+import rs.chimera.android.ui.navigation.VpnUiActionGate
+import java.util.UUID
 
 class HomeViewModel(
     private val backend: ChimeraBackend = BackendProvider.provide(),
 ) : ViewModel() {
+    private var vpnActionLease: VpnUiActionGate.Lease? = null
+    private var waitingForVpnPermission = false
     private val proxyRefreshMutex = Mutex()
     private val proxyDelaySemaphore = Semaphore(PROXY_DELAY_MAX_CONCURRENCY)
 
@@ -37,6 +41,9 @@ class HomeViewModel(
         private set
 
     var isVpnTransitioning by mutableStateOf(false)
+        private set
+
+    var isVpnActionInProgress by mutableStateOf(false)
         private set
 
     var proxies by mutableStateOf(emptyArray<ProxyGroupSnapshot>())
@@ -192,11 +199,20 @@ class HomeViewModel(
     }
 
     fun startVpn(requestPermission: (Intent) -> Unit) {
+        if (isVpnActionInProgress || isVpnTransitioning) return
+        val lease = VpnUiActionGate.tryBeginVpnAction(UUID.randomUUID().toString()) ?: return
+        vpnActionLease = lease
+        isVpnActionInProgress = true
         viewModelScope.launch {
+            var waitingForPermission = false
             errorMessage = null
             try {
                 when (val result = backend.prepareStartVpn()) {
-                    is StartVpnResult.Prepared -> requestPermission(result.intent)
+                    is StartVpnResult.Prepared -> {
+                        requestPermission(result.intent)
+                        waitingForPermission = true
+                        waitingForVpnPermission = true
+                    }
                     is StartVpnResult.PermissionNotRequired -> backend.startVpnAfterPermission()
                     is StartVpnResult.Error -> errorMessage = result.message
                 }
@@ -204,11 +220,20 @@ class HomeViewModel(
                 throw error
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to start VPN", error)
+            } finally {
+                if (!waitingForPermission) {
+                    finishVpnAction(lease)
+                }
             }
         }
     }
 
     fun startVpnAfterPermission() {
+        val lease = vpnActionLease ?: VpnUiActionGate.resumeVpnAction(
+            UUID.randomUUID().toString(),
+        )?.also { vpnActionLease = it } ?: return
+        waitingForVpnPermission = false
+        isVpnActionInProgress = true
         viewModelScope.launch {
             errorMessage = null
             try {
@@ -217,11 +242,22 @@ class HomeViewModel(
                 throw error
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to start VPN", error)
+            } finally {
+                finishVpnAction(lease)
             }
         }
     }
 
+    fun cancelVpnStart() {
+        waitingForVpnPermission = false
+        vpnActionLease?.let(::finishVpnAction)
+    }
+
     fun stopVpn() {
+        if (isVpnActionInProgress || isVpnTransitioning) return
+        val lease = VpnUiActionGate.tryBeginVpnAction(UUID.randomUUID().toString()) ?: return
+        vpnActionLease = lease
+        isVpnActionInProgress = true
         viewModelScope.launch {
             errorMessage = null
             try {
@@ -230,7 +266,26 @@ class HomeViewModel(
                 throw error
             } catch (error: Exception) {
                 errorMessage = formatError("Failed to stop VPN", error)
+            } finally {
+                finishVpnAction(lease)
             }
+        }
+    }
+
+    override fun onCleared() {
+        if (waitingForVpnPermission) {
+            waitingForVpnPermission = false
+            vpnActionLease?.let(::finishVpnAction)
+        }
+        super.onCleared()
+    }
+
+    private fun finishVpnAction(lease: VpnUiActionGate.Lease) {
+        VpnUiActionGate.finishVpnAction(lease)
+        if (vpnActionLease == lease) {
+            vpnActionLease = null
+            isVpnActionInProgress = false
+            waitingForVpnPermission = false
         }
     }
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,8 +22,12 @@ import rs.chimera.android.ui.LogsScreen
 import rs.chimera.android.ui.PanelScreen
 import rs.chimera.android.ui.ProfileScreen
 import rs.chimera.android.ui.SettingsScreen
+import rs.chimera.android.ui.HomeVpnActionAvailabilityPolicy
 import rs.chimera.android.ui.components.BottomBar
 import rs.chimera.android.ui.components.BottomBarItem
+import rs.chimera.android.ui.navigation.VpnUiActionGate
+import rs.chimera.android.viewmodel.HomeViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun WatfaqAppRoot(
@@ -33,6 +38,13 @@ fun WatfaqAppRoot(
     var showConnectionsScreen by rememberSaveable { mutableStateOf(false) }
     var showLogsScreen by rememberSaveable { mutableStateOf(false) }
     var showAppSelectorScreen by rememberSaveable { mutableStateOf(false) }
+    val homeViewModel: HomeViewModel = viewModel()
+    val globalVpnActionInProgress by VpnUiActionGate.vpnActionInProgress.collectAsState()
+    val vpnActionEnabled = HomeVpnActionAvailabilityPolicy.isEnabled(
+        isVpnTransitioning = homeViewModel.isVpnTransitioning,
+        isVpnActionInProgress = homeViewModel.isVpnActionInProgress || globalVpnActionInProgress,
+        isUiSwitchAllowed = VpnUiActionGate.canSwitchUi(),
+    )
 
     val showBottomBar = !showConnectionsScreen && !showLogsScreen && !showAppSelectorScreen
 
@@ -78,6 +90,7 @@ fun WatfaqAppRoot(
                     } else {
                         HomeScreen(
                             modifier = contentModifier,
+                            viewModel = homeViewModel,
                             onConnectionsClick = { showConnectionsScreen = true },
                             onSwitchUi = onSwitchUi,
                         )
@@ -105,6 +118,7 @@ fun WatfaqAppRoot(
                         else -> {
                             SettingsScreen(
                                 modifier = contentModifier,
+                                uiSwitchEnabled = vpnActionEnabled,
                                 onLogsClick = { showLogsScreen = true },
                                 onAppFilterClick = { showAppSelectorScreen = true },
                             )

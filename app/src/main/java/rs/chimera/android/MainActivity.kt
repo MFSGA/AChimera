@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.core.content.ContextCompat
 import rs.chimera.android.theme.ChimeraTheme
+import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.UiVariant
@@ -37,8 +38,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         requestNotificationPermission()
 
-        if (AppPreferences.uiVariant(this) == UiVariant.METACUBEX) {
-            DefaultAppUiRouter.openMetaCubeX(this)
+        if (
+            AppPreferences.uiVariant(this) == UiVariant.METACUBEX
+        ) {
+            startActivity(Intent(this, MetaMainActivity::class.java))
             finish()
             return
         }
@@ -48,7 +51,13 @@ class MainActivity : AppCompatActivity() {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     WatfaqAppRoot(
                         onSwitchUi = {
-                            DefaultAppUiRouter.openMetaCubeX(this@MainActivity)
+                            if (!DefaultAppUiRouter.openMetaCubeX(this@MainActivity)) {
+                                android.widget.Toast.makeText(
+                                    this@MainActivity,
+                                    R.string.ui_switch_wait_for_vpn_action,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
                         },
                     )
                 }

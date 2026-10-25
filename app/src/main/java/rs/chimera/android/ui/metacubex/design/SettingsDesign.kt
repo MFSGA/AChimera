@@ -6,12 +6,16 @@ import android.graphics.Color
 import android.view.View
 import android.view.ViewGroup
 import android.view.View.MeasureSpec
+import android.view.accessibility.AccessibilityEvent
 import android.widget.BaseAdapter
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.widget.ListPopupWindow
+import androidx.core.view.AccessibilityDelegateCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.color.MaterialColors
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -51,6 +55,7 @@ class SettingsDesign(
         data object ChooseAppearance : Request()
         data object ChooseUiVariant : Request()
         data class SetAutoRestart(val enabled: Boolean) : Request()
+        data class SetHideFromRecents(val enabled: Boolean) : Request()
         data class SetAllowLan(val enabled: Boolean) : Request()
         data class SetFakeIp(val enabled: Boolean) : Request()
         data class SetIpv6(val enabled: Boolean) : Request()
@@ -69,6 +74,7 @@ class SettingsDesign(
         val appearance: String,
         val uiVariant: String,
         val autoRestart: Boolean,
+        val hideFromRecents: Boolean,
         val vpnSystemStatus: String,
         val vpnSystemRestricted: Boolean,
     )
@@ -112,6 +118,9 @@ class SettingsDesign(
     )
     private val rowAutoRestart = root.findViewById<View>(R.id.row_auto_restart)
     private val switchAutoRestart = root.findViewById<SwitchMaterial>(R.id.switch_auto_restart)
+    private val rowHideFromRecents = root.findViewById<View>(R.id.row_hide_from_recents)
+    private val switchHideFromRecents =
+        root.findViewById<SwitchMaterial>(R.id.switch_hide_from_recents)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
     private val switchIpv6 = root.findViewById<SwitchMaterial>(R.id.switch_ipv6)
@@ -159,6 +168,26 @@ class SettingsDesign(
         cardAppearance.setOnClickListener { request(Request.ChooseAppearance) }
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }
         rowAutoRestart.setOnClickListener { switchAutoRestart.isChecked = !switchAutoRestart.isChecked }
+        rowHideFromRecents.setOnClickListener {
+            switchHideFromRecents.isChecked = !switchHideFromRecents.isChecked
+        }
+        ViewCompat.setAccessibilityDelegate(
+            rowHideFromRecents,
+            object : AccessibilityDelegateCompat() {
+                override fun onInitializeAccessibilityNodeInfo(
+                    host: View,
+                    info: AccessibilityNodeInfoCompat,
+                ) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    info.className = "android.widget.Switch"
+                    info.contentDescription = context.getString(
+                        R.string.settings_hide_from_recents_accessibility,
+                    )
+                    info.isCheckable = true
+                    info.isChecked = switchHideFromRecents.isChecked
+                }
+            },
+        )
         rowAllowLan.setOnClickListener { switchAllowLan.isChecked = !switchAllowLan.isChecked }
         rowFakeIp.setOnClickListener { switchFakeIp.isChecked = !switchFakeIp.isChecked }
         rowIpv6.setOnClickListener { switchIpv6.isChecked = !switchIpv6.isChecked }
@@ -184,6 +213,14 @@ class SettingsDesign(
         switchAutoRestart.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAutoRestart(checked))
         }
+        switchHideFromRecents.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) {
+                rowHideFromRecents.sendAccessibilityEvent(
+                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                )
+                request(Request.SetHideFromRecents(checked))
+            }
+        }
         switchFakeIp.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetFakeIp(checked))
         }
@@ -199,6 +236,7 @@ class SettingsDesign(
         currentState = state
         rendering = true
         switchAutoRestart.isChecked = state.autoRestart
+        switchHideFromRecents.isChecked = state.hideFromRecents
         switchAllowLan.isChecked = state.allowLan
         switchFakeIp.isChecked = state.fakeIp
         switchIpv6.isChecked = state.ipv6

@@ -38,6 +38,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -59,6 +60,7 @@ import rs.chimera.android.R
 import rs.chimera.android.formatSize
 import rs.chimera.android.ui.components.StatsCard
 import rs.chimera.android.ui.components.TextInfoDialog
+import rs.chimera.android.ui.navigation.VpnUiActionGate
 import rs.chimera.android.viewmodel.HomeViewModel
 import rs.chimera.android.backend.model.MemoryInfo
 
@@ -86,6 +88,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val vpnPermissionDeniedMessage = stringResource(R.string.service_vpn_permission_denied)
+    val globalVpnActionInProgress by VpnUiActionGate.vpnActionInProgress.collectAsState()
     var showRestartDialog by remember { mutableStateOf(false) }
     var showInfoDialog by remember { mutableStateOf(false) }
 
@@ -95,9 +98,16 @@ fun HomeScreen(
             if (result.resultCode == RESULT_OK) {
                 viewModel.startVpnAfterPermission()
             } else {
+                viewModel.cancelVpnStart()
                 viewModel.reportError(vpnPermissionDeniedMessage)
             }
         },
+    )
+
+    val vpnActionEnabled = HomeVpnActionAvailabilityPolicy.isEnabled(
+        isVpnTransitioning = viewModel.isVpnTransitioning,
+        isVpnActionInProgress = viewModel.isVpnActionInProgress || globalVpnActionInProgress,
+        isUiSwitchAllowed = VpnUiActionGate.canSwitchUi(),
     )
 
     if (showRestartDialog) {
@@ -144,7 +154,20 @@ fun HomeScreen(
                 title = { Text(stringResource(R.string.home_title)) },
                 actions = {
                     if (onSwitchUi != null) {
-                        IconButton(onClick = onSwitchUi) {
+                        IconButton(
+                            onClick = {
+                                if (
+                                    HomeVpnActionAvailabilityPolicy.isEnabled(
+                                        isVpnTransitioning = viewModel.isVpnTransitioning,
+                                        isVpnActionInProgress = viewModel.isVpnActionInProgress,
+                                        isUiSwitchAllowed = VpnUiActionGate.canSwitchUi(),
+                                    )
+                                ) {
+                                    onSwitchUi()
+                                }
+                            },
+                            enabled = vpnActionEnabled,
+                        ) {
                             Icon(
                                 imageVector = Icons.Filled.SwapHoriz,
                                 contentDescription = stringResource(R.string.switch_to_metacubex_ui),
@@ -177,7 +200,6 @@ fun HomeScreen(
         val download = viewModel.totalDownload
         val upload = viewModel.totalUpload
         val isVpnRunning = viewModel.isVpnRunning
-        val vpnActionEnabled = !viewModel.isVpnTransitioning
         val errorMessage = viewModel.errorMessage
 
         OverviewTab(
