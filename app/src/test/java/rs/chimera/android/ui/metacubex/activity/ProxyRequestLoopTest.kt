@@ -74,9 +74,9 @@ class ProxyRequestLoopTest {
             }
         }
 
-        requests.send(ProxyDesign.Request.SelectProxy("Proxy", "node-b", selectionProjected = true))
+        requests.send(ProxyDesign.Request.SelectProxy("Proxy", "node-b", selectionToken = 1L))
         firstSelectionStarted.await()
-        requests.send(ProxyDesign.Request.SelectProxy("Proxy", "node-a", selectionProjected = true))
+        requests.send(ProxyDesign.Request.SelectProxy("Proxy", "node-a", selectionToken = 2L))
         yield()
 
         assertEquals(listOf("start:node-b"), handledEvents)

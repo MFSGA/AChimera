@@ -34,8 +34,11 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         data class SelectProxy(
             val groupName: String,
             val proxyName: String,
-            val selectionProjected: Boolean = false,
-        ) : Request()
+            val selectionToken: Long? = null,
+        ) : Request() {
+            val selectionProjected: Boolean
+                get() = selectionToken != null
+        }
         data class DelayTest(val groupName: String, val proxyNames: List<String>) : Request()
         data class SwitchMode(val mode: ProxyMode?) : Request()
         data object Refresh : Request()
@@ -197,17 +200,25 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         )
     }
 
-    fun applyProxySelection(groupName: String, proxyName: String): Boolean {
-        if (!proxySelectionState.projectSelection(groupName, proxyName)) return false
+    fun applyProxySelection(groupName: String, proxyName: String): Long? {
+        val token = proxySelectionState.beginSelection(groupName, proxyName) ?: return null
         renderGroups(
             rebindVisibleRowsImmediately = true,
         )
-        return true
+        return token
     }
 
     /** Advances rollback state without replacing a newer optimistic selection already on screen. */
-    fun confirmProxySelection(groupName: String, proxyName: String): Boolean =
-        proxySelectionState.confirmSelection(groupName, proxyName)
+    fun confirmProxySelection(token: Long?, groupName: String, proxyName: String): Boolean =
+        proxySelectionState.confirmSelection(token, groupName, proxyName)
+
+    fun rejectProxySelection(token: Long?) {
+        proxySelectionState.rejectSelection(token)
+        renderGroups(
+            rebindVisibleRowsImmediately = true,
+            forceSnapSelectionColor = true,
+        )
+    }
 
     fun restoreConfirmedProxyGroups() {
         proxySelectionState.restoreConfirmedSnapshot()
@@ -473,12 +484,12 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     }
 
     private fun requestProxySelection(groupName: String, proxyName: String) {
-        val projected = applyProxySelection(groupName, proxyName)
-        val request = Request.SelectProxy(groupName, proxyName, selectionProjected = projected)
+        val selectionToken = applyProxySelection(groupName, proxyName)
+        val request = Request.SelectProxy(groupName, proxyName, selectionToken)
         onProxySelectionQueueChanged?.invoke(true)
         if (requests.trySend(request).isFailure) {
             onProxySelectionQueueChanged?.invoke(false)
-            if (projected) restoreConfirmedProxyGroups()
+            rejectProxySelection(selectionToken)
         }
     }
 
