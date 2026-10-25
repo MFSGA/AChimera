@@ -10,7 +10,15 @@ internal data class ProxySelectionProjection(
 )
 
 internal class ProxySelectionState {
+    private data class PendingSelection(
+        val token: Long,
+        val groupName: String,
+        val proxyName: String,
+    )
+
     private var confirmedGroups = emptyList<ProxyGroupSnapshot>()
+    private val pendingSelections = mutableListOf<PendingSelection>()
+    private var nextSelectionToken = 0L
     var displayedGroups = emptyList<ProxyGroupSnapshot>()
         private set
 
@@ -20,23 +28,60 @@ internal class ProxySelectionState {
     ) {
         val acceptedGroups = if (preserveCachedSelections) preserveSelections(groups) else groups
         confirmedGroups = acceptedGroups
-        displayedGroups = acceptedGroups
+        reapplyPendingSelections()
     }
 
     fun projectSelection(groupName: String, proxyName: String): Boolean {
-        val projection = projectProxySelection(displayedGroups, groupName, proxyName) ?: return false
-        displayedGroups = projection.groups
-        return true
+        return beginSelection(groupName, proxyName) != null
+    }
+
+    fun beginSelection(groupName: String, proxyName: String): Long? {
+        if (projectProxySelection(displayedGroups, groupName, proxyName) == null) return null
+        val token = ++nextSelectionToken
+        pendingSelections += PendingSelection(token, groupName, proxyName)
+        reapplyPendingSelections()
+        return token
     }
 
     fun confirmSelection(groupName: String, proxyName: String): Boolean {
-        val projection = projectProxySelection(confirmedGroups, groupName, proxyName) ?: return false
+        val token = pendingSelections.firstOrNull {
+            it.groupName == groupName && it.proxyName == proxyName
+        }?.token
+        return confirmSelection(token, groupName, proxyName)
+    }
+
+    fun confirmSelection(token: Long?, groupName: String, proxyName: String): Boolean {
+        val projection = projectProxySelection(confirmedGroups, groupName, proxyName)
+        if (projection == null) {
+            removePendingSelection(token)
+            reapplyPendingSelections()
+            return false
+        }
         confirmedGroups = projection.groups
+        removePendingSelection(token)
+        reapplyPendingSelections()
         return true
     }
 
+    fun rejectSelection(token: Long?) {
+        removePendingSelection(token)
+        reapplyPendingSelections()
+    }
+
+    private fun removePendingSelection(token: Long?) {
+        if (token == null) return
+        pendingSelections.removeAll { it.token == token }
+    }
+
     fun restoreConfirmedSnapshot() {
+        pendingSelections.clear()
         displayedGroups = confirmedGroups
+    }
+
+    private fun reapplyPendingSelections() {
+        displayedGroups = pendingSelections.fold(confirmedGroups) { groups, selection ->
+            projectProxySelection(groups, selection.groupName, selection.proxyName)?.groups ?: groups
+        }
     }
 
     private fun preserveSelections(groups: List<ProxyGroupSnapshot>): List<ProxyGroupSnapshot> {

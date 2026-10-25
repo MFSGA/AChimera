@@ -174,6 +174,52 @@ class ProxySelectionProjectionTest {
     }
 
     @Test
+    fun rejectingEarlierSelectionPreservesLaterSelectionInTheSameGroup() {
+        val state = ProxySelectionState()
+        state.acceptBackendSnapshot(
+            listOf(selectorGroup(type = PROXY_SELECTOR_TYPE, additionalNodes = listOf(LATEST_NODE))),
+        )
+
+        val failedSelection = state.beginSelection(SELECTOR, NEW_NODE)!!
+        val laterSelection = state.beginSelection(SELECTOR, LATEST_NODE)!!
+
+        state.rejectSelection(failedSelection)
+
+        assertEquals(LATEST_NODE, state.displayedGroups.single().selected)
+        assertTrue(state.confirmSelection(laterSelection, SELECTOR, LATEST_NODE))
+        assertEquals(LATEST_NODE, state.displayedGroups.single().selected)
+        state.restoreConfirmedSnapshot()
+        assertEquals(LATEST_NODE, state.displayedGroups.single().selected)
+    }
+
+    @Test
+    fun rejectingEarlierSelectionPreservesLaterSelectionInAnotherGroup() {
+        val state = ProxySelectionState()
+        state.acceptBackendSnapshot(
+            listOf(
+                selectorGroup(type = PROXY_SELECTOR_TYPE),
+                selectorGroup(
+                    name = OTHER_SELECTOR,
+                    type = PROXY_SELECTOR_TYPE,
+                    additionalNodes = listOf(LATEST_NODE),
+                ),
+            ),
+        )
+
+        val failedSelection = state.beginSelection(SELECTOR, NEW_NODE)!!
+        val laterSelection = state.beginSelection(OTHER_SELECTOR, LATEST_NODE)!!
+
+        state.rejectSelection(failedSelection)
+
+        assertEquals(OLD_NODE, state.displayedGroups.first { it.name == SELECTOR }.selected)
+        assertEquals(LATEST_NODE, state.displayedGroups.first { it.name == OTHER_SELECTOR }.selected)
+        assertTrue(state.confirmSelection(laterSelection, OTHER_SELECTOR, LATEST_NODE))
+        assertEquals(LATEST_NODE, state.displayedGroups.first { it.name == OTHER_SELECTOR }.selected)
+        state.restoreConfirmedSnapshot()
+        assertEquals(LATEST_NODE, state.displayedGroups.first { it.name == OTHER_SELECTOR }.selected)
+    }
+
+    @Test
     fun confirmedSnapshotAdvancesAfterSuccessfulBackendRefresh() {
         val state = ProxySelectionState()
         val initial = listOf(selectorGroup(type = PROXY_SELECTOR_TYPE))
@@ -261,23 +307,26 @@ class ProxySelectionProjectionTest {
     private fun selectorGroup(
         name: String = SELECTOR,
         type: String,
+        additionalNodes: List<String> = emptyList(),
     ) = ProxyGroupSnapshot(
         name = name,
-        proxies = listOf(OLD_NODE, NEW_NODE),
+        proxies = listOf(OLD_NODE, NEW_NODE) + additionalNodes,
         selected = OLD_NODE,
         mode = ProxyMode.RULE,
         proxyDetails = mapOf(
             name to ProxySnapshot(name, type, emptyList(), isGroup = true, now = OLD_NODE),
             OLD_NODE to ProxySnapshot(OLD_NODE, "Vless", emptyList()),
             NEW_NODE to ProxySnapshot(NEW_NODE, "Vless", emptyList()),
-        ),
+        ) + additionalNodes.associateWith { ProxySnapshot(it, "Vless", emptyList()) },
     )
 
     private companion object {
         const val SELECTOR = "Manual"
+        const val OTHER_SELECTOR = "Other"
         const val PARENT_GROUP = "Fallback"
         const val SECOND_PARENT_GROUP = "LoadBalance"
         const val OLD_NODE = "old-node"
         const val NEW_NODE = "new-node"
+        const val LATEST_NODE = "latest-node"
     }
 }
