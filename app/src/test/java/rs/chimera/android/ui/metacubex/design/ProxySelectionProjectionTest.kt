@@ -28,12 +28,14 @@ class ProxySelectionProjectionTest {
             ),
             ProxyGroupSnapshot(
                 name = PARENT_GROUP,
-                proxies = listOf(SELECTOR),
-                selected = SELECTOR,
+                proxies = listOf(SELECTOR, OLD_NODE, NEW_NODE),
+                selected = OLD_NODE,
                 mode = ProxyMode.RULE,
                 proxyDetails = mapOf(
-                    PARENT_GROUP to ProxySnapshot(PARENT_GROUP, "Fallback", emptyList(), true, SELECTOR),
+                    PARENT_GROUP to ProxySnapshot(PARENT_GROUP, "Fallback", emptyList(), true, OLD_NODE),
                     SELECTOR to ProxySnapshot(SELECTOR, PROXY_SELECTOR_TYPE, emptyList(), true, OLD_NODE),
+                    OLD_NODE to ProxySnapshot(OLD_NODE, "Vless", emptyList()),
+                    NEW_NODE to ProxySnapshot(NEW_NODE, "Vless", emptyList()),
                 ),
             ),
             ProxyGroupSnapshot(
@@ -56,16 +58,18 @@ class ProxySelectionProjectionTest {
         assertEquals(NEW_NODE, updatedSelector?.proxyDetails?.get(SELECTOR)?.now)
 
         val updatedParent = projection?.groups?.first { it.name == PARENT_GROUP }
-        assertEquals(SELECTOR, updatedParent?.selected)
+        assertEquals(OLD_NODE, updatedParent?.selected)
         assertEquals(NEW_NODE, updatedParent?.proxyDetails?.get(SELECTOR)?.now)
 
         val renderedParent = ProxyDisplayPolicy.groupPages(
             projection!!.groups,
             unavailableType = "Unavailable",
         ).first { it.name == PARENT_GROUP }
-        val linkedCard = renderedParent.proxies.single()
+        val linkedCard = renderedParent.proxies.single { it.name == SELECTOR }
         assertEquals("$PROXY_SELECTOR_TYPE($NEW_NODE)", linkedCard.subtitle)
-        assertTrue(linkedCard.isSelected)
+        assertFalse(linkedCard.isSelected)
+        assertTrue(renderedParent.proxies.single { it.name == OLD_NODE }.isSelected)
+        assertFalse(renderedParent.proxies.single { it.name == NEW_NODE }.isSelected)
 
         val renderedSecondParent = ProxyDisplayPolicy.groupPages(
             projection.groups,
