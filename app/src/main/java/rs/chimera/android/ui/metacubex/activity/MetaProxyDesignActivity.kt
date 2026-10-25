@@ -106,7 +106,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                             !selecting &&
                             !testing
                         ) {
-                            design.setGroups(snapshots)
+                            design.setGroups(snapshots, preserveCachedSelections = true)
                         }
                     }
                 }

@@ -196,6 +196,68 @@ class ProxySelectionProjectionTest {
         assertEquals(NEW_NODE, state.displayedGroups.single().selected)
     }
 
+    @Test
+    fun telemetrySnapshotPreservesEachGroupSelectionAndRefreshesNodeData() {
+        val initialSelector = selectorGroup(type = PROXY_SELECTOR_TYPE)
+        val initialParent = ProxyGroupSnapshot(
+            name = PARENT_GROUP,
+            proxies = listOf(SELECTOR, OLD_NODE, NEW_NODE),
+            selected = OLD_NODE,
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                PARENT_GROUP to ProxySnapshot(PARENT_GROUP, "Fallback", emptyList(), true, OLD_NODE),
+                SELECTOR to ProxySnapshot(SELECTOR, PROXY_SELECTOR_TYPE, emptyList(), true, OLD_NODE),
+                OLD_NODE to ProxySnapshot(OLD_NODE, "Vless", emptyList()),
+                NEW_NODE to ProxySnapshot(NEW_NODE, "Vless", emptyList()),
+            ),
+        )
+        val state = ProxySelectionState()
+        state.acceptBackendSnapshot(listOf(initialSelector, initialParent))
+
+        assertTrue(state.projectSelection(SELECTOR, NEW_NODE))
+        assertTrue(state.confirmSelection(SELECTOR, NEW_NODE))
+
+        val latestSelector = initialSelector.copy(
+            selected = NEW_NODE,
+            proxyDetails = initialSelector.proxyDetails +
+                (SELECTOR to initialSelector.proxyDetails.getValue(SELECTOR).copy(now = NEW_NODE)) +
+                (NEW_NODE to initialSelector.proxyDetails.getValue(NEW_NODE).copy(
+                    history = listOf(rs.chimera.android.backend.model.ProxyDelayHistory(42, 1_000L)),
+                )),
+        )
+        val latestParent = initialParent.copy(
+            selected = NEW_NODE,
+            proxyDetails = initialParent.proxyDetails +
+                (PARENT_GROUP to initialParent.proxyDetails.getValue(PARENT_GROUP).copy(now = NEW_NODE)) +
+                (SELECTOR to initialParent.proxyDetails.getValue(SELECTOR).copy(now = NEW_NODE)) +
+                (NEW_NODE to initialParent.proxyDetails.getValue(NEW_NODE).copy(
+                    history = listOf(rs.chimera.android.backend.model.ProxyDelayHistory(42, 1_000L)),
+                )),
+        )
+
+        state.acceptBackendSnapshot(
+            listOf(latestSelector, latestParent),
+            preserveCachedSelections = true,
+        )
+
+        val preservedParent = state.displayedGroups.first { it.name == PARENT_GROUP }
+        assertEquals(OLD_NODE, preservedParent.selected)
+        assertEquals(OLD_NODE, preservedParent.proxyDetails[PARENT_GROUP]?.now)
+        assertEquals(NEW_NODE, preservedParent.proxyDetails[SELECTOR]?.now)
+        assertEquals(42, preservedParent.proxyDetails[NEW_NODE]?.history?.last()?.delay)
+
+        val renderedParent = ProxyDisplayPolicy.groupPages(
+            state.displayedGroups,
+            unavailableType = "Unavailable",
+        ).first { it.name == PARENT_GROUP }
+        assertTrue(renderedParent.proxies.single { it.name == OLD_NODE }.isSelected)
+        assertFalse(renderedParent.proxies.single { it.name == NEW_NODE }.isSelected)
+        assertEquals("$PROXY_SELECTOR_TYPE($NEW_NODE)", renderedParent.proxies.single { it.name == SELECTOR }.subtitle)
+
+        state.acceptBackendSnapshot(listOf(latestSelector, latestParent))
+        assertEquals(NEW_NODE, state.displayedGroups.first { it.name == PARENT_GROUP }.selected)
+    }
+
     private fun selectorGroup(
         name: String = SELECTOR,
         type: String,

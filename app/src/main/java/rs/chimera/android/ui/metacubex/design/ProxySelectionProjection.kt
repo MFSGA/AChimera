@@ -14,9 +14,13 @@ internal class ProxySelectionState {
     var displayedGroups = emptyList<ProxyGroupSnapshot>()
         private set
 
-    fun acceptBackendSnapshot(groups: List<ProxyGroupSnapshot>) {
-        confirmedGroups = groups
-        displayedGroups = groups
+    fun acceptBackendSnapshot(
+        groups: List<ProxyGroupSnapshot>,
+        preserveCachedSelections: Boolean = false,
+    ) {
+        val acceptedGroups = if (preserveCachedSelections) preserveSelections(groups) else groups
+        confirmedGroups = acceptedGroups
+        displayedGroups = acceptedGroups
     }
 
     fun projectSelection(groupName: String, proxyName: String): Boolean {
@@ -33,6 +37,51 @@ internal class ProxySelectionState {
 
     fun restoreConfirmedSnapshot() {
         displayedGroups = confirmedGroups
+    }
+
+    private fun preserveSelections(groups: List<ProxyGroupSnapshot>): List<ProxyGroupSnapshot> {
+        if (confirmedGroups.isEmpty()) return groups
+
+        val previousGroupsByName = confirmedGroups.associateBy(ProxyGroupSnapshot::name)
+        val selectionsByGroup = groups.mapNotNull { incoming ->
+            val previous = previousGroupsByName[incoming.name] ?: return@mapNotNull null
+            val previousGroup = previous.proxyDetails[previous.name]
+            val incomingGroup = incoming.proxyDetails[incoming.name]
+            if (
+                previousGroup?.isGroup != true ||
+                incomingGroup?.isGroup != true ||
+                previousGroup.type != incomingGroup.type
+            ) {
+                return@mapNotNull null
+            }
+
+            val selection = previous.selected
+            if (selection == null || selection in incoming.proxies) incoming.name to selection else null
+        }.toMap()
+        if (selectionsByGroup.isEmpty()) return groups
+
+        val projectedDetailsBySource =
+            IdentityHashMap<Map<String, ProxySnapshot>, Map<String, ProxySnapshot>>()
+        return groups.map { snapshot ->
+            val selected = selectionsByGroup[snapshot.name]
+            val projectedDetails = projectedDetailsBySource.getOrPut(snapshot.proxyDetails) {
+                snapshot.proxyDetails.mapValues { (name, proxy) ->
+                    if (proxy.isGroup && name in selectionsByGroup) {
+                        proxy.copy(now = selectionsByGroup[name])
+                    } else {
+                        proxy
+                    }
+                }
+            }
+            snapshot.copy(
+                selected = if (selectionsByGroup.containsKey(snapshot.name)) {
+                    selected
+                } else {
+                    snapshot.selected
+                },
+                proxyDetails = projectedDetails,
+            )
+        }
     }
 }
 

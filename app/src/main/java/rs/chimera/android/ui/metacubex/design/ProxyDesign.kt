@@ -177,8 +177,14 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
     }
 
-    fun setGroups(snapshots: List<ProxyGroupSnapshot>) {
-        proxySelectionState.acceptBackendSnapshot(snapshots)
+    fun setGroups(
+        snapshots: List<ProxyGroupSnapshot>,
+        preserveCachedSelections: Boolean = false,
+    ) {
+        proxySelectionState.acceptBackendSnapshot(
+            snapshots,
+            preserveCachedSelections = preserveCachedSelections,
+        )
         val lastGroupStillExists = snapshots.any { snapshot ->
             snapshot.name == lastGroupName && snapshot.proxyDetails[snapshot.name]?.isGroup == true
         }
