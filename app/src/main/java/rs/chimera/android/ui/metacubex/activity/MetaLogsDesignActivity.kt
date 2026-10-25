@@ -1,6 +1,5 @@
 package rs.chimera.android.ui.metacubex.activity
 
-import android.app.AlertDialog
 import android.content.ClipboardManager
 import android.os.Build
 import android.os.Bundle
@@ -16,15 +15,14 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.ui.metacubex.design.LogsDesign
+import rs.chimera.android.ui.metacubex.design.RuntimeLogEntry
 import rs.chimera.android.util.SensitiveClipboard
 
 class MetaLogsDesignActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private lateinit var design: LogsDesign
-    private var currentLog = ""
-    private var paused = false
-    private var autoScroll = true
     private var refreshing = false
+    private var hasLoaded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,33 +30,22 @@ class MetaLogsDesignActivity : AppCompatActivity() {
         setContentView(design.root)
 
         lifecycleScope.launch {
-            for (request in design.requests) handleRequest(request)
-        }
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                if (paused) renderLog() else design.showLoading()
-                while (true) {
-                    if (!paused) refreshLogs()
-                    delay(2_000)
+            for (request in design.requests) {
+                when (request) {
+                    is LogsDesign.Request.CopyMessage -> copyMessage(request.message)
+                    LogsDesign.Request.Retry -> refreshLogs(showLoading = true)
+                    LogsDesign.Request.NavigateBack, LogsDesign.Request.Close -> finish()
                 }
             }
         }
-    }
-
-    private suspend fun handleRequest(request: LogsDesign.Request) {
-        when (request) {
-            is LogsDesign.Request.SetPaused -> {
-                paused = request.paused
-                if (!paused) refreshLogs() else renderLog()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                if (!hasLoaded) design.showLoading()
+                while (true) {
+                    refreshLogs()
+                    delay(2_000)
+                }
             }
-            is LogsDesign.Request.SetAutoScroll -> {
-                autoScroll = request.enabled
-                renderLog()
-            }
-            LogsDesign.Request.CopyLogs -> copyLogs()
-            LogsDesign.Request.ClearLogs -> confirmClear()
-            LogsDesign.Request.Retry -> refreshLogs(showLoading = true)
-            LogsDesign.Request.NavigateBack -> finish()
         }
     }
 
@@ -67,65 +54,24 @@ class MetaLogsDesignActivity : AppCompatActivity() {
         refreshing = true
         if (showLoading) design.showLoading()
         try {
-            currentLog = withContext(Dispatchers.IO) { backend.readRuntimeLogs(500) }
-            renderLog()
+            val messages = withContext(Dispatchers.IO) { RuntimeLogEntry.parse(backend.readRuntimeLogs(500)) }
+            design.showContent(messages)
+            hasLoaded = true
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            design.showError(
-                getString(
-                    R.string.logs_read_error,
-                    error.message ?: getString(R.string.profile_unknown_error),
-                ),
-            )
+            design.showError(getString(R.string.logs_read_error, error.message ?: getString(R.string.profile_unknown_error)))
         } finally {
             refreshing = false
         }
     }
 
-    private fun renderLog() {
-        val lines = if (currentLog.isBlank()) 0 else currentLog.lineSequence().count()
-        design.showContent(currentLog, lines, paused, autoScroll)
-    }
-
-    private fun copyLogs() {
-        if (currentLog.isBlank()) return
-        val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(
-            SensitiveClipboard.plainText(getString(R.string.logs_screen), currentLog),
+    private suspend fun copyMessage(message: String) {
+        getSystemService(ClipboardManager::class.java).setPrimaryClip(
+            SensitiveClipboard.plainText(getString(R.string.meta_logcat), message),
         )
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2) {
-            design.showToast(getString(R.string.logs_copied))
-        }
-    }
-
-    private fun confirmClear() {
-        if (currentLog.isBlank()) return
-        AlertDialog.Builder(this)
-            .setTitle(R.string.home_logs_clear)
-            .setMessage(R.string.logs_clear_confirm)
-            .setPositiveButton(R.string.home_logs_clear) { _, _ ->
-                lifecycleScope.launch { clearLogs() }
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
-    }
-
-    private suspend fun clearLogs() {
-        try {
-            withContext(Dispatchers.IO) { backend.clearRuntimeLogs() }
-            currentLog = ""
-            renderLog()
-            design.showToast(getString(R.string.logs_cleared))
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            design.showToast(
-                getString(
-                    R.string.logs_clear_error,
-                    error.message ?: getString(R.string.profile_unknown_error),
-                ),
-            )
+            design.showToast(getString(R.string.meta_log_message_copied))
         }
     }
 }

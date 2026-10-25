@@ -1,87 +1,111 @@
 package rs.chimera.android.ui.metacubex.design
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.view.View
 import android.widget.ProgressBar
-import android.widget.ScrollView
 import android.widget.TextView
-import com.google.android.material.appbar.MaterialToolbar
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.switchmaterial.SwitchMaterial
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnAttach
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import rs.chimera.android.R
+import rs.chimera.android.ui.metacubex.adapter.LogMessageAdapter
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
 class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
     override val root: View = context.layoutInflater.inflate(R.layout.meta_design_logs, context.root, false)
 
-    private val logScroll = root.findViewById<ScrollView>(R.id.log_scroll)
-    private val logContent = root.findViewById<TextView>(R.id.log_content)
-    private val logStatus = root.findViewById<TextView>(R.id.log_status)
+    private val activityBar = root.findViewById<View>(R.id.log_activity_bar)
+    private val recycler = root.findViewById<RecyclerView>(R.id.log_recycler_list)
     private val stateContainer = root.findViewById<View>(R.id.state_container)
     private val stateProgress = root.findViewById<ProgressBar>(R.id.state_progress)
     private val stateMessage = root.findViewById<TextView>(R.id.state_message)
-    private val retryButton = root.findViewById<MaterialButton>(R.id.retry_button)
-    private val copyButton = root.findViewById<MaterialButton>(R.id.copy_button)
-    private val clearButton = root.findViewById<MaterialButton>(R.id.clear_button)
-    private val pauseSwitch = root.findViewById<SwitchMaterial>(R.id.pause_switch)
-    private val autoScrollSwitch = root.findViewById<SwitchMaterial>(R.id.auto_scroll_switch)
+    private val retryButton = root.findViewById<View>(R.id.retry_button)
+    private val adapter = LogMessageAdapter { requests.trySend(Request.CopyMessage(it.message)) }
+    private var submittedMessages: List<RuntimeLogEntry>? = null
+    private var userScrollRevision = 0L
+    private var elevated = false
+    private var elevationAnimator: ValueAnimator? = null
 
     init {
-        root.findViewById<MaterialToolbar>(R.id.toolbar)
-            .setNavigationOnClickListener { request(Request.NavigateBack) }
-        retryButton.setOnClickListener { request(Request.Retry) }
-        copyButton.setOnClickListener { request(Request.CopyLogs) }
-        clearButton.setOnClickListener { request(Request.ClearLogs) }
-        pauseSwitch.setOnCheckedChangeListener { _, checked -> request(Request.SetPaused(checked)) }
-        autoScrollSwitch.setOnCheckedChangeListener { _, checked -> request(Request.SetAutoScroll(checked)) }
+        root.findViewById<View>(R.id.log_back_button).setOnClickListener { requests.trySend(Request.NavigateBack) }
+        root.findViewById<View>(R.id.log_close_button).setOnClickListener { requests.trySend(Request.Close) }
+        retryButton.setOnClickListener { requests.trySend(Request.Retry) }
+        recycler.isFocusable = false
+        recycler.layoutManager = LinearLayoutManager(context).apply {
+            reverseLayout = true
+            stackFromEnd = true
+        }
+        recycler.adapter = adapter
+        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                if (newState == RecyclerView.SCROLL_STATE_DRAGGING) userScrollRevision++
+            }
+
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                val next = recyclerView.computeVerticalScrollOffset() != 0
+                if (next == elevated) return
+                elevated = next
+                elevationAnimator?.end()
+                elevationAnimator = ValueAnimator.ofFloat(
+                    activityBar.elevation,
+                    if (next) context.resources.getDimension(R.dimen.metacubex_tab_layout_elevation) else 0f,
+                ).apply {
+                    addUpdateListener { activityBar.elevation = it.animatedValue as Float }
+                    start()
+                }
+            }
+        })
+        val toolbarHeight = context.resources.getDimensionPixelSize(R.dimen.metacubex_toolbar_height)
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val rtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            view.setPaddingRelative(if (rtl) bars.right else bars.left, 0, if (rtl) bars.left else bars.right, 0)
+            activityBar.setPadding(0, bars.top, 0, 0)
+            recycler.setPaddingRelative(0, bars.top + toolbarHeight, 0, bars.bottom)
+            stateContainer.setPadding(0, bars.top + toolbarHeight, 0, bars.bottom)
+            insets
+        }
+        root.doOnAttach { ViewCompat.requestApplyInsets(it) }
     }
 
     fun showLoading() {
-        logScroll.visibility = View.GONE
+        recycler.visibility = View.GONE
         stateContainer.visibility = View.VISIBLE
         stateProgress.visibility = View.VISIBLE
         retryButton.visibility = View.GONE
         stateMessage.setText(R.string.logs_loading)
     }
 
-    fun showContent(log: String, lineCount: Int, paused: Boolean, autoScroll: Boolean) {
+    fun showContent(messages: List<RuntimeLogEntry>) {
         stateContainer.visibility = View.GONE
-        logScroll.visibility = View.VISIBLE
-        logContent.text = log.ifBlank { context.getString(R.string.home_logs_empty) }
-        logStatus.text = context.resources.getQuantityString(
-            if (paused) R.plurals.logs_status_paused else R.plurals.logs_status_live,
-            lineCount,
-            lineCount,
-        )
-        pauseSwitch.isChecked = paused
-        autoScrollSwitch.isChecked = autoScroll
-        copyButton.isEnabled = log.isNotBlank()
-        clearButton.isEnabled = log.isNotBlank()
-        if (autoScroll) logScroll.post { logScroll.fullScroll(View.FOCUS_DOWN) }
+        recycler.visibility = View.VISIBLE
+        if (messages == submittedMessages) return
+        val snapshot = messages.toList()
+        submittedMessages = snapshot
+        val followLatest = adapter.itemCount == 0 || recycler.computeVerticalScrollOffset() == 0
+        val revision = userScrollRevision
+        adapter.submitList(snapshot) {
+            if (followLatest && revision == userScrollRevision && snapshot.isNotEmpty()) {
+                recycler.scrollToPosition(snapshot.lastIndex)
+            }
+        }
     }
 
     fun showError(message: String) {
-        logScroll.visibility = View.GONE
+        recycler.visibility = View.GONE
         stateContainer.visibility = View.VISIBLE
         stateProgress.visibility = View.GONE
         retryButton.visibility = View.VISIBLE
         stateMessage.text = message
     }
 
-    fun showToast(message: String) {
-        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
-    }
-
-    private fun request(request: Request) {
-        requests.trySend(request)
-    }
-
     sealed class Request {
-        data class SetPaused(val paused: Boolean) : Request()
-        data class SetAutoScroll(val enabled: Boolean) : Request()
-        data object CopyLogs : Request()
-        data object ClearLogs : Request()
+        data class CopyMessage(val message: String) : Request()
+        data object Close : Request()
         data object Retry : Request()
         data object NavigateBack : Request()
     }
