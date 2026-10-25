@@ -20,7 +20,9 @@ internal object ProfileAutoUpdateStateWritePolicy {
 
         val currentAttempt = current.lastAttempt
         if (currentAttempt == null) {
-            if (incoming.lastAttempt != null) return false
+            if (incoming.lastAttempt != null) {
+                return current.nextAttemptAt == null && current.failureCount == 0 && current.lastError == null
+            }
             val currentNextAttempt = current.nextAttemptAt ?: return true
             val incomingNextAttempt = incoming.nextAttemptAt ?: return false
             return currentNextAttempt <= incomingNextAttempt

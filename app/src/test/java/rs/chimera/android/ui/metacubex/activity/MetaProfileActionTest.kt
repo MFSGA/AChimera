@@ -1,5 +1,6 @@
 package rs.chimera.android.ui.metacubex.activity
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -33,6 +34,38 @@ class MetaProfileActionTest {
         assertTrue(MetaProfileAction.Delete.isAvailableFor(profile))
         assertTrue(MetaProfileAction.Duplicate.isAvailableFor(profile))
         assertTrue(MetaProfileAction.Duplicate.isAvailableFor(profile(isRemote = true)))
+    }
+
+    @Test
+    fun cmfaMenuContainsOnlyReferenceActionsInReferenceOrder() {
+        assertEquals(
+            listOf(
+                MetaProfileAction.Edit,
+                MetaProfileAction.Duplicate,
+                MetaProfileAction.Delete,
+            ),
+            cmfaProfileMenuActions(profile()),
+        )
+        assertEquals(
+            listOf(
+                MetaProfileAction.Update,
+                MetaProfileAction.Edit,
+                MetaProfileAction.Duplicate,
+                MetaProfileAction.ShareQrCode,
+                MetaProfileAction.Delete,
+            ),
+            cmfaProfileMenuActions(profile(isRemote = true)),
+        )
+        assertEquals(
+            listOf(
+                MetaProfileAction.Update,
+                MetaProfileAction.Edit,
+                MetaProfileAction.Duplicate,
+                MetaProfileAction.ShareQrCode,
+                MetaProfileAction.Delete,
+            ),
+            cmfaProfileMenuActions(profile(isRemote = true, isActive = true)),
+        )
     }
 
     private fun profile(

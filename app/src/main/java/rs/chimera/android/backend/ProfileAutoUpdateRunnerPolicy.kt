@@ -33,6 +33,7 @@ internal fun shouldRetryFailedUpdate(
 
 internal fun ProfileSummary.hasSameAutoUpdateSource(other: ProfileSummary): Boolean =
     autoUpdate == other.autoUpdate &&
+        autoUpdateIntervalMillis == other.autoUpdateIntervalMillis &&
         url == other.url &&
         userAgent == other.userAgent &&
         proxyUrl == other.proxyUrl
@@ -46,6 +47,7 @@ internal fun ProfileSummary.toAutoUpdateState(runtimeApplyPending: Boolean): Pro
         runtimeApplyPending = runtimeApplyPending,
         sourceFingerprint = ProfileAutoUpdatePolicy.sourceFingerprint(this),
         profileRevision = ProfileAutoUpdatePolicy.profileRevision(this),
+        intervalMillis = autoUpdateIntervalMillis,
     )
 
 internal fun Throwable.throwIfCancellationOrFatal() {

@@ -3,6 +3,7 @@ package rs.chimera.android.backend
 import org.json.JSONObject
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import java.io.File
 
 internal class ProfileCatalogReader(
@@ -60,6 +61,9 @@ internal class ProfileCatalogReader(
             fileSize = metadata.fileSize,
             url = optString("url").takeIf { it.isNotBlank() },
             autoUpdate = optBoolean("autoUpdate", false),
+            autoUpdateIntervalMillis = ProfileUpdateInterval.requireValid(
+                optLong("autoUpdateIntervalMillis", ProfileUpdateInterval.DEFAULT_MILLIS),
+            ),
             userAgent = optString("userAgent").takeIf { it.isNotBlank() },
             proxyUrl = optString("proxyUrl").takeIf { it.isNotBlank() },
             subscriptionUploadBytes = nonNegativeLongOrNull("subscriptionUploadBytes"),
@@ -99,12 +103,13 @@ internal class ProfileCatalogReader(
             nextAttemptAt = null,
             lastError = null,
         )
+        val scheduledState = ProfileAutoUpdatePolicy.stateForInterval(profile, autoUpdateState)
         return profile.copy(
-            lastAutoUpdateAttempt = autoUpdateState.lastAttempt,
-            autoUpdateFailures = autoUpdateState.failureCount,
-            nextAutoUpdateAt = autoUpdateState.nextAttemptAt,
-            lastAutoUpdateError = autoUpdateState.lastError,
-            runtimeApplyPending = autoUpdateState.runtimeApplyPending,
+            lastAutoUpdateAttempt = scheduledState.lastAttempt,
+            autoUpdateFailures = scheduledState.failureCount,
+            nextAutoUpdateAt = scheduledState.nextAttemptAt,
+            lastAutoUpdateError = scheduledState.lastError,
+            runtimeApplyPending = scheduledState.runtimeApplyPending,
         )
     }
 

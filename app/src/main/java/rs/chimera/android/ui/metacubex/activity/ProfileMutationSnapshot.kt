@@ -1,6 +1,7 @@
 package rs.chimera.android.ui.metacubex.activity
 
 import rs.chimera.android.backend.model.ProfileSummary
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 
 internal data class ProfileMutationSnapshot(
     val id: String,
@@ -11,6 +12,7 @@ internal data class ProfileMutationSnapshot(
     val autoUpdate: Boolean,
     val userAgent: String?,
     val proxyUrl: String?,
+    val autoUpdateIntervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 ) {
     fun matches(profile: ProfileSummary): Boolean =
         id == profile.id &&
@@ -19,6 +21,7 @@ internal data class ProfileMutationSnapshot(
             isRemote == profile.isRemote &&
             url == profile.url &&
             autoUpdate == profile.autoUpdate &&
+            autoUpdateIntervalMillis == profile.autoUpdateIntervalMillis &&
             userAgent == profile.userAgent &&
             proxyUrl == profile.proxyUrl
 
@@ -31,6 +34,7 @@ internal data class ProfileMutationSnapshot(
                 isRemote = profile.isRemote,
                 url = profile.url,
                 autoUpdate = profile.autoUpdate,
+                autoUpdateIntervalMillis = profile.autoUpdateIntervalMillis,
                 userAgent = profile.userAgent,
                 proxyUrl = profile.proxyUrl,
             )

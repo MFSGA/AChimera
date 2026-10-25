@@ -33,7 +33,6 @@ import rs.chimera.android.backend.VpnSettingsAvailabilityPolicy
 import rs.chimera.android.backend.updateRemoteProfilesBatch
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
-import rs.chimera.android.backend.model.RemoteProfileSettings
 import rs.chimera.android.databinding.MetaDialogProfileQrCodeBinding
 import rs.chimera.android.databinding.MetaDialogProfileMenuBinding
 import rs.chimera.android.databinding.MetaProfileActionItemBinding
@@ -166,7 +165,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             design.showToast(profileError(R.string.profile_list_error, error))
             return
         } ?: return
-        val actions = MetaProfileAction.entries.filter { it.isAvailableFor(profile) }
+        val actions = cmfaProfileMenuActions(profile)
         var profileIsActive = backend.activeProfile.value?.id?.let { it == profileId } ?: profile.isActive
         var availability = backend.profileDeletionAvailability.value
         var deleteBlockedMessage = profileDeleteBlockedMessage(profileIsActive, availability)
@@ -331,11 +330,10 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             MetaProfileAction.Verify -> verifyProfile(profile)
             MetaProfileAction.Duplicate -> duplicateProfile(profile)
             MetaProfileAction.Edit -> {
-                if (profile.isRemote) {
-                    showRemoteSettingsDialog(profile)
-                } else {
-                    showRenameDialog(profile.id, profile.name)
-                }
+                startActivity(
+                    Intent(this, MetaProfilePropertiesActivity::class.java)
+                        .putExtra(MetaProfilePropertiesActivity.EXTRA_PROFILE_ID, profile.id),
+                )
             }
             MetaProfileAction.ShareQrCode -> showProfileQrCode(profile)
             MetaProfileAction.Update -> performOperation(
@@ -427,54 +425,6 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         } finally {
             operationInProgress = false
         }
-    }
-
-    private fun showRemoteSettingsDialog(profile: ProfileSummary) {
-        val initiallyEditable = canChangeRemoteProfileSettings(
-            profile,
-            backend.profileDeletionAvailability.value,
-        )
-        val dialogController = showMetaRemoteProfileDialog(
-            context = this,
-            titleRes = R.string.profile_edit_settings,
-            positiveButtonRes = R.string.save,
-            initialName = profile.name,
-            initialUrl = profile.url.orEmpty(),
-            initialAutoUpdate = profile.autoUpdate,
-            initialUserAgent = profile.userAgent.orEmpty(),
-            initialProxyUrl = profile.proxyUrl.orEmpty(),
-            requireName = true,
-            initiallyEditable = initiallyEditable,
-            canSubmit = {
-                canChangeRemoteProfileSettings(profile, backend.profileDeletionAvailability.value)
-            },
-        ) { form, dismiss, setSubmitting ->
-            lifecycleScope.launch {
-                val succeeded = performOperation(
-                    progressMessage = getString(R.string.profile_edit_settings),
-                    successMessage = getString(R.string.profile_settings_saved),
-                    errorMessageRes = R.string.profile_settings_error,
-                ) {
-                    backend.updateRemoteProfileSettings(
-                        profile.id,
-                        RemoteProfileSettings(
-                            name = requireNotNull(form.name),
-                            url = form.url,
-                            autoUpdate = form.autoUpdate,
-                            userAgent = form.userAgent,
-                            proxyUrl = form.proxyUrl,
-                        ),
-                    )
-                }
-                if (succeeded) dismiss() else setSubmitting(false)
-            }
-        }
-        val availabilityObserver = lifecycleScope.launch {
-            backend.profileDeletionAvailability.collect { availability ->
-                dialogController.setEditingEnabled(canChangeRemoteProfileSettings(profile, availability))
-            }
-        }
-        dialogController.setOnDismissListener { availabilityObserver.cancel() }
     }
 
     private fun showRenameDialog(profileId: String, currentName: String) {

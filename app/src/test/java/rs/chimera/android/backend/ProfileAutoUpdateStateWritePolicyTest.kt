@@ -6,6 +6,16 @@ import org.junit.Test
 
 class ProfileAutoUpdateStateWritePolicyTest {
     @Test
+    fun emptyBoundStateAcceptsItsFirstCompletionButRefreshNowStillRejectsIt() {
+        val initial = boundState(revision = 2_000L, attemptedAt = null).copy(
+            nextAttemptAt = null, failureCount = 0, lastError = null,
+        )
+        val completion = boundState(revision = 2_000L, attemptedAt = 3_000L)
+        assertTrue(ProfileAutoUpdateStateWritePolicy.canReplace(initial, completion))
+        assertFalse(ProfileAutoUpdateStateWritePolicy.canReplace(initial.copy(nextAttemptAt = 4_000L), completion))
+    }
+
+    @Test
     fun emptyStateAcceptsBoundState() {
         assertTrue(ProfileAutoUpdateStateWritePolicy.canReplace(emptyState(), boundState(revision = 2_000L)))
     }

@@ -66,7 +66,8 @@ interface ChimeraBackend {
         id: String,
         onProgress: (ProfileDownloadProgress) -> Unit = {},
     )
-    suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings)
+    suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings, expectedIntervalMillis: Long? = null)
+    suspend fun recordProfileAutoUpdateState(id: String, state: ProfileAutoUpdateState): Boolean
     suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)

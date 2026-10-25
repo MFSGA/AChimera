@@ -5,14 +5,21 @@ import org.junit.Test
 
 class ProfileActionMenuViewportTest {
     @Test
-    fun localOnlyActionsDoNotIncreaseTheCmfaMenuViewport() {
+    fun viewportFitsAllReferenceActions() {
+        val actions = listOf(
+            MetaProfileAction.Update,
+            MetaProfileAction.Edit,
+            MetaProfileAction.Duplicate,
+            MetaProfileAction.ShareQrCode,
+            MetaProfileAction.Delete,
+        )
         val rowHeights = MetaProfileAction.entries.associateWith { action ->
             if (action == MetaProfileAction.Details) 96 else 70
         }
 
         assertEquals(
             350,
-            profileActionMenuViewportHeight(MetaProfileAction.entries, rowHeights, Int.MAX_VALUE),
+            profileActionMenuViewportHeight(actions, rowHeights, Int.MAX_VALUE),
         )
     }
 
@@ -22,7 +29,6 @@ class ProfileActionMenuViewportTest {
             MetaProfileAction.Update,
             MetaProfileAction.Edit,
             MetaProfileAction.Delete,
-            MetaProfileAction.Details,
         )
 
         assertEquals(
@@ -42,11 +48,18 @@ class ProfileActionMenuViewportTest {
 
     @Test
     fun viewportIsCappedByAvailableWindowHeight() {
-        val rowHeights = MetaProfileAction.entries.associateWith { 70 }
+        val actions = listOf(
+            MetaProfileAction.Update,
+            MetaProfileAction.Edit,
+            MetaProfileAction.Duplicate,
+            MetaProfileAction.ShareQrCode,
+            MetaProfileAction.Delete,
+        )
+        val rowHeights = actions.associateWith { 70 }
 
         assertEquals(
             280,
-            profileActionMenuViewportHeight(MetaProfileAction.entries, rowHeights, 280),
+            profileActionMenuViewportHeight(actions, rowHeights, 280),
         )
     }
 }

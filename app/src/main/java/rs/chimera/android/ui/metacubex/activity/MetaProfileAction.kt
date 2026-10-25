@@ -32,13 +32,16 @@ internal enum class MetaProfileAction(
     }
 }
 
+internal fun cmfaProfileMenuActions(profile: ProfileSummary): List<MetaProfileAction> =
+    MetaProfileAction.entries.filter { action ->
+        action.isCmfaMenuAction && action.isAvailableFor(profile)
+    }
+
 internal fun profileActionMenuViewportHeight(
     actions: List<MetaProfileAction>,
     measuredRowHeights: Map<MetaProfileAction, Int>,
     maxAvailableHeight: Int,
 ): Int = minOf(
-    actions
-        .takeWhile(MetaProfileAction::isCmfaMenuAction)
-        .sumOf { measuredRowHeights[it] ?: 0 },
+    actions.sumOf { measuredRowHeights[it] ?: 0 },
     maxAvailableHeight.coerceAtLeast(0),
 )

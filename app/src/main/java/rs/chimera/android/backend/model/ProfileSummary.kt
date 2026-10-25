@@ -28,4 +28,5 @@ data class ProfileSummary(
     val subscriptionDownloadBytes: Long? = null,
     val subscriptionTotalBytes: Long? = null,
     val subscriptionExpiresAtMillis: Long? = null,
+    val autoUpdateIntervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 )

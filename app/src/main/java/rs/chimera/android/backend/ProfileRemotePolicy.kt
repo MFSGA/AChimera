@@ -4,6 +4,7 @@ import java.net.URI
 import java.util.Locale
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import rs.chimera.android.util.runCatchingRecoverable
 
 internal object ProfileRemotePolicy {
@@ -15,6 +16,7 @@ internal object ProfileRemotePolicy {
             url = requireValidUrl(request.url).toString(),
             userAgent = request.userAgent?.trim()?.takeIf { it.isNotEmpty() },
             proxyUrl = normalizeProxyUrl(request.proxyUrl),
+            autoUpdateIntervalMillis = ProfileUpdateInterval.requireValid(request.autoUpdateIntervalMillis),
         )
 
     fun normalizeSettings(settings: RemoteProfileSettings): RemoteProfileSettings {
@@ -26,6 +28,7 @@ internal object ProfileRemotePolicy {
             url = url,
             userAgent = settings.userAgent?.trim()?.takeIf { it.isNotEmpty() },
             proxyUrl = normalizeProxyUrl(settings.proxyUrl),
+            autoUpdateIntervalMillis = ProfileUpdateInterval.requireValid(settings.autoUpdateIntervalMillis),
         )
     }
 
@@ -45,7 +48,8 @@ internal object ProfileRemotePolicy {
     fun shouldResetLastUpdated(
         current: RemoteProfileCatalogEntry,
         updated: RemoteProfileSettings,
-    ): Boolean = updated.autoUpdate && invalidatesAutoUpdateState(current, updated)
+    ): Boolean = updated.autoUpdate &&
+        (changesRemoteSource(current, updated) || current.autoUpdate != updated.autoUpdate)
 
     fun requireValidUrl(value: String): URI =
         parseHttpUrl(value) ?: throw IllegalArgumentException(

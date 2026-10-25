@@ -268,7 +268,7 @@ class ProfileViewModel : ViewModel() {
         isSavingRemoteProfileSettings = true
         viewModelScope.launch {
             try {
-                backend.updateRemoteProfileSettings(profile.id, settings)
+                backend.updateRemoteProfileSettings(profile.id, settings, expectedIntervalMillis = profile.autoUpdateIntervalMillis)
                 if (refreshFromBackendSafely()) {
                     setProfileStatus(context.getString(rs.chimera.android.R.string.profile_settings_saved))
                 }

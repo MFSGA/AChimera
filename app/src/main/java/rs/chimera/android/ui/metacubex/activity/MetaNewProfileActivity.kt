@@ -246,6 +246,7 @@ class MetaNewProfileActivity : AppCompatActivity() {
                 name = form.name,
                 url = form.url,
                 autoUpdate = form.autoUpdate && !providerSnapshot,
+                autoUpdateIntervalMillis = form.autoUpdateIntervalMillis,
                 userAgent = form.userAgent,
                 proxyUrl = form.proxyUrl,
             ),

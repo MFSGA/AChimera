@@ -1,6 +1,7 @@
 package rs.chimera.android.backend
 
 import android.content.Context
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 
 internal class ProfileAutoUpdateStateStore(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -18,6 +19,7 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
             runtimeApplyPending = readBoolean(key(id, RUNTIME_APPLY_PENDING)),
             sourceFingerprint = readString(key(id, SOURCE_FINGERPRINT)),
             profileRevision = readOptionalLong(key(id, PROFILE_REVISION)),
+            intervalMillis = readOptionalLong(key(id, INTERVAL_MILLIS)) ?: ProfileUpdateInterval.DEFAULT_MILLIS,
         )
 
     private fun readLong(key: String): Long =
@@ -77,6 +79,7 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
         else editor.putString(key(id, SOURCE_FINGERPRINT), state.sourceFingerprint)
         if (state.profileRevision == null) editor.remove(key(id, PROFILE_REVISION))
         else editor.putLong(key(id, PROFILE_REVISION), state.profileRevision)
+        editor.putLong(key(id, INTERVAL_MILLIS), state.intervalMillis)
         ProfilePersistencePolicy.commitWithRetry(persist = editor::commit)
     }
 
@@ -162,6 +165,7 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
                 RUNTIME_APPLY_PENDING,
                 SOURCE_FINGERPRINT,
                 PROFILE_REVISION,
+                INTERVAL_MILLIS,
             ).forEach { suffix -> editor.remove(key(id, suffix)) }
             editor.commit()
         }
@@ -178,6 +182,7 @@ internal class ProfileAutoUpdateStateStore(context: Context) {
         const val RUNTIME_APPLY_PENDING = "runtime_apply_pending"
         const val SOURCE_FINGERPRINT = "source_fingerprint"
         const val PROFILE_REVISION = "profile_revision"
+        const val INTERVAL_MILLIS = "interval_millis"
         val EMPTY_STATE = ProfileAutoUpdateState(
             lastAttempt = null,
             failureCount = 0,

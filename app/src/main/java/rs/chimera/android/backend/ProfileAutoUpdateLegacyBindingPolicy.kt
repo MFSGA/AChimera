@@ -36,6 +36,7 @@ internal object ProfileAutoUpdateLegacyBindingPolicy {
             current.type == "REMOTE" &&
             snapshot.url == current.url &&
             snapshot.autoUpdate == current.autoUpdate &&
+            snapshot.autoUpdateIntervalMillis == current.autoUpdateIntervalMillis &&
             snapshot.userAgent == current.userAgent &&
             snapshot.proxyUrl == current.proxyUrl &&
             snapshot.lastUpdated == current.lastUpdated

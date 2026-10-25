@@ -6,7 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.text.InputType
 import android.view.View
-import android.widget.CheckBox
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -15,11 +15,16 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.core.text.HtmlCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.doOnAttach
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.widget.doOnTextChanged
+import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputLayout
 import rs.chimera.android.R
 import rs.chimera.android.backend.ProfileRemotePolicy
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
@@ -32,6 +37,9 @@ internal class MetaRemoteProfilePropertiesDesign(
     initialProxyUrl: String = "",
     restoredState: Bundle? = null,
     private val snapshotMode: Boolean = false,
+    private val localProfile: Boolean = false,
+    private val existingProfile: Boolean = false,
+    initialAutoUpdateIntervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 ) : Design<MetaRemoteProfilePropertiesDesign.Request>(context) {
     sealed class Request {
         data object NavigateBack : Request()
@@ -47,7 +55,6 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     private val toolbar = root.findViewById<View>(R.id.remote_profile_toolbar)
     private val scrollRoot = root.findViewById<ScrollView>(R.id.remote_profile_scroll)
-    private val saveContainer = root.findViewById<View>(R.id.remote_profile_save_container)
     private val saveAction = root.findViewById<ImageView>(R.id.remote_profile_save)
     private val saveProgress = root.findViewById<ProgressBar>(R.id.remote_profile_save_progress)
     private val nameRow = root.findViewById<View>(R.id.property_name)
@@ -59,6 +66,9 @@ internal class MetaRemoteProfilePropertiesDesign(
     private val originalName = restoredState?.getString(STATE_ORIGINAL_NAME) ?: initialName
     private val originalUrl = restoredState?.getString(STATE_ORIGINAL_URL) ?: initialUrl
     private val originalAutoUpdate = restoredState?.getBoolean(STATE_ORIGINAL_AUTO_UPDATE) ?: initialAutoUpdate
+    private val originalInterval = restoredState?.getLong(STATE_ORIGINAL_INTERVAL, initialAutoUpdateIntervalMillis)
+        ?: initialAutoUpdateIntervalMillis
+    private var intervalMillis = restoredState?.getLong(STATE_INTERVAL, originalInterval) ?: originalInterval
     private val originalUserAgent = restoredState?.getString(STATE_ORIGINAL_USER_AGENT) ?: initialUserAgent
     private val originalProxyUrl = restoredState?.getString(STATE_ORIGINAL_PROXY_URL) ?: initialProxyUrl
     private var name = restoredState?.getString(STATE_NAME) ?: originalName
@@ -72,6 +82,9 @@ internal class MetaRemoteProfilePropertiesDesign(
     private var proxyUrl = restoredState?.getString(STATE_PROXY_URL) ?: originalProxyUrl
     private var appBarElevated = false
     private var appBarElevationAnimator: ValueAnimator? = null
+    private var editingAllowed = true
+    private var submitting = false
+    private var textInputDialog: AlertDialog? = null
 
     init {
         applySystemBarInsets()
@@ -87,8 +100,15 @@ internal class MetaRemoteProfilePropertiesDesign(
             HtmlCompat.FROM_HTML_MODE_COMPACT,
         )
         if (snapshotMode) autoUpdateRow.visibility = View.GONE
+        if (localProfile) optionsRow.visibility = View.GONE
         bindProperty(nameRow, R.drawable.ic_outline_label, R.string.profile_properties_name)
         bindProperty(urlRow, R.drawable.ic_outline_inbox, R.string.profile_properties_url)
+        root.findViewById<View>(R.id.property_age)?.let { row ->
+            bindProperty(row, R.drawable.ic_baseline_key, R.string.profile_properties_age)
+            row.findViewById<TextView>(R.id.property_value).setText(R.string.not_available)
+            row.findViewById<View>(R.id.property_action).isEnabled = false
+            row.alpha = 0.33f
+        }
         bindProperty(
             optionsRow,
             R.drawable.ic_baseline_settings,
@@ -116,6 +136,7 @@ internal class MetaRemoteProfilePropertiesDesign(
     fun hasChanges(): Boolean = name != originalName ||
         url != originalUrl ||
         autoUpdate != originalAutoUpdate ||
+        intervalMillis != originalInterval ||
         userAgent != originalUserAgent ||
         proxyUrl != originalProxyUrl
 
@@ -128,17 +149,38 @@ internal class MetaRemoteProfilePropertiesDesign(
         outState.putString(STATE_NAME, name)
         outState.putString(STATE_URL, url)
         outState.putBoolean(STATE_AUTO_UPDATE, autoUpdate)
+        outState.putLong(STATE_ORIGINAL_INTERVAL, originalInterval)
+        outState.putLong(STATE_INTERVAL, intervalMillis)
         outState.putString(STATE_USER_AGENT, userAgent)
         outState.putString(STATE_PROXY_URL, proxyUrl)
     }
 
     fun setSubmitting(submitting: Boolean) {
+        this.submitting = submitting
+        if (submitting) textInputDialog?.dismiss()
         saveAction.visibility = if (submitting) View.GONE else View.VISIBLE
         saveProgress.visibility = if (submitting) View.VISIBLE else View.GONE
-        listOf(nameRow, urlRow, optionsRow, autoUpdateRow).forEach { row ->
-            row.findViewById<View>(R.id.property_action).isEnabled = !submitting
-        }
+        updateValues()
         root.findViewById<View>(R.id.toolbar_navigation).isEnabled = !submitting
+    }
+
+    fun setEditingEnabled(enabled: Boolean) {
+        editingAllowed = enabled
+        if (!enabled) textInputDialog?.dismiss()
+        updateValues()
+    }
+
+    private fun renderAvailability() {
+        val enabled = editingAllowed && !submitting
+        saveAction.isEnabled = enabled
+        listOf(nameRow, urlRow, optionsRow, autoUpdateRow).forEach { row ->
+            val available = editingAllowed && (row == nameRow || !localProfile)
+            row.findViewById<View>(R.id.property_action).isEnabled = available && !submitting
+            row.alpha = if (available) 1f else 0.33f
+            if (!available) row.findViewById<TextView>(R.id.property_value).setText(R.string.not_available)
+        }
+        browseRow.isEnabled = !submitting && !existingProfile
+        browseRow.alpha = if (browseRow.isEnabled) 1f else 0.33f
     }
 
     fun showToast(message: CharSequence) {
@@ -156,9 +198,9 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     private fun applySystemBarInsets() {
         val scrollTopPadding = scrollRoot.paddingTop
-        val toolbarHeight = toolbar.layoutParams.height
         ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            root.setPadding(bars.left, 0, bars.right, 0)
             scrollRoot.setPadding(
                 scrollRoot.paddingLeft,
                 scrollTopPadding + bars.top,
@@ -171,16 +213,9 @@ internal class MetaRemoteProfilePropertiesDesign(
                 toolbar.paddingRight,
                 toolbar.paddingBottom,
             )
-            toolbar.layoutParams = toolbar.layoutParams.apply {
-                height = toolbarHeight + bars.top
-            }
-            val contentOffset = bars.top / 2f
-            toolbar.findViewById<View>(R.id.toolbar_navigation).translationY = contentOffset
-            toolbar.findViewById<TextView>(R.id.toolbar_title).translationY = contentOffset
-            saveContainer.translationY = contentOffset
             insets
         }
-        root.post { ViewCompat.requestApplyInsets(root) }
+        root.doOnAttach { ViewCompat.requestApplyInsets(it) }
     }
 
     private fun bindBrowseRow() {
@@ -190,7 +225,7 @@ internal class MetaRemoteProfilePropertiesDesign(
         browseRow.findViewById<TextView>(R.id.property_label_title)
             .setText(R.string.profile_properties_browse_files)
         browseRow.findViewById<TextView>(R.id.property_label_subtext)
-            .setText(R.string.profile_properties_browse_summary)
+            .setText(if (existingProfile) R.string.profile_properties_files_pending else R.string.profile_properties_browse_summary)
     }
 
     private fun updateValues() {
@@ -203,13 +238,13 @@ internal class MetaRemoteProfilePropertiesDesign(
                 R.string.profile_properties_options_configured
             },
         )
-        autoUpdateRow.findViewById<TextView>(R.id.property_value).setText(
+        autoUpdateRow.findViewById<TextView>(R.id.property_value).text =
             if (autoUpdate) {
-                R.string.profile_properties_auto_update_enabled
+                context.getString(R.string.profile_properties_update_minutes, intervalMillis / ProfileUpdateInterval.MINUTE_MILLIS)
             } else {
-                R.string.profile_properties_auto_update_disabled
-            },
-        )
+                context.getString(R.string.profile_properties_auto_update_disabled)
+            }
+        renderAvailability()
     }
 
     private fun nameAction() = nameRow.findViewById<View>(R.id.property_action)
@@ -219,8 +254,10 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     private fun editName() = editText(
         title = R.string.profile_properties_name,
-        hint = R.string.profile_properties_new_name,
+        hint = R.string.profile_properties_title,
+        error = R.string.profile_properties_name_input_error,
         value = name,
+        validator = String::isNotBlank,
     ) {
         name = it
         updateValues()
@@ -228,9 +265,11 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     private fun editUrl() = editText(
         title = R.string.profile_properties_url,
-        hint = R.string.profile_url_hint,
+        hint = R.string.profile_properties_url_input_hint,
+        error = R.string.profile_properties_url_placeholder,
         value = url,
         uriInput = true,
+        validator = { ProfileRemotePolicy.isValidUrl(it.trim()) },
     ) {
         url = it
         updateValues()
@@ -239,22 +278,60 @@ internal class MetaRemoteProfilePropertiesDesign(
     private fun editText(
         title: Int,
         hint: Int,
+        error: Int,
         value: String,
         uriInput: Boolean = false,
+        validator: (String) -> Boolean,
         onSave: (String) -> Unit,
     ) {
-        val input = EditText(context).apply {
-            setText(value)
-            setSelectAllOnFocus(true)
-            this.hint = context.getString(hint)
-            if (uriInput) configureRemoteInput()
-        }
-        MaterialAlertDialogBuilder(context)
+        if (!editingAllowed || submitting) return
+        textInputDialog?.dismiss()
+        val content = context.layoutInflater.inflate(R.layout.meta_dialog_text_field, context.root, false)
+        val field = content.findViewById<EditText>(R.id.meta_text_field)
+        val layout = content.findViewById<TextInputLayout>(R.id.meta_text_layout)
+        if (uriInput) field.configureRemoteInput()
+        val dialog = MaterialAlertDialogBuilder(context)
             .setTitle(title)
-            .setView(input)
-            .setPositiveButton(R.string.save) { _, _ -> onSave(input.text.toString().trim()) }
+            .setView(content)
+            .setCancelable(true)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val text = field.text?.toString().orEmpty()
+                if (validator(text)) onSave(text.trim())
+            }
             .setNegativeButton(android.R.string.cancel, null)
-            .show()
+            .create()
+        val keyboard = Runnable {
+            if (field.isAttachedToWindow && field.hasFocus()) {
+                context.getSystemService(InputMethodManager::class.java)?.showSoftInput(field, 0)
+            }
+        }
+        val attachment = object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(view: View) = Unit
+            override fun onViewDetachedFromWindow(view: View) = dialog.dismiss()
+        }
+        dialog.setOnDismissListener {
+            field.removeCallbacks(keyboard)
+            root.removeOnAttachStateChangeListener(attachment)
+            if (textInputDialog === dialog) textInputDialog = null
+        }
+        dialog.setOnShowListener {
+            layout.hint = context.getString(hint)
+            layout.isErrorEnabled = true
+            field.doOnTextChanged { text, _, _, _ ->
+                val valid = validator(text?.toString().orEmpty())
+                layout.error = if (valid) null else context.getString(error)
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = valid
+            }
+            field.setText(value)
+            field.setSelection(0, value.length)
+            field.post {
+                field.requestFocus()
+                field.postDelayed(keyboard, 300)
+            }
+        }
+        textInputDialog = dialog
+        root.addOnAttachStateChangeListener(attachment)
+        dialog.show()
     }
 
     private fun editClientOptions() {
@@ -298,33 +375,35 @@ internal class MetaRemoteProfilePropertiesDesign(
     }
 
     private fun editAutoUpdate() {
-        val enabled = CheckBox(context).apply {
-            text = context.getString(R.string.profile_auto_update)
-            isChecked = autoUpdate
+        editText(
+            title = R.string.profile_properties_auto_update,
+            hint = R.string.profile_properties_update_minutes_hint,
+            error = R.string.profile_properties_update_minutes_error,
+            value = if (autoUpdate) (intervalMillis / ProfileUpdateInterval.MINUTE_MILLIS).toString() else "",
+            validator = { ProfileUpdateInterval.parseMinutes(it) != null },
+        ) {
+            val interval = checkNotNull(ProfileUpdateInterval.parseMinutes(it))
+            autoUpdate = interval != 0L
+            if (autoUpdate) intervalMillis = interval
+            updateValues()
         }
-        MaterialAlertDialogBuilder(context)
-            .setTitle(R.string.profile_properties_auto_update)
-            .setView(enabled)
-            .setPositiveButton(R.string.save) { _, _ ->
-                autoUpdate = enabled.isChecked
-                updateValues()
-            }
-            .setNegativeButton(android.R.string.cancel, null)
-            .show()
     }
 
     private fun submit() {
+        if (submitting || !editingAllowed) return
         val form = MetaRemoteProfileForm(
             name = name.trim().ifEmpty { null },
             url = url.trim(),
-            autoUpdate = autoUpdate && !snapshotMode,
+            autoUpdate = autoUpdate && !snapshotMode && !localProfile,
+            autoUpdateIntervalMillis = intervalMillis,
+            expectedAutoUpdateIntervalMillis = originalInterval,
             userAgent = userAgent.trim().ifEmpty { null },
             proxyUrl = proxyUrl.trim().ifEmpty { null },
         )
         when {
             form.name.isNullOrBlank() -> showToast(context.getString(R.string.profile_properties_name_empty))
-            !ProfileRemotePolicy.isValidUrl(form.url) -> showToast(context.getString(R.string.profile_url_invalid))
-            form.proxyUrl != null && !ProfileRemotePolicy.isValidProxyUrl(form.proxyUrl) ->
+            !localProfile && !ProfileRemotePolicy.isValidUrl(form.url) -> showToast(context.getString(R.string.profile_url_invalid))
+            !localProfile && form.proxyUrl != null && !ProfileRemotePolicy.isValidProxyUrl(form.proxyUrl) ->
                 showToast(context.getString(R.string.profile_proxy_invalid))
             else -> request(Request.Submit(form))
         }
@@ -368,6 +447,8 @@ internal class MetaRemoteProfilePropertiesDesign(
         const val STATE_NAME = "remote_profile_name"
         const val STATE_URL = "remote_profile_url"
         const val STATE_AUTO_UPDATE = "remote_profile_auto_update"
+        const val STATE_ORIGINAL_INTERVAL = "remote_profile_original_interval"
+        const val STATE_INTERVAL = "remote_profile_interval"
         const val STATE_USER_AGENT = "remote_profile_user_agent"
         const val STATE_PROXY_URL = "remote_profile_proxy_url"
     }

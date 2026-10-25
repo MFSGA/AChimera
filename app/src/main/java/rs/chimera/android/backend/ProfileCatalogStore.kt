@@ -4,6 +4,7 @@ import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import rs.chimera.android.backend.model.ProfileSubscriptionUsage
 import rs.chimera.android.backend.model.putProfileSubscriptionUsage
 import java.io.File
@@ -31,6 +32,7 @@ internal data class RemoteProfileCatalogEntry(
     val proxyUrl: String?,
     val filePath: String,
     val lastUpdated: Long? = null,
+    val autoUpdateIntervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 )
 
 internal data class ProfileDuplicateSource(
@@ -81,6 +83,9 @@ internal class ProfileCatalogStore(
             type = profile.optString("type", "LOCAL"),
             url = profile.optString("url").takeIf { it.isNotBlank() },
             autoUpdate = profile.optBoolean("autoUpdate", false),
+            autoUpdateIntervalMillis = ProfileUpdateInterval.requireValid(
+                profile.optLong("autoUpdateIntervalMillis", ProfileUpdateInterval.DEFAULT_MILLIS),
+            ),
             userAgent = profile.optString("userAgent").takeIf { it.isNotBlank() },
             proxyUrl = profile.optString("proxyUrl").takeIf { it.isNotBlank() },
             filePath = profile.getString("filePath"),
@@ -168,6 +173,7 @@ internal class ProfileCatalogStore(
             profile.put("name", settings.name)
             profile.put("url", settings.url)
             profile.put("autoUpdate", settings.autoUpdate)
+            profile.put("autoUpdateIntervalMillis", settings.autoUpdateIntervalMillis)
             settings.userAgent?.let { profile.put("userAgent", it) } ?: profile.remove("userAgent")
             settings.proxyUrl?.let { profile.put("proxyUrl", it) } ?: profile.remove("proxyUrl")
             if (remoteSourceChanged) {

@@ -19,7 +19,7 @@ import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.PrivacySafeLog
 
-/** Keeps one persisted daily job in sync with the profile catalog. */
+/** Shares one persisted wake-up job; each profile still has its own due time. */
 internal class ProfileAutoUpdateScheduler(
     context: Context,
     private val scheduler: JobScheduler = context.getSystemService(JobScheduler::class.java),
@@ -28,10 +28,11 @@ internal class ProfileAutoUpdateScheduler(
 
     fun refresh(profiles: List<ProfileSummary>) {
         val scheduledJobs = scheduler.allPendingJobs
-        val scheduled = scheduledJobs.any { job -> job.id == JOB_ID }
-        if (ProfileAutoUpdatePolicy.shouldSchedule(profiles)) {
-            if (!scheduled) schedule()
-        } else if (scheduled) {
+        val scheduled = scheduledJobs.firstOrNull { job -> job.id == JOB_ID }
+        val interval = ProfileAutoUpdatePolicy.scheduleIntervalMillis(profiles)
+        if (interval != null) {
+            if (scheduled?.intervalMillis != interval) schedule(interval)
+        } else if (scheduled != null) {
             scheduler.cancel(JOB_ID)
         }
         if (!ProfileAutoUpdatePolicy.shouldSchedule(profiles) &&
@@ -58,19 +59,22 @@ internal class ProfileAutoUpdateScheduler(
         check(scheduled) { "Unable to schedule immediate profile refresh" }
     }
 
-    private fun schedule() {
+    private fun schedule(intervalMillis: Long) {
         val job = JobInfo.Builder(JOB_ID, componentName)
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
             .setPersisted(true)
-            .setPeriodic(ProfileAutoUpdatePolicy.UPDATE_INTERVAL_MILLIS)
+            .setPeriodic(intervalMillis)
             .setBackoffCriteria(
                 ProfileAutoUpdatePolicy.BASE_RETRY_DELAY_MILLIS,
                 JobInfo.BACKOFF_POLICY_EXPONENTIAL,
             )
             .build()
-        val scheduled = ProfileAutoUpdateScheduleRetry.run {
-            scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS
-        }
+        val scheduled = ProfileAutoUpdateScheduleRetry.replaceCurrent(
+            loadPrevious = { scheduler.allPendingJobs.firstOrNull { it.id == JOB_ID } },
+            cancelPrevious = { scheduler.cancel(JOB_ID) },
+            scheduleReplacement = { scheduler.schedule(job) == JobScheduler.RESULT_SUCCESS },
+            restorePrevious = { scheduler.schedule(it) == JobScheduler.RESULT_SUCCESS },
+        )
         check(scheduled) { "Unable to schedule automatic profile updates" }
     }
 
@@ -88,7 +92,6 @@ class ProfileAutoUpdateJobService : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         scope.launch {
             val backend = BackendProvider.provide()
-            val stateStore = ProfileAutoUpdateStateStore(applicationContext)
             val result = runProfileAutoUpdateJob {
                 ProfileAutoUpdateRunner(
                     object : ProfileAutoUpdateOperations {
@@ -105,7 +108,7 @@ class ProfileAutoUpdateJobService : JobService() {
                             id: String,
                             state: ProfileAutoUpdateState,
                         ) {
-                            stateStore.write(id, state)
+                            backend.recordProfileAutoUpdateState(id, state)
                         }
 
                         override suspend fun restartVpn() {

@@ -40,53 +40,72 @@
 
             <include
                 android:id="@+id/property_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="2.5dp"
                 layout="@layout/meta_item_remote_profile_property" />
 
             <include
                 android:id="@+id/property_url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="2.5dp"
                 layout="@layout/meta_item_remote_profile_property" />
 
             <include
-                android:id="@+id/property_options"
+                android:id="@+id/property_age"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="2.5dp"
                 layout="@layout/meta_item_remote_profile_property" />
 
             <include
                 android:id="@+id/property_auto_update"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="2.5dp"
                 layout="@layout/meta_item_remote_profile_property" />
 
             <include
                 android:id="@+id/property_browse"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="2.5dp"
                 layout="@layout/meta_item_remote_profile_label" />
+
+            <include
+                android:id="@+id/property_options"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginVertical="2.5dp"
+                layout="@layout/meta_item_remote_profile_property" />
         </LinearLayout>
     </ScrollView>
 
-    <RelativeLayout
+    <rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout
         android:id="@+id/remote_profile_toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
+        android:layout_height="wrap_content"
         android:alpha="0.96"
-        android:background="?android:attr/windowBackground"
+        android:background="?android:attr/windowBackground">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
         android:paddingEnd="17.5dp">
 
-        <FrameLayout
+        <ImageView
             android:id="@+id/toolbar_navigation"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
             android:layout_centerVertical="true"
-            android:layout_marginHorizontal="8.5dp"
+            android:layout_marginHorizontal="17.5dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:clickable="true"
             android:contentDescription="@string/back"
-            android:focusable="true">
-
-            <ImageView
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:layout_gravity="center"
-                android:contentDescription="@null"
-                android:paddingHorizontal="5dp"
-                android:src="@drawable/ic_baseline_arrow_back" />
-        </FrameLayout>
+            android:focusable="true"
+            android:paddingHorizontal="5dp"
+            android:src="@drawable/ic_baseline_arrow_back" />
 
         <TextView
             android:id="@+id/toolbar_title"
@@ -94,6 +113,7 @@
             android:layout_height="wrap_content"
             android:layout_centerVertical="true"
             android:layout_toEndOf="@id/toolbar_navigation"
+            android:layout_toStartOf="@id/remote_profile_save_container"
             android:ellipsize="end"
             android:maxLines="1"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
@@ -125,4 +145,5 @@
                 android:src="@drawable/ic_baseline_save" />
         </FrameLayout>
     </RelativeLayout>
+    </rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

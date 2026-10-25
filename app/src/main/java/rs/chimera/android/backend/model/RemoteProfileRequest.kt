@@ -6,4 +6,5 @@ data class RemoteProfileRequest(
     val autoUpdate: Boolean = false,
     val userAgent: String? = null,
     val proxyUrl: String? = null,
+    val autoUpdateIntervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 )

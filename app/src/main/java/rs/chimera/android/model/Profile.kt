@@ -1,6 +1,7 @@
 package rs.chimera.android.model
 
 import org.json.JSONObject
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import java.util.UUID
 
 enum class ProfileType {
@@ -25,6 +26,7 @@ data class Profile(
     val autoUpdateFailures: Int = 0,
     val nextAutoUpdateAt: Long? = null,
     val lastAutoUpdateError: String? = null,
+    val autoUpdateIntervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 ) {
     constructor(jsonObject: JSONObject) : this(
         id = jsonObject.getString("id"),
@@ -37,6 +39,9 @@ data class Profile(
         url = jsonObject.optString("url").takeIf { it.isNotBlank() },
         lastUpdated = jsonObject.takeIf { it.has("lastUpdated") }?.getLong("lastUpdated"),
         autoUpdate = jsonObject.optBoolean("autoUpdate", false),
+        autoUpdateIntervalMillis = ProfileUpdateInterval.requireValid(
+            jsonObject.optLong("autoUpdateIntervalMillis", ProfileUpdateInterval.DEFAULT_MILLIS),
+        ),
         userAgent = jsonObject.optString("userAgent").takeIf { it.isNotBlank() },
         proxyUrl = jsonObject.optString("proxyUrl").takeIf { it.isNotBlank() },
     )
@@ -53,6 +58,7 @@ data class Profile(
         url?.let { jsonObject.put("url", it) }
         lastUpdated?.let { jsonObject.put("lastUpdated", it) }
         jsonObject.put("autoUpdate", autoUpdate)
+        jsonObject.put("autoUpdateIntervalMillis", autoUpdateIntervalMillis)
         userAgent?.let { jsonObject.put("userAgent", it) }
         proxyUrl?.let { jsonObject.put("proxyUrl", it) }
         return jsonObject

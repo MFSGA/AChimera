@@ -59,10 +59,19 @@ internal class ProfileAutoUpdateRunner(
                 updated += 1
                 activeProfileUpdated = activeProfileUpdated || profile.isActive
                 runCatching {
-                    operations.recordAutoUpdateState(
-                        profile.id,
-                        ProfileAutoUpdatePolicy.successState(attemptedAt),
-                    )
+                    val committed = operations.listProfiles().firstOrNull {
+                        it.id == profile.id && profile.hasSameAutoUpdateSource(it)
+                    }
+                    if (committed != null) {
+                        operations.recordAutoUpdateState(
+                            profile.id,
+                            ProfileAutoUpdatePolicy.bindStateToSource(
+                                committed, ProfileAutoUpdatePolicy.successState(
+                                    attemptedAt, profile.autoUpdateIntervalMillis, committed.lastUpdated ?: attemptedAt,
+                                ),
+                            ),
+                        )
+                    }
                 }.onFailure { error ->
                     error.throwIfCancellationOrFatal()
                     failures += "state:${profile.id}:${error::class.java.simpleName}"
@@ -86,11 +95,11 @@ internal class ProfileAutoUpdateRunner(
                     runCatching {
                         operations.recordAutoUpdateState(
                             profile.id,
-                            ProfileAutoUpdatePolicy.failureState(
+                            ProfileAutoUpdatePolicy.bindStateToSource(profile, ProfileAutoUpdatePolicy.failureState(
                                 previousFailures = profile.autoUpdateFailures,
                                 attemptedAt = attemptedAt,
                                 error = error,
-                            ),
+                            )),
                         )
                     }.onFailure { stateError ->
                         stateError.throwIfCancellationOrFatal()

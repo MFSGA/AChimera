@@ -18,6 +18,7 @@ import rs.chimera.android.backend.ProfileCatalogCoordinator
 import rs.chimera.android.backend.ProfileCatalogReader
 import rs.chimera.android.backend.ProfileCatalogStore
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import rs.chimera.android.backend.model.ProfileSubscriptionUsage
 import rs.chimera.android.backend.model.toProfileSubscriptionUsage
 import uniffi.chimera_ffi.DownloadResult
@@ -34,6 +35,43 @@ class ProfileAutoUpdateCatalogInstrumentedTest {
     fun tearDown() {
         catalogPrefs.edit().clear().commit()
         ids.forEach(stateStore::clear)
+    }
+
+    @Test
+    fun legacyIntervalDefaultsToDailyAndCustomIntervalRoundTripsWithoutChangingSource() {
+        val id = trackedId("interval")
+        seedCatalog(id, requireBoundState = false)
+        val before = readProfile()
+        assertEquals(ProfileUpdateInterval.DEFAULT_MILLIS, before.autoUpdateIntervalMillis)
+        val store = ProfileCatalogStore(catalogPrefs, ProfileCatalogCoordinator())
+        val interval = 30L * 60_000
+        store.updateRemoteProfileSettings(
+            id,
+            RemoteProfileSettings(before.name, before.url!!, true, autoUpdateIntervalMillis = interval),
+        )
+        val after = readProfile()
+        assertEquals(interval, after.autoUpdateIntervalMillis)
+        assertEquals(interval, store.readRemoteProfile(id).autoUpdateIntervalMillis)
+        assertEquals(before.url, after.url)
+        assertEquals(before.lastUpdated, after.lastUpdated)
+        store.updateRemoteProfileSettings(
+            id,
+            RemoteProfileSettings(before.name, before.url!!, false, autoUpdateIntervalMillis = interval),
+        )
+        assertEquals(false, readProfile().autoUpdate)
+        assertEquals(interval, readProfile().autoUpdateIntervalMillis)
+    }
+
+    @Test
+    fun invalidStoredIntervalFailsExplicitlyWithoutResettingTheCatalog() {
+        val id = trackedId("bad-interval")
+        seedCatalog(id, requireBoundState = false)
+        val catalog = JSONArray(catalogPrefs.getString("profiles_list", null))
+        catalog.getJSONObject(0).put("autoUpdateIntervalMillis", 1L)
+        val serialized = catalog.toString()
+        catalogPrefs.edit().putString("profiles_list", serialized).commit()
+        assertEquals(true, runCatching { readProfile() }.exceptionOrNull() is IllegalArgumentException)
+        assertEquals(serialized, catalogPrefs.getString("profiles_list", null))
     }
 
     @Test

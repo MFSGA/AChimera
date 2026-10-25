@@ -230,6 +230,7 @@ fun ProfileScreen(
                             name = name,
                             url = url,
                             autoUpdate = autoUpdate,
+                            autoUpdateIntervalMillis = profile.autoUpdateIntervalMillis,
                             userAgent = userAgent.ifBlank { null },
                             proxyUrl = proxyUrl.ifBlank { null },
                         ),

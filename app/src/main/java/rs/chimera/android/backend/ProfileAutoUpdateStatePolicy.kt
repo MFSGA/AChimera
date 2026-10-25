@@ -2,9 +2,10 @@ package rs.chimera.android.backend
 
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileType
+import rs.chimera.android.backend.model.ProfileUpdateInterval
 import java.security.MessageDigest
 
-internal data class ProfileAutoUpdateState(
+data class ProfileAutoUpdateState(
     val lastAttempt: Long?,
     val failureCount: Int,
     val nextAttemptAt: Long?,
@@ -12,11 +13,12 @@ internal data class ProfileAutoUpdateState(
     val runtimeApplyPending: Boolean = false,
     val sourceFingerprint: String? = null,
     val profileRevision: Long? = null,
+    val intervalMillis: Long = ProfileUpdateInterval.DEFAULT_MILLIS,
 )
 
 /** Selects scheduled remote refreshes and computes bounded retry backoff. */
 internal object ProfileAutoUpdatePolicy {
-    const val UPDATE_INTERVAL_MILLIS = 24L * 60L * 60L * 1_000L
+    const val UPDATE_INTERVAL_MILLIS = ProfileUpdateInterval.DEFAULT_MILLIS
     const val BASE_RETRY_DELAY_MILLIS = 15L * 60L * 1_000L
     const val MAX_RETRY_DELAY_MILLIS = 5L * 60L * 60L * 1_000L
 
@@ -26,13 +28,18 @@ internal object ProfileAutoUpdatePolicy {
     ): List<ProfileSummary> =
         profiles.filter { profile ->
             val nextAttemptAt = profile.nextAutoUpdateAt
-                ?: profile.lastUpdated?.let { it + UPDATE_INTERVAL_MILLIS }
+                ?: profile.lastUpdated?.let { ProfileUpdateInterval.dueAt(it, profile.autoUpdateIntervalMillis) }
             isConfigured(profile) &&
                 !profile.runtimeApplyPending &&
                 (nextAttemptAt == null || nextAttemptAt <= now)
         }
 
     fun shouldSchedule(profiles: List<ProfileSummary>): Boolean = profiles.any(::isConfigured)
+
+    fun scheduleIntervalMillis(profiles: List<ProfileSummary>): Long? = profiles
+        .filter(::isConfigured)
+        .minOfOrNull { ProfileUpdateInterval.requireValid(it.autoUpdateIntervalMillis) }
+        ?.coerceAtMost(UPDATE_INTERVAL_MILLIS)
 
     fun stateMatchesSource(
         profile: ProfileSummary,
@@ -51,6 +58,7 @@ internal object ProfileAutoUpdatePolicy {
         state.copy(
             sourceFingerprint = sourceFingerprint(profile),
             profileRevision = profileRevision,
+            intervalMillis = profile.autoUpdateIntervalMillis,
         )
 
     fun bindLegacyStateToCurrentProfile(
@@ -58,19 +66,24 @@ internal object ProfileAutoUpdatePolicy {
         state: ProfileAutoUpdateState,
     ): ProfileAutoUpdateState =
         if (state.sourceFingerprint == null || state.profileRevision == null) {
-            bindStateToSource(profile, state)
+            bindStateToSource(profile, state).copy(intervalMillis = state.intervalMillis)
         } else {
             state
         }
 
     fun profileRevision(profile: ProfileSummary): Long = profile.lastUpdated ?: NO_PROFILE_REVISION
 
-    fun successState(attemptedAt: Long): ProfileAutoUpdateState =
+    fun successState(
+        attemptedAt: Long,
+        intervalMillis: Long = UPDATE_INTERVAL_MILLIS,
+        updatedAt: Long = attemptedAt,
+    ): ProfileAutoUpdateState =
         ProfileAutoUpdateState(
             lastAttempt = attemptedAt,
             failureCount = 0,
-            nextAttemptAt = attemptedAt + UPDATE_INTERVAL_MILLIS,
+            nextAttemptAt = ProfileUpdateInterval.dueAt(updatedAt, intervalMillis),
             lastError = null,
+            intervalMillis = intervalMillis,
         )
 
     fun refreshNowState(now: Long): ProfileAutoUpdateState =
@@ -80,6 +93,19 @@ internal object ProfileAutoUpdatePolicy {
             nextAttemptAt = now,
             lastError = null,
         )
+
+    /** Frequency is metadata, not a new download source; preserve backoff/pending. */
+    fun stateForInterval(profile: ProfileSummary, state: ProfileAutoUpdateState): ProfileAutoUpdateState =
+        if (!profile.autoUpdate || state.intervalMillis == profile.autoUpdateIntervalMillis) {
+            state
+        } else {
+            state.copy(
+                intervalMillis = profile.autoUpdateIntervalMillis,
+                nextAttemptAt = if (state.failureCount > 0) state.nextAttemptAt else {
+                    profile.lastUpdated?.let { ProfileUpdateInterval.dueAt(it, profile.autoUpdateIntervalMillis) }
+                },
+            )
+        }
 
     fun shouldRetryAfterGuardedStateWrite(
         attemptedState: ProfileAutoUpdateState,

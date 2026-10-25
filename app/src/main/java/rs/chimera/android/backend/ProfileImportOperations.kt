@@ -156,6 +156,7 @@ internal class ProfileImportOperations(
         profileJson.put("url", normalizedRequest.url)
         profileJson.put("lastUpdated", System.currentTimeMillis())
         profileJson.put("autoUpdate", normalizedRequest.autoUpdate)
+        profileJson.put("autoUpdateIntervalMillis", normalizedRequest.autoUpdateIntervalMillis)
         downloadResult.subscriptionInfo?.toProfileSubscriptionUsage()?.let {
             profileJson.putProfileSubscriptionUsage(it)
         }

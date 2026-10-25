@@ -13,6 +13,7 @@ internal object ProfileAutoUpdateStateCommitPolicy {
             proxyUrl = current.proxyUrl,
         )
         return state.sourceFingerprint == currentFingerprint &&
+            state.intervalMillis == current.autoUpdateIntervalMillis &&
             state.profileRevision == (current.lastUpdated ?: 0L)
     }
 }

@@ -12,6 +12,7 @@ internal fun Profile.matchesMutationSnapshot(current: ProfileSummary): Boolean =
         (type == ProfileType.REMOTE) == current.isRemote &&
         url == current.url &&
         autoUpdate == current.autoUpdate &&
+        autoUpdateIntervalMillis == current.autoUpdateIntervalMillis &&
         userAgent == current.userAgent &&
         proxyUrl == current.proxyUrl
 

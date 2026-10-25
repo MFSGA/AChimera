@@ -16,6 +16,7 @@ internal fun ProfileSummary.toProfile(): Profile =
         url = url,
         lastUpdated = lastUpdated,
         autoUpdate = autoUpdate,
+        autoUpdateIntervalMillis = autoUpdateIntervalMillis,
         userAgent = userAgent,
         proxyUrl = proxyUrl,
         lastAutoUpdateAttempt = lastAutoUpdateAttempt,

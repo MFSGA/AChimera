@@ -66,6 +66,9 @@ class ChimeraBackendImpl(
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
     private val profileCatalogReader = ProfileCatalogReader(profileCatalogStore, profileAutoUpdateStateStore)
+    private val profileAutoUpdateStateOperations = ProfileAutoUpdateStateOperations(
+        profileUpdateCoordinator, profileCatalogStore, profileAutoUpdateStateStore,
+    )
     private val profileStagingStore = ProfileStagingStore(
         profilePrefs = profilePrefs,
         filesDir = context.filesDir,
@@ -209,7 +212,7 @@ class ChimeraBackendImpl(
     private suspend fun listProfilesReady(): List<ProfileSummary> {
         profileStagingStore.recoverDeletions()
         val profiles = profileCatalogReader.readProfiles()
-        refreshProfileAutoUpdateSchedule(profiles)
+        synchronizeProfileAutoUpdateSchedule()
         return profiles
     }
 
@@ -345,11 +348,15 @@ class ChimeraBackendImpl(
         }
     }
 
-    override suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings) {
+    override suspend fun updateRemoteProfileSettings(id: String, settings: RemoteProfileSettings, expectedIntervalMillis: Long?) {
         withContext(Dispatchers.IO) {
+            awaitReady()
             profileUpdateCoordinator.withLock(id) {
                 val normalized = ProfileRemotePolicy.normalizeSettings(settings)
                 val current = profileCatalogStore.readRemoteProfile(id)
+                check(expectedIntervalMillis == null || current.autoUpdateIntervalMillis == expectedIntervalMillis) {
+                    context.getString(rs.chimera.android.R.string.profile_properties_changed)
+                }
                 VpnRuntimeRegistry.withSettingsMutation(
                     serviceState = serviceState.value,
                     unavailableMessage = {
@@ -371,6 +378,11 @@ class ChimeraBackendImpl(
                 synchronizeProfileAutoUpdateSchedule()
             }
         }
+    }
+
+    override suspend fun recordProfileAutoUpdateState(id: String, state: ProfileAutoUpdateState): Boolean {
+        awaitReady()
+        return profileAutoUpdateStateOperations.recordIfCurrent(id, state) == state
     }
 
     private suspend fun updateRemoteProfileLocked(
@@ -549,7 +561,7 @@ class ChimeraBackendImpl(
 
     private suspend fun synchronizeProfileAutoUpdateSchedule() {
         ProfileAutoUpdateScheduleSync.run(
-            loadProfiles = ::listProfiles,
+            loadProfiles = { profileCatalogReader.readProfiles() },
             refreshSchedule = ::refreshProfileAutoUpdateSchedule,
             onFailure = { error ->
                 PrivacySafeLog.error(TAG, "Failed to refresh profile list after catalog mutation", error)
