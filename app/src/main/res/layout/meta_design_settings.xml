@@ -142,6 +142,57 @@
                     </LinearLayout>
 
                     <RelativeLayout
+                        android:id="@+id/row_hide_app_icon"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:minHeight="75dp"
+                        android:paddingEnd="17.5dp">
+
+                        <ImageView
+                            android:id="@+id/hide_app_icon_icon"
+                            android:layout_width="30dp"
+                            android:layout_height="30dp"
+                            android:layout_centerVertical="true"
+                            android:layout_marginHorizontal="17.5dp"
+                            android:contentDescription="@null"
+                            android:src="@drawable/ic_baseline_hide" />
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_centerVertical="true"
+                            android:layout_toEndOf="@id/hide_app_icon_icon"
+                            android:layout_toStartOf="@id/switch_hide_app_icon"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/settings_hide_app_icon"
+                                android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="5dp"
+                                android:text="@string/settings_hide_app_icon_summary"
+                                android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                        </LinearLayout>
+
+                        <com.google.android.material.switchmaterial.SwitchMaterial
+                            android:id="@+id/switch_hide_app_icon"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:layout_centerVertical="true"
+                            android:clickable="false"
+                            android:focusable="false" />
+                    </RelativeLayout>
+
+                    <RelativeLayout
                         android:id="@+id/row_hide_from_recents"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"

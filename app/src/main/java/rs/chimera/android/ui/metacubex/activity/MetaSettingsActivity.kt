@@ -138,6 +138,10 @@ class MetaSettingsActivity : AppCompatActivity() {
                 AppPreferences.updateAutoRestart(this, request.enabled)
                 design.render(loadState())
             }
+            is SettingsDesign.Request.SetHideAppIcon -> {
+                AppPreferences.updateHideAppIcon(this, request.enabled)
+                design.render(loadState())
+            }
             is SettingsDesign.Request.SetHideFromRecents -> {
                 AppPreferences.updateHideFromRecents(this, request.enabled)
                 AppRecentTasksVisibility.apply(this, request.enabled)
@@ -579,6 +583,7 @@ class MetaSettingsActivity : AppCompatActivity() {
             appearance = appearanceLabel(AppPreferences.appearance(this)),
             uiVariant = uiVariantLabel(AppPreferences.uiVariant(this)),
             autoRestart = AppPreferences.autoRestart(this),
+            hideAppIcon = AppPreferences.hideAppIcon(this),
             hideFromRecents = AppPreferences.hideFromRecents(this),
             vpnSystemStatus = vpnPresentation.format(this),
             vpnSystemRestricted = vpnPresentation.restricted,

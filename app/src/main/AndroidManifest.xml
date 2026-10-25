@@ -27,12 +27,31 @@
         <activity
             android:name="rs.chimera.android.MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.Chimera">
+            android:theme="@style/Theme.Chimera" />
+        <activity-alias
+            android:name="rs.chimera.android.MainActivityAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="@string/app_name"
+            android:targetActivity="rs.chimera.android.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <receiver
+            android:name="rs.chimera.android.DialerReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SECRET_CODE" />
+                <action android:name="android.telephony.action.SECRET_CODE" />
+                <data
+                    android:host="252746382"
+                    android:scheme="android_secret_code" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name="rs.chimera.android.ui.metacubex.activity.MetaMainActivity"
             android:exported="false"

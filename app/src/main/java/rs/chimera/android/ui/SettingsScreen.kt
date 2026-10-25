@@ -279,6 +279,13 @@ fun SettingsScreen(
                         subtitle = appearanceLabel(viewModel.appearancePreference),
                         onClick = { showAppearanceDialog = true },
                     )
+                    SettingsSwitchItem(
+                        icon = Icons.Default.Apps,
+                        title = stringResource(R.string.settings_hide_app_icon),
+                        subtitle = stringResource(R.string.settings_hide_app_icon_summary),
+                        checked = viewModel.hideAppIcon,
+                        onCheckedChange = viewModel::updateHideAppIcon,
+                    )
                     SettingsItem(
                         icon = Icons.Default.Dashboard,
                         title = stringResource(R.string.settings_ui_style),

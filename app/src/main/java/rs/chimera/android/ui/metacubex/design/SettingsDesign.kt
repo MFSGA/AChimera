@@ -55,6 +55,7 @@ class SettingsDesign(
         data object ChooseAppearance : Request()
         data object ChooseUiVariant : Request()
         data class SetAutoRestart(val enabled: Boolean) : Request()
+        data class SetHideAppIcon(val enabled: Boolean) : Request()
         data class SetHideFromRecents(val enabled: Boolean) : Request()
         data class SetAllowLan(val enabled: Boolean) : Request()
         data class SetFakeIp(val enabled: Boolean) : Request()
@@ -74,6 +75,7 @@ class SettingsDesign(
         val appearance: String,
         val uiVariant: String,
         val autoRestart: Boolean,
+        val hideAppIcon: Boolean,
         val hideFromRecents: Boolean,
         val vpnSystemStatus: String,
         val vpnSystemRestricted: Boolean,
@@ -118,6 +120,8 @@ class SettingsDesign(
     )
     private val rowAutoRestart = root.findViewById<View>(R.id.row_auto_restart)
     private val switchAutoRestart = root.findViewById<SwitchMaterial>(R.id.switch_auto_restart)
+    private val rowHideAppIcon = root.findViewById<View>(R.id.row_hide_app_icon)
+    private val switchHideAppIcon = root.findViewById<SwitchMaterial>(R.id.switch_hide_app_icon)
     private val rowHideFromRecents = root.findViewById<View>(R.id.row_hide_from_recents)
     private val switchHideFromRecents =
         root.findViewById<SwitchMaterial>(R.id.switch_hide_from_recents)
@@ -168,6 +172,26 @@ class SettingsDesign(
         cardAppearance.setOnClickListener { request(Request.ChooseAppearance) }
         cardUiVariant.setOnClickListener { request(Request.ChooseUiVariant) }
         rowAutoRestart.setOnClickListener { switchAutoRestart.isChecked = !switchAutoRestart.isChecked }
+        rowHideAppIcon.setOnClickListener {
+            switchHideAppIcon.isChecked = !switchHideAppIcon.isChecked
+        }
+        ViewCompat.setAccessibilityDelegate(
+            rowHideAppIcon,
+            object : AccessibilityDelegateCompat() {
+                override fun onInitializeAccessibilityNodeInfo(
+                    host: View,
+                    info: AccessibilityNodeInfoCompat,
+                ) {
+                    super.onInitializeAccessibilityNodeInfo(host, info)
+                    info.className = "android.widget.Switch"
+                    info.contentDescription = context.getString(
+                        R.string.settings_hide_app_icon_accessibility,
+                    )
+                    info.isCheckable = true
+                    info.isChecked = switchHideAppIcon.isChecked
+                }
+            },
+        )
         rowHideFromRecents.setOnClickListener {
             switchHideFromRecents.isChecked = !switchHideFromRecents.isChecked
         }
@@ -213,6 +237,9 @@ class SettingsDesign(
         switchAutoRestart.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAutoRestart(checked))
         }
+        switchHideAppIcon.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) request(Request.SetHideAppIcon(checked))
+        }
         switchHideFromRecents.setOnCheckedChangeListener { _, checked ->
             if (!rendering) {
                 rowHideFromRecents.sendAccessibilityEvent(
@@ -236,6 +263,7 @@ class SettingsDesign(
         currentState = state
         rendering = true
         switchAutoRestart.isChecked = state.autoRestart
+        switchHideAppIcon.isChecked = state.hideAppIcon
         switchHideFromRecents.isChecked = state.hideFromRecents
         switchAllowLan.isChecked = state.allowLan
         switchFakeIp.isChecked = state.fakeIp

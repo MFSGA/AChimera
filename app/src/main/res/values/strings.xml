@@ -159,6 +159,9 @@
     <string name="meta_override_name_server_policy">Name Server Policy</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_dark_mode">Dark Mode</string>
+    <string name="settings_hide_app_icon">Hide App Icon</string>
+    <string name="settings_hide_app_icon_summary">You can dial *#*#252746382#*#* to open this App</string>
+    <string name="settings_hide_app_icon_accessibility">Hide app icon. You can dial *#*#252746382#*#* to open this App</string>
     <string name="settings_ui_style">Interface Style</string>
     <string name="ui_style_watfaq">Watfaq (Compose)</string>
     <string name="ui_style_metacubex">MetaCubeX (View)</string>
@@ -210,7 +213,7 @@
     <string name="settings_language">Language</string>
     <string name="settings_behavior">Behavior</string>
     <string name="settings_auto_restart">Auto Restart</string>
-    <string name="settings_auto_restart_summary">Allow Chimera to restart VPN automatically</string>
+    <string name="settings_auto_restart_summary">Allow Chimera auto restart</string>
     <string name="settings_hide_from_recents">Hide from Recents</string>
     <string name="settings_hide_from_recents_summary">Hide app from the Recent apps screen</string>
     <string name="settings_hide_from_recents_accessibility">Hide from Recents. Hide app from the Recent apps screen</string>

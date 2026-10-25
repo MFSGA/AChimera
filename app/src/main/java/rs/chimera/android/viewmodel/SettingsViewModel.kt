@@ -69,6 +69,14 @@ class SettingsViewModel(
         AppPreferences.updateUiVariant(getApplication(), variant)
     }
 
+    var hideAppIcon: Boolean by mutableStateOf(AppPreferences.hideAppIcon(application))
+        private set
+
+    fun updateHideAppIcon(hidden: Boolean) {
+        AppPreferences.updateHideAppIcon(getApplication(), hidden)
+        hideAppIcon = hidden
+    }
+
     var allowLan: Boolean by mutableStateOf(backend.settings.value.allowLan)
         private set
 

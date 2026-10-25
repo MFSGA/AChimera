@@ -153,6 +153,9 @@
     <string name="meta_override_name_server_policy">Name Server 策略</string>
     <string name="settings_appearance">外观</string>
     <string name="settings_dark_mode">暗黑模式</string>
+    <string name="settings_hide_app_icon">隐藏应用图标</string>
+    <string name="settings_hide_app_icon_summary">可以在拨号盘输入 *#*#252746382#*#* 打开应用</string>
+    <string name="settings_hide_app_icon_accessibility">隐藏应用图标。可以在拨号盘输入 *#*#252746382#*#* 打开应用</string>
     <string name="settings_ui_style">界面风格</string>
     <string name="ui_style_watfaq">Watfaq（Compose）</string>
     <string name="ui_style_metacubex">MetaCubeX（View）</string>
@@ -204,7 +207,7 @@
     <string name="settings_language">语言</string>
     <string name="settings_behavior">行为</string>
     <string name="settings_auto_restart">自动重启</string>
-    <string name="settings_auto_restart_summary">允许 Chimera 自动重启 VPN</string>
+    <string name="settings_auto_restart_summary">允许 Chimera 自动重启</string>
     <string name="settings_hide_from_recents">从最近任务隐藏</string>
     <string name="settings_hide_from_recents_summary">在最近任务中隐藏应用</string>
     <string name="settings_hide_from_recents_accessibility">从最近任务隐藏。在最近任务中隐藏应用</string>
