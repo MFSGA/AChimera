@@ -49,6 +49,7 @@ interface ChimeraBackend {
     suspend fun restartVpn()
 
     suspend fun listProfiles(): List<ProfileSummary>
+    suspend fun readProfileConfiguration(id: String): String
     suspend fun activateProfile(id: String)
     suspend fun deleteProfile(id: String)
     suspend fun duplicateProfile(id: String): String

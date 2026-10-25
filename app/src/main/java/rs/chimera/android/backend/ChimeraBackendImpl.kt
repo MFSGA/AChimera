@@ -67,6 +67,9 @@ class ChimeraBackendImpl(
     private val profileCatalogCoordinator = ProfileCatalogCoordinator()
     private val profileCatalogStore = ProfileCatalogStore(profilePrefs, profileCatalogCoordinator)
     private val profileCatalogReader = ProfileCatalogReader(profileCatalogStore, profileAutoUpdateStateStore)
+    private val profileConfigurationReader = ProfileConfigurationReader(context.filesDir) { id ->
+        profileCatalogReader.readProfiles().firstOrNull { it.id == id }
+    }
     private val profileAutoUpdateStateOperations = ProfileAutoUpdateStateOperations(
         profileUpdateCoordinator, profileCatalogStore, profileAutoUpdateStateStore,
     )
@@ -627,6 +630,12 @@ class ChimeraBackendImpl(
         withContext(Dispatchers.IO) {
             awaitReady()
             listProfilesReady()
+        }
+
+    override suspend fun readProfileConfiguration(id: String): String =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            profileConfigurationReader.read(id)
         }
 
     override suspend fun deleteProfile(id: String): Unit =
