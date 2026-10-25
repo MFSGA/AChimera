@@ -281,9 +281,10 @@ class AppUiNavigationInstrumentedTest {
             }
             assertTrue(selectorClickable)
             assertTrue(selectorClickHandled)
-            assertEquals(
-                ProxyDesign.Request.SelectProxy("test-group", "test-node", selectionProjected = true),
+            assertProjectedSelectionRequest(
                 design.requests.tryReceive().getOrNull(),
+                "test-group",
+                "test-node",
             )
 
             var nodeSelectableDuringDelayTest = false
@@ -315,10 +316,7 @@ class AppUiNavigationInstrumentedTest {
             assertTrue("Proxy mode menu should stay available during delay tests", modeMenuEnabledDuringDelayTest)
             assertTrue("Delay-test actions should not start a duplicate test", delayActionsDisabledDuringDelayTest)
             assertTrue("Delay-test progress should be visible", delayProgressVisibleDuringDelayTest)
-            assertEquals(
-                ProxyDesign.Request.SelectProxy("test-group", "test-node", selectionProjected = true),
-                delayTestSelectionRequest,
-            )
+            assertProjectedSelectionRequest(delayTestSelectionRequest, "test-group", "test-node")
 
             var selectionPageInputEnabled = false
             var modeMenuEnabled = false
@@ -360,10 +358,7 @@ class AppUiNavigationInstrumentedTest {
             }
             assertTrue("Proxy groups should remain swipeable during mode changes", selectionPageInputEnabled)
             assertTrue("Proxy mode menu should remain enabled during mode changes", modeMenuEnabled)
-            assertEquals(
-                ProxyDesign.Request.SelectProxy("test-group", "test-node", selectionProjected = true),
-                selectionDuringModeSwitch,
-            )
+            assertProjectedSelectionRequest(selectionDuringModeSwitch, "test-group", "test-node")
 
             scenario.onActivity {
                 design.setGroups(
@@ -672,17 +667,18 @@ class AppUiNavigationInstrumentedTest {
                         ?: return@onActivity
                     if (card.performClick()) {
                         selectionRequest = design.requests.tryReceive().getOrNull()
-                        selectionRequested = selectionRequest ==
-                            ProxyDesign.Request.SelectProxy("selector", "node-b", selectionProjected = true)
+                        val request = selectionRequest as? ProxyDesign.Request.SelectProxy
+                        selectionRequested = request?.let {
+                            it.groupName == "selector" &&
+                                it.proxyName == "node-b" &&
+                                it.selectionProjected
+                        } == true
                     }
                 }
                 if (!selectionRequested) SystemClock.sleep(50)
             }
             assertTrue("The requested selector should be present", selectionRequested)
-            assertEquals(
-                ProxyDesign.Request.SelectProxy("selector", "node-b", selectionProjected = true),
-                selectionRequest,
-            )
+            assertProjectedSelectionRequest(selectionRequest, "selector", "node-b")
 
             fun awaitSelectorCardState(expected: Pair<Boolean, Boolean>) {
                 var state: Pair<Boolean, Boolean>? = null
@@ -742,7 +738,11 @@ class AppUiNavigationInstrumentedTest {
                             finishBackend.await()
                         },
                         confirmSelection = {
-                            design.confirmProxySelection(request.groupName, request.proxyName)
+                            design.confirmProxySelection(
+                                request.selectionToken,
+                                request.groupName,
+                                request.proxyName,
+                            )
                         },
                         refresh = { throw AssertionError("successful selection should not refresh") },
                         onFailure = { throw AssertionError("unexpected selection error", it) },
@@ -765,10 +765,7 @@ class AppUiNavigationInstrumentedTest {
                         queuedSelection = design.requests.tryReceive().getOrNull()
                     }
                 }
-                assertEquals(
-                    ProxyDesign.Request.SelectProxy("selector", "node-a", selectionProjected = true),
-                    queuedSelection,
-                )
+                assertProjectedSelectionRequest(queuedSelection, "selector", "node-a")
                 assertEquals(
                     listOf(true, false),
                     awaitProxySelectionStates(
@@ -788,7 +785,11 @@ class AppUiNavigationInstrumentedTest {
                     selectionProjected = secondRequest.selectionProjected,
                     select = { secondBackendCompleted = true },
                     confirmSelection = {
-                        design.confirmProxySelection(secondRequest.groupName, secondRequest.proxyName)
+                        design.confirmProxySelection(
+                            secondRequest.selectionToken,
+                            secondRequest.groupName,
+                            secondRequest.proxyName,
+                        )
                     },
                     refresh = { throw AssertionError("successful selection should not refresh") },
                     onFailure = { throw AssertionError("unexpected selection error", it) },
@@ -949,21 +950,24 @@ class AppUiNavigationInstrumentedTest {
                 )
             }
 
-            var projectionApplied = false
+            var selectionToken: Long? = null
             scenario.onActivity {
-                projectionApplied = design.applyProxySelection("selector", "node-b")
+                selectionToken = design.applyProxySelection("selector", "node-b")
             }
+            assertNotNull(selectionToken)
             var reportedError: Throwable? = null
             var refreshCount = 0
             runBlocking {
                 runProxySelection(
-                    selectionProjected = projectionApplied,
+                    selectionProjected = selectionToken != null,
                     select = {
                         awaitSelectorCardState(Pair(false, true))
                         awaitLinkedGroupLabel("Selector(node-b)")
                         throw IllegalStateException("backend rejected selection")
                     },
-                    confirmSelection = { design.confirmProxySelection("selector", "node-b") },
+                    confirmSelection = {
+                        design.confirmProxySelection(selectionToken, "selector", "node-b")
+                    },
                     refresh = {
                         refreshCount++
                         scenario.onActivity { design.setGroups(backendSnapshot) }
@@ -991,9 +995,11 @@ class AppUiNavigationInstrumentedTest {
             }
             awaitProxyPageBounds(scenario, design, pagePosition = 0, itemCount = 2)
 
+            var selectionToken: Long? = null
             scenario.onActivity {
-                assertTrue(design.applyProxySelection("selector", "node-b"))
+                selectionToken = design.applyProxySelection("selector", "node-b")
             }
+            assertNotNull(selectionToken)
             assertEquals(
                 listOf(false, true),
                 awaitProxySelectionStates(scenario, design, listOf(false, true)),
@@ -1002,9 +1008,11 @@ class AppUiNavigationInstrumentedTest {
             var reportedError: Throwable? = null
             runBlocking {
                 runProxySelection(
-                    selectionProjected = true,
+                    selectionProjected = selectionToken != null,
                     select = { throw IllegalStateException("backend rejected selection") },
-                    confirmSelection = { design.confirmProxySelection("selector", "node-b") },
+                    confirmSelection = {
+                        design.confirmProxySelection(selectionToken, "selector", "node-b")
+                    },
                     refresh = {
                         scenario.onActivity {
                             design.restoreConfirmedProxyGroups()
@@ -1118,8 +1126,8 @@ class AppUiNavigationInstrumentedTest {
                     activity,
                     listOf(proxyGroupWithNodes("selector", "Selector", listOf("node-a", "node-b", "node-c"))),
                 )
-                assertTrue(design.applyProxySelection("selector", "node-b"))
-                assertTrue(design.applyProxySelection("selector", "node-c"))
+                assertNotNull(design.applyProxySelection("selector", "node-b"))
+                assertNotNull(design.applyProxySelection("selector", "node-c"))
             }
 
             assertEquals(listOf(false, false, true), awaitProxySelectionStates(scenario, design, listOf(false, false, true)))
@@ -1749,6 +1757,18 @@ class AppUiNavigationInstrumentedTest {
             if (selectionStates != expected) SystemClock.sleep(50)
         }
         return selectionStates
+    }
+
+    private fun assertProjectedSelectionRequest(
+        request: ProxyDesign.Request?,
+        expectedGroup: String,
+        expectedProxy: String,
+    ) {
+        val selection = request as? ProxyDesign.Request.SelectProxy
+            ?: throw AssertionError("Expected a projected proxy selection request, got $request")
+        assertEquals(expectedGroup, selection.groupName)
+        assertEquals(expectedProxy, selection.proxyName)
+        assertTrue(selection.selectionProjected)
     }
 
     private fun clearPreferences() {

@@ -86,7 +86,7 @@ class ProxySelectionRollbackInstrumentedTest {
         capture(scenario, design, "fixture-before")
         scenario.onActivity {
             assertTrue(card(design, NEW_NODE)!!.performClick())
-            assertEquals(ProxyDesign.Request.SelectProxy(MANUAL, NEW_NODE, true), design.requests.tryReceive().getOrNull())
+            assertProjectedSelectionRequest(design.requests.tryReceive().getOrNull(), NEW_NODE)
             assertTrue(card(design, NEW_NODE)!!.entry!!.isSelected)
             assertFalse(card(design, OLD_NODE)!!.entry!!.isSelected)
         }
@@ -108,10 +108,10 @@ class ProxySelectionRollbackInstrumentedTest {
         awaitCard(scenario, design, OLD_NODE, selected = true)
         scenario.onActivity {
             assertTrue(card(design, NEW_NODE)!!.performClick())
-            assertTrue(design.requests.tryReceive().getOrNull() is ProxyDesign.Request.SelectProxy)
-            assertTrue(design.confirmProxySelection(MANUAL, NEW_NODE))
+            val firstRequest = requireSelectionRequest(design.requests.tryReceive().getOrNull())
+            assertTrue(design.confirmProxySelection(firstRequest.selectionToken, MANUAL, NEW_NODE))
             assertTrue(card(design, OLD_NODE)!!.performClick())
-            assertTrue(design.requests.tryReceive().getOrNull() is ProxyDesign.Request.SelectProxy)
+            assertProjectedSelectionRequest(design.requests.tryReceive().getOrNull(), OLD_NODE)
             design.restoreConfirmedProxyGroups()
             assertSnapped(card(design, NEW_NODE)!!, selected = true)
             assertSnapped(card(design, OLD_NODE)!!, selected = false)
@@ -130,15 +130,12 @@ class ProxySelectionRollbackInstrumentedTest {
                 assertTrue(card(design, name)!!.performClick())
                 assertTrue(card(design, name)!!.entry!!.isSelected)
             }
-            val requests = List(4) { design.requests.tryReceive().getOrNull() }
-            assertEquals(
-                listOf(NEW_NODE, OLD_NODE, NEW_NODE, OLD_NODE).map { ProxyDesign.Request.SelectProxy(MANUAL, it, true) },
-                requests,
-            )
+            val requests = List(4) { requireSelectionRequest(design.requests.tryReceive().getOrNull()) }
+            assertEquals(listOf(NEW_NODE, OLD_NODE, NEW_NODE, OLD_NODE), requests.map { it.proxyName })
             // Earlier confirmations must not repaint the newer queued projection.
-            assertTrue(design.confirmProxySelection(MANUAL, NEW_NODE))
+            assertTrue(design.confirmProxySelection(requests[0].selectionToken, MANUAL, NEW_NODE))
             assertTrue(card(design, OLD_NODE)!!.entry!!.isSelected)
-            assertTrue(design.confirmProxySelection(MANUAL, NEW_NODE))
+            assertTrue(design.confirmProxySelection(requests[2].selectionToken, MANUAL, NEW_NODE))
             assertTrue(card(design, OLD_NODE)!!.entry!!.isSelected)
         }
         capture(scenario, design, "queue-fixture-projected")
@@ -689,6 +686,19 @@ class ProxySelectionRollbackInstrumentedTest {
 
     private fun selectorChoices(groups: List<ProxyGroupSnapshot>) = groups
         .filter { it.proxyDetails[it.name]?.type == "Selector" }.associate { it.name to it.selected }
+
+    private fun requireSelectionRequest(request: ProxyDesign.Request?): ProxyDesign.Request.SelectProxy {
+        val selection = request as? ProxyDesign.Request.SelectProxy
+            ?: throw AssertionError("Expected a proxy selection request, got $request")
+        assertTrue(selection.selectionProjected)
+        return selection
+    }
+
+    private fun assertProjectedSelectionRequest(request: ProxyDesign.Request?, proxyName: String) {
+        val selection = requireSelectionRequest(request)
+        assertEquals(MANUAL, selection.groupName)
+        assertEquals(proxyName, selection.proxyName)
+    }
 
     private fun fixture(): List<ProxyGroupSnapshot> {
         val details = mapOf(
