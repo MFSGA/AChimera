@@ -10,6 +10,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import androidx.core.view.ViewCompat
+import androidx.core.view.doOnAttach
 import androidx.core.view.doOnPreDraw
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.GridLayoutManager
@@ -185,7 +186,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             lastGroupName = null
             displayPreferences.updateLastGroupName(null)
         }
-        renderGroups()
+        renderGroups(
+            rebindVisibleRowsImmediately = true,
+        )
     }
 
     fun applyProxySelection(groupName: String, proxyName: String): Boolean {
@@ -202,11 +205,15 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
     fun restoreConfirmedProxyGroups() {
         proxySelectionState.restoreConfirmedSnapshot()
-        renderGroups(rebindVisibleRowsImmediately = true)
+        renderGroups(
+            rebindVisibleRowsImmediately = true,
+            forceSnapSelectionColor = true,
+        )
     }
 
     private fun renderGroups(
         rebindVisibleRowsImmediately: Boolean = false,
+        forceSnapSelectionColor: Boolean = false,
     ) {
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         groups.clear()
@@ -236,7 +243,11 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         renderingGroups = true
         try {
             pagerAdapter.submitPages(sortedPages())
-            if (rebindVisibleRowsImmediately) pagerAdapter.rebindVisibleRowsImmediately()
+            if (rebindVisibleRowsImmediately) {
+                pagerAdapter.rebindVisibleRowsImmediately(
+                    forceSnapSelectionColor = forceSnapSelectionColor,
+                )
+            }
             emptyView.visibility = View.GONE
             binding.viewPager.visibility = View.VISIBLE
             content.visibility = View.VISIBLE
@@ -473,10 +484,19 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val horizontalInsets = proxyLandscapeInsets(
+                width = context.resources.displayMetrics.widthPixels,
+                height = context.resources.displayMetrics.heightPixels,
+                minWidth = context.resources.getDimensionPixelSize(
+                    R.dimen.metacubex_surface_landscape_min_width,
+                ),
+                start = if (isRtl) bars.right else bars.left,
+                end = if (isRtl) bars.left else bars.right,
+            )
             view.setPaddingRelative(
-                if (isRtl) bars.right else bars.left,
+                horizontalInsets.start,
                 0,
-                if (isRtl) bars.left else bars.right,
+                horizontalInsets.end,
                 0,
             )
             activityBar.setPadding(0, bars.top, 0, 0)
@@ -492,7 +512,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             }
             insets
         }
-        ViewCompat.requestApplyInsets(root)
+        root.doOnAttach { ViewCompat.requestApplyInsets(it) }
     }
 
     private inner class ProxyPagerAdapter : RecyclerView.Adapter<ProxyPagerAdapter.PageHolder>() {
@@ -553,7 +573,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             if (pages.isNotEmpty()) groups.indices.forEach(::updatePageAdapter)
         }
 
-        fun rebindVisibleRowsImmediately() {
+        fun rebindVisibleRowsImmediately(
+            forceSnapSelectionColor: Boolean = false,
+        ) {
             val pagerRecycler = binding.viewPager.getChildAt(0) as? RecyclerView ?: return
             repeat(itemCount) { position ->
                 val pageHolder = pagerRecycler.findViewHolderForAdapterPosition(position) as? PageHolder
@@ -564,6 +586,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
                 pageAdapter.rebindVisibleItems(
                     pageHolder.recyclerView,
                     pages.getOrNull(position).orEmpty(),
+                    forceSnapSelectionColor = forceSnapSelectionColor,
                 )
             }
         }

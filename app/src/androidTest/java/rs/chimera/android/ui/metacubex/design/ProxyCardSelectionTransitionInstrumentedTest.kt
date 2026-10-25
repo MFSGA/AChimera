@@ -28,11 +28,11 @@ class ProxyCardSelectionTransitionInstrumentedTest {
         val recycled = entry("node-b", selected = false)
         val selectedColor = card.backgroundColor(selected)
         val unselectedColor = card.backgroundColor(previous)
-        val frameStart = SystemClock.uptimeMillis()
+        val frameStart = System.currentTimeMillis()
 
         card.entry = previous
         transition.snap(unselectedColor, frameStart)
-        card.entry = selected
+        card.bindEntry(selected)
 
         val firstFrame = transition.advance(selectedColor, frameStart + 64L)
         assertNotEquals(selectedColor, firstFrame.color)
@@ -74,8 +74,8 @@ class ProxyCardSelectionTransitionInstrumentedTest {
         val unselectedColor = card.backgroundColor(previous)
 
         card.entry = previous
-        card.entry = selected
-        setTransitionLastFrameTime(transition, SystemClock.uptimeMillis() - 64L)
+        card.bindEntry(selected)
+        setTransitionLastFrameTime(transition, System.currentTimeMillis() - 64L)
         card.measure(
             View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(200, View.MeasureSpec.AT_MOST),
@@ -97,7 +97,7 @@ class ProxyCardSelectionTransitionInstrumentedTest {
         val selected = unselected.copy(isSelected = true)
         val unselectedColor = card.backgroundColor(unselected)
         val selectedColor = card.backgroundColor(selected)
-        val frameStart = SystemClock.uptimeMillis()
+        val frameStart = System.currentTimeMillis()
 
         card.entry = unselected
         transition.snap(unselectedColor, frameStart)
@@ -126,13 +126,14 @@ class ProxyCardSelectionTransitionInstrumentedTest {
         val recycled = entry("node-a", selected = false, group = "selector-b")
         val selectedColor = card.backgroundColor(selected)
         val recycledColor = card.backgroundColor(recycled)
+        val frameStart = System.currentTimeMillis()
         card.entry = previous
-        transition.snap(card.backgroundColor(previous), SystemClock.uptimeMillis())
-        card.entry = selected
-        assertTrue(transition.advance(selectedColor, SystemClock.uptimeMillis() + 64L).animating)
+        transition.snap(card.backgroundColor(previous), frameStart)
+        card.bindEntry(selected)
+        assertTrue(transition.advance(selectedColor, frameStart + 64L).animating)
 
         card.entry = recycled
-        val frame = transition.advance(recycledColor, SystemClock.uptimeMillis() + 65L)
+        val frame = transition.advance(recycledColor, frameStart + 65L)
 
         assertEquals(recycledColor, frame.color)
         assertFalse(frame.animating)

@@ -89,6 +89,7 @@ private fun Proxy.toSnapshot(subtitlePattern: Pattern?): ProxySnapshot {
         now = now,
         title = displayText.title,
         subtitle = displayText.subtitle,
+        alive = alive,
     )
 }
 

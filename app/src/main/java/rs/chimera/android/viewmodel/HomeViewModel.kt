@@ -272,8 +272,12 @@ class HomeViewModel(
         groups.asSequence()
             .flatMap { it.proxyDetails.asSequence() }
             .forEach { (name, proxy) ->
-                proxy.history.lastOrNull()?.delay?.takeIf { it > 0 }?.let { delay ->
-                    delays[name] = "${delay}ms"
+                if (!proxy.alive) {
+                    delays[name] = "timeout"
+                } else {
+                    proxy.history.lastOrNull()?.delay?.takeIf { it > 0 }?.let { delay ->
+                        delays[name] = "${delay}ms"
+                    }
                 }
             }
     }

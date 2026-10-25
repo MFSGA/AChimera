@@ -19,6 +19,13 @@ pub struct Proxy {
     pub now: Option<String>,
     #[serde(default)]
     pub history: Vec<DelayHistory>,
+    #[serde(default = "default_proxy_alive")]
+    #[uniffi(default = true)]
+    pub alive: bool,
+}
+
+fn default_proxy_alive() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]

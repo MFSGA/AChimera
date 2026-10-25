@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <FrameLayout
+            <rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout
                 android:id="@+id/proxy_activity_bar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -70,7 +70,6 @@
                             android:ellipsize="end"
                             android:maxLines="1"
                             android:text="@string/proxy_screen"
-                            android:textColor="?android:attr/textColorPrimary"
                             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
                     </LinearLayout>
 
@@ -114,7 +113,7 @@
                         android:padding="@dimen/metacubex_toolbar_image_action_padding"
                         android:src="@drawable/ic_baseline_more_vert" />
                 </RelativeLayout>
-            </FrameLayout>
+            </rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout>
 
             <LinearLayout
                 android:id="@+id/proxy_content"

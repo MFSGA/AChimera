@@ -9,6 +9,50 @@ import rs.chimera.android.backend.model.ProxySnapshot
 
 class ProxyDisplayPolicyTest {
     @Test
+    fun failedHealthcheckHidesOldLatencyWithoutChangingSelectionAndRecovers() {
+        val failed = ProxySnapshot(
+            name = "failed",
+            type = "Vless",
+            history = listOf(ProxyDelayHistory(12, 1L)),
+            alive = false,
+        )
+        val snapshot = ProxyGroupSnapshot(
+            name = "selector",
+            proxies = listOf("failed", "working"),
+            selected = "failed",
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                "selector" to ProxySnapshot("selector", "Selector", emptyList(), isGroup = true),
+                "failed" to failed,
+                "working" to ProxySnapshot("working", "Vless", listOf(ProxyDelayHistory(80, 1L))),
+            ),
+        )
+
+        val page = ProxyDisplayPolicy.groupPages(listOf(snapshot), "N/A").single()
+        val failedEntry = page.proxies.first()
+        assertEquals(true, page.isSelectable)
+        assertEquals(true, failedEntry.isSelected)
+        assertEquals("", failedEntry.delayText)
+        assertEquals(null, failedEntry.delayMillis)
+        assertEquals(UNKNOWN_PROXY_DELAY, failedEntry.delayValue)
+        assertEquals(
+            listOf("working", "failed"),
+            ProxyDisplayPolicy.sort(page.proxies, ProxySortOrder.DELAY).map { it.name },
+        )
+        assertEquals(12, failed.history.single().delay)
+
+        val recoveredNode = failed.copy(alive = true, history = failed.history + ProxyDelayHistory(30, 2L))
+        val recovered = snapshot.copy(proxyDetails = snapshot.proxyDetails + ("failed" to recoveredNode))
+        val recoveredPage = ProxyDisplayPolicy.groupPages(listOf(recovered), "N/A").single()
+        assertEquals("30", recoveredPage.proxies.first().delayText)
+        assertEquals(true, recoveredPage.proxies.first().isSelected)
+        assertEquals(
+            listOf("failed", "working"),
+            ProxyDisplayPolicy.sort(recoveredPage.proxies, ProxySortOrder.DELAY).map { it.name },
+        )
+    }
+
+    @Test
     fun gridSpanTracksReferenceColumnChoices() {
         assertEquals(6, ProxyDisplayPolicy.spanSize(1))
         assertEquals(3, ProxyDisplayPolicy.spanSize(2))

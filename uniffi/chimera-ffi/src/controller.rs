@@ -155,6 +155,33 @@ mod tests {
     static SOCKET_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
     #[test]
+    fn proxy_snapshot_preserves_failed_healthcheck_and_successful_history() {
+        let proxy: super::Proxy = serde_json::from_value(serde_json::json!({
+            "name": "node-a",
+            "type": "Vless",
+            "alive": false,
+            "history": [{ "time": "2026-10-24T00:00:00Z", "delay": 42 }]
+        }))
+        .unwrap();
+
+        let snapshot = serde_json::to_value(proxy).unwrap();
+        assert_eq!(snapshot["alive"], false);
+        assert_eq!(snapshot["history"][0]["delay"], 42);
+    }
+
+    #[test]
+    fn proxy_snapshot_defaults_alive_when_health_status_is_absent() {
+        let proxy: super::Proxy = serde_json::from_value(serde_json::json!({
+            "name": "node-a",
+            "type": "Vless"
+        }))
+        .unwrap();
+
+        assert!(proxy.alive);
+        assert!(proxy.history.is_empty());
+    }
+
+    #[test]
     fn rules_response_deserializes_structured_snapshots() {
         let response: super::RulesResponse = serde_json::from_str(
             r#"{"rules":[{"type":"DOMAIN-SUFFIX","proxy":"Proxy","payload":"example.com"},{"type":"MATCH","proxy":"DIRECT","payload":""}]}"#,

@@ -10,6 +10,7 @@ data class ProxySnapshot(
     val now: String? = null,
     val title: String = name,
     val subtitle: String = type,
+    val alive: Boolean = true,
 )
 
 data class ProxyDelayHistory(

@@ -2745,6 +2745,8 @@ data class Proxy (
     var `now`: kotlin.String?
     ,
     var `history`: List<DelayHistory>
+    ,
+    var `alive`: kotlin.Boolean = true
 
 ){
 
@@ -2766,6 +2768,7 @@ public object FfiConverterTypeProxy: FfiConverterRustBuffer<Proxy> {
             FfiConverterSequenceString.read(buf),
             FfiConverterOptionalString.read(buf),
             FfiConverterSequenceTypeDelayHistory.read(buf),
+            FfiConverterBoolean.read(buf),
         )
     }
 
@@ -2774,7 +2777,8 @@ public object FfiConverterTypeProxy: FfiConverterRustBuffer<Proxy> {
             FfiConverterString.allocationSize(value.`proxyType`) +
             FfiConverterSequenceString.allocationSize(value.`all`) +
             FfiConverterOptionalString.allocationSize(value.`now`) +
-            FfiConverterSequenceTypeDelayHistory.allocationSize(value.`history`)
+            FfiConverterSequenceTypeDelayHistory.allocationSize(value.`history`) +
+            FfiConverterBoolean.allocationSize(value.`alive`)
     )
 
     override fun write(value: Proxy, buf: ByteBuffer) {
@@ -2783,6 +2787,7 @@ public object FfiConverterTypeProxy: FfiConverterRustBuffer<Proxy> {
             FfiConverterSequenceString.write(value.`all`, buf)
             FfiConverterOptionalString.write(value.`now`, buf)
             FfiConverterSequenceTypeDelayHistory.write(value.`history`, buf)
+            FfiConverterBoolean.write(value.`alive`, buf)
     }
 }
 

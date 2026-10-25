@@ -43,6 +43,26 @@ class ControllerSnapshotMappingTest {
         assertEquals(123L, auto.proxyDetails.getValue("AUTO").history.single().time)
         assertEquals(0L, auto.proxyDetails.getValue("A").history.single().time)
         assertEquals(mapped[0].proxyDetails, mapped[1].proxyDetails)
+        assertEquals(true, auto.proxyDetails.getValue("A").alive)
+    }
+
+    @Test
+    fun proxyMappingPreservesFailedHealthcheckWithoutDiscardingHistory() {
+        val mapped = listOf(
+            Proxy("selector", "Selector", listOf("node-a"), "node-a", emptyList()),
+            Proxy(
+                name = "node-a",
+                proxyType = "Vless",
+                all = emptyList(),
+                now = null,
+                history = listOf(DelayHistory("123", 42)),
+                alive = false,
+            ),
+        ).toProxyGroupSnapshots(Mode.RULE).first { it.name == "selector" }
+
+        assertEquals("node-a", mapped.selected)
+        assertEquals(false, mapped.proxyDetails.getValue("node-a").alive)
+        assertEquals(42, mapped.proxyDetails.getValue("node-a").history.single().delay)
     }
 
     @Test

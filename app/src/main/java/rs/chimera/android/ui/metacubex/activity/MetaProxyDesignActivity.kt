@@ -231,6 +231,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 },
                 refresh = { refreshGroups() },
                 onFailure = { error ->
+                    design.restoreConfirmedProxyGroups()
                     design.showToast(
                         getString(
                             R.string.proxy_select_failed,

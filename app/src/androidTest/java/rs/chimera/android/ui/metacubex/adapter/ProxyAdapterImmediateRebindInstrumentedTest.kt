@@ -81,6 +81,12 @@ class ProxyAdapterImmediateRebindInstrumentedTest {
                     recyclerView.getChildViewHolder(child).bindingAdapterPosition to child.entry?.name
                 }.sortedBy { it.first }
                 assertEquals(listOf("old-node", "new-node"), visibleRows.map { it.second })
+                val selectedRows = (0 until recyclerView.childCount).mapNotNull { childIndex ->
+                    (recyclerView.getChildAt(childIndex) as? ProxyCardView)?.entry
+                        ?.takeIf(ProxyDisplayEntry::isSelected)
+                        ?.name
+                }
+                assertEquals(listOf("new-node"), selectedRows)
             }
             assertTrue("The reordered rows should eventually commit", reorderedListCommitted.await(5, TimeUnit.SECONDS))
             InstrumentationRegistry.getInstrumentation().waitForIdleSync()

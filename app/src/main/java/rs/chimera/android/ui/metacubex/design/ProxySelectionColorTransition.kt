@@ -31,7 +31,14 @@ internal class ProxySelectionColorTransition {
         current: ProxyDisplayEntry?,
         target: Int,
         frameTime: Long,
+        forceSnap: Boolean = false,
     ): Boolean {
+        if (forceSnap) {
+            snap(target, frameTime)
+            return false
+        }
+
+        val selectionChanged = ProxySelectionTransitionPolicy.shouldAnimate(previous, current)
         val continuesTransition = previous != null &&
             current != null &&
             previous.name == current.name &&
@@ -39,8 +46,7 @@ internal class ProxySelectionColorTransition {
             previous.isSelected == current.isSelected &&
             color != null &&
             color != target
-        val shouldAnimate = ProxySelectionTransitionPolicy.shouldAnimate(previous, current) ||
-            continuesTransition
+        val shouldAnimate = selectionChanged || continuesTransition
         if (!shouldAnimate || color == null) {
             snap(target, frameTime)
             return false

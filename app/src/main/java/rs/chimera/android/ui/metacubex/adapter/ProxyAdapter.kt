@@ -36,15 +36,27 @@ class ProxyAdapter(
     fun rebindVisibleItems(
         recyclerView: RecyclerView,
         entries: List<ProxyDisplayEntry>,
+        forceSnapSelectionColor: Boolean = false,
     ) {
+        val entriesByIdentity = entries.associateBy { it.name to it.selectionGroupName }
         repeat(recyclerView.childCount) { childIndex ->
             val child = recyclerView.getChildAt(childIndex) ?: return@repeat
             val holder = recyclerView.getChildViewHolder(child) as? ViewHolder ?: return@repeat
-            val position = holder.bindingAdapterPosition
-            if (position == RecyclerView.NO_POSITION) return@repeat
-            val entry = entries.getOrNull(position) ?: return@repeat
-            if (currentList.getOrNull(position)?.name != entry.name) return@repeat
-            holder.bind(entry, columns, selectable, onItemClick)
+            val boundEntry = (child as? ProxyCardView)?.entry
+            val identity = boundEntry?.let { it.name to it.selectionGroupName }
+            val entry = identity?.let(entriesByIdentity::get)
+            if (entry != null) {
+                holder.bind(
+                    entry,
+                    columns,
+                    selectable,
+                    onItemClick,
+                    forceSnapSelectionColor,
+                )
+            }
+            // CMFA invalidates every visible child after proxy state changes. Keep this
+            // independent of adapter positions, which may be NO_POSITION during a diff.
+            child.postInvalidate()
         }
     }
 
@@ -56,9 +68,10 @@ class ProxyAdapter(
             columnCount: Int,
             selectable: Boolean,
             onItemClick: (String) -> Unit,
+            forceSnapSelectionColor: Boolean = false,
         ) {
             view.columns = columnCount
-            view.entry = entry
+            view.bindEntry(entry, forceSnapSelectionColor)
             view.setOnClickListener(
                 if (selectable) View.OnClickListener { onItemClick(entry.name) } else null,
             )

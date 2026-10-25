@@ -109,7 +109,7 @@ object ProxyDisplayPolicy {
                             "${proxy.type}(${proxy.now?.takeIf(String::isNotEmpty) ?: "*"})"
                         else -> proxy.subtitle
                     }
-                    val historyDelay = proxy?.history?.lastOrNull()?.delay
+                    val historyDelay = proxy?.takeIf { it.alive }?.history?.lastOrNull()?.delay
                     val delayValue = historyDelay
                         ?.takeIf { it in 1..UNKNOWN_PROXY_DELAY }
                         ?: UNKNOWN_PROXY_DELAY
