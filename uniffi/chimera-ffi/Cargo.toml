@@ -46,7 +46,7 @@ mimalloc = { version = "0.1", default-features = false, optional = true }
 [dependencies.clash-lib]
 package = "clash-lib"
 # Chimera_Client release v0.28.0
-rev = "85160c0fa10b2a8d02c45d718e46240f756ff80a"
+rev = "2c354de1e626310de937a32bdfb8297ca548f634"
 git = "https://github.com/MFSGA/Chimera_Client.git"
 # Keep the Android runtime feature surface explicit so upstream default changes
 # cannot silently add or remove protocols and listeners.
