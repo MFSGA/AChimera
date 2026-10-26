@@ -3,15 +3,16 @@ package rs.chimera.android.ui.metacubex.design.util
 import android.view.View
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import rs.chimera.android.ui.metacubex.design.landscapeSystemBarInsets
 
 fun View.applySystemBarInsets() {
     ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
         val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-        val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+        val horizontalInsets = view.landscapeSystemBarInsets(bars)
         view.setPaddingRelative(
-            if (isRtl) bars.right else bars.left,
+            horizontalInsets.start,
             bars.top,
-            if (isRtl) bars.left else bars.right,
+            horizontalInsets.end,
             bars.bottom,
         )
         insets

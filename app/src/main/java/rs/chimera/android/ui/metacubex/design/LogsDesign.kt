@@ -65,16 +65,7 @@ class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
         val toolbarHeight = context.resources.getDimensionPixelSize(R.dimen.metacubex_toolbar_height)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val rtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            val horizontalInsets = landscapeContentInsets(
-                width = context.resources.displayMetrics.widthPixels,
-                height = context.resources.displayMetrics.heightPixels,
-                minWidth = context.resources.getDimensionPixelSize(
-                    R.dimen.metacubex_surface_landscape_min_width,
-                ),
-                start = if (rtl) bars.right else bars.left,
-                end = if (rtl) bars.left else bars.right,
-            )
+            val horizontalInsets = view.landscapeSystemBarInsets(bars)
             view.setPaddingRelative(horizontalInsets.start, 0, horizontalInsets.end, 0)
             activityBar.setPadding(0, bars.top, 0, 0)
             recycler.setPaddingRelative(0, bars.top + toolbarHeight, 0, bars.bottom)

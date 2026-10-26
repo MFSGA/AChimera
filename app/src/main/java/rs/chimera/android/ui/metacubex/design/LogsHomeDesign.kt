@@ -50,16 +50,7 @@ class LogsHomeDesign(context: Context) : Design<LogsHomeDesign.Request>(context)
     private fun applySystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            val horizontalInsets = landscapeContentInsets(
-                width = context.resources.displayMetrics.widthPixels,
-                height = context.resources.displayMetrics.heightPixels,
-                minWidth = context.resources.getDimensionPixelSize(
-                    R.dimen.metacubex_surface_landscape_min_width,
-                ),
-                start = if (isRtl) bars.right else bars.left,
-                end = if (isRtl) bars.left else bars.right,
-            )
+            val horizontalInsets = view.landscapeSystemBarInsets(bars)
             view.setPaddingRelative(
                 horizontalInsets.start,
                 bars.top,
