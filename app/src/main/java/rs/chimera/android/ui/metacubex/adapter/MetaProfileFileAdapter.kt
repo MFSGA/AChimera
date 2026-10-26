@@ -1,6 +1,5 @@
 package rs.chimera.android.ui.metacubex.adapter
 
-import android.text.format.DateUtils
 import android.text.format.Formatter
 import android.view.LayoutInflater
 import android.view.View
@@ -27,16 +26,17 @@ internal class MetaProfileFileAdapter(
         val entry = getItem(position)
         holder.name.text = entry.name
         holder.size.text = Formatter.formatShortFileSize(holder.itemView.context, entry.size)
-        holder.modified.text = if (entry.modifiedAt > 0L) {
-            DateUtils.getRelativeTimeSpanString(
-                entry.modifiedAt,
-                System.currentTimeMillis(),
-                DateUtils.MINUTE_IN_MILLIS,
-            )
-        } else {
-            ""
+        val elapsed = profileElapsedTime(entry.modifiedAt)
+        holder.modified.text = elapsed?.let { age ->
+            val context = holder.itemView.context
+            when (age.unit) {
+                ProfileElapsedTime.Unit.DAYS -> context.getString(R.string.meta_provider_days_ago, age.amount)
+                ProfileElapsedTime.Unit.HOURS -> context.getString(R.string.meta_provider_hours_ago, age.amount)
+                ProfileElapsedTime.Unit.MINUTES -> context.getString(R.string.meta_provider_minutes_ago, age.amount)
+                ProfileElapsedTime.Unit.RECENTLY -> context.getString(R.string.meta_provider_recently)
+            }
         }
-        holder.modified.visibility = if (entry.modifiedAt > 0L) View.VISIBLE else View.GONE
+        holder.modified.visibility = if (elapsed == null) View.GONE else View.VISIBLE
         holder.itemView.setOnClickListener { onClick() }
     }
 
