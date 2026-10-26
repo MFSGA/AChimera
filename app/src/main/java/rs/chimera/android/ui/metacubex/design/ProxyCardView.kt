@@ -22,7 +22,7 @@ class ProxyCardView(context: Context) : View(context) {
     private val layoutPadding = dimension(R.dimen.metacubex_proxy_layout_padding)
     private val cardRadius = dimension(R.dimen.metacubex_proxy_card_radius)
     private val shadowColor = Color.argb(0x15, 0x44, 0x44, 0x44)
-    private val selectionColorTransition = ProxySelectionColorTransition()
+    private var selectionColorTransition = ProxySelectionColorTransition()
     private val delayTextState = ProxyDelayTextState()
     private var currentEntry: ProxyDisplayEntry? = null
     private val colorPrimary = resolveThemeColor(com.google.android.material.R.attr.colorPrimary)
@@ -38,7 +38,10 @@ class ProxyCardView(context: Context) : View(context) {
     internal fun bindEntry(
         value: ProxyDisplayEntry?,
         forceSnapSelectionColor: Boolean = false,
+        transition: ProxySelectionColorTransition? = null,
+        preserveExistingTransition: Boolean = false,
     ) {
+        transition?.let { selectionColorTransition = it }
         val previous = currentEntry
         currentEntry = value
         val frameTime = System.currentTimeMillis()
@@ -60,8 +63,8 @@ class ProxyCardView(context: Context) : View(context) {
             backgroundColor(value),
             frameTime,
             forceSnap = forceSnapSelectionColor,
+            preserveExistingTransition = preserveExistingTransition,
         )
-        requestLayout()
         invalidate()
     }
 

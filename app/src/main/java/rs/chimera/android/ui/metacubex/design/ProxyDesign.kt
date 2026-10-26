@@ -240,6 +240,8 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         rebindVisibleRowsImmediately: Boolean = false,
         forceSnapSelectionColor: Boolean = false,
     ) {
+        if (forceSnapSelectionColor) pagerAdapter.resetSelectionTransitions()
+
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
         val previousGroupNames = groups.map { it.name }
         groups.clear()
@@ -634,6 +636,10 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
 
         fun refreshPages() {
             if (pages.isNotEmpty()) groups.indices.forEach(::updatePageAdapter)
+        }
+
+        fun resetSelectionTransitions() {
+            pageAdapters.values.forEach(ProxyAdapter::resetSelectionTransitions)
         }
 
         fun rebindVisibleRowsImmediately(

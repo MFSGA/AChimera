@@ -67,6 +67,33 @@ class ProxySelectionColorTransitionTest {
     }
 
     @Test
+    fun identityScopedTransitionContinuesWhenSortedIntoAnotherCardView() {
+        val previous = entry(name = "node-b", selected = false)
+        val selected = previous.copy(isSelected = true)
+        val transition = ProxySelectionColorTransition()
+
+        transition.snap(UNSELECTED, frameTime = 100L)
+        assertTrue(transition.bind(previous, selected, SELECTED, frameTime = 100L))
+        assertTrue(transition.advance(SELECTED, frameTime = 164L).animating)
+
+        val previousHolderEntry = entry(name = "node-a", selected = false)
+        val confirmedRefresh = selected.copy(delayText = "42")
+        assertTrue(
+            transition.bind(
+                previous = previousHolderEntry,
+                current = confirmedRefresh,
+                target = SELECTED,
+                frameTime = 180L,
+                preserveExistingTransition = true,
+            ),
+        )
+
+        val continued = transition.advance(SELECTED, frameTime = 196L)
+        assertNotEquals(SELECTED, continued.color)
+        assertTrue(continued.animating)
+    }
+
+    @Test
     fun selectionUsesElapsedTimeSincePreviousDraw() {
         val previous = entry(name = "node-b", selected = false)
         val selected = entry(name = "node-b", selected = true)
@@ -96,6 +123,19 @@ class ProxySelectionColorTransitionTest {
 
         val frame = transition.advance(UNSELECTED, frameTime = 116L)
         assertEquals(UNSELECTED, frame.color)
+        assertFalse(frame.animating)
+    }
+
+    @Test
+    fun resetClearsCachedColorForTheNextLayoutConfiguration() {
+        val transition = ProxySelectionColorTransition()
+        transition.snap(UNSELECTED, frameTime = 100L)
+
+        transition.reset()
+
+        assertFalse(transition.bind(null, entry("node-a", selected = true), SELECTED, frameTime = 116L))
+        val frame = transition.advance(SELECTED, frameTime = 132L)
+        assertEquals(SELECTED, frame.color)
         assertFalse(frame.animating)
     }
 

@@ -84,15 +84,19 @@ class ProxySelectionRollbackInstrumentedTest {
     fun rejectedProjectionRestoresTheVisibleNodeAndLinkedParentWithoutAnimation() = withFixture { scenario, design ->
         awaitCard(scenario, design, OLD_NODE, selected = true)
         capture(scenario, design, "fixture-before")
+        lateinit var rejectedRequest: ProxyDesign.Request.SelectProxy
         scenario.onActivity {
             assertTrue(card(design, NEW_NODE)!!.performClick())
-            assertProjectedSelectionRequest(design.requests.tryReceive().getOrNull(), NEW_NODE)
+            rejectedRequest = assertProjectedSelectionRequest(
+                design.requests.tryReceive().getOrNull(),
+                NEW_NODE,
+            )
             assertTrue(card(design, NEW_NODE)!!.entry!!.isSelected)
             assertFalse(card(design, OLD_NODE)!!.entry!!.isSelected)
         }
         capture(scenario, design, "fixture-projected")
         scenario.onActivity {
-            design.restoreConfirmedProxyGroups()
+            design.rejectProxySelection(rejectedRequest.selectionToken)
             assertSnapped(card(design, OLD_NODE)!!, selected = true)
             assertSnapped(card(design, NEW_NODE)!!, selected = false)
         }
@@ -111,8 +115,11 @@ class ProxySelectionRollbackInstrumentedTest {
             val firstRequest = requireSelectionRequest(design.requests.tryReceive().getOrNull())
             assertTrue(design.confirmProxySelection(firstRequest.selectionToken, MANUAL, NEW_NODE))
             assertTrue(card(design, OLD_NODE)!!.performClick())
-            assertProjectedSelectionRequest(design.requests.tryReceive().getOrNull(), OLD_NODE)
-            design.restoreConfirmedProxyGroups()
+            val rejectedRequest = assertProjectedSelectionRequest(
+                design.requests.tryReceive().getOrNull(),
+                OLD_NODE,
+            )
+            design.rejectProxySelection(rejectedRequest.selectionToken)
             assertSnapped(card(design, NEW_NODE)!!, selected = true)
             assertSnapped(card(design, OLD_NODE)!!, selected = false)
         }
@@ -125,12 +132,13 @@ class ProxySelectionRollbackInstrumentedTest {
     fun queuedConfirmationsKeepTheLatestProjectionUntilTheFinalRejection() = withFixture { scenario, design ->
         awaitCard(scenario, design, OLD_NODE, selected = true)
         capture(scenario, design, "queue-fixture-before")
+        lateinit var requests: List<ProxyDesign.Request.SelectProxy>
         scenario.onActivity {
             listOf(NEW_NODE, OLD_NODE, NEW_NODE, OLD_NODE).forEach { name ->
                 assertTrue(card(design, name)!!.performClick())
                 assertTrue(card(design, name)!!.entry!!.isSelected)
             }
-            val requests = List(4) { requireSelectionRequest(design.requests.tryReceive().getOrNull()) }
+            requests = List(4) { requireSelectionRequest(design.requests.tryReceive().getOrNull()) }
             assertEquals(listOf(NEW_NODE, OLD_NODE, NEW_NODE, OLD_NODE), requests.map { it.proxyName })
             // Earlier confirmations must not repaint the newer queued projection.
             assertTrue(design.confirmProxySelection(requests[0].selectionToken, MANUAL, NEW_NODE))
@@ -140,7 +148,10 @@ class ProxySelectionRollbackInstrumentedTest {
         }
         capture(scenario, design, "queue-fixture-projected")
         scenario.onActivity {
-            design.restoreConfirmedProxyGroups()
+            design.rejectProxySelection(requests[3].selectionToken)
+            assertSnapped(card(design, OLD_NODE)!!, selected = true)
+            assertSnapped(card(design, NEW_NODE)!!, selected = false)
+            design.rejectProxySelection(requests[1].selectionToken)
             assertSnapped(card(design, NEW_NODE)!!, selected = true)
             assertSnapped(card(design, OLD_NODE)!!, selected = false)
         }
@@ -149,6 +160,39 @@ class ProxySelectionRollbackInstrumentedTest {
         scenario.onActivity { design.binding.viewPager.setCurrentItem(1, false) }
         awaitCard(scenario, design, MANUAL, selected = true, subtitle = "Selector($NEW_NODE)")
         capture(scenario, design, "queue-fixture-parent-confirmed")
+    }
+
+    @Test
+    fun rejectedProjectionResetsTransitionOnDetachedPage() = withFixture(fixtureWithOffscreenPages()) { scenario, design ->
+        awaitCard(scenario, design, OLD_NODE, selected = true)
+        lateinit var rejectedRequest: ProxyDesign.Request.SelectProxy
+        scenario.onActivity {
+            assertTrue(card(design, NEW_NODE)!!.performClick())
+            rejectedRequest = assertProjectedSelectionRequest(
+                design.requests.tryReceive().getOrNull(),
+                NEW_NODE,
+            )
+            val transitioningCard = checkNotNull(card(design, NEW_NODE))
+            val transition = ProxyCardView::class.java.getDeclaredField("selectionColorTransition")
+                .apply { isAccessible = true }.get(transitioningCard) as ProxySelectionColorTransition
+            val target = ProxyCardView::class.java.getDeclaredMethod(
+                "backgroundColor",
+                rs.chimera.android.ui.metacubex.design.ProxyDisplayEntry::class.java,
+            ).apply { isAccessible = true }.invoke(transitioningCard, transitioningCard.entry) as Int
+            assertTrue("The fixture must leave an in-flight projected color", transition.advance(target, System.currentTimeMillis() + 100).animating)
+            design.binding.viewPager.setCurrentItem(3, false)
+        }
+        awaitCondition(scenario) {
+            val pager = design.binding.viewPager.getChildAt(0) as RecyclerView
+            design.binding.viewPager.currentItem == 3 && pager.findViewHolderForAdapterPosition(0) == null
+        }
+        scenario.onActivity { design.rejectProxySelection(rejectedRequest.selectionToken) }
+        scenario.onActivity { design.binding.viewPager.setCurrentItem(0, false) }
+        awaitCard(scenario, design, OLD_NODE, selected = true)
+        scenario.onActivity {
+            assertSnapped(card(design, OLD_NODE)!!, selected = true)
+            assertSnapped(card(design, NEW_NODE)!!, selected = false)
+        }
     }
 
     @Test
@@ -560,7 +604,10 @@ class ProxySelectionRollbackInstrumentedTest {
         }
     }
 
-    private fun withFixture(block: (ActivityScenario<MetaMainActivity>, ProxyDesign) -> Unit) {
+    private fun withFixture(
+        groups: List<ProxyGroupSnapshot> = fixture(),
+        block: (ActivityScenario<MetaMainActivity>, ProxyDesign) -> Unit,
+    ) {
         ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
             lateinit var design: ProxyDesign
             scenario.onActivity { activity ->
@@ -571,7 +618,7 @@ class ProxySelectionRollbackInstrumentedTest {
                 WindowCompat.setDecorFitsSystemWindows(activity.window, false)
                 design = ProxyDesign(activity)
                 activity.setContentView(design.root)
-                design.setGroups(fixture())
+                design.setGroups(groups)
             }
             awaitCard(scenario, design, OLD_NODE, selected = true)
             scenario.onActivity {
@@ -694,10 +741,14 @@ class ProxySelectionRollbackInstrumentedTest {
         return selection
     }
 
-    private fun assertProjectedSelectionRequest(request: ProxyDesign.Request?, proxyName: String) {
+    private fun assertProjectedSelectionRequest(
+        request: ProxyDesign.Request?,
+        proxyName: String,
+    ): ProxyDesign.Request.SelectProxy {
         val selection = requireSelectionRequest(request)
         assertEquals(MANUAL, selection.groupName)
         assertEquals(proxyName, selection.proxyName)
+        return selection
     }
 
     private fun fixture(): List<ProxyGroupSnapshot> {
@@ -711,6 +762,16 @@ class ProxySelectionRollbackInstrumentedTest {
             ProxyGroupSnapshot(MANUAL, listOf(OLD_NODE, NEW_NODE), OLD_NODE, ProxyMode.RULE, details),
             ProxyGroupSnapshot(PARENT, listOf(MANUAL), MANUAL, ProxyMode.RULE, details),
         )
+    }
+
+    private fun fixtureWithOffscreenPages(): List<ProxyGroupSnapshot> {
+        val base = fixture()
+        val extraGroups = (2..3).map { index ->
+            val name = "Offscreen $index"
+            val details = base.first().proxyDetails + (name to ProxySnapshot(name, "Selector", emptyList(), true, OLD_NODE))
+            ProxyGroupSnapshot(name, listOf(OLD_NODE, NEW_NODE), OLD_NODE, ProxyMode.RULE, details)
+        }
+        return base + extraGroups
     }
 
     private companion object {
