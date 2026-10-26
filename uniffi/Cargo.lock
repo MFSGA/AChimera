@@ -672,7 +672,7 @@ dependencies = [
 
 [[package]]
 name = "chimera-ffi"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "async-compat",
  "bytes",
@@ -4714,7 +4714,7 @@ dependencies = [
 
 [[package]]
 name = "uniffi-bindgen"
-version = "0.9.0"
+version = "0.9.1"
 dependencies = [
  "uniffi",
 ]
