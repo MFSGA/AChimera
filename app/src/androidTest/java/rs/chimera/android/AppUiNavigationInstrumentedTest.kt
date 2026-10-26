@@ -1377,9 +1377,11 @@ class AppUiNavigationInstrumentedTest {
                     listOf(
                         proxyGroup("选择", "Selector"),
                         proxyGroup("自动测速", "URLTest"),
+                        proxyGroup("备用", "Selector"),
+                        proxyGroup("备用二", "Selector"),
                     ),
                 )
-                assertEquals(2, design.binding.viewPager.adapter?.itemCount)
+                assertEquals(4, design.binding.viewPager.adapter?.itemCount)
             }
 
             scenario.onActivity {
@@ -1397,22 +1399,36 @@ class AppUiNavigationInstrumentedTest {
             onView(withText(R.string.proxy_menu_filter)).perform(click())
             onView(withText(R.string.proxy_exclude_not_selectable)).perform(click())
 
+            awaitProxyPageSelection(
+                scenario,
+                design,
+                pagePosition = 0,
+                pageCount = 3,
+                groupName = "选择",
+            )
             scenario.onActivity { activity ->
                 assertTrue(ProxyDisplayPreferences(activity).read().excludeNotSelectable)
-                assertEquals(1, design.binding.viewPager.adapter?.itemCount)
+                assertEquals(3, design.binding.viewPager.adapter?.itemCount)
                 assertEquals(0, design.binding.viewPager.currentItem)
-                assertEquals("自动测速", ProxyDisplayPreferences(activity).readLastGroupName())
+                assertEquals("选择", ProxyDisplayPreferences(activity).readLastGroupName())
 
                 design.binding.proxyOverflowButton.performClick()
             }
             onView(withText(R.string.proxy_menu_filter)).perform(click())
             onView(withText(R.string.proxy_exclude_not_selectable)).perform(click())
 
+            awaitProxyPageSelection(
+                scenario,
+                design,
+                pagePosition = 0,
+                pageCount = 4,
+                groupName = "选择",
+            )
             scenario.onActivity { activity ->
                 assertFalse(ProxyDisplayPreferences(activity).read().excludeNotSelectable)
-                assertEquals(2, design.binding.viewPager.adapter?.itemCount)
-                assertEquals(1, design.binding.viewPager.currentItem)
-                assertEquals("自动测速", ProxyDisplayPreferences(activity).readLastGroupName())
+                assertEquals(4, design.binding.viewPager.adapter?.itemCount)
+                assertEquals(0, design.binding.viewPager.currentItem)
+                assertEquals("选择", ProxyDisplayPreferences(activity).readLastGroupName())
             }
         }
     }
@@ -1699,6 +1715,32 @@ class AppUiNavigationInstrumentedTest {
             if (bounds == null) SystemClock.sleep(50)
         }
         return bounds ?: throw AssertionError("Proxy pages and list did not render")
+    }
+
+    private fun awaitProxyPageSelection(
+        scenario: ActivityScenario<MetaMainActivity>,
+        design: ProxyDesign,
+        pagePosition: Int,
+        pageCount: Int,
+        groupName: String,
+    ) {
+        awaitProxyPageBounds(scenario, design, pagePosition, itemCount = 1)
+        var pageSelected = false
+        val deadline = SystemClock.uptimeMillis() + 5_000
+        while (!pageSelected && SystemClock.uptimeMillis() < deadline) {
+            instrumentation.waitForIdleSync()
+            scenario.onActivity { activity ->
+                val tabLayout = design.binding.tabLayout
+                pageSelected = design.binding.viewPager.adapter?.itemCount == pageCount &&
+                    design.binding.viewPager.currentItem == pagePosition &&
+                    tabLayout.selectedTabPosition == pagePosition &&
+                    tabLayout.getTabAt(pagePosition)?.text == groupName &&
+                    isTabCenterVisible(tabLayout, pagePosition) &&
+                    ProxyDisplayPreferences(activity).readLastGroupName() == groupName
+            }
+            if (!pageSelected) SystemClock.sleep(50)
+        }
+        assertTrue("Proxy group '$groupName' should be restored on page $pagePosition", pageSelected)
     }
 
     private fun proxyPageRecycler(pagerRecycler: RecyclerView, position: Int): RecyclerView? {

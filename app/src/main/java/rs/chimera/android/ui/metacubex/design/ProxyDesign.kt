@@ -75,6 +75,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         }
     }
     private var currentGroupIndex = 0
+    private var pendingGroupRestoreName: String? = null
     private var modeOverride: ProxyMode? = null
     private var renderingGroups = false
     private val delayTestProgressByGroup = mutableMapOf<String, DelayTestProgress>()
@@ -104,11 +105,18 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         binding.viewPager.registerOnPageChangeCallback(
             object : ViewPager2.OnPageChangeCallback() {
                 override fun onPageSelected(position: Int) {
+                    val selectedGroupName = groups.getOrNull(position)?.name
+                    val pendingRestoreName = pendingGroupRestoreName
+                    if (pendingRestoreName != null && selectedGroupName != pendingRestoreName) {
+                        return
+                    }
+
                     currentGroupIndex = position
                     pagerAdapter.refreshPageBottomState(position)
                     updateDelayTestActionState()
                     if (!renderingGroups) {
-                        groups.getOrNull(position)?.name?.let { name ->
+                        selectedGroupName?.let { name ->
+                            if (pendingRestoreName == name) pendingGroupRestoreName = null
                             lastGroupName = name
                             displayPreferences.updateLastGroupName(name)
                         }
@@ -233,6 +241,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         forceSnapSelectionColor: Boolean = false,
     ) {
         val selectedGroupName = lastGroupName ?: groups.getOrNull(currentGroupIndex)?.name
+        val previousGroupNames = groups.map { it.name }
         groups.clear()
         groups += ProxyDisplayPolicy.groupPages(
             sourceGroups,
@@ -256,6 +265,9 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             lastGroupName = groups.getOrNull(currentGroupIndex)?.name
             lastGroupName?.let(displayPreferences::updateLastGroupName)
         }
+        val currentGroupName = groups.getOrNull(currentGroupIndex)?.name
+        val groupPagesChanged = previousGroupNames != groups.map { it.name }
+        if (groupPagesChanged) pendingGroupRestoreName = currentGroupName
         bottomStateRefreshPending = true
         renderingGroups = true
         try {
@@ -271,18 +283,40 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             stateContainer.visibility = View.GONE
             setDelayTestActionVisible(true)
             binding.viewPager.setCurrentItem(currentGroupIndex, false)
-            groups.getOrNull(currentGroupIndex)?.name?.let(::restoreCurrentGroupTabVisibility)
+            currentGroupName?.let { name ->
+                restoreCurrentGroupTabVisibility(name, restorePage = groupPagesChanged)
+            }
             updateDelayTestActionState()
         } finally {
             renderingGroups = false
         }
     }
 
-    private fun restoreCurrentGroupTabVisibility(groupName: String) {
-        val position = currentGroupIndex
+    private fun restoreCurrentGroupTabVisibility(groupName: String, restorePage: Boolean) {
+        val position = groups.indexOfFirst { it.name == groupName }
+        if (position < 0) return
         binding.tabLayout.doOnPreDraw {
             if (
                 groups.getOrNull(position)?.name != groupName ||
+                (restorePage && pendingGroupRestoreName != groupName)
+            ) {
+                return@doOnPreDraw
+            }
+
+            if (restorePage) {
+                if (binding.viewPager.currentItem != position) {
+                    binding.viewPager.setCurrentItem(position, false)
+                }
+                if (binding.viewPager.currentItem != position) return@doOnPreDraw
+
+                currentGroupIndex = position
+                lastGroupName = groupName
+                displayPreferences.updateLastGroupName(groupName)
+                pendingGroupRestoreName = null
+                pagerAdapter.refreshPageBottomState(position)
+                updateDelayTestActionState()
+                updateDelayTestFabVisibility()
+            } else if (
                 currentGroupIndex != position ||
                 binding.viewPager.currentItem != position
             ) {
