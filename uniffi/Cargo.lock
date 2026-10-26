@@ -466,8 +466,8 @@ dependencies = [
 
 [[package]]
 name = "boring-noise"
-version = "0.2.0"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=2c354de1e626310de937a32bdfb8297ca548f634#2c354de1e626310de937a32bdfb8297ca548f634"
+version = "0.2.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=1fe744218ebd0df7e9101e0191fedef22239302d#1fe744218ebd0df7e9101e0191fedef22239302d"
 dependencies = [
  "aead 0.5.2",
  "aws-lc-rs",
@@ -653,8 +653,8 @@ dependencies = [
 
 [[package]]
 name = "chimera-dns"
-version = "0.28.0"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=2c354de1e626310de937a32bdfb8297ca548f634#2c354de1e626310de937a32bdfb8297ca548f634"
+version = "0.28.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=1fe744218ebd0df7e9101e0191fedef22239302d#1fe744218ebd0df7e9101e0191fedef22239302d"
 dependencies = [
  "async-trait",
  "futures",
@@ -781,8 +781,8 @@ checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
 name = "clash-lib"
-version = "0.28.0"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=2c354de1e626310de937a32bdfb8297ca548f634#2c354de1e626310de937a32bdfb8297ca548f634"
+version = "0.28.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=1fe744218ebd0df7e9101e0191fedef22239302d#1fe744218ebd0df7e9101e0191fedef22239302d"
 dependencies = [
  "anyhow",
  "async-recursion",
@@ -1334,7 +1334,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2848,7 +2848,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3570,7 +3570,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3970,8 +3970,8 @@ dependencies = [
 
 [[package]]
 name = "sock2proc"
-version = "0.2.0"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=2c354de1e626310de937a32bdfb8297ca548f634#2c354de1e626310de937a32bdfb8297ca548f634"
+version = "0.2.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=1fe744218ebd0df7e9101e0191fedef22239302d#1fe744218ebd0df7e9101e0191fedef22239302d"
 dependencies = [
  "libc",
  "netlink-packet-core 0.7.0",
@@ -3989,7 +3989,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4145,10 +4145,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5080,8 +5080,8 @@ dependencies = [
 
 [[package]]
 name = "watfaq-netstack"
-version = "0.28.0"
-source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=2c354de1e626310de937a32bdfb8297ca548f634#2c354de1e626310de937a32bdfb8297ca548f634"
+version = "0.28.1"
+source = "git+https://github.com/MFSGA/Chimera_Client.git?rev=1fe744218ebd0df7e9101e0191fedef22239302d#1fe744218ebd0df7e9101e0191fedef22239302d"
 dependencies = [
  "bytes",
  "etherparse",
@@ -5158,7 +5158,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5845,27 +5845,27 @@ checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
 
 [[package]]
 name = "zstd"
-version = "0.14.2"
+version = "0.14.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "057cfd910cfac363a0ada849592624b4c9ff2e10bef504c3433810d78ed96f93"
+checksum = "db3ae9bf90af6e40197bef767eeefc46ad6397420fe873830bd85e5fbbfb3c70"
 dependencies = [
  "zstd-safe",
 ]
 
 [[package]]
 name = "zstd-safe"
-version = "8.1.0"
+version = "8.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bdd44c6a7284e91f3717755b24315a302edd9153a01f753c3cba3d765e8eafac"
+checksum = "ded520f16b29e1a9b771c722221b2b0a0398c2316d9bb3c42b458a5414d7434b"
 dependencies = [
  "zstd-sys",
 ]
 
 [[package]]
 name = "zstd-sys"
-version = "2.1.1+zstd.1.5.7"
+version = "2.1.2+zstd.1.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aeec9eaf2dffbbd09201e23bd0ffcbaa33bb8e9266a10734fd7ed90a85eca078"
+checksum = "481ada9c543b2323cbb7bbdbb5249177fbf0188ed959ed2c15e4b22421c84ed3"
 dependencies = [
  "cc",
  "pkg-config",
