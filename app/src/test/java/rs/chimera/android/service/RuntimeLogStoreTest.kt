@@ -7,6 +7,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import rs.chimera.android.backend.model.RuntimeLogArchive
 
 class RuntimeLogStoreTest {
     @get:Rule
@@ -57,6 +58,52 @@ class RuntimeLogStoreTest {
     }
 
     @Test
+    fun listArchivesReturnsOnlyNonEmptyRotatedBackupsNewestFirst() {
+        val store = RuntimeLogStore(maxBytes = 24, backupCount = 3)
+        val file = temporaryFolder.newFile("runtime.log")
+        val older = store.backupFile(file, 2).apply { writeText("older\n") }
+        val newer = store.backupFile(file, 1).apply { writeText("newer\n") }
+        val empty = store.backupFile(file, 3)
+        empty.writeText("")
+        older.setLastModified(1_000L)
+        newer.setLastModified(2_000L)
+
+        assertEquals(
+            listOf(
+                RuntimeLogArchive(1, newer.name, 2_000L, newer.length(), newer.readBytes().sha256()),
+                RuntimeLogArchive(2, older.name, 1_000L, older.length(), older.readBytes().sha256()),
+            ),
+            store.listArchives(file),
+        )
+    }
+
+    @Test
+    fun readArchiveValidatesSnapshotAndSanitizesContents() {
+        val store = RuntimeLogStore(maxBytes = 256, backupCount = 2)
+        val file = temporaryFolder.newFile("runtime.log")
+        val backup = store.backupFile(file, 1).apply {
+            writeText("token=private-value\n")
+            setLastModified(3_000L)
+        }
+        val archive = store.listArchives(file).single()
+
+        assertEquals("token=***\n", store.readArchive(file, archive))
+        assertThrows(IllegalStateException::class.java) {
+            store.readArchive(file, archive.copy(sizeBytes = backup.length() + 1))
+        }
+        backup.writeText("token=changed-value\n")
+        backup.setLastModified(archive.modifiedAtEpochMillis)
+        assertEquals(archive.sizeBytes, backup.length())
+        assertEquals(archive.modifiedAtEpochMillis, backup.lastModified())
+        assertThrows(IllegalStateException::class.java) {
+            store.readArchive(file, archive)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            store.readArchive(file, archive.copy(index = 0))
+        }
+    }
+
+    @Test
     fun appendSanitizesCredentialsBeforePersistence() {
         val store = RuntimeLogStore(maxBytes = 256, backupCount = 1)
         val file = temporaryFolder.newFile("runtime.log")
@@ -93,4 +140,9 @@ class RuntimeLogStoreTest {
         assertTrue(error.message.orEmpty().contains("runtime.log"))
         assertFalse(error.message.orEmpty().contains(temporaryFolder.root.absolutePath))
     }
+
+    private fun ByteArray.sha256(): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(this)
+            .joinToString(separator = "") { it.toUByte().toString(16).padStart(2, '0') }
 }

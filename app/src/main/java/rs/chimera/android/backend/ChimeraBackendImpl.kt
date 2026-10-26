@@ -34,6 +34,7 @@ import rs.chimera.android.backend.model.ProxyProviderSnapshot
 import rs.chimera.android.backend.model.ProviderSnapshot
 import rs.chimera.android.backend.model.RemoteProfileRequest
 import rs.chimera.android.backend.model.RemoteProfileSettings
+import rs.chimera.android.backend.model.RuntimeLogArchive
 import rs.chimera.android.backend.model.RuleSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.SettingsApplyEffect
@@ -544,6 +545,12 @@ class ChimeraBackendImpl(
 
     override suspend fun readRuntimeLogs(maxLines: Int): String =
         diagnosticsOperations.readRuntimeLogs(maxLines)
+
+    override suspend fun listRuntimeLogArchives(): List<RuntimeLogArchive> =
+        diagnosticsOperations.listRuntimeLogArchives()
+
+    override suspend fun readRuntimeLogArchive(archive: RuntimeLogArchive): String =
+        diagnosticsOperations.readRuntimeLogArchive(archive)
 
     override suspend fun clearRuntimeLogs() {
         diagnosticsOperations.clearRuntimeLogs()

@@ -11,6 +11,7 @@ import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.MemoryInfo
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
+import rs.chimera.android.backend.model.RuntimeLogArchive
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
@@ -31,6 +32,17 @@ internal class BackendDiagnosticsOperations(
         withContext(Dispatchers.IO) {
             RuntimeLogSanitizer.sanitizePrivatePaths(
                 value = Global.readRuntimeLogTail(maxLines),
+                privatePathPrefixes = listOf(context.applicationInfo.dataDir),
+            )
+        }
+
+    suspend fun listRuntimeLogArchives(): List<RuntimeLogArchive> =
+        withContext(Dispatchers.IO) { Global.listRuntimeLogArchives() }
+
+    suspend fun readRuntimeLogArchive(archive: RuntimeLogArchive): String =
+        withContext(Dispatchers.IO) {
+            RuntimeLogSanitizer.sanitizePrivatePaths(
+                value = Global.readRuntimeLogArchive(archive),
                 privatePathPrefixes = listOf(context.applicationInfo.dataDir),
             )
         }

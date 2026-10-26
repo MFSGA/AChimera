@@ -34,6 +34,15 @@ class RuntimeLogEntryTest {
     }
 
     @Test
+    fun trailingFileSeparatorDoesNotCreateAnExtraLogRow() {
+        assertEquals(
+            listOf(RuntimeLogEntry("first"), RuntimeLogEntry("")),
+            RuntimeLogEntry.parse("first\n\n"),
+        )
+        assertEquals(listOf(RuntimeLogEntry("first")), RuntimeLogEntry.parse("first\r\n"))
+    }
+
+    @Test
     fun emptyLogHasNoSyntheticRows() {
         assertTrue(RuntimeLogEntry.parse("").isEmpty())
         assertTrue(RuntimeLogEntry.parse("\n ").isEmpty())

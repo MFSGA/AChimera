@@ -23,16 +23,19 @@ class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
     private val stateContainer = root.findViewById<View>(R.id.state_container)
     private val stateProgress = root.findViewById<ProgressBar>(R.id.state_progress)
     private val stateMessage = root.findViewById<TextView>(R.id.state_message)
-    private val retryButton = root.findViewById<View>(R.id.retry_button)
+    private val retryButton = root.findViewById<TextView>(R.id.retry_button)
+    private val closeButton = root.findViewById<View>(R.id.log_close_button)
+    private val title = root.findViewById<TextView>(R.id.log_title)
     private val adapter = LogMessageAdapter { requests.trySend(Request.CopyMessage(it.message)) }
     private var submittedMessages: List<RuntimeLogEntry>? = null
     private var userScrollRevision = 0L
     private var elevated = false
     private var elevationAnimator: ValueAnimator? = null
+    private var archiveMode = false
 
     init {
         root.findViewById<View>(R.id.log_back_button).setOnClickListener { requests.trySend(Request.NavigateBack) }
-        root.findViewById<View>(R.id.log_close_button).setOnClickListener { requests.trySend(Request.Close) }
+        closeButton.setOnClickListener { requests.trySend(Request.Close) }
         retryButton.setOnClickListener { requests.trySend(Request.Retry) }
         recycler.isFocusable = false
         recycler.layoutManager = LinearLayoutManager(context).apply {
@@ -63,13 +66,34 @@ class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val rtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            view.setPaddingRelative(if (rtl) bars.right else bars.left, 0, if (rtl) bars.left else bars.right, 0)
+            val horizontalInsets = landscapeContentInsets(
+                width = context.resources.displayMetrics.widthPixels,
+                height = context.resources.displayMetrics.heightPixels,
+                minWidth = context.resources.getDimensionPixelSize(
+                    R.dimen.metacubex_surface_landscape_min_width,
+                ),
+                start = if (rtl) bars.right else bars.left,
+                end = if (rtl) bars.left else bars.right,
+            )
+            view.setPaddingRelative(horizontalInsets.start, 0, horizontalInsets.end, 0)
             activityBar.setPadding(0, bars.top, 0, 0)
             recycler.setPaddingRelative(0, bars.top + toolbarHeight, 0, bars.bottom)
             stateContainer.setPadding(0, bars.top + toolbarHeight, 0, bars.bottom)
             insets
         }
         root.doOnAttach { ViewCompat.requestApplyInsets(it) }
+    }
+
+    fun setArchiveMode() {
+        archiveMode = true
+        closeButton.visibility = View.GONE
+        title.setText(R.string.meta_logs_archive_title)
+        root.findViewById<View>(R.id.log_back_button).contentDescription = context.getString(R.string.back)
+        retryButton.setText(R.string.meta_logs_return_to_history)
+        (recycler.layoutManager as? LinearLayoutManager)?.apply {
+            reverseLayout = false
+            stackFromEnd = false
+        }
     }
 
     fun showLoading() {
@@ -86,6 +110,12 @@ class LogsDesign(context: Context) : Design<LogsDesign.Request>(context) {
         if (messages == submittedMessages) return
         val snapshot = messages.toList()
         submittedMessages = snapshot
+        if (archiveMode) {
+            adapter.submitList(snapshot) {
+                if (snapshot.isNotEmpty()) recycler.scrollToPosition(0)
+            }
+            return
+        }
         val followLatest = adapter.itemCount == 0 || recycler.computeVerticalScrollOffset() == 0
         val revision = userScrollRevision
         adapter.submitList(snapshot) {

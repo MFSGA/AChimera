@@ -16,7 +16,10 @@ data class RuntimeLogEntry(
         fun parse(log: String): List<RuntimeLogEntry> {
             if (log.isBlank()) return emptyList()
             val timestampFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).apply { isLenient = false }
-            return log.lineSequence().map { line ->
+            val lines = log.lineSequence().toList().let { parsed ->
+                if (log.endsWith('\n') || log.endsWith('\r')) parsed.dropLast(1) else parsed
+            }
+            return lines.map { line ->
                 val match = timestampedLine.matchEntire(line) ?: return@map RuntimeLogEntry(message = line)
                 val timestamp = match.groupValues[1]
                 val position = ParsePosition(0)

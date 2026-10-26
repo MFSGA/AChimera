@@ -28,6 +28,7 @@ import rs.chimera.android.backend.model.StartVpnResult
 import rs.chimera.android.backend.model.TrafficSnapshot
 import rs.chimera.android.backend.model.VpnSystemStatus
 import rs.chimera.android.backend.model.ProfileDownloadProgress
+import rs.chimera.android.backend.model.RuntimeLogArchive
 
 interface ChimeraBackend {
     suspend fun awaitReady()
@@ -94,6 +95,8 @@ interface ChimeraBackend {
     suspend fun healthcheckProxyProvider(name: String)
     suspend fun queryDns(name: String, recordType: String): String
     suspend fun readRuntimeLogs(maxLines: Int = 160): String
+    suspend fun listRuntimeLogArchives(): List<RuntimeLogArchive>
+    suspend fun readRuntimeLogArchive(archive: RuntimeLogArchive): String
     suspend fun clearRuntimeLogs()
     suspend fun buildDiagnosticsBundle(): String
     suspend fun updateSettings(patch: SettingsPatch): SettingsApplyEffect

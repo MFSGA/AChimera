@@ -3,6 +3,8 @@ package rs.chimera.android.service
 import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
+import java.security.MessageDigest
+import rs.chimera.android.backend.model.RuntimeLogArchive
 
 internal class RuntimeLogStore(
     private val maxBytes: Long = DEFAULT_MAX_BYTES,
@@ -39,6 +41,42 @@ internal class RuntimeLogStore(
             }
             RuntimeLogSanitizer.sanitizeText(lines.takeLast(maxLines).joinToString("\n"))
         }
+    }
+
+    fun listArchives(file: File): List<RuntimeLogArchive> = synchronized(FILE_LOCK) {
+        validateFilePath(file)
+        (1..backupCount).mapNotNull { index ->
+            val backup = backupFile(file, index)
+            if (!backup.exists()) return@mapNotNull null
+            check(backup.isFile) { "Runtime log path is not a file: ${backup.name}" }
+            val contents = backup.readBytes()
+            val sizeBytes = contents.size.toLong()
+            if (sizeBytes == 0L) return@mapNotNull null
+            RuntimeLogArchive(
+                index = index,
+                fileName = backup.name,
+                modifiedAtEpochMillis = backup.lastModified(),
+                sizeBytes = sizeBytes,
+                contentSha256 = sha256(contents),
+            )
+        }.sortedWith(
+            compareByDescending<RuntimeLogArchive> { it.modifiedAtEpochMillis }
+                .thenBy { it.index },
+        )
+    }
+
+    fun readArchive(file: File, archive: RuntimeLogArchive): String = synchronized(FILE_LOCK) {
+        validateFilePath(file)
+        val backup = backupFile(file, archive.index)
+        check(backup.isFile) { "Runtime log archive changed; refresh the list" }
+        val contents = backup.readBytes()
+        check(
+            backup.name == archive.fileName &&
+                backup.lastModified() == archive.modifiedAtEpochMillis &&
+                contents.size.toLong() == archive.sizeBytes &&
+                sha256(contents) == archive.contentSha256,
+        ) { "Runtime log archive changed; refresh the list" }
+        RuntimeLogSanitizer.sanitizeText(String(contents, Charsets.UTF_8))
     }
 
     fun clear(file: File) {
@@ -121,6 +159,11 @@ internal class RuntimeLogStore(
             check(file.isFile) { "Runtime log path is not a file: ${file.name}" }
         }
     }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString(separator = "") { it.toUByte().toString(16).padStart(2, '0') }
 
     companion object {
         const val DEFAULT_MAX_BYTES = 1024L * 1024L

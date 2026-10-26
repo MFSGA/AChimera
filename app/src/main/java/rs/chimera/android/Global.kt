@@ -3,6 +3,7 @@ package rs.chimera.android
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import rs.chimera.android.backend.AppForegroundState
+import rs.chimera.android.backend.model.RuntimeLogArchive
 import rs.chimera.android.service.RuntimeLogStore
 import rs.chimera.android.ui.preferences.AppRecentTasksVisibility
 import rs.chimera.android.ui.preferences.AppPreferences
@@ -47,6 +48,12 @@ object Global {
     fun clearRuntimeLog() {
         clearRuntimeLog(runtimeLogFile())
     }
+
+    fun listRuntimeLogArchives(): List<RuntimeLogArchive> =
+        RuntimeLogStore.shared.listArchives(runtimeLogFile())
+
+    fun readRuntimeLogArchive(archive: RuntimeLogArchive): String =
+        RuntimeLogStore.shared.readArchive(runtimeLogFile(), archive)
 
     fun init(application: ChimeraApplication) {
         this.application = application
