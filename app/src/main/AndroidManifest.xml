@@ -28,6 +28,10 @@
             android:name="rs.chimera.android.MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Chimera" />
+        <activity
+            android:name="rs.chimera.android.ui.onboarding.OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Chimera" />
         <activity-alias
             android:name="rs.chimera.android.MainActivityAlias"
             android:enabled="true"

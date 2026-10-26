@@ -53,6 +53,7 @@ import rs.chimera.android.viewmodel.SettingsViewModel
 fun SettingsScreen(
     onLogsClick: () -> Unit,
     onAppFilterClick: () -> Unit,
+    onOpenOnboarding: () -> Unit = {},
     modifier: Modifier = Modifier,
     uiSwitchEnabled: Boolean = true,
 ) {
@@ -318,6 +319,12 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_about_summary),
                         onClick = { showInfoDialog = true },
                         showChevron = false,
+                    )
+                    SettingsItem(
+                        icon = Icons.Filled.Dashboard,
+                        title = stringResource(R.string.onboarding_reopen),
+                        subtitle = stringResource(R.string.onboarding_reopen_summary),
+                        onClick = onOpenOnboarding,
                     )
                 }
             }

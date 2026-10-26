@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import rs.chimera.android.theme.ChimeraTheme
 import rs.chimera.android.ui.metacubex.activity.MetaMainActivity
 import rs.chimera.android.ui.navigation.DefaultAppUiRouter
+import rs.chimera.android.ui.onboarding.FirstRunOnboardingStore
+import rs.chimera.android.ui.onboarding.OnboardingActivity
 import rs.chimera.android.ui.preferences.AppPreferences
 import rs.chimera.android.ui.preferences.UiVariant
 import rs.chimera.android.ui.watfaq.WatfaqAppRoot
@@ -36,6 +38,17 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (FirstRunOnboardingStore.shouldStartFirstRun(this)) {
+            startActivity(
+                OnboardingActivity.intent(this, firstRun = true).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK,
+                ),
+            )
+            finish()
+            return
+        }
+
         requestNotificationPermission()
 
         if (
@@ -50,6 +63,9 @@ class MainActivity : AppCompatActivity() {
             ChimeraTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     WatfaqAppRoot(
+                        onOpenOnboarding = {
+                            startActivity(OnboardingActivity.intent(this@MainActivity))
+                        },
                         onSwitchUi = {
                             if (!DefaultAppUiRouter.openMetaCubeX(this@MainActivity)) {
                                 android.widget.Toast.makeText(

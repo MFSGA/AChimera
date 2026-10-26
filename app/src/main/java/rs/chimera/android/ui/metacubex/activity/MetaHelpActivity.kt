@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import rs.chimera.android.R
+import rs.chimera.android.ui.onboarding.OnboardingActivity
 import rs.chimera.android.ui.metacubex.design.HelpDesign
 
 class MetaHelpActivity : AppCompatActivity() {
@@ -22,6 +23,9 @@ class MetaHelpActivity : AppCompatActivity() {
             for (request in design.requests) {
                 when (request) {
                     HelpDesign.Request.NavigateBack -> finish()
+                    HelpDesign.Request.OpenOnboarding -> {
+                        startActivity(OnboardingActivity.intent(this@MetaHelpActivity))
+                    }
                     is HelpDesign.Request.OpenLink -> openLink(request.uri)
                 }
             }

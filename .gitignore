@@ -46,6 +46,7 @@ uniffi/.vscode/settings.json
 docs/*
 !docs/ai-development-governance.md
 !docs/ai-review-checklist.md
+!docs/first-run-onboarding.md
 
 clash-andriod/
 

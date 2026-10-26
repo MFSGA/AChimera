@@ -32,6 +32,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 @Composable
 fun WatfaqAppRoot(
     onSwitchUi: () -> Unit,
+    onOpenOnboarding: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var selectedItem by rememberSaveable { mutableStateOf(BottomBarItem.Home) }
@@ -121,6 +122,7 @@ fun WatfaqAppRoot(
                                 uiSwitchEnabled = vpnActionEnabled,
                                 onLogsClick = { showLogsScreen = true },
                                 onAppFilterClick = { showAppSelectorScreen = true },
+                                onOpenOnboarding = onOpenOnboarding,
                             )
                         }
                     }
