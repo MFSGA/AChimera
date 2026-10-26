@@ -36,11 +36,11 @@ class ProvidersDesign(context: Context) : Design<ProvidersDesign.Request>(contex
     init {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val horizontalInsets = view.landscapeSystemBarInsets(bars)
             view.setPaddingRelative(
-                if (isRtl) bars.right else bars.left,
+                horizontalInsets.start,
                 0,
-                if (isRtl) bars.left else bars.right,
+                horizontalInsets.end,
                 0,
             )
             toolbar.setPadding(0, bars.top, 0, 0)

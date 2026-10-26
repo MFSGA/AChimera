@@ -89,8 +89,8 @@ internal class MetaProfileFilesDesign(
     private fun applySystemBarInsets() {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            val rtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            view.setPaddingRelative(if (rtl) bars.right else bars.left, 0, if (rtl) bars.left else bars.right, 0)
+            val horizontalInsets = view.landscapeSystemBarInsets(bars)
+            view.setPaddingRelative(horizontalInsets.start, 0, horizontalInsets.end, 0)
             activityBar.setPadding(0, bars.top, 0, 0)
             recycler.setPaddingRelative(
                 0,

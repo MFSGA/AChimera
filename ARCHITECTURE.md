@@ -30,7 +30,8 @@ AChimera 的 MetaCubeX / CMFA 风格界面（`app/src/main/java/rs/chimera/andro
 - 代理模式切换期间，应像 CMFA 一样保持代理组页面和溢出菜单可操作；操作仍由 Activity 串行处理，期间到达的请求排队后再执行。
 - 代理组延迟测试应像 CMFA 的 URL 测试一样在独立协程运行；测试期间节点切换和代理模式菜单继续可用，只有重复测速入口显示进度并暂时禁用。
 - 代理页的“不修改”用于撤销本次运行中的显式模式切换。当前 Controller 仅提供设置明确模式的接口，不能像 CMFA 一样清除 session override；因此 backend 在首次切换前缓存当前运行模式，选择“不修改”时恢复该值，并在服务离开运行态后清空缓存。若运行模式在会话中被外部修改，这一回退不保证与 CMFA 动态继承默认模式完全等价。
-- 代理页横屏内容宽度沿用 CMFA `Insets.landscape` 的 500dp 最小视口约束，在超宽屏上居中；竖屏和窄横屏保留系统栏 insets。布局验收仍需按具体状态提供参考/实现截图，不能以该约束通过推断整页已对齐。
+- MetaCubeX 通用 `applySystemBarInsets` 沿用 CMFA `Insets.landscape` 的 500dp 最小视口约束，在超宽屏上居中；自定义 insets 页面也应采用同一策略。竖屏和窄横屏保留系统栏 insets。布局验收仍需按具体状态提供参考/实现截图，不能以该约束通过推断整页已对齐。
+- 代理页横屏内容宽度同样沿用 CMFA `Insets.landscape` 的 500dp 最小视口约束，在超宽屏上居中；具体页面仍需提供参考/实现截图，不能以该约束通过推断整页已对齐。
 - CMFA 主页面保留参考基线定义的内容入口和状态信息；由于 Chimera 同时提供 Watfaq 与 MetaCubeX 两套界面，在现有顶部品牌栏增加紧凑的“切换到 Watfaq”按钮作为 Chimera 专属扩展（参考 CMFA 无对应入口），不额外增加主页内容行。Chimera 专属的连接管理仍由 Watfaq 首页提供入口，内存遥测不在 MetaCubeX 主页面展示。
 - MetaCubeX 配置操作菜单仅展示 CMFA 基线中的更新、编辑、复制、二维码和删除，并按配置类型应用参考的可用性规则；Chimera 的配置详情和验证操作仍可从 Watfaq 界面进入，不在 CMFA 菜单中追加滚动操作项。
 

@@ -204,9 +204,10 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     private fun applySystemBarInsets() {
         val scrollTopPadding = scrollRoot.paddingTop
-        ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            root.setPadding(bars.left, 0, bars.right, 0)
+            val horizontalInsets = view.landscapeSystemBarInsets(bars)
+            root.setPaddingRelative(horizontalInsets.start, 0, horizontalInsets.end, 0)
             scrollRoot.setPadding(
                 scrollRoot.paddingLeft,
                 scrollTopPadding + bars.top,
