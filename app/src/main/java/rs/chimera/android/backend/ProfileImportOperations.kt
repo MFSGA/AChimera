@@ -7,6 +7,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import rs.chimera.android.backend.model.RemoteProfileRequest
+import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.ffi.ChimeraFfi
 import rs.chimera.android.model.ProfileType
 import rs.chimera.android.backend.model.ProfileDownloadProgress
@@ -27,7 +28,11 @@ internal class ProfileImportOperations(
     private val profileStagingStore: ProfileStagingStore,
     private val proxyPort: () -> UShort?,
 ) {
-    suspend fun importLocalProfile(uri: Uri, name: String?): Pair<Boolean, String> =
+    suspend fun importLocalProfile(
+        uri: Uri,
+        name: String?,
+        afterCommit: suspend (Boolean) -> Unit = {},
+    ): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
             val fileName = queryDisplayName(uri)
             val safeName = ProfileImportPolicy.resolveLocalProfileName(name, fileName)
@@ -63,17 +68,24 @@ internal class ProfileImportOperations(
             profileJson.put("fileSize", stagedFile.length())
             profileJson.put("type", ProfileType.LOCAL.name)
 
-            val isFirst = ProfileImportTransactionPolicy.run(
-                stagedFile = stagedFile,
-                destinationFile = destinationFile,
-                beginImportTransaction = profileStagingStore::markImportPending,
-                persistMetadata = { file ->
-                    profileJson.put("filePath", file.absolutePath)
-                    profileJson.put("fileSize", file.length())
-                    profileCatalogStore.append(profileJson, pendingImport = file)
-                },
-                clearImportTransaction = profileStagingStore::clearImportPending,
-            )
+            val isFirst = runImportCommit(stagedFile) {
+                val first = ProfileImportTransactionPolicy.run(
+                    stagedFile = stagedFile,
+                    destinationFile = destinationFile,
+                    beginImportTransaction = profileStagingStore::markImportPending,
+                    persistMetadata = { file ->
+                        profileJson.put("filePath", file.absolutePath)
+                        profileJson.put("fileSize", file.length())
+                        profileCatalogStore.append(profileJson, pendingImport = file)
+                    },
+                    clearImportTransaction = profileStagingStore::clearImportPending,
+                )
+                completePostCommitBestEffort(
+                    afterCommit = { afterCommit(first) },
+                    action = "local profile import",
+                )
+                first
+            }
             isFirst to safeName
         }
 
@@ -115,23 +127,26 @@ internal class ProfileImportOperations(
             put("type", ProfileType.LOCAL.name)
         }
 
-        ProfileImportTransactionPolicy.run(
-            stagedFile = stagedFile,
-            destinationFile = destinationFile,
-            beginImportTransaction = profileStagingStore::markImportPending,
-            persistMetadata = { file ->
-                profileJson.put("filePath", file.absolutePath)
-                profileJson.put("fileSize", file.length())
-                profileCatalogStore.append(profileJson, pendingImport = file)
-            },
-            clearImportTransaction = profileStagingStore::clearImportPending,
-        )
+        runImportCommit(stagedFile) {
+            ProfileImportTransactionPolicy.run(
+                stagedFile = stagedFile,
+                destinationFile = destinationFile,
+                beginImportTransaction = profileStagingStore::markImportPending,
+                persistMetadata = { file ->
+                    profileJson.put("filePath", file.absolutePath)
+                    profileJson.put("fileSize", file.length())
+                    profileCatalogStore.append(profileJson, pendingImport = file)
+                },
+                clearImportTransaction = profileStagingStore::clearImportPending,
+            )
+        }
         duplicateId
     }
 
     suspend fun importRemoteProfile(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
+        afterCommit: suspend (Boolean) -> Unit = {},
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val normalizedRequest = ProfileRemotePolicy.normalizeRequest(request)
         val resolvedName = normalizedRequest.name
@@ -167,23 +182,31 @@ internal class ProfileImportOperations(
             profileJson.put("proxyUrl", normalizedRequest.proxyUrl)
         }
 
-        val isFirst = ProfileImportTransactionPolicy.run(
-            stagedFile = stagedFile,
-            destinationFile = destinationFile,
-            beginImportTransaction = profileStagingStore::markImportPending,
-            persistMetadata = { file ->
-                profileJson.put("filePath", file.absolutePath)
-                profileJson.put("fileSize", file.length())
-                profileCatalogStore.append(profileJson, pendingImport = file)
-            },
-            clearImportTransaction = profileStagingStore::clearImportPending,
-        )
+        val isFirst = runImportCommit(stagedFile) {
+            val first = ProfileImportTransactionPolicy.run(
+                stagedFile = stagedFile,
+                destinationFile = destinationFile,
+                beginImportTransaction = profileStagingStore::markImportPending,
+                persistMetadata = { file ->
+                    profileJson.put("filePath", file.absolutePath)
+                    profileJson.put("fileSize", file.length())
+                    profileCatalogStore.append(profileJson, pendingImport = file)
+                },
+                clearImportTransaction = profileStagingStore::clearImportPending,
+            )
+            completePostCommitBestEffort(
+                afterCommit = { afterCommit(first) },
+                action = "remote profile import",
+            )
+            first
+        }
         isFirst to resolvedName
     }
 
     suspend fun importRemoteProfileSnapshot(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
+        afterCommit: suspend (Boolean) -> Unit = {},
     ): Pair<Boolean, String> = withContext(Dispatchers.IO) {
         val normalizedRequest = ProfileRemoteSnapshotPolicy.normalizeRequest(request)
         val resolvedName = normalizedRequest.name
@@ -206,17 +229,24 @@ internal class ProfileImportOperations(
                 fileSize = stagedFile.length(),
             ),
         )
-        val isFirst = ProfileImportTransactionPolicy.run(
-            stagedFile = stagedFile,
-            destinationFile = destinationFile,
-            beginImportTransaction = profileStagingStore::markImportPending,
-            persistMetadata = { file ->
-                profileJson.put("filePath", file.absolutePath)
-                profileJson.put("fileSize", file.length())
-                profileCatalogStore.append(profileJson, pendingImport = file)
-            },
-            clearImportTransaction = profileStagingStore::clearImportPending,
-        )
+        val isFirst = runImportCommit(stagedFile) {
+            val first = ProfileImportTransactionPolicy.run(
+                stagedFile = stagedFile,
+                destinationFile = destinationFile,
+                beginImportTransaction = profileStagingStore::markImportPending,
+                persistMetadata = { file ->
+                    profileJson.put("filePath", file.absolutePath)
+                    profileJson.put("fileSize", file.length())
+                    profileCatalogStore.append(profileJson, pendingImport = file)
+                },
+                clearImportTransaction = profileStagingStore::clearImportPending,
+            )
+            completePostCommitBestEffort(
+                afterCommit = { afterCommit(first) },
+                action = "remote profile snapshot import",
+            )
+            first
+        }
         isFirst to resolvedName
     }
 
@@ -275,5 +305,31 @@ internal class ProfileImportOperations(
             ProfileFilePolicy.deleteAfterFailure(file, error)
             throw error
         }
+    }
+
+    private suspend fun <T> runImportCommit(
+        stagedFile: File,
+        block: suspend () -> T,
+    ): T = try {
+        ProfileImportTransactionPolicy.commit(block)
+    } catch (error: Throwable) {
+        ProfileFilePolicy.deleteAfterFailure(stagedFile, error)
+        throw error
+    }
+
+    private suspend fun completePostCommitBestEffort(
+        afterCommit: suspend () -> Unit,
+        action: String,
+    ) {
+        ProfileImportTransactionPolicy.completePostCommitBestEffort(
+            afterCommit = afterCommit,
+            onFailure = { error ->
+                PrivacySafeLog.error(TAG, "Failed to complete $action post-commit work", error)
+            },
+        )
+    }
+
+    private companion object {
+        const val TAG = "ProfileImportOperations"
     }
 }

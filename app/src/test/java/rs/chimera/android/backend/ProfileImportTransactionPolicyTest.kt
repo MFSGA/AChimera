@@ -1,5 +1,12 @@
 package rs.chimera.android.backend
 
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -8,6 +15,61 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ProfileImportTransactionPolicyTest {
+    @Test
+    fun cancelledCallerDoesNotBeginImportCommit() = runBlocking {
+        var committed = false
+        var cancellationObserved = false
+
+        val job = launch {
+            currentCoroutineContext()[kotlinx.coroutines.Job]?.cancel()
+            try {
+                ProfileImportTransactionPolicy.commit { committed = true }
+            } catch (_: CancellationException) {
+                cancellationObserved = true
+            }
+        }
+        job.join()
+
+        assertFalse(committed)
+        assertTrue(cancellationObserved)
+    }
+
+    @Test
+    fun committedImportFinishesAfterCallerCancellation() = runBlocking {
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        var completed = false
+
+        val import = launch {
+            ProfileImportTransactionPolicy.commit {
+                entered.complete(Unit)
+                withContext(NonCancellable) { release.await() }
+                completed = true
+            }
+        }
+        entered.await()
+
+        import.cancel()
+        release.complete(Unit)
+        import.join()
+
+        assertTrue(completed)
+        assertTrue(import.isCancelled)
+    }
+
+    @Test
+    fun postCommitFailureIsReportedWithoutFailingCommittedOperation() = runBlocking {
+        val expected = IllegalStateException("schedule refresh failed")
+        var reported: Exception? = null
+
+        ProfileImportTransactionPolicy.completePostCommitBestEffort(
+            afterCommit = { throw expected },
+            onFailure = { reported = it },
+        )
+
+        assertSame(expected, reported)
+    }
+
     @Test
     fun successfulImportMovesFileAndPersistsMetadata() {
         val directory = Files.createTempDirectory("profile-import").toFile()

@@ -239,9 +239,8 @@ class ChimeraBackendImpl(
     }
 
     private suspend fun importLocalProfileReady(uri: Uri, name: String?): String {
-        val (isFirst, resolvedName) = profileImportOperations.importLocalProfile(uri, name)
-        if (isFirst) {
-            restoreImportedActiveProfile()
+        val (_, resolvedName) = profileImportOperations.importLocalProfile(uri, name) { isFirst ->
+            if (isFirst) restoreImportedActiveProfile()
         }
         return resolvedName
     }
@@ -250,11 +249,10 @@ class ChimeraBackendImpl(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
     ): String {
-        val (isFirst, resolvedName) = profileImportOperations.importRemoteProfile(request, onProgress)
-        if (isFirst) {
-            restoreImportedActiveProfile()
+        val (_, resolvedName) = profileImportOperations.importRemoteProfile(request, onProgress) { isFirst ->
+            if (isFirst) restoreImportedActiveProfile()
+            synchronizeProfileAutoUpdateSchedule()
         }
-        synchronizeProfileAutoUpdateSchedule()
         return resolvedName
     }
 
@@ -262,9 +260,8 @@ class ChimeraBackendImpl(
         request: RemoteProfileRequest,
         onProgress: (ProfileDownloadProgress) -> Unit,
     ): String {
-        val (isFirst, resolvedName) = profileImportOperations.importRemoteProfileSnapshot(request, onProgress)
-        if (isFirst) {
-            restoreImportedActiveProfile()
+        val (_, resolvedName) = profileImportOperations.importRemoteProfileSnapshot(request, onProgress) { isFirst ->
+            if (isFirst) restoreImportedActiveProfile()
         }
         return resolvedName
     }
