@@ -64,7 +64,7 @@ class ProfilePropertiesInstrumentedTest {
             scenario.onActivity { activity ->
                 assertFalse(action(activity, R.id.property_url).isEnabled)
                 assertFalse(action(activity, R.id.property_auto_update).isEnabled)
-                assertFalse(activity.findViewById<View>(R.id.property_browse).isEnabled)
+                assertTrue(activity.findViewById<View>(R.id.property_browse).isEnabled)
                 assertEquals(View.GONE, activity.findViewById<View>(R.id.property_options).visibility)
             }
             capture(scenario, "local-before")

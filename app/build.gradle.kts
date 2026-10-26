@@ -176,7 +176,7 @@ android {
         resValue("string", "app_name", if (keystore == null) "chimera dev" else "Chimera Lite")
         resValue("string", "app_ver", verName)
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "rs.chimera.android.ChimeraAndroidTestRunner"
         if (!splitAbiBuild) {
             ndk {
                 abiFilters.addAll(enabledAbis)

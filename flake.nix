@@ -6,12 +6,13 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; config.allowUnfree = true; config.android_sdk.accept_license = true; };
+      ndkVersion = "29.0.14206865";
       androidComposition = pkgs.androidenv.composeAndroidPackages {
         platformVersions = [ "36" ];
         buildToolsVersions = [ "36.0.0" ];
         includeEmulator = true;
         includeNDK = true;
-        ndkVersions = [ "29.0.14206865" ];
+        ndkVersions = [ ndkVersion ];
       };
     in {
       devShells.${system}.default = pkgs.mkShell {
@@ -22,6 +23,8 @@
         ];
         ANDROID_HOME = "${androidComposition.androidsdk}/libexec/android-sdk";
         ANDROID_SDK_ROOT = "${androidComposition.androidsdk}/libexec/android-sdk";
+        ANDROID_NDK_HOME = "${androidComposition.androidsdk}/libexec/android-sdk/ndk/${ndkVersion}";
+        ANDROID_NDK_ROOT = "${androidComposition.androidsdk}/libexec/android-sdk/ndk/${ndkVersion}";
         JAVA_HOME = "${pkgs.jdk25.home}";
       };
     };

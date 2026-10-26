@@ -22,6 +22,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.action.ViewActions.scrollTo
 import androidx.test.espresso.assertion.ViewAssertions.doesNotExist
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
@@ -103,7 +104,7 @@ class AppUiNavigationInstrumentedTest {
         val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
 
         assertNotNull(launchIntent)
-        assertEquals(MainActivity::class.java.name, launchIntent?.component?.className)
+        assertEquals("rs.chimera.android.MainActivityAlias", launchIntent?.component?.className)
         assertEquals(UiVariant.WATFAQ, AppPreferences.uiVariant(context))
 
         ActivityScenario.launch(MainActivity::class.java).use {
@@ -216,7 +217,12 @@ class AppUiNavigationInstrumentedTest {
                         WindowInsetsCompat.Builder()
                             .setInsets(
                                 WindowInsetsCompat.Type.systemBars(),
-                                Insets.of(0, 0, 0, 28),
+                                Insets.of(
+                                    0,
+                                    design.root.findViewById<View>(R.id.proxy_activity_bar).paddingTop,
+                                    0,
+                                    28,
+                                ),
                             )
                             .build(),
                     )
@@ -651,8 +657,25 @@ class AppUiNavigationInstrumentedTest {
                         ),
                     )
                 design.setGroups(snapshots)
-                design.binding.viewPager.setCurrentItem(1, false)
             }
+
+            awaitProxyPageSelection(
+                scenario,
+                design,
+                pagePosition = 0,
+                pageCount = 2,
+                groupName = "outer",
+                itemCount = 2,
+            )
+            scenario.onActivity { design.binding.viewPager.setCurrentItem(1, false) }
+            awaitProxyPageSelection(
+                scenario,
+                design,
+                pagePosition = 1,
+                pageCount = 2,
+                groupName = "selector",
+                itemCount = 2,
+            )
 
             var selectionRequested = false
             var selectionRequest: ProxyDesign.Request? = null
@@ -905,8 +928,25 @@ class AppUiNavigationInstrumentedTest {
             )
             scenario.onActivity { activity ->
                 design = createProxyDesign(activity, backendSnapshot)
-                design.binding.viewPager.setCurrentItem(1, false)
             }
+
+            awaitProxyPageSelection(
+                scenario,
+                design,
+                pagePosition = 0,
+                pageCount = 2,
+                groupName = "outer",
+                itemCount = 2,
+            )
+            scenario.onActivity { design.binding.viewPager.setCurrentItem(1, false) }
+            awaitProxyPageSelection(
+                scenario,
+                design,
+                pagePosition = 1,
+                pageCount = 2,
+                groupName = "selector",
+                itemCount = 2,
+            )
 
             fun awaitSelectorCardState(expected: Pair<Boolean, Boolean>) {
                 var state: Pair<Boolean, Boolean>? = null
@@ -972,7 +1012,10 @@ class AppUiNavigationInstrumentedTest {
                         refreshCount++
                         scenario.onActivity { design.setGroups(backendSnapshot) }
                     },
-                    onFailure = { reportedError = it },
+                    onFailure = { error ->
+                        reportedError = error
+                        scenario.onActivity { design.rejectProxySelection(selectionToken) }
+                    },
                 )
             }
 
@@ -1496,7 +1539,7 @@ class AppUiNavigationInstrumentedTest {
             onView(withId(R.id.category_app)).check(matches(isDisplayed()))
             onView(withId(R.id.category_network)).perform(click())
             waitForResumedActivity<MetaSettingsActivity>()
-            onView(withId(R.id.card_ports)).check(matches(isDisplayed()))
+            onView(withId(R.id.card_ports)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.card_language)).check { view, _ ->
                 assertFalse(view.isShown)
             }
@@ -1723,8 +1766,9 @@ class AppUiNavigationInstrumentedTest {
         pagePosition: Int,
         pageCount: Int,
         groupName: String,
+        itemCount: Int = 1,
     ) {
-        awaitProxyPageBounds(scenario, design, pagePosition, itemCount = 1)
+        awaitProxyPageBounds(scenario, design, pagePosition, itemCount)
         var pageSelected = false
         val deadline = SystemClock.uptimeMillis() + 5_000
         while (!pageSelected && SystemClock.uptimeMillis() < deadline) {
