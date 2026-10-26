@@ -2,14 +2,18 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
+import androidx.test.espresso.Espresso
 import androidx.test.espresso.Espresso.onView
 import androidx.test.espresso.assertion.ViewAssertions.matches
 import androidx.test.espresso.matcher.ViewMatchers.isEnabled
 import androidx.test.espresso.matcher.ViewMatchers.withHint
 import androidx.test.espresso.matcher.ViewMatchers.withId
 import androidx.test.espresso.matcher.ViewMatchers.withText
+import androidx.test.espresso.matcher.RootMatchers.isDialog
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.By
+import androidx.test.uiautomator.Until
 import androidx.test.uiautomator.UiDevice
 import org.hamcrest.Matchers.not
 import org.junit.Test
@@ -42,22 +46,29 @@ class MetaRemoteProfileDialogAvailabilityInstrumentedTest {
                 ) { _, _, _ -> }
             }
             instrumentation.waitForIdleSync()
+            val nameField = device.wait(
+                Until.findObject(By.hint(instrumentation.targetContext.getString(R.string.profile_name_label))),
+                UI_ELEMENT_TIMEOUT_MS,
+            ) ?: error("Remote profile name field did not appear")
+            nameField.click()
+            Espresso.closeSoftKeyboard()
+            instrumentation.waitForIdleSync()
 
-            onView(withHint(R.string.profile_name_label)).check(matches(isEnabled()))
+            onView(withHint(R.string.profile_name_label)).inRoot(isDialog()).check(matches(isEnabled()))
 
             scenario.onActivity { controller.setEditingEnabled(false) }
             instrumentation.waitForIdleSync()
 
-            onView(withHint(R.string.profile_name_label)).check(matches(not(isEnabled())))
-            onView(withHint(R.string.profile_name_label)).check(matches(withText(profileName)))
-            onView(withId(android.R.id.button1)).check(matches(not(isEnabled())))
-            onView(withId(android.R.id.button2)).check(matches(isEnabled()))
+            onView(withHint(R.string.profile_name_label)).inRoot(isDialog()).check(matches(not(isEnabled())))
+            onView(withHint(R.string.profile_name_label)).inRoot(isDialog()).check(matches(withText(profileName)))
+            onView(withId(android.R.id.button1)).inRoot(isDialog()).check(matches(not(isEnabled())))
+            onView(withId(android.R.id.button2)).inRoot(isDialog()).check(matches(isEnabled()))
 
             scenario.onActivity { controller.setEditingEnabled(true) }
             instrumentation.waitForIdleSync()
 
-            onView(withHint(R.string.profile_name_label)).check(matches(isEnabled()))
-            onView(withHint(R.string.profile_name_label)).check(matches(withText(profileName)))
+            onView(withHint(R.string.profile_name_label)).inRoot(isDialog()).check(matches(isEnabled()))
+            onView(withHint(R.string.profile_name_label)).inRoot(isDialog()).check(matches(withText(profileName)))
         }
     }
 
@@ -76,5 +87,6 @@ class MetaRemoteProfileDialogAvailabilityInstrumentedTest {
     private companion object {
         const val WINDOW_FOCUS_TIMEOUT_MS = 5_000L
         const val WINDOW_FOCUS_POLL_INTERVAL_MS = 50L
+        const val UI_ELEMENT_TIMEOUT_MS = 5_000L
     }
 }
