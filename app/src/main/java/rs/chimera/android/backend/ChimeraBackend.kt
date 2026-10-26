@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.MemoryInfo
+import rs.chimera.android.backend.model.ProfileFileMetadata
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
@@ -50,6 +51,7 @@ interface ChimeraBackend {
 
     suspend fun listProfiles(): List<ProfileSummary>
     suspend fun readProfileConfiguration(id: String): String
+    suspend fun readProfileFileMetadata(id: String): ProfileFileMetadata
     suspend fun activateProfile(id: String)
     suspend fun deleteProfile(id: String)
     suspend fun duplicateProfile(id: String): String

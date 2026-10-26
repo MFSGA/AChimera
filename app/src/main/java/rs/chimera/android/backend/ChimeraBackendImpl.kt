@@ -24,6 +24,7 @@ import rs.chimera.android.Global
 import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ConnectionsSnapshot
+import rs.chimera.android.backend.model.ProfileFileMetadata
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileSubscriptionUsage
@@ -636,6 +637,12 @@ class ChimeraBackendImpl(
         withContext(Dispatchers.IO) {
             awaitReady()
             profileConfigurationReader.read(id)
+        }
+
+    override suspend fun readProfileFileMetadata(id: String): ProfileFileMetadata =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            profileConfigurationReader.metadata(id)
         }
 
     override suspend fun deleteProfile(id: String): Unit =

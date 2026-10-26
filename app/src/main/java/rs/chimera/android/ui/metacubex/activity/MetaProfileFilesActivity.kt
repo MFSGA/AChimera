@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.model.ProfileFileMetadata
 import rs.chimera.android.ui.metacubex.design.MetaProfileFilesDesign
 
 internal class MetaProfileFilesActivity : AppCompatActivity() {
@@ -27,16 +28,15 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        profileId = intent.getStringExtra(EXTRA_PROFILE_ID)
-        if (profileId == null) return finish()
+        val id = intent.getStringExtra(EXTRA_PROFILE_ID)
+        profileId = id
+        if (id == null) return finish()
         setContentView(FrameLayout(this).apply {
             addView(ProgressBar(context), FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         })
         lifecycleScope.launch {
             try {
-                val profile = backend.listProfiles().firstOrNull { it.id == profileId }
-                    ?: throw IllegalArgumentException(getString(R.string.profile_properties_missing))
-                showFiles(profile.fileSize, profile.lastUpdated ?: profile.createdAt)
+                showFiles(backend.readProfileFileMetadata(id))
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
@@ -50,9 +50,9 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
         }
     }
 
-    private fun showFiles(size: Long, modifiedAt: Long) {
+    private fun showFiles(metadata: ProfileFileMetadata) {
         val id = profileId ?: return finish()
-        val design = MetaProfileFilesDesign(this, size, modifiedAt)
+        val design = MetaProfileFilesDesign(this, metadata)
         setContentView(design.root)
         lifecycleScope.launch {
             for (request in design.requests) {

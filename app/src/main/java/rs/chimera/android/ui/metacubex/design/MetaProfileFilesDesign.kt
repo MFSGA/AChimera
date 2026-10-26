@@ -8,6 +8,7 @@ import androidx.core.view.doOnAttach
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import rs.chimera.android.R
+import rs.chimera.android.backend.model.ProfileFileMetadata
 import rs.chimera.android.ui.metacubex.adapter.MetaProfileFileAdapter
 import rs.chimera.android.ui.metacubex.adapter.MetaProfileFileEntry
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
@@ -15,8 +16,7 @@ import rs.chimera.android.ui.metacubex.design.util.root
 
 internal class MetaProfileFilesDesign(
     context: Context,
-    fileSize: Long,
-    modifiedAt: Long,
+    metadata: ProfileFileMetadata,
 ) : Design<MetaProfileFilesDesign.Request>(context) {
     override val root: View = context.layoutInflater.inflate(
         R.layout.meta_design_profile_files,
@@ -39,9 +39,10 @@ internal class MetaProfileFilesDesign(
         adapter.submitList(
             listOf(
                 MetaProfileFileEntry(
-                    name = context.getString(R.string.profile_files_configuration),
-                    size = fileSize,
-                    modifiedAt = modifiedAt,
+                    name = context.getString(R.string.profile_files_configuration) +
+                        metadata.extension?.let { ".$it" }.orEmpty(),
+                    size = metadata.size,
+                    modifiedAt = metadata.lastModified,
                 ),
             ),
         )

@@ -1,6 +1,5 @@
 package rs.chimera.android.ui.metacubex.adapter
 
-import android.text.format.Formatter
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -9,11 +8,12 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import rs.chimera.android.R
+import java.util.Locale
 
 internal data class MetaProfileFileEntry(
     val name: String,
     val size: Long,
-    val modifiedAt: Long,
+    val modifiedAt: Long?,
 )
 
 internal class MetaProfileFileAdapter(
@@ -25,7 +25,7 @@ internal class MetaProfileFileAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val entry = getItem(position)
         holder.name.text = entry.name
-        holder.size.text = Formatter.formatShortFileSize(holder.itemView.context, entry.size)
+        holder.size.text = formatProfileFileSize(entry.size)
         val elapsed = profileElapsedTime(entry.modifiedAt)
         holder.modified.text = elapsed?.let { age ->
             val context = holder.itemView.context
@@ -53,4 +53,20 @@ internal class MetaProfileFileAdapter(
         override fun areContentsTheSame(oldItem: MetaProfileFileEntry, newItem: MetaProfileFileEntry): Boolean =
             oldItem == newItem
     }
+}
+
+internal fun formatProfileFileSize(bytes: Long, locale: Locale = Locale.getDefault()): String = when {
+    bytes > 1024L * 1024L * 1024L * 1024L * 1024L * 1024L ->
+        String.format(locale, "%.2f EiB", bytes.toDouble() / 1024 / 1024 / 1024 / 1024 / 1024 / 1024)
+    bytes > 1024L * 1024L * 1024L * 1024L * 1024L ->
+        String.format(locale, "%.2f PiB", bytes.toDouble() / 1024 / 1024 / 1024 / 1024 / 1024)
+    bytes > 1024L * 1024L * 1024L * 1024L ->
+        String.format(locale, "%.2f TiB", bytes.toDouble() / 1024 / 1024 / 1024 / 1024)
+    bytes > 1024L * 1024L * 1024L ->
+        String.format(locale, "%.2f GiB", bytes.toDouble() / 1024 / 1024 / 1024)
+    bytes > 1024L * 1024L ->
+        String.format(locale, "%.2f MiB", bytes.toDouble() / 1024 / 1024)
+    bytes > 1024L ->
+        String.format(locale, "%.2f KiB", bytes.toDouble() / 1024)
+    else -> "$bytes Bytes"
 }

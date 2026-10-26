@@ -20,6 +20,25 @@ class ProfileConfigurationReaderTest {
     }
 
     @Test
+    fun returnsMetadataFromTheManagedFileInsteadOfProfileUpdateTime() {
+        val directory = Files.createTempDirectory("profile-files").toFile()
+        val expectedModifiedAt = 1_700_000_000_000L
+        val config = directory.resolve("profile.YAML").apply {
+            writeText("mixed-port: 7890\n")
+            setLastModified(expectedModifiedAt)
+        }
+        val reader = ProfileConfigurationReader(directory) { id ->
+            if (id == PROFILE_ID) profile(config.path) else null
+        }
+
+        val metadata = reader.metadata(PROFILE_ID)
+
+        assertEquals("yaml", metadata.extension)
+        assertEquals(config.length(), metadata.size)
+        assertEquals(expectedModifiedAt, metadata.lastModified)
+    }
+
+    @Test
     fun rejectsUnknownProfilesAndFilesOutsideManagedStorage() {
         val directory = Files.createTempDirectory("profile-files").toFile()
         val outside = Files.createTempDirectory("outside-profile-files")
@@ -31,7 +50,9 @@ class ProfileConfigurationReaderTest {
         }
 
         assertTrue(runCatching { reader.read("missing") }.isFailure)
+        assertTrue(runCatching { reader.metadata("missing") }.isFailure)
         assertTrue(runCatching { reader.read(PROFILE_ID) }.isFailure)
+        assertTrue(runCatching { reader.metadata(PROFILE_ID) }.isFailure)
     }
 
     @Test
@@ -46,6 +67,7 @@ class ProfileConfigurationReaderTest {
         val reader = ProfileConfigurationReader(directory.toFile()) { profile(link.toString()) }
 
         assertTrue(runCatching { reader.read(PROFILE_ID) }.isFailure)
+        assertTrue(runCatching { reader.metadata(PROFILE_ID) }.isFailure)
     }
 
     @Test
@@ -57,6 +79,7 @@ class ProfileConfigurationReaderTest {
         val reader = ProfileConfigurationReader(directory) { profile(oversized.path) }
 
         assertTrue(runCatching { reader.read(PROFILE_ID) }.isFailure)
+        assertTrue(runCatching { reader.metadata(PROFILE_ID) }.isFailure)
     }
 
     private fun profile(path: String) = ProfileSummary(
