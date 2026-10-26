@@ -285,4 +285,48 @@ class ProxyDisplayPolicyTest {
             ).map { it.name },
         )
     }
+
+    @Test
+    fun filteringFallsBackToFirstVisibleGroupAndKeepsItAfterFilterIsRemoved() {
+        val visibleGroups = listOf(
+            ProxyDisplayGroup("selector", isSelectable = true, proxies = emptyList()),
+            ProxyDisplayGroup("fallback", isSelectable = true, proxies = emptyList()),
+        )
+        val allGroups = visibleGroups + ProxyDisplayGroup(
+            "url-test",
+            isSelectable = false,
+            proxies = emptyList(),
+        )
+
+        assertEquals(
+            "fallback",
+            ProxyDisplayPolicy.groupNameAfterFilterChange("fallback", "url-test", visibleGroups),
+        )
+        val selectedAfterFiltering = ProxyDisplayPolicy.groupNameAfterFilterChange(
+            "url-test",
+            "url-test",
+            visibleGroups,
+        )
+        assertEquals("selector", selectedAfterFiltering)
+        assertEquals(
+            selectedAfterFiltering,
+            ProxyDisplayPolicy.groupNameAfterFilterChange(
+                selectedAfterFiltering,
+                "url-test",
+                allGroups,
+            ),
+        )
+        assertEquals(
+            "url-test",
+            ProxyDisplayPolicy.groupNameAfterFilterChange(null, "url-test", emptyList()),
+        )
+        assertEquals(
+            "selector",
+            ProxyDisplayPolicy.groupNameAfterFilterChange(
+                "selector",
+                "url-test",
+                visibleGroups,
+            ),
+        )
+    }
 }

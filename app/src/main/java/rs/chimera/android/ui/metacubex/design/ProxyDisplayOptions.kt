@@ -132,6 +132,18 @@ object ProxyDisplayPolicy {
             )
         }
     }
+
+    fun groupNameAfterFilterChange(
+        currentlyDisplayedGroupName: String?,
+        lastGroupName: String?,
+        visibleGroups: List<ProxyDisplayGroup>,
+    ): String? {
+        val currentGroupName = currentlyDisplayedGroupName ?: lastGroupName
+        if (visibleGroups.isEmpty()) return currentGroupName
+        return currentGroupName
+            ?.takeIf { name -> visibleGroups.any { it.name == name } }
+            ?: visibleGroups.first().name
+    }
 }
 
 class ProxyDisplayPreferences(context: Context) {
