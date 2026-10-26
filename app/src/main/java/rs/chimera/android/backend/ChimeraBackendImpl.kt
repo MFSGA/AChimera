@@ -25,6 +25,7 @@ import rs.chimera.android.backend.model.BackendRuntimeError
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ConnectionsSnapshot
 import rs.chimera.android.backend.model.ProfileFileMetadata
+import rs.chimera.android.backend.model.ProfileProviderFileMetadata
 import rs.chimera.android.backend.model.ProfileDeletionAvailability
 import rs.chimera.android.backend.model.ProfileSummary
 import rs.chimera.android.backend.model.ProfileSubscriptionUsage
@@ -71,6 +72,11 @@ class ChimeraBackendImpl(
     private val profileConfigurationReader = ProfileConfigurationReader(context.filesDir) { id ->
         profileCatalogReader.readProfiles().firstOrNull { it.id == id }
     }
+    private val profileProviderFileReader = ProfileProviderFileReader(
+        filesDirectory = context.filesDir,
+        cacheDirectory = context.cacheDir,
+        loadProfile = { id -> profileCatalogReader.readProfiles().firstOrNull { it.id == id } },
+    )
     private val profileAutoUpdateStateOperations = ProfileAutoUpdateStateOperations(
         profileUpdateCoordinator, profileCatalogStore, profileAutoUpdateStateStore,
     )
@@ -135,7 +141,12 @@ class ChimeraBackendImpl(
     )
     private val proxySubtitlePatternProvider = ProxySubtitlePatternProvider(::readUiSubtitlePattern)
     private val controllerOperations = BackendControllerOperations(
-        socketPath = "${context.cacheDir}/clash.sock",
+        socketPath = {
+            val workDirectory = requireNotNull(Global.activeCoreWorkDirectory) {
+                "Clash core is not running"
+            }
+            java.io.File(workDirectory, "clash.sock").absolutePath
+        },
         serviceState = serviceState,
         proxySubtitlePattern = { proxySubtitlePatternProvider.patternFor(Global.profilePath) },
         notRunningMessage = {
@@ -643,6 +654,15 @@ class ChimeraBackendImpl(
         withContext(Dispatchers.IO) {
             awaitReady()
             profileConfigurationReader.metadata(id)
+        }
+
+    override suspend fun listProfileProviderFiles(
+        id: String,
+        relativePath: List<String>,
+    ): List<ProfileProviderFileMetadata> =
+        withContext(Dispatchers.IO) {
+            awaitReady()
+            profileProviderFileReader.list(id, relativePath)
         }
 
     override suspend fun deleteProfile(id: String): Unit =

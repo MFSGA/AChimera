@@ -35,6 +35,10 @@ object Global {
     @Volatile
     var proxyPort: UShort? = null
 
+    @Volatile
+    var activeCoreWorkDirectory: String? = null
+        private set
+
     fun runtimeLogFile(): File = File(application.cacheDir, RUNTIME_LOG_FILE_NAME)
 
     fun readRuntimeLogTail(maxLines: Int = 160): String =
@@ -46,6 +50,7 @@ object Global {
 
     fun init(application: ChimeraApplication) {
         this.application = application
+        activeCoreWorkDirectory = null
         profilePath = application
             .getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
             .getString(PROFILE_PATH_KEY, null)
@@ -62,6 +67,10 @@ object Global {
 
     internal fun updateProfilePath(path: String?) {
         profilePath = path.orEmpty()
+    }
+
+    internal fun updateActiveCoreWorkDirectory(path: String?) {
+        activeCoreWorkDirectory = path
     }
 
     private const val FILE_PREFS = "file_prefs"

@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ProfileRuntimeDirectoryPolicy
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.util.NotificationHelper
@@ -202,16 +203,24 @@ class TunService : VpnService(), VpnRuntimeControl {
         }
 
         currentCoroutineContext().ensureActive()
+        val workDirectory = ProfileRuntimeDirectoryPolicy.directory(
+            cacheDirectory = Global.application.cacheDir,
+            profilePath = profilePath,
+        )
+        LegacyProviderDirectoryMigrator.prepare(
+            legacyWorkDirectory = Global.application.cacheDir,
+            profileWorkDirectory = workDirectory,
+        )
         TunRuntimeFiles.copyRuntimeAssetsIfAvailable(
             Global.application.assets,
-            Global.application.cacheDir,
+            workDirectory,
         )
         currentCoroutineContext().ensureActive()
 
         val startResult =
             initClash(
                 configPath = profilePath,
-                workDir = Global.application.cacheDir.absolutePath,
+                workDir = workDirectory.absolutePath,
                 over = TunServiceSettingsLoader.createProfileOverride(
                     currentTunFd = currentTunFd,
                     settings = settings,
@@ -228,6 +237,7 @@ class TunService : VpnService(), VpnRuntimeControl {
 
         val finalProfile = startResult.getOrThrow()
         currentCoroutineContext().ensureActive()
+        Global.updateActiveCoreWorkDirectory(workDirectory.absolutePath)
         Global.proxyPort = finalProfile.mixedPort
         appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
@@ -368,7 +378,9 @@ class TunService : VpnService(), VpnRuntimeControl {
         networkCoordinator = null
         var coreStopFailure: Throwable? = null
         if (stopCore) {
-            shutdownClash().exceptionOrNull()?.let { error ->
+            shutdownClash().onSuccess {
+                Global.updateActiveCoreWorkDirectory(null)
+            }.exceptionOrNull()?.let { error ->
                 coreStopFailure = error
                 PrivacySafeLog.warning(TAG, "Failed to stop Rust core cleanly", error)
                 appendRuntimeLog("failed to stop rust core cleanly", error)
@@ -449,6 +461,7 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     override fun onCoreStopped(message: String) {
+        Global.updateActiveCoreWorkDirectory(null)
         val detail = sanitizeUserVisibleErrorText(
             value = message,
             fallback = getString(rs.chimera.android.R.string.profile_unknown_error),

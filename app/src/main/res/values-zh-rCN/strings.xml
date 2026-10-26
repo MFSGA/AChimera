@@ -390,7 +390,9 @@
     <string name="profile_properties_files_available">查看此配置文件</string>
     <string name="profile_files_title">文件</string>
     <string name="profile_files_configuration">配置文件</string>
+    <string name="profile_files_providers">提供器文件</string>
     <string name="profile_files_open_failed">无法打开配置文件：%1$s</string>
+    <string name="profile_files_list_failed">无法读取提供器文件列表：%1$s</string>
     <string name="profile_properties_tip"><![CDATA[仅接受 <b>Clash 配置文件</b>(包含<b>代理</b>/<b>规则</b>)]]></string>
     <string name="profile_provider_snapshot_tip"><![CDATA[仅接受 <b>Clash 配置文件</b>。该提供器返回的配置只下载一次并保存到本地，不保留来源用于刷新；客户端选项仅用于本次下载。]]></string>
     <string name="profile_properties_name">名称</string>

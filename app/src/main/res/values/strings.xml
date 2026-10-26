@@ -403,7 +403,9 @@
     <string name="profile_properties_files_available">View this profile’s configuration file</string>
     <string name="profile_files_title">Files</string>
     <string name="profile_files_configuration">Configuration</string>
+    <string name="profile_files_providers">Provider files</string>
     <string name="profile_files_open_failed">Could not open the configuration file: %1$s</string>
+    <string name="profile_files_list_failed">Could not list provider files: %1$s</string>
     <string name="profile_properties_tip"><![CDATA[Accept Only <b>Clash Config</b>(including <b>Proxy</b>/<b>Rules</b>)]]></string>
     <string name="profile_provider_snapshot_tip"><![CDATA[Only accept <b>Clash configuration files</b>. This provider result is downloaded once and saved locally; its source is not retained for refresh. Client options apply only to this download.]]></string>
     <string name="profile_properties_name">Name</string>

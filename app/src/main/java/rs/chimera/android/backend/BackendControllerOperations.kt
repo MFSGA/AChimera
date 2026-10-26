@@ -19,14 +19,27 @@ import uniffi.chimera_ffi.ClashController
 import uniffi.chimera_ffi.Mode
 
 internal class BackendControllerOperations(
-    socketPath: String,
+    private val socketPath: () -> String,
     private val serviceState: StateFlow<ServiceState>,
     private val proxySubtitlePattern: () -> java.util.regex.Pattern?,
     private val notRunningMessage: () -> String,
     private val recordRuntimeError: (BackendRuntimeErrorSource, String, Throwable) -> Unit,
     private val clearRuntimeError: (BackendRuntimeErrorSource) -> Unit,
 ) {
-    private val controller by lazy { ClashController(socketPath) }
+    private val controllerLock = Any()
+    private var controllerSocketPath: String? = null
+    private var controllerInstance: ClashController? = null
+    private val controller: ClashController
+        get() {
+            val currentSocketPath = socketPath()
+            return synchronized(controllerLock) {
+                if (controllerSocketPath != currentSocketPath) {
+                    controllerInstance = ClashController(currentSocketPath)
+                    controllerSocketPath = currentSocketPath
+                }
+                checkNotNull(controllerInstance)
+            }
+        }
     private val proxyProviderOperations = ProxyProviderOperationCoordinator()
 
     suspend fun fetchTraffic(): TrafficSnapshot = withControllerContext {

@@ -14,10 +14,19 @@ internal data class MetaProfileFileEntry(
     val name: String,
     val size: Long,
     val modifiedAt: Long?,
-)
+    val isDirectory: Boolean = false,
+    val relativePath: List<String> = emptyList(),
+    val action: Action = Action.NONE,
+) {
+    enum class Action {
+        OPEN_CONFIGURATION,
+        OPEN_DIRECTORY,
+        NONE,
+    }
+}
 
 internal class MetaProfileFileAdapter(
-    private val onClick: () -> Unit,
+    private val onClick: (MetaProfileFileEntry) -> Unit,
 ) : ListAdapter<MetaProfileFileEntry, MetaProfileFileAdapter.Holder>(DiffCallback) {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
         Holder(LayoutInflater.from(parent.context).inflate(R.layout.meta_item_profile_file, parent, false))
@@ -26,6 +35,10 @@ internal class MetaProfileFileAdapter(
         val entry = getItem(position)
         holder.name.text = entry.name
         holder.size.text = formatProfileFileSize(entry.size)
+        holder.size.visibility = if (entry.isDirectory) View.GONE else View.VISIBLE
+        holder.icon.setImageResource(
+            if (entry.isDirectory) R.drawable.ic_outline_folder else R.drawable.ic_outline_article,
+        )
         val elapsed = profileElapsedTime(entry.modifiedAt)
         holder.modified.text = elapsed?.let { age ->
             val context = holder.itemView.context
@@ -36,14 +49,19 @@ internal class MetaProfileFileAdapter(
                 ProfileElapsedTime.Unit.RECENTLY -> context.getString(R.string.meta_provider_recently)
             }
         }
-        holder.modified.visibility = if (elapsed == null) View.GONE else View.VISIBLE
-        holder.itemView.setOnClickListener { onClick() }
+        holder.modified.visibility = if (elapsed == null || entry.isDirectory) View.GONE else View.VISIBLE
+        holder.itemView.isClickable = entry.action != MetaProfileFileEntry.Action.NONE
+        holder.itemView.isFocusable = entry.action != MetaProfileFileEntry.Action.NONE
+        holder.itemView.setOnClickListener {
+            if (entry.action != MetaProfileFileEntry.Action.NONE) onClick(entry)
+        }
     }
 
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val name: TextView = view.findViewById(R.id.profile_file_name)
         val size: TextView = view.findViewById(R.id.profile_file_size)
         val modified: TextView = view.findViewById(R.id.profile_file_modified)
+        val icon: android.widget.ImageView = view.findViewById(R.id.profile_file_icon)
     }
 
     private object DiffCallback : DiffUtil.ItemCallback<MetaProfileFileEntry>() {

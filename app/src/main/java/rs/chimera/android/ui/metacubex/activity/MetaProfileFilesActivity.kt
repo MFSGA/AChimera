@@ -9,6 +9,7 @@ import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.OnBackPressedCallback
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -19,11 +20,15 @@ import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.ProfileFileMetadata
+import rs.chimera.android.backend.model.ProfileProviderFileMetadata
 import rs.chimera.android.ui.metacubex.design.MetaProfileFilesDesign
 
 internal class MetaProfileFilesActivity : AppCompatActivity() {
     private val backend = BackendProvider.provide()
     private var profileId: String? = null
+    private var profileMetadata: ProfileFileMetadata? = null
+    private var providerPath: List<String>? = null
+    private var filesDesign: MetaProfileFilesDesign? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,6 +36,14 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
         val id = intent.getStringExtra(EXTRA_PROFILE_ID)
         profileId = id
         if (id == null) return finish()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val design = filesDesign ?: return finish()
+                if (design.requests.trySend(MetaProfileFilesDesign.Request.NavigateBack).isFailure) {
+                    finish()
+                }
+            }
+        })
         setContentView(FrameLayout(this).apply {
             addView(ProgressBar(context), FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         })
@@ -53,14 +66,44 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
     private fun showFiles(metadata: ProfileFileMetadata) {
         val id = profileId ?: return finish()
         val design = MetaProfileFilesDesign(this, metadata)
+        profileMetadata = metadata
+        filesDesign = design
         setContentView(design.root)
         lifecycleScope.launch {
             for (request in design.requests) {
                 when (request) {
-                    MetaProfileFilesDesign.Request.NavigateBack -> finish()
+                    MetaProfileFilesDesign.Request.NavigateBack -> navigateBack(id)
                     MetaProfileFilesDesign.Request.OpenConfiguration -> openConfiguration(id)
+                    is MetaProfileFilesDesign.Request.OpenProviderDirectory ->
+                        showProviderDirectory(id, request.path)
                 }
             }
+        }
+    }
+
+    private suspend fun navigateBack(id: String) {
+        val currentPath = providerPath ?: return finish()
+        if (currentPath.isEmpty()) {
+            providerPath = null
+            profileMetadata?.let { filesDesign?.showProfileRoot(it) }
+        } else {
+            showProviderDirectory(id, currentPath.dropLast(1))
+        }
+    }
+
+    private suspend fun showProviderDirectory(id: String, path: List<String>) {
+        try {
+            val files: List<ProfileProviderFileMetadata> = backend.listProfileProviderFiles(id, path)
+            providerPath = path.toList()
+            filesDesign?.showProviderDirectory(files)
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.profile_files_providers)
+                .setMessage(getString(R.string.profile_files_list_failed, error.message ?: getString(R.string.profile_unknown_error)))
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
         }
     }
 
