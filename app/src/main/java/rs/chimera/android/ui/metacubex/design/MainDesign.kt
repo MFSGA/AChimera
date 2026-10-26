@@ -5,12 +5,13 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import rs.chimera.android.R
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.databinding.MetaDesignMainBinding
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
-import rs.chimera.android.ui.metacubex.design.util.applySystemBarInsets
 
 class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     enum class Request {
@@ -31,6 +32,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     override val root: View
         get() = binding.root
 
+    private val mainContent = root.findViewById<View>(R.id.main_content)
     private val cardHelp: View = root.findViewById(R.id.card_help)
     private val cardAbout: View = root.findViewById(R.id.card_about)
     private val cardProviders: View = root.findViewById(R.id.card_providers)
@@ -48,7 +50,7 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
     private val statusErrorColor = resolveThemeColor(R.attr.colorError)
 
     init {
-        root.applySystemBarInsets()
+        applyMainSystemBarInsets()
         binding.cardStatus.setOnClickListener { request(Request.ToggleStatus) }
         binding.cardProxy.setOnClickListener { request(Request.OpenProxy) }
         cardProviders.setOnClickListener { request(Request.OpenProviders) }
@@ -193,6 +195,36 @@ class MainDesign(context: Context) : Design<MainDesign.Request>(context) {
         } else {
             value.data
         }
+    }
+
+    private fun applyMainSystemBarInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val horizontalInsets = landscapeContentInsets(
+                width = context.resources.displayMetrics.widthPixels,
+                height = context.resources.displayMetrics.heightPixels,
+                minWidth = context.resources.getDimensionPixelSize(
+                    R.dimen.metacubex_surface_landscape_min_width,
+                ),
+                start = if (isRtl) bars.right else bars.left,
+                end = if (isRtl) bars.left else bars.right,
+            )
+            view.setPaddingRelative(
+                horizontalInsets.start,
+                0,
+                horizontalInsets.end,
+                0,
+            )
+            mainContent.setPaddingRelative(
+                mainContent.paddingStart,
+                bars.top,
+                mainContent.paddingEnd,
+                bars.bottom,
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(root)
     }
 
     private data class StatusPresentation(

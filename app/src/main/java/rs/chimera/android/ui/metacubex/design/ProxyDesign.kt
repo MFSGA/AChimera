@@ -549,7 +549,7 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val isRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            val horizontalInsets = proxyLandscapeInsets(
+            val horizontalInsets = landscapeContentInsets(
                 width = context.resources.displayMetrics.widthPixels,
                 height = context.resources.displayMetrics.heightPixels,
                 minWidth = context.resources.getDimensionPixelSize(
@@ -689,7 +689,6 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
             }
             val recycler = RecyclerView(context).apply {
                 layoutManager = gridLayoutManager()
-                isNestedScrollingEnabled = false
                 clipToPadding = false
                 setRecycledViewPool(childrenPool)
                 setPaddingRelative(0, topInset, 0, bottomInset)
