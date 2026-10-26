@@ -116,7 +116,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_category_app">App</string>
     <string name="settings_category_network">Network</string>
-    <string name="vpn_service_options">VpnService options</string>
+    <string name="vpn_service_options">VpnService Options</string>
     <string name="settings_category_override">Override</string>
     <string name="settings_category_meta_features">Meta Features</string>
     <string name="settings_category_override_unavailable">Profile overrides are not supported in Chimera yet.</string>
