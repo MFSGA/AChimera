@@ -114,6 +114,8 @@ class ProxyAdapterImmediateRebindInstrumentedTest {
                 assertEquals(emptyList<Pair<Int, Int>>(), movedRanges)
                 assertEquals(listOf(0 to 2), changedRanges)
                 adapter.rebindVisibleItems(recyclerView, reorderedEntries)
+                // Check the preserved in-flight color before the attached view's draw loop advances it.
+                assertNotEquals(selectedColor, selectedTransitionColor(selectedTransition))
 
                 val visibleRows = (0 until recyclerView.childCount).mapNotNull { childIndex ->
                     val child = recyclerView.getChildAt(childIndex) as? ProxyCardView ?: return@mapNotNull null
@@ -134,7 +136,6 @@ class ProxyAdapterImmediateRebindInstrumentedTest {
                     .mapNotNull { recyclerView.getChildAt(it) as? ProxyCardView }
                     .single { it.entry?.name == "new-node" }
                 assertSame(selectedTransition, selectedCard.selectionTransition())
-                assertNotEquals(selectedColor, selectedTransitionColor(selectedTransition))
                 val visibleRows = (0 until recyclerView.childCount).mapNotNull { childIndex ->
                     val child = recyclerView.getChildAt(childIndex) as? ProxyCardView ?: return@mapNotNull null
                     recyclerView.getChildViewHolder(child).bindingAdapterPosition to child.entry?.name
