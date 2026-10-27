@@ -1,5 +1,7 @@
 # AChimera
 
+زبان این راهنما: فارسی · نسخه‌های دیگر: [中文](README.md) · [English](README.en.md) · [Русский](README.ru.md)
+
 > ‏Chimera Lite یک کلاینت آزمایشی پراکسی برای Android است. لایهٔ برنامه با Kotlin نوشته شده است: رابط Watfaq بر پایهٔ Jetpack Compose است و رابط به سبک MetaCubeX از نماهای بومی Android استفاده می‌کند. هستهٔ پراکسی با Rust نوشته شده و از طریق UniFFI به Kotlin متصل می‌شود.
 
 AChimera دو رابط قابل‌تعویض دارد: Watfaq و رابط به سبک MetaCubeX. هر دو از پروفایل‌ها، تنظیمات، سرویس VPN و هستهٔ Rust یکسان استفاده می‌کنند. لایهٔ Android مسئول رابط کاربری، اتصال به VPN سیستم و هماهنگی برنامه است؛ پردازش پراکسی را هستهٔ بومی Rust انجام می‌دهد.
@@ -90,5 +92,3 @@ AChimera همچنان در حال توسعه است. قابلیت‌های مو�
 ## مجوز و مشارکت
 
 مجوز پروژه در [LICENSE](LICENSE) ریشهٔ مخزن است. برای گزارش مشکل یا مشارکت، Issue یا PR ایجاد کنید. [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) و [راهنمای معماری برنامه](ARCHITECTURE.md) نیز مفید هستند.
-
-زبان‌های دیگر: [中文](README.md) · [English](README.en.md) · [Русский](README.ru.md).

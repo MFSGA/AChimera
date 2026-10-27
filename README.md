@@ -1,5 +1,7 @@
 # AChimera
 
+本文语言：中文 · 其他语言：[English](README.en.md) · [فارسی](README.fa.md) · [Русский](README.ru.md)
+
 > Chimera Lite 是一款面向 Android 的实验性代理客户端。Android 应用层使用 Kotlin：Watfaq 界面基于 Jetpack Compose，MetaCubeX 风格界面采用 Android 原生视图；代理核心由 Rust 编写，并通过 UniFFI 接入 Kotlin。
 
 AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；两套界面共用同一配置、设置、VPN 服务和 Rust 核心。Android 侧负责应用界面、系统 VPN 接入及业务协调，代理运行由原生 Rust 核心承担。
@@ -8,7 +10,22 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 
 代理核心由 Rust 编写，并以 Android 原生库运行，设计目标是在提供高效网络处理能力的同时保持较低的资源开销。实际 CPU 和内存占用会随设备、配置、协议、规则及连接数量变化；本项目不以未经测量的固定数值作为资源占用承诺。
 
-核心继承上游 clash-chimera 的广泛代理协议与传输能力。**AChimera 具体支持哪些协议和特性，以本仓库锁定的上游 [Chimera_Client `clash-lib` 修订及 feature 定义](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) 和本项目显式启用的[核心 feature 配置](uniffi/chimera-ffi/Cargo.toml)为准。** 当前锁定修订为 [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1)。上游核心具备的能力不一定都已由 AChimera 的配置解析、Android 集成或界面开放；因此 README 不维护可能过期的独立协议清单，也不承诺兼容所有 mihomo 配置。
+我们承诺将 **Mihomo 配置兼容**作为持续对齐目标：逐步对齐配置解析与运行行为，并针对支持范围补充验证。这里承诺的是持续缩小与 Mihomo 的兼容差距，不代表当前版本已能不加修改地运行所有 Mihomo 配置。实际支持范围由本项目锁定的上游版本、显式启用的核心 feature、本地[运行时校验](uniffi/chimera-ffi/src/runtime_config.rs)及 Android 集成共同决定。
+
+当前核心锁定于 [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1)，对应完整修订 [`daf67cb`](https://github.com/MFSGA/Chimera_Client/tree/daf67cb09a8f37bbca59b9758801155a2989962a)。下表依据该修订的 [`clash-lib` 配置类型](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/src/config/internal/proxy.rs)、[协议转换实现](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/src/proxy/converters/mod.rs)及本项目[显式启用的 features](uniffi/chimera-ffi/Cargo.toml)整理；它描述的是当前配置与运行实现范围，不是上游能力全集。
+
+| Mihomo 配置类型 | 当前状态 | 支持范围与已知限制 |
+| --- | --- | --- |
+| `ss`（Shadowsocks） | 已启用 | 支持 Shadowsocks 出站代理；配置包含加密方式、密码、UDP 及插件选项。当前实现的插件范围包括 `obfs`、`v2ray-plugin` 和 `shadow-tls`，不代表任意 SIP003 插件都可用。 |
+| `socks5` | 已启用 | 支持 SOCKS5 出站代理；配置模型包含认证、TLS 与 UDP 选项。 |
+| `anytls`（AnyTLS） | 已启用 | 支持 AnyTLS 出站代理及 TLS 客户端证书配置；客户端指纹和 idle-session 相关字段可读取，但当前不会应用。 |
+| `vless`（VLESS） | 部分支持 | 本项目运行时校验允许 TCP、WebSocket 和 XHTTP；TLS、REALITY 与 VLESS 原生加密 feature 已启用。XUDP 尚未实现（对应节点会关闭 UDP），SMUX 设置虽可读取但不会生效；目前原生加密仅支持 1-RTT。 |
+| `wireguard`（WireGuard） | 已启用 | 支持 WireGuard 出站配置，包含密钥、地址及路由相关选项。 |
+| `trojan`（Trojan） | 部分支持 | 支持 TLS 及默认 TCP、WebSocket 网络；虽然上游转换器包含 gRPC 实现，本项目的运行时校验目前仍拒绝 gRPC。`client-fingerprint` 字段可被读取，但客户端指纹模拟尚未实现。 |
+| `hysteria2`（Hysteria 2） | 已启用 | 上游 Hysteria 2（QUIC/TLS）实现已启用，支持项以该版本配置模型为准；`client-fingerprint` 不代表已实现客户端指纹模拟。 |
+| `direct` / `reject` | 内置动作 | 分别表示直连和拒绝流量，不属于代理协议。 |
+
+传输与安全能力方面，本项目启用了 TLS、REALITY、WebSocket、XHTTP-H3 和 VLESS 原生加密相关 feature。需要注意，feature 已启用不等于 Mihomo 的每个字段组合都已适配：例如当前运行时校验不接受 VLESS/Trojan 的 gRPC 网络。`http-port`、`mixed-port` 是本地入站监听端口，不代表支持 HTTP 出站代理；当前出站类型定义也不包含 `vmess`。
 
 ## 应用能力
 
@@ -21,7 +38,7 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 
 - [Chimera](https://github.com/MFSGA/Chimera) — 跨平台桌面应用
 - [Chimera_Client](https://github.com/MFSGA/Chimera_Client) — Rust 客户端核心及 `clash-lib`
-- [Chimera_Service](https://github.com/MFSGA/Chimera_Service) — Rust 服务端项目
+- [Chimera Server](https://github.com/MFSGA/Chimera_Server) — Rust 编写的代理服务端，目标兼容 Xray-core 的服务端配置与运行行为；兼容范围以其兼容性矩阵为准
 - [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — 使用与部署文档
 
 ## 技术栈
@@ -39,7 +56,7 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 - Android SDK 36 和 Build Tools 36.0.0
 - Android NDK `29.0.14206865`
 - Rust `1.97.1`，以及仓库 `rust-toolchain.toml` 中声明的 Android targets 和组件
-- `cargo-ndk`；`just` 仅在生成或检查 UniFFI 绑定时需要
+- `cargo-ndk`；只有使用仓库 `justfile` 中的命令时才需要安装 `just`
 
 让 Gradle 找到 Android SDK/NDK，可在本机 `local.properties` 中配置 `sdk.dir`（可选 `ndk.dir`），或设置 `ANDROID_SDK_ROOT` / `ANDROID_HOME`（可选 `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`）。`local.properties` 是本机配置，不要提交其中的本机路径。
 
@@ -49,7 +66,7 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 cargo install cargo-ndk --locked
 ```
 
-仅在需要生成或检查 UniFFI 绑定时，还需安装 `just`：
+如需使用下方的 `just` 命令，还需安装 `just`：
 
 ```sh
 cargo install just --locked
@@ -100,10 +117,8 @@ GitHub Actions 每日运行 Nightly 构建，也支持在 Actions 页面手动�
 
 ## 当前状态与限制
 
-AChimera 仍在持续开发。实际可用能力以当前源码、锁定的 Rust 核心修订及启用的 feature 为准。上游协议支持不等于 Android 应用已经暴露全部相应功能；部分核心配置或 mihomo 配置可能尚未兼容。构建成功也不等同于已验证特定协议连接、VPN 生命周期或所有 Android 设备上的运行行为。
+AChimera 仍在持续开发，并以逐步对齐 Mihomo 配置为兼容目标。各版本的实际能力以当前源码、锁定的 Rust 核心修订、启用的 feature 及 Android 集成为准；上游支持不代表所有配置字段或组合均已适配。构建成功也不等同于已验证特定协议连接、VPN 生命周期或所有 Android 设备上的运行行为。
 
 ## 许可证与贡献
 
 项目许可证见仓库根目录的 [LICENSE](LICENSE)。欢迎通过 Issue 反馈问题或提交 PR；开始前可先阅读 [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) 和[应用架构说明](ARCHITECTURE.md)。
-
-其他语言：[English](README.en.md) · [فارسی](README.fa.md) · [Русский](README.ru.md)。

@@ -1,5 +1,7 @@
 # AChimera
 
+This README: English · Also available in: [中文](README.md) · [فارسی](README.fa.md) · [Русский](README.ru.md)
+
 > Chimera Lite is an experimental Android proxy client. The Android app layer uses Kotlin: the Watfaq interface is built with Jetpack Compose, while the MetaCubeX-style interface uses native Android views. The proxy engine is written in Rust and connected to Kotlin through UniFFI.
 
 AChimera offers two switchable interfaces: Watfaq (Compose) and a MetaCubeX-style UI. Both share the same profiles, settings, VPN service, and Rust core. The Android layer handles the app UI, system VPN integration, and application-level coordination; proxy traffic is handled by the native Rust core.
@@ -21,7 +23,7 @@ The core inherits broad proxy protocol and transport capabilities from the upstr
 
 - [Chimera](https://github.com/MFSGA/Chimera) — cross-platform desktop application
 - [Chimera_Client](https://github.com/MFSGA/Chimera_Client) — Rust client core and `clash-lib`
-- [Chimera_Service](https://github.com/MFSGA/Chimera_Service) — Rust server project
+- [Chimera Server](https://github.com/MFSGA/Chimera_Server) — a Rust proxy server aiming for Xray-core-compatible server configuration and runtime behavior; see its compatibility matrix for the current scope
 - [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — usage and deployment documentation
 
 ## Tech Stack
@@ -105,5 +107,3 @@ AChimera is under active development. Available behavior is determined by the cu
 ## License and Contributions
 
 See the repository-root [LICENSE](LICENSE). Issues and pull requests are welcome. Before contributing, you may also find the [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) and [application architecture guide](ARCHITECTURE.md) useful.
-
-Other languages: [中文](README.md) · [فارسی](README.fa.md) · [Русский](README.ru.md).
