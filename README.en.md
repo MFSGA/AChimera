@@ -1,106 +1,109 @@
 # AChimera
 
-AChimera is an experimental proxy client project based on Android + Kotlin/Jetpack Compose + Rust/UniFFI. The current repository already includes core capabilities such as an Android UI, VPN service entry, config import and validation, Rust core bridging, log viewing, and a node panel. Its goal is to separate the mobile experience and the underlying network core into a clear multi-module structure.
-The current app name is `Chimera Lite`, and the package includes both the Android UI layer and the Rust core exposed to Kotlin through UniFFI.
+> Chimera Lite is an experimental Android proxy client. Its UI is built with Kotlin / Jetpack Compose, while its proxy engine is written in Rust and connected to the Android app through UniFFI.
 
-## Supported Protocols
+AChimera offers two switchable interfaces: Watfaq (Compose) and a MetaCubeX-style UI. Both share the same profiles, settings, VPN service, and Rust core. The Android layer handles the app UI, system VPN integration, and application-level coordination; proxy traffic is handled by the native Rust core.
 
-- `anytls`
-- `hysteria2`
-- `reality`
-- `shadowsocks`
-- `xhttp` (including HTTP/3 with standard TLS and ALPN `h3`)
-- `trojan`
-- `vless` (including optional 1-RTT encryption)
-- `wireguard`
-- `tls+ws`
+## Rust Core and Protocol Support
+
+The Rust core runs as native code and is designed to provide efficient network processing with low runtime overhead. Actual CPU and memory use vary with the device, configuration, protocols, rules, and number of connections; this project does not claim fixed resource figures without benchmark data.
+
+The core inherits broad proxy protocol and transport capabilities from the upstream clash-chimera core. **The protocols and features available in AChimera are determined by the pinned upstream [`clash-lib` revision and feature definitions in Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/1fe744218ebd0df7e9101e0191fedef22239302d/clash-lib/Cargo.toml) and this project's explicitly enabled [core features](uniffi/chimera-ffi/Cargo.toml).** An upstream capability is not necessarily exposed by AChimera's configuration parser, Android integration, or UI. For that reason, this README does not maintain a separate protocol list that could become stale, and does not promise compatibility with every mihomo configuration.
+
+## App Capabilities
+
+- Switch between the Watfaq (Compose) and MetaCubeX-style interfaces while sharing the same runtime state and profile data.
+- Route system traffic through Android's VPN service and manage profiles, proxy groups, and node selection.
+- Import and validate profiles, and view runtime logs and node status.
+- Connect the Kotlin app layer to the Rust proxy core through UniFFI.
+
+## Chimera Ecosystem
+
+- [Chimera](https://github.com/MFSGA/Chimera) — cross-platform desktop application
+- [Chimera_Client](https://github.com/MFSGA/Chimera_Client) — Rust client core and `clash-lib`
+- [Chimera_Service](https://github.com/MFSGA/Chimera_Service) — Rust server project
+- [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — usage and deployment documentation
 
 ## Tech Stack
 
-- Android SDK 36
-- Kotlin + Jetpack Compose
-- Java 25 Toolchain
-- Rust 2024
-- UniFFI
-- `cargo-ndk`
-- `clash-lib` as the Rust core dependency
+- Android SDK 36 and Android NDK `29.0.14206865`
+- Kotlin, Jetpack Compose, and Java 25 toolchain
+- Rust `1.97.1` (Rust 2024 edition) and `cargo-ndk`
+- UniFFI; the upstream Rust `clash-lib` dependency is pinned to a full Git revision
 
-## Requirements
+## Build Locally
 
-Before building locally, prepare at least:
+### Requirements
 
 - JDK 25
 - Android SDK 36 and Build Tools 36.0.0
 - Android NDK `29.0.14206865`
-- Rust toolchain
-- `cargo-ndk`
+- Rust `1.97.1`, with the Android targets and components declared in `rust-toolchain.toml`
+- `cargo-ndk`; `just` is needed only to generate or check UniFFI bindings
 
-It is recommended to configure one of the following so Gradle can locate the SDK/NDK:
+To let Gradle locate the Android SDK/NDK, configure `sdk.dir` (and optionally `ndk.dir`) in a local `local.properties`, or set `ANDROID_SDK_ROOT` / `ANDROID_HOME` (and optionally `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`). `local.properties` contains machine-specific configuration; do not commit local paths.
 
-- `sdk.dir` in `local.properties`, and optionally `ndk.dir`
-- or `ANDROID_SDK_ROOT`
-- or `ANDROID_HOME`
-- optionally `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`
+Install the command-line build tools:
 
-Install `cargo-ndk`:
-
-```powershell
+```sh
 cargo install cargo-ndk --locked
 ```
 
-## Local Build
+Install `just` as well only if you need to generate or check UniFFI bindings:
 
-Start a configured AVD or reuse a running emulator, then wait for Android to finish booting (optionally pass an AVD name):
+```sh
+cargo install just --locked
+```
 
-```bash
+### Build and Checks
+
+Build a Debug APK (the default build includes only the `x86_64` ABI):
+
+```sh
+./gradlew :app:assembleDebug
+```
+
+Build a Debug APK for all Android ABIs:
+
+```sh
+./gradlew :app:assembleDebug -Pchimera.fullAbi=true
+```
+
+Run Kotlin / Android quality checks:
+
+```sh
+./gradlew ktlintCheck testDebugUnitTest lintDebug
+```
+
+After changing Rust-exported interfaces, generate the Kotlin UniFFI bindings with the repository script. To check that the committed bindings match the Rust interface:
+
+```sh
+just generate-bindings
+just check-bindings
+```
+
+Gradle builds the Rust native library for Android, but **does not automatically regenerate Kotlin UniFFI bindings**. Binding generation and checks require the Android NDK, Rust Android targets, and `cargo-ndk`.
+
+On Windows, replace `./gradlew` with `.\gradlew.bat`. The `scripts/start-emulator.sh` helper requires a Bash environment. Create an AVD in Android Studio Device Manager first:
+
+```sh
 ./scripts/start-emulator.sh
-# Or replace with an AVD name from Android Studio Device Manager:
+# Or specify an AVD name
 ./scripts/start-emulator.sh YOUR_AVD_NAME
 ```
 
-Build the Debug APK:
+## Builds and Signing
 
-```powershell
-.\gradlew assembleDebug
-```
+GitHub Actions runs a daily Nightly build, which can also be triggered manually from the Actions page. The full-ABI Debug APK is uploaded as an Actions Artifact retained for 14 days; the workflow separately uploads the APKs and checksum file to the rolling GitHub `nightly` prerelease. Nightly Debug APKs use Android's default debug key, not the stable release signing key. Download prerelease APKs from the [project Releases page](https://github.com/MFSGA/AChimera/releases), or download the time-limited Artifact from its Actions run.
 
-Run quality checks:
+Stable Release APKs require release-signing configuration. See [Release APK signing](RELEASE_SIGNING.md) for setup. The repository's [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt) lets users check whether APKs from different versions were signed by the same certificate. Certificate continuity verifies a consistent signing identity, but does not by itself prove a real-world person's or company's identity.
 
-```powershell
-.\gradlew testDebugUnitTest lintDebug
-```
+## Status and Limitations
 
-Build the Release APK:
+AChimera is under active development. Available behavior is determined by the current source, pinned Rust core revision, and enabled features. Upstream protocol support does not mean every related capability is already exposed in the Android app; some core or mihomo configuration options may not be compatible. A successful build also does not prove that a specific protocol connection, VPN lifecycle, or behavior on every Android device has been verified.
 
-```powershell
-.\gradlew assembleRelease
-```
+## License and Contributions
 
-Release APK builds require release-signing configuration. See [Release APK signing](RELEASE_SIGNING.md) for local and GitHub Actions setup. The expected release certificate fingerprint is pinned in [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt) so users can check signer continuity across versions. Nightly Debug APKs use Android's default debug key, which is different from the stable release signing identity.
+See the repository-root [LICENSE](LICENSE). Issues and pull requests are welcome. Before contributing, you may also find the [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) and [application architecture guide](ARCHITECTURE.md) useful.
 
-The `core` module automatically completes two steps before Android compilation:
-
-1. Use `cargo ndk` to build `chimera-ffi` for Android ABIs
-2. Run `uniffi-bindgen` against the generated dynamic library to output Kotlin bindings
-
-## Current Status and Limitations
-
-This project is still evolving, and the README only describes what has already been implemented in the current repository. Based on the existing strings and implementation, some known limitations still remain:
-
-- after stopping the VPN, the current implementation may restart the app to avoid an unsafe runtime state
-- some settings only fully take effect after restarting the VPN when switching configurations
-- `clash-rs` / `clash-lib` still has limited compatibility with some mihomo configurations
-
-## License
-
-The project uses the [LICENSE](LICENSE) file in the repository root.
-
-## Contributing
-
-- If you run into usage issues or implementation problems, feel free to open an Issue or PR.
-- Even if you are a complete beginner, after reading the [wiki](https://mfsga.github.io/Proxy_WIKI/), you can continue asking more specific questions.
-- The project also hopes to attract more developers to help improve it.
-
----
-
-If this project helps you, consider giving it a star 🧡
+中文版：[README.md](README.md).

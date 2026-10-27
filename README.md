@@ -1,131 +1,109 @@
-# AChimera — Android Client for Chimera Proxy
+# AChimera
 
-> Experimental Android client built with Kotlin/Jetpack Compose and a Rust proxy core.
+> Chimera Lite 是一款面向 Android 的实验性代理客户端：界面由 Kotlin / Jetpack Compose 构建，网络代理核心由 Rust 编写，并通过 UniFFI 与 Android 应用连接。
 
-## Chimera Ecosystem
+AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；两套界面共用同一配置、设置、VPN 服务和 Rust 核心。Android 侧负责应用界面、系统 VPN 接入及业务协调，代理运行由原生 Rust 核心承担。
 
-```text
-Chimera Desktop
-       ↕
-Chimera Client (Rust client core)
-       ↕ VLESS / REALITY
-Chimera Proxy Server (Rust server core)
-       ↕
-AChimera (Android client) · Proxy Wiki
-```
+## Rust 核心与协议支持
 
-- [Chimera](https://github.com/MFSGA/Chimera) — cross-platform desktop application
-- [Chimera Client](https://github.com/MFSGA/Chimera_Client) — Rust client core
-- [Chimera Proxy Server](https://github.com/MFSGA/Chimera_Service) — Rust server core
-- [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — documentation and deployment notes
+Rust 核心以原生代码运行，目标是在提供高效网络处理能力的同时保持较低的运行开销。实际 CPU 和内存占用会随设备、配置、协议、规则及连接数量变化；本项目不以未经测量的固定数值作为资源占用承诺。
 
-AChimera 是一个基于 Android + Kotlin/Jetpack Compose + Rust/UniFFI 的实验性代理客户端工程。当前仓库已经具备 Android 界面、VPN 服务入口、配置导入与校验、Rust 核心桥接、日志查看和节点面板等基础能力，目标是把移动端体验与底层网络核心拆分为清晰的多模块结构。
-当前应用名称为 `Chimera Lite`，包内同时包含 Android UI 层和通过 UniFFI 暴露给 Kotlin 的 Rust 核心。
+核心继承上游 clash-chimera 的广泛代理协议与传输能力。**AChimera 具体支持哪些协议和特性，以本仓库锁定的上游 [Chimera_Client `clash-lib` 修订及 feature 定义](https://github.com/MFSGA/Chimera_Client/blob/1fe744218ebd0df7e9101e0191fedef22239302d/clash-lib/Cargo.toml) 和本项目显式启用的[核心 feature 配置](uniffi/chimera-ffi/Cargo.toml)为准。** 上游核心具备的能力不一定都已由 AChimera 的配置解析、Android 集成或界面开放；因此 README 不维护可能过期的独立协议清单，也不承诺兼容所有 mihomo 配置。
 
-## 支持协议
+## 应用能力
 
-- `anytls`
-- `hysteria2`
-- `reality`
-- `shadowsocks`
-- `xhttp`（包括 HTTP/3；需标准 TLS 和 ALPN `h3`）
-- `trojan`
-- `vless`（包括可选 1-RTT 加密）
-- `wireguard`
-- `tls+ws`
+- 在 Watfaq（Compose）与 MetaCubeX 风格界面之间切换，共用同一运行状态和配置数据。
+- 通过 Android VPN 服务接入系统流量，并管理配置、代理组与节点选择。
+- 导入和校验配置，查看运行日志及节点状态。
+- 通过 UniFFI 将 Kotlin 应用层连接到 Rust 代理核心。
 
-## 应用架构
+## 项目生态
 
-两套界面的共享业务边界、设置数据源和 VPN 生命周期职责见 [应用架构说明](ARCHITECTURE.md)。
+- [Chimera](https://github.com/MFSGA/Chimera) — 跨平台桌面应用
+- [Chimera_Client](https://github.com/MFSGA/Chimera_Client) — Rust 客户端核心及 `clash-lib`
+- [Chimera_Service](https://github.com/MFSGA/Chimera_Service) — Rust 服务端项目
+- [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — 使用与部署文档
 
 ## 技术栈
 
-- Android SDK 36
-- Kotlin + Jetpack Compose
-- Java 25 Toolchain
-- Rust 2024
-- UniFFI
-- `cargo-ndk`
-- `clash-lib` Rust 核心依赖
+- Android SDK 36、Android NDK `29.0.14206865`
+- Kotlin、Jetpack Compose、Java 25 toolchain
+- Rust `1.97.1`（Rust 2024 edition）、`cargo-ndk`
+- UniFFI；上游 Rust `clash-lib` 依赖以完整 Git revision 锁定
 
-## 环境要求
+## 本地构建
 
-在本地构建前，至少需要准备：
+### 环境要求
 
 - JDK 25
 - Android SDK 36 和 Build Tools 36.0.0
 - Android NDK `29.0.14206865`
-- Rust toolchain
-- `cargo-ndk`
+- Rust `1.97.1`，以及仓库 `rust-toolchain.toml` 中声明的 Android targets 和组件
+- `cargo-ndk`；`just` 仅在生成或检查 UniFFI 绑定时需要
 
-推荐同时配置以下环境之一来让 Gradle 找到 SDK/NDK：
+让 Gradle 找到 Android SDK/NDK，可在本机 `local.properties` 中配置 `sdk.dir`（可选 `ndk.dir`），或设置 `ANDROID_SDK_ROOT` / `ANDROID_HOME`（可选 `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`）。`local.properties` 是本机配置，不要提交其中的本机路径。
 
-- `local.properties` 中的 `sdk.dir` 和可选的 `ndk.dir`
-- 或 `ANDROID_SDK_ROOT`
-- 或 `ANDROID_HOME`
-- 可选 `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`
+安装命令行构建依赖：
 
-安装 `cargo-ndk`：
-
-```powershell
+```sh
 cargo install cargo-ndk --locked
 ```
 
-## 本地构建
+仅在需要生成或检查 UniFFI 绑定时，还需安装 `just`：
 
-启动一个已配置的 AVD；若模拟器已运行则复用，并等待 Android 启动完成（可选传入 AVD 名称）：
+```sh
+cargo install just --locked
+```
 
-```bash
+### 构建与检查
+
+构建 Debug APK（默认仅包含 `x86_64` ABI）：
+
+```sh
+./gradlew :app:assembleDebug
+```
+
+构建包含全部 Android ABI 的 Debug APK：
+
+```sh
+./gradlew :app:assembleDebug -Pchimera.fullAbi=true
+```
+
+运行 Kotlin / Android 质量检查：
+
+```sh
+./gradlew ktlintCheck testDebugUnitTest lintDebug
+```
+
+Rust 导出接口变化后，使用仓库脚本生成 Kotlin UniFFI 绑定；检查已提交绑定与 Rust 接口是否一致：
+
+```sh
+just generate-bindings
+just check-bindings
+```
+
+Gradle 构建会为 Android ABI 编译 Rust 原生库，但**不会自动重新生成 Kotlin UniFFI 绑定**。绑定检查和生成需要 Android NDK、Rust Android target 与 `cargo-ndk`。
+
+Windows 可将上述 `./gradlew` 替换为 `.\gradlew.bat`。`scripts/start-emulator.sh` 需要 Bash 环境；运行前请在 Android Studio Device Manager 中创建 AVD：
+
+```sh
 ./scripts/start-emulator.sh
-# 或替换为 Android Studio Device Manager 中的 AVD 名称：
+# 或指定 AVD 名称
 ./scripts/start-emulator.sh YOUR_AVD_NAME
 ```
 
-构建 Debug APK：
+## 构建产物与签名
 
-```powershell
-.\gradlew assembleDebug
-```
+GitHub Actions 每日运行 Nightly 构建，也支持在 Actions 页面手动触发。构建的全 ABI Debug APK 会作为 Actions Artifact 保留 14 天；工作流还会把 APK 和校验文件上传到滚动的 GitHub `nightly` 预发布。Debug APK 使用 Android 默认 debug key，不是正式发布签名。可从[项目 Releases 页面](https://github.com/MFSGA/AChimera/releases)下载预发布 APK，也可从对应的 Actions 运行记录下载限期保留的 Artifact。
 
-运行质量检查：
-
-```powershell
-.\gradlew testDebugUnitTest lintDebug
-```
-
-GitHub Actions 会每天运行一次 `Nightly Build`，使用与本地和正式 CI 相同的 Rust/Android 工具链，并将完整 ABI 的 Debug APK 发布到滚动更新的 GitHub Nightly 预发布版本，同时保留 14 天的 Actions Artifact。也可以在 Actions 页面手动触发该工作流。
-
-构建 Release APK：
-
-```powershell
-.\gradlew assembleRelease
-```
-
-Release APK 构建需要发布签名配置；签名材料与本地/GitHub Actions 配置方式见[Release APK 签名说明](RELEASE_SIGNING.md)。正式 APK 的证书指纹固定在 [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt)，可用于核对后续版本是否由同一签名密钥签发。Nightly Debug APK 使用 Android 默认 debug key，与正式发布签名身份不同。
-
-`core` 模块会在 Android 编译前自动完成两件事：
-
-1. 使用 `cargo ndk` 为 Android ABI 构建 `chimera-ffi`
-2. 基于生成的动态库运行 `uniffi-bindgen`，输出 Kotlin 绑定代码
+正式 Release APK 需要配置发布签名。密钥配置方式见[Release APK 签名说明](RELEASE_SIGNING.md)；仓库中的 [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt) 用于核对不同版本 APK 是否由同一证书签名。证书连续性可以验证签名身份是否一致，但本身不证明现实中的个人或公司身份。
 
 ## 当前状态与限制
 
-这是一个仍在演进中的工程，README 只描述当前仓库内已实现的内容。根据现有字符串和实现，已知仍存在一些限制：
+AChimera 仍在持续开发。实际可用能力以当前源码、锁定的 Rust 核心修订及启用的 feature 为准。上游协议支持不等于 Android 应用已经暴露全部相应功能；部分核心配置或 mihomo 配置可能尚未兼容。构建成功也不等同于已验证特定协议连接、VPN 生命周期或所有 Android 设备上的运行行为。
 
-- 停止 VPN 后当前实现可能会通过重启应用来回避不安全的运行时状态
-- 部分设置在切换配置后需要重启 VPN 才会完全生效
-- `clash-rs` / `clash-lib` 对部分 mihomo 配置的兼容性仍有限
+## 许可证与贡献
 
-## 许可证
+项目许可证见仓库根目录的 [LICENSE](LICENSE)。欢迎通过 Issue 反馈问题或提交 PR；开始前可先阅读 [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) 和[应用架构说明](ARCHITECTURE.md)。
 
-项目使用仓库根目录中的 [LICENSE](LICENSE)。
-
-## 贡献
-
-- 有任何使用上的问题，或者代码实现上的问题，欢迎提 Issue 或 PR。
-- 即使你是完全的新手，在查阅完 [wiki](https://mfsga.github.io/Proxy_WIKI/) 后，也可以继续有针对性地提问。
-- 本项目也希望吸引更多开发者一起参与完善。
-
----
-
-如果觉得有帮助，欢迎点个 star 🧡
+English version: [README.en.md](README.en.md).
