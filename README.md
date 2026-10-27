@@ -1,14 +1,14 @@
 # AChimera
 
-> Chimera Lite 是一款面向 Android 的实验性代理客户端：界面由 Kotlin / Jetpack Compose 构建，网络代理核心由 Rust 编写，并通过 UniFFI 与 Android 应用连接。
+> Chimera Lite 是一款面向 Android 的实验性代理客户端。Android 应用层使用 Kotlin：Watfaq 界面基于 Jetpack Compose，MetaCubeX 风格界面采用 Android 原生视图；代理核心由 Rust 编写，并通过 UniFFI 接入 Kotlin。
 
 AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；两套界面共用同一配置、设置、VPN 服务和 Rust 核心。Android 侧负责应用界面、系统 VPN 接入及业务协调，代理运行由原生 Rust 核心承担。
 
 ## Rust 核心与协议支持
 
-Rust 核心以原生代码运行，目标是在提供高效网络处理能力的同时保持较低的运行开销。实际 CPU 和内存占用会随设备、配置、协议、规则及连接数量变化；本项目不以未经测量的固定数值作为资源占用承诺。
+代理核心由 Rust 编写，并以 Android 原生库运行，设计目标是在提供高效网络处理能力的同时保持较低的资源开销。实际 CPU 和内存占用会随设备、配置、协议、规则及连接数量变化；本项目不以未经测量的固定数值作为资源占用承诺。
 
-核心继承上游 clash-chimera 的广泛代理协议与传输能力。**AChimera 具体支持哪些协议和特性，以本仓库锁定的上游 [Chimera_Client `clash-lib` 修订及 feature 定义](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) 和本项目显式启用的[核心 feature 配置](uniffi/chimera-ffi/Cargo.toml)为准。** 上游核心具备的能力不一定都已由 AChimera 的配置解析、Android 集成或界面开放；因此 README 不维护可能过期的独立协议清单，也不承诺兼容所有 mihomo 配置。
+核心继承上游 clash-chimera 的广泛代理协议与传输能力。**AChimera 具体支持哪些协议和特性，以本仓库锁定的上游 [Chimera_Client `clash-lib` 修订及 feature 定义](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) 和本项目显式启用的[核心 feature 配置](uniffi/chimera-ffi/Cargo.toml)为准。** 当前锁定修订为 [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1)。上游核心具备的能力不一定都已由 AChimera 的配置解析、Android 集成或界面开放；因此 README 不维护可能过期的独立协议清单，也不承诺兼容所有 mihomo 配置。
 
 ## 应用能力
 
@@ -106,4 +106,4 @@ AChimera 仍在持续开发。实际可用能力以当前源码、锁定的 Rust
 
 项目许可证见仓库根目录的 [LICENSE](LICENSE)。欢迎通过 Issue 反馈问题或提交 PR；开始前可先阅读 [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) 和[应用架构说明](ARCHITECTURE.md)。
 
-English version: [README.en.md](README.en.md).
+其他语言：[English](README.en.md) · [فارسی](README.fa.md) · [Русский](README.ru.md)。

@@ -1,14 +1,14 @@
 # AChimera
 
-> Chimera Lite is an experimental Android proxy client. Its UI is built with Kotlin / Jetpack Compose, while its proxy engine is written in Rust and connected to the Android app through UniFFI.
+> Chimera Lite is an experimental Android proxy client. The Android app layer uses Kotlin: the Watfaq interface is built with Jetpack Compose, while the MetaCubeX-style interface uses native Android views. The proxy engine is written in Rust and connected to Kotlin through UniFFI.
 
 AChimera offers two switchable interfaces: Watfaq (Compose) and a MetaCubeX-style UI. Both share the same profiles, settings, VPN service, and Rust core. The Android layer handles the app UI, system VPN integration, and application-level coordination; proxy traffic is handled by the native Rust core.
 
 ## Rust Core and Protocol Support
 
-The Rust core runs as native code and is designed to provide efficient network processing with low runtime overhead. Actual CPU and memory use vary with the device, configuration, protocols, rules, and number of connections; this project does not claim fixed resource figures without benchmark data.
+The proxy core is written in Rust and runs as an Android native library. It is designed for efficient network processing with low resource overhead. Actual CPU and memory use vary with the device, configuration, protocols, rules, and number of connections; this project does not claim fixed resource figures without benchmark data.
 
-The core inherits broad proxy protocol and transport capabilities from the upstream clash-chimera core. **The protocols and features available in AChimera are determined by the pinned upstream [`clash-lib` revision and feature definitions in Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) and this project's explicitly enabled [core features](uniffi/chimera-ffi/Cargo.toml).** An upstream capability is not necessarily exposed by AChimera's configuration parser, Android integration, or UI. For that reason, this README does not maintain a separate protocol list that could become stale, and does not promise compatibility with every mihomo configuration.
+The core inherits broad proxy protocol and transport capabilities from the upstream clash-chimera core. **The protocols and features available in AChimera are determined by the pinned upstream [`clash-lib` revision and feature definitions in Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) and this project's explicitly enabled [core features](uniffi/chimera-ffi/Cargo.toml).** The currently pinned revision is [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1). An upstream capability is not necessarily exposed by AChimera's configuration parser, Android integration, or UI. For that reason, this README does not maintain a separate protocol list that could become stale, and does not promise compatibility with every mihomo configuration.
 
 ## App Capabilities
 
@@ -106,4 +106,4 @@ AChimera is under active development. Available behavior is determined by the cu
 
 See the repository-root [LICENSE](LICENSE). Issues and pull requests are welcome. Before contributing, you may also find the [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) and [application architecture guide](ARCHITECTURE.md) useful.
 
-中文版：[README.md](README.md).
+Other languages: [中文](README.md) · [فارسی](README.fa.md) · [Русский](README.ru.md).

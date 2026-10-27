@@ -1,93 +1,94 @@
 # AChimera
 
-AChimera یک پروژه آزمایشی کلاینت پراکسی بر پایه Android + Kotlin/Jetpack Compose + Rust/UniFFI است. این مخزن در حال حاضر قابلیت‌های پایه‌ای مانند رابط کاربری اندروید، ورودی سرویس VPN، ورود و اعتبارسنجی پیکربندی، اتصال به هسته Rust، مشاهده لاگ و پنل نودها را دارد. هدف پروژه این است که تجربه موبایل و هسته شبکه زیرین را به یک ساختار چندماژولی شفاف تقسیم کند.
-نام فعلی برنامه `Chimera Lite` است و این بسته هم لایه رابط کاربری اندروید و هم هسته Rust را که از طریق UniFFI برای Kotlin ارائه می‌شود در بر می‌گیرد.
+> ‏Chimera Lite یک کلاینت آزمایشی پراکسی برای Android است. لایهٔ برنامه با Kotlin نوشته شده است: رابط Watfaq بر پایهٔ Jetpack Compose است و رابط به سبک MetaCubeX از نماهای بومی Android استفاده می‌کند. هستهٔ پراکسی با Rust نوشته شده و از طریق UniFFI به Kotlin متصل می‌شود.
 
-## پروتکل‌های پشتیبانی‌شده
+AChimera دو رابط قابل‌تعویض دارد: Watfaq و رابط به سبک MetaCubeX. هر دو از پروفایل‌ها، تنظیمات، سرویس VPN و هستهٔ Rust یکسان استفاده می‌کنند. لایهٔ Android مسئول رابط کاربری، اتصال به VPN سیستم و هماهنگی برنامه است؛ پردازش پراکسی را هستهٔ بومی Rust انجام می‌دهد.
 
-- `hysteria2`
-- `reality`
-- `xhttp`
-- `trojan`
-- `vless`
-- `tls+ws`
+## هستهٔ Rust و پشتیبانی از پروتکل‌ها
 
-## پشته فناوری
+هستهٔ پراکسی با Rust نوشته شده و به‌صورت کتابخانهٔ بومی Android اجرا می‌شود. طراحی آن بر پردازش کارآمد شبکه و سربار کم منابع تمرکز دارد. مصرف واقعی CPU و حافظه به دستگاه، پیکربندی، پروتکل‌ها، قوانین و تعداد اتصال‌ها بستگی دارد؛ پروژه بدون اندازه‌گیری، عدد ثابتی برای مصرف منابع تضمین نمی‌کند.
 
-- Android SDK 36
-- Kotlin + Jetpack Compose
-- Java 25 Toolchain
-- Rust 2024
-- UniFFI
-- `cargo-ndk`
-- `clash-lib` به عنوان وابستگی هسته Rust
+هسته، قابلیت‌های گستردهٔ پروتکل‌ها و انتقال داده را از clash-chimera بالادستی به ارث می‌برد. **پروتکل‌ها و قابلیت‌های در دسترس AChimera بر اساس نسخهٔ قفل‌شدهٔ بالادستی [`clash-lib` در Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) و [قابلیت‌های صریحاً فعال‌شدهٔ هسته در این پروژه](uniffi/chimera-ffi/Cargo.toml) تعیین می‌شوند.** نسخهٔ فعلی قفل‌شده [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1) است. وجود قابلیتی در هستهٔ بالادستی لزوماً به معنای پشتیبانی آن در تجزیهٔ پیکربندی، یکپارچه‌سازی Android یا رابط AChimera نیست؛ بنابراین این README فهرست جداگانه و احتمالاً منسوخ پروتکل‌ها ارائه نمی‌کند و سازگاری با همهٔ پیکربندی‌های mihomo را تضمین نمی‌کند.
 
-## پیش‌نیازها
+## قابلیت‌های برنامه
 
-پیش از ساخت محلی، حداقل این موارد باید آماده باشند:
+- جابه‌جایی میان رابط Watfaq و رابط به سبک MetaCubeX با داده‌ها و وضعیت اجرای مشترک.
+- هدایت ترافیک سیستم از طریق سرویس VPN اندروید و مدیریت پروفایل‌ها، گروه‌های پراکسی و انتخاب گره.
+- واردکردن و اعتبارسنجی پیکربندی‌ها و مشاهدهٔ گزارش‌های اجرا و وضعیت گره‌ها.
+- اتصال لایهٔ برنامهٔ Kotlin به هستهٔ پراکسی Rust با UniFFI.
+
+## فناوری‌ها
+
+- Android SDK 36 و Android NDK `29.0.14206865`
+- Kotlin، Jetpack Compose و Java 25 toolchain
+- Rust `1.97.1` (Rust 2024 edition) و `cargo-ndk`
+- UniFFI؛ وابستگی Rust `clash-lib` بالادستی با شناسهٔ کامل Git قفل شده است.
+
+## ساخت محلی
+
+### پیش‌نیازها
 
 - JDK 25
 - Android SDK 36 و Build Tools 36.0.0
 - Android NDK `29.0.14206865`
-- Rust toolchain
-- `cargo-ndk`
+- Rust `1.97.1` به‌همراه targetها و مؤلفه‌های Android اعلام‌شده در `rust-toolchain.toml`
+- `cargo-ndk`؛ ابزار `just` فقط برای تولید یا بررسی bindingهای UniFFI لازم است.
 
-توصیه می‌شود یکی از گزینه‌های زیر را تنظیم کنید تا Gradle بتواند SDK/NDK را پیدا کند:
+برای یافتن SDK/NDK توسط Gradle، `sdk.dir` (و در صورت نیاز `ndk.dir`) را در فایل محلی `local.properties` تنظیم کنید یا متغیرهای `ANDROID_SDK_ROOT` / `ANDROID_HOME` (و در صورت نیاز `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`) را تنظیم کنید. فایل `local.properties` شامل مسیرهای مخصوص دستگاه شماست و نباید commit شود.
 
-- `sdk.dir` در `local.properties` و در صورت نیاز `ndk.dir`
-- یا `ANDROID_SDK_ROOT`
-- یا `ANDROID_HOME`
-- در صورت نیاز `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`
-
-نصب `cargo-ndk`:
-
-```powershell
+```sh
 cargo install cargo-ndk --locked
 ```
 
-## ساخت محلی
+فقط اگر به تولید یا بررسی bindingها نیاز دارید، `just` را نیز نصب کنید:
 
-ساخت Debug APK:
-
-```powershell
-.\gradlew assembleDebug
+```sh
+cargo install just --locked
 ```
 
-اجرای بررسی‌های کیفیت:
+### ساخت و بررسی
 
-```powershell
-.\gradlew testDebugUnitTest lintDebug
+ساخت Debug APK (به‌طور پیش‌فرض فقط ABI `x86_64`):
+
+```sh
+./gradlew :app:assembleDebug
 ```
 
-ساخت Release APK:
+ساخت Debug APK برای همهٔ ABIهای Android:
 
-```powershell
-.\gradlew assembleRelease
+```sh
+./gradlew :app:assembleDebug -Pchimera.fullAbi=true
 ```
 
-ماژول `core` پیش از کامپایل اندروید به‌طور خودکار دو کار انجام می‌دهد:
+اجرای بررسی‌های کیفیت Kotlin و Android:
 
-1. با استفاده از `cargo ndk`، `chimera-ffi` را برای Android ABI می‌سازد
-2. بر اساس کتابخانه پویا تولیدشده، `uniffi-bindgen` را اجرا می‌کند و bindingهای Kotlin را خروجی می‌دهد
+```sh
+./gradlew ktlintCheck testDebugUnitTest lintDebug
+```
 
-## وضعیت فعلی و محدودیت‌ها
+پس از تغییر رابط‌های خروجی Rust، bindingهای Kotlin UniFFI را با اسکریپت‌های مخزن تولید یا بررسی کنید:
 
-این پروژه همچنان در حال توسعه است و README فقط آنچه را توصیف می‌کند که در مخزن فعلی پیاده‌سازی شده است. با توجه به رشته‌ها و پیاده‌سازی فعلی، هنوز چند محدودیت شناخته‌شده وجود دارد:
+```sh
+just generate-bindings
+just check-bindings
+```
 
-- پس از توقف VPN، پیاده‌سازی فعلی ممکن است برای جلوگیری از وضعیت ناایمن زمان اجرا برنامه را ری‌استارت کند
-- برخی تنظیمات پس از تغییر پیکربندی فقط با ری‌استارت VPN به‌طور کامل اعمال می‌شوند
-- `clash-rs` / `clash-lib` هنوز با برخی پیکربندی‌های mihomo سازگاری محدودی دارد
+Gradle کتابخانهٔ بومی Rust را برای Android می‌سازد، اما bindingهای Kotlin UniFFI را خودکار دوباره تولید نمی‌کند. تولید و بررسی bindingها به Android NDK، targetهای Rust برای Android و `cargo-ndk` نیاز دارد.
 
-## مجوز
+برای Windows، `./gradlew` را با `.\gradlew.bat` جایگزین کنید. اسکریپت `scripts/start-emulator.sh` به محیط Bash و یک AVD ساخته‌شده در Android Studio Device Manager نیاز دارد.
 
-پروژه از فایل [LICENSE](LICENSE) در ریشه مخزن استفاده می‌کند.
+## ساخت‌ها و امضا
 
-## مشارکت
+GitHub Actions هر روز ساخت Nightly انجام می‌دهد و از صفحهٔ Actions نیز می‌توان آن را دستی اجرا کرد. Debug APK با همهٔ ABIها به‌صورت Artifact به‌مدت ۱۴ روز نگهداری می‌شود؛ فایل‌های APK و checksum همچنین در پیش‌انتشار چرخشی GitHub با نام `nightly` منتشر می‌شوند. APKهای Nightly از کلید پیش‌فرض debug اندروید استفاده می‌کنند و با کلید رسمی انتشار امضا نشده‌اند. فایل‌ها از [صفحهٔ انتشار پروژه](https://github.com/MFSGA/AChimera/releases) یا از اجرای مربوطه در Actions قابل دریافت‌اند.
 
-- اگر در استفاده یا پیاده‌سازی با مشکلی روبه‌رو شدید، می‌توانید Issue یا PR ثبت کنید.
-- حتی اگر کاملا تازه‌کار هستید، بعد از مطالعه [wiki](https://mfsga.github.io/Proxy_WIKI/) می‌توانید پرسش‌های دقیق‌تری مطرح کنید.
-- این پروژه همچنین امیدوار است توسعه‌دهندگان بیشتری را برای بهبود آن جذب کند.
+APK انتشار پایدار به پیکربندی امضای release نیاز دارد. راهنما در [امضای Release APK](RELEASE_SIGNING.md) است. فایل [`SIGNING_CERT_SHA256.txt`](SIGNING_CERT_SHA256.txt) برای بررسی یکسان بودن گواهی امضای نسخه‌های مختلف استفاده می‌شود؛ تداوم گواهی، یکسان بودن هویت امضا را نشان می‌دهد اما به‌تنهایی هویت واقعی شخص یا شرکت را اثبات نمی‌کند.
 
----
+## وضعیت و محدودیت‌ها
 
-اگر این پروژه برایتان مفید بود، خوشحال می‌شویم به آن star بدهید 🧡
+AChimera همچنان در حال توسعه است. قابلیت‌های موجود به کد فعلی، نسخهٔ قفل‌شدهٔ هستهٔ Rust و featureهای فعال بستگی دارند. پشتیبانی پروتکل در بالادست به معنای در دسترس بودن همهٔ قابلیت‌های مربوط در برنامه نیست؛ برخی گزینه‌های هسته یا پیکربندی‌های mihomo ممکن است سازگار نباشند. ساخت موفق نیز اتصال واقعی یک پروتکل، چرخهٔ عمر VPN یا رفتار روی همهٔ دستگاه‌های Android را اثبات نمی‌کند.
+
+## مجوز و مشارکت
+
+مجوز پروژه در [LICENSE](LICENSE) ریشهٔ مخزن است. برای گزارش مشکل یا مشارکت، Issue یا PR ایجاد کنید. [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) و [راهنمای معماری برنامه](ARCHITECTURE.md) نیز مفید هستند.
+
+زبان‌های دیگر: [中文](README.md) · [English](README.en.md) · [Русский](README.ru.md).
