@@ -8,7 +8,7 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 
 Rust 核心以原生代码运行，目标是在提供高效网络处理能力的同时保持较低的运行开销。实际 CPU 和内存占用会随设备、配置、协议、规则及连接数量变化；本项目不以未经测量的固定数值作为资源占用承诺。
 
-核心继承上游 clash-chimera 的广泛代理协议与传输能力。**AChimera 具体支持哪些协议和特性，以本仓库锁定的上游 [Chimera_Client `clash-lib` 修订及 feature 定义](https://github.com/MFSGA/Chimera_Client/blob/1fe744218ebd0df7e9101e0191fedef22239302d/clash-lib/Cargo.toml) 和本项目显式启用的[核心 feature 配置](uniffi/chimera-ffi/Cargo.toml)为准。** 上游核心具备的能力不一定都已由 AChimera 的配置解析、Android 集成或界面开放；因此 README 不维护可能过期的独立协议清单，也不承诺兼容所有 mihomo 配置。
+核心继承上游 clash-chimera 的广泛代理协议与传输能力。**AChimera 具体支持哪些协议和特性，以本仓库锁定的上游 [Chimera_Client `clash-lib` 修订及 feature 定义](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) 和本项目显式启用的[核心 feature 配置](uniffi/chimera-ffi/Cargo.toml)为准。** 上游核心具备的能力不一定都已由 AChimera 的配置解析、Android 集成或界面开放；因此 README 不维护可能过期的独立协议清单，也不承诺兼容所有 mihomo 配置。
 
 ## 应用能力
 
