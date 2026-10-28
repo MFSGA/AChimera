@@ -71,6 +71,7 @@
     <string name="action_about">About</string>
     <string name="action_restart">Reload</string>
     <string name="about_title">About</string>
+    <string name="about_core_version">Chimera_Client v%1$s</string>
     <string name="about_known_issues">Known issues:\n- Some settings require restarting the VPN before they take effect.</string>
     <string name="profile_known_issues">Known issues:\n- clash-rs is not fully compatible with all mihomo configs yet.\n- After switching profiles, some settings may require restarting the VPN.</string>
     <string name="back">Back</string>

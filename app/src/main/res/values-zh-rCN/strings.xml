@@ -65,6 +65,7 @@
     <string name="action_about">关于</string>
     <string name="action_restart">重新加载</string>
     <string name="about_title">关于</string>
+    <string name="about_core_version">Chimera_Client v%1$s</string>
     <string name="about_known_issues">已知问题：\n- 部分设置需要重启 VPN 后才会生效。</string>
     <string name="profile_known_issues">已知问题：\n- 当前 clash-rs 仍未完全兼容所有 mihomo 配置。\n- 切换配置后，部分设置需要重启 VPN 才会生效。</string>
     <string name="back">返回</string>

@@ -352,7 +352,11 @@ class MetaMainActivity : AppCompatActivity() {
 
     private fun showAboutDialog() {
         val content = layoutInflater.inflate(R.layout.meta_dialog_about, null, false)
-        content.findViewById<TextView>(R.id.about_version).text = getString(R.string.app_ver)
+        content.findViewById<TextView>(R.id.about_version).text = getString(R.string.app_ver) +
+            "\n" + getString(
+                R.string.about_core_version,
+                getString(R.string.clash_core_version),
+            )
         AlertDialog.Builder(this)
             .setView(content)
             .show()

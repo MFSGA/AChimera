@@ -6,6 +6,29 @@ plugins {
 }
 
 val baseVersionName = "0.9.1"
+val clashDependencySection = Regex(
+    """(?ms)^\[dependencies\.clash-lib\]\s*(.*?)(?=^\[|\z)""",
+).find(rootProject.file("uniffi/chimera-ffi/Cargo.toml").readText())
+    ?.groupValues
+    ?.get(1)
+    ?: error("Unable to read the clash-lib dependency from uniffi/chimera-ffi/Cargo.toml")
+val clashRevision = Regex("""(?m)^rev = "([0-9a-f]{40})"$""").find(clashDependencySection)
+    ?.groupValues
+    ?.get(1)
+    ?: error("Unable to read the locked Chimera_Client revision from uniffi/chimera-ffi/Cargo.toml")
+val clashLockEntries = Regex(
+    """(?s)\[\[package\]\]\s*name = "clash-lib"\s*version = "([^"]+)"\s*source = "git\+https://github\.com/MFSGA/Chimera_Client\.git\?rev=$clashRevision#([0-9a-f]{40})""",
+).findAll(rootProject.file("uniffi/Cargo.lock").readText())
+    .toList()
+val clashCoreVersion = clashLockEntries.singleOrNull()
+    ?.let { match ->
+        val lockedCommit = match.groupValues[2]
+        if (lockedCommit != clashRevision) {
+            error("The locked Chimera_Client commit does not match its manifest revision")
+        }
+        match.groupValues[1]
+    }
+    ?: error("Unable to find exactly one locked Chimera_Client clash-lib version in uniffi/Cargo.lock")
 
 fun hasReleaseTag(
     baseVersionName: String,
@@ -175,6 +198,7 @@ android {
 
         resValue("string", "app_name", if (keystore == null) "chimera dev" else "Chimera Lite")
         resValue("string", "app_ver", verName)
+        resValue("string", "clash_core_version", clashCoreVersion)
 
         testInstrumentationRunner = "rs.chimera.android.ChimeraAndroidTestRunner"
         if (!splitAbiBuild) {
