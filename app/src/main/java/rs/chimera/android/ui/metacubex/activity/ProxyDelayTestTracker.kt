@@ -5,6 +5,8 @@ internal data class ProxyDelayTestProgress(
     val total: Int,
 )
 
+internal fun shouldShowProxyDelayFailureNotice(failureCount: Int): Boolean = failureCount > 0
+
 /** Tracks URL tests independently so a different proxy group can be tested concurrently. */
 internal class ProxyDelayTestTracker {
     private val progressByGroup = linkedMapOf<String, ProxyDelayTestProgress>()

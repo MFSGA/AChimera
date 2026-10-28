@@ -42,4 +42,10 @@ class ProxyDelayTestTrackerTest {
         assertFalse(tracker.update("group-a", current = 1, total = 1))
         assertFalse(tracker.isTesting)
     }
+
+    @Test
+    fun onlyShowsCompletionNoticeWhenAtLeastOneNodeFails() {
+        assertFalse(shouldShowProxyDelayFailureNotice(failureCount = 0))
+        assertTrue(shouldShowProxyDelayFailureNotice(failureCount = 1))
+    }
 }

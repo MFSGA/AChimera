@@ -317,7 +317,6 @@
     <string name="proxy_sort_default">默认</string>
     <string name="proxy_sort_name">名称</string>
     <string name="proxy_sort_delay">延迟</string>
-    <string name="proxy_delay_complete">%1$s 的延迟测试已完成。</string>
     <plurals name="proxy_delay_complete_with_failures">
         <item quantity="other">%1$s 的延迟测试已完成；%2$d 个节点失败。</item>
     </plurals>

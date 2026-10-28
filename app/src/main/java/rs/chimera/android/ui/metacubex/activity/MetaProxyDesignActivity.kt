@@ -308,17 +308,16 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 if (result.isFailure) failures++
             }
 
-            val message = if (failures == 0) {
-                getString(R.string.proxy_delay_complete, request.groupName)
-            } else {
-                resources.getQuantityString(
-                    R.plurals.proxy_delay_complete_with_failures,
-                    failures,
-                    request.groupName,
-                    failures,
-                )
+            if (shouldShowProxyDelayFailureNotice(failures)) {
+                val message =
+                    resources.getQuantityString(
+                        R.plurals.proxy_delay_complete_with_failures,
+                        failures,
+                        request.groupName,
+                        failures,
+                    )
+                design.showToast(message)
             }
-            design.showToast(message)
             refreshGroups()
         } finally {
             proxyDelayTestTracker.finish(request.groupName)

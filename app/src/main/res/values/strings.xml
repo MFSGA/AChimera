@@ -326,7 +326,6 @@
     <string name="proxy_sort_default">Default</string>
     <string name="proxy_sort_name">Name</string>
     <string name="proxy_sort_delay">Delay</string>
-    <string name="proxy_delay_complete">Delay test completed for %1$s.</string>
     <plurals name="proxy_delay_complete_with_failures">
         <item quantity="one">Delay test completed for %1$s; %2$d node failed.</item>
         <item quantity="other">Delay test completed for %1$s; %2$d nodes failed.</item>
