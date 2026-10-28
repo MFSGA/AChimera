@@ -88,6 +88,64 @@ class ProxySelectionProjectionTest {
     }
 
     @Test
+    fun rejectedSelectionRestoresEveryLinkedGroupLabel() {
+        val selector = selectorGroup(type = PROXY_SELECTOR_TYPE)
+        val parent = ProxyGroupSnapshot(
+            name = PARENT_GROUP,
+            proxies = listOf(SELECTOR),
+            selected = SELECTOR,
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                PARENT_GROUP to ProxySnapshot(PARENT_GROUP, "Fallback", emptyList(), true, SELECTOR),
+                SELECTOR to ProxySnapshot(SELECTOR, PROXY_SELECTOR_TYPE, emptyList(), true, OLD_NODE),
+            ),
+        )
+        val secondParent = ProxyGroupSnapshot(
+            name = SECOND_PARENT_GROUP,
+            proxies = listOf(SELECTOR),
+            selected = SELECTOR,
+            mode = ProxyMode.RULE,
+            proxyDetails = mapOf(
+                SECOND_PARENT_GROUP to
+                    ProxySnapshot(SECOND_PARENT_GROUP, "LoadBalance", emptyList(), true, SELECTOR),
+                SELECTOR to ProxySnapshot(SELECTOR, PROXY_SELECTOR_TYPE, emptyList(), true, OLD_NODE),
+            ),
+        )
+        val state = ProxySelectionState().apply {
+            acceptBackendSnapshot(listOf(selector, parent, secondParent))
+        }
+
+        val token = state.beginSelection(SELECTOR, NEW_NODE)!!
+        val optimisticParent = state.displayedGroups.first { it.name == PARENT_GROUP }
+        assertEquals(NEW_NODE, optimisticParent.proxyDetails[SELECTOR]?.now)
+        val optimisticSecondParent = state.displayedGroups.first { it.name == SECOND_PARENT_GROUP }
+        assertEquals(NEW_NODE, optimisticSecondParent.proxyDetails[SELECTOR]?.now)
+
+        state.rejectSelection(token)
+
+        val restoredParent = state.displayedGroups.first { it.name == PARENT_GROUP }
+        assertEquals(OLD_NODE, restoredParent.proxyDetails[SELECTOR]?.now)
+        val restoredSecondParent = state.displayedGroups.first { it.name == SECOND_PARENT_GROUP }
+        assertEquals(OLD_NODE, restoredSecondParent.proxyDetails[SELECTOR]?.now)
+        val renderedParent = ProxyDisplayPolicy.groupPages(
+            state.displayedGroups,
+            unavailableType = "Unavailable",
+        ).first { it.name == PARENT_GROUP }
+        assertEquals(
+            "$PROXY_SELECTOR_TYPE($OLD_NODE)",
+            renderedParent.proxies.single().subtitle,
+        )
+        val renderedSecondParent = ProxyDisplayPolicy.groupPages(
+            state.displayedGroups,
+            unavailableType = "Unavailable",
+        ).first { it.name == SECOND_PARENT_GROUP }
+        assertEquals(
+            "$PROXY_SELECTOR_TYPE($OLD_NODE)",
+            renderedSecondParent.proxies.single().subtitle,
+        )
+    }
+
+    @Test
     fun projectionRejectsUnknownNodesAndNonSelectorGroups() {
         val selector = selectorGroup(type = PROXY_SELECTOR_TYPE)
         val urlTest = selectorGroup(name = "auto", type = "URLTest")
