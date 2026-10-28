@@ -37,6 +37,28 @@ class MetaProfileActionTest {
     }
 
     @Test
+    fun blockedActionKeepsReferenceAppearanceAndExplainsWhyItIsUnavailable() {
+        val presentation = metaProfileActionPresentation("Edit", "Stop VPN") { action, reason ->
+            "$action ($reason)"
+        }
+
+        assertTrue(presentation.isEnabled)
+        assertEquals(1f, presentation.alpha)
+        assertEquals("Edit (Stop VPN)", presentation.contentDescription)
+    }
+
+    @Test
+    fun availableActionKeepsItsNormalDescription() {
+        val presentation = metaProfileActionPresentation("Edit", null) { action, reason ->
+            "$action ($reason)"
+        }
+
+        assertTrue(presentation.isEnabled)
+        assertEquals(1f, presentation.alpha)
+        assertEquals("Edit", presentation.contentDescription)
+    }
+
+    @Test
     fun cmfaMenuContainsOnlyReferenceActionsInReferenceOrder() {
         assertEquals(
             listOf(

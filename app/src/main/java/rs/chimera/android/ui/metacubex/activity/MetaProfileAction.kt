@@ -37,6 +37,22 @@ internal fun cmfaProfileMenuActions(profile: ProfileSummary): List<MetaProfileAc
         action.isCmfaMenuAction && action.isAvailableFor(profile)
     }
 
+internal data class MetaProfileActionPresentation(
+    val isEnabled: Boolean,
+    val alpha: Float,
+    val contentDescription: String,
+)
+
+internal fun metaProfileActionPresentation(
+    label: String,
+    blockedReason: String?,
+    formatBlockedDescription: (String, String) -> String,
+): MetaProfileActionPresentation = MetaProfileActionPresentation(
+    isEnabled = true,
+    alpha = 1f,
+    contentDescription = blockedReason?.let { formatBlockedDescription(label, it) } ?: label,
+)
+
 internal fun profileActionMenuViewportHeight(
     actions: List<MetaProfileAction>,
     measuredRowHeights: Map<MetaProfileAction, Int>,

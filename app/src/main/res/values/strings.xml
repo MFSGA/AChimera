@@ -549,7 +549,7 @@
     <string name="profile_delete_vpn_transition">Wait until the VPN has finished starting or stopping before deleting profiles.</string>
     <string name="profile_delete_blocked_active_short">Stop the VPN or switch profiles first</string>
     <string name="profile_delete_blocked_transition_short">Wait for the VPN to finish changing state</string>
-    <string name="profile_delete_blocked_action">%1$s — %2$s</string>
+    <string name="profile_action_blocked">%1$s — %2$s</string>
     <string name="profile_no_remote_profiles">No remote profiles to update.</string>
     <plurals name="profile_refresh_result">
         <item quantity="one">Remote profiles updated: %1$d succeeded, %2$d failed.</item>

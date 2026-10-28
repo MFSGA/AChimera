@@ -199,16 +199,28 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
         fun renderDeleteAvailability(blockedMessage: String?) {
             val deleteBinding = actionBindings[MetaProfileAction.Delete] ?: return
             // Keep the CMFA action appearance; the click path and backend still reject unsafe deletes.
-            deleteBinding.actionRoot.isEnabled = true
-            deleteBinding.actionRoot.alpha = 1f
-            deleteBinding.actionRoot.contentDescription = blockedMessage?.let {
-                getString(R.string.profile_delete_blocked_action, getString(R.string.profile_delete), it)
-            } ?: getString(R.string.profile_delete)
+            val presentation = metaProfileActionPresentation(
+                label = getString(R.string.profile_delete),
+                blockedReason = blockedMessage,
+            ) { label, reason -> getString(R.string.profile_action_blocked, label, reason) }
+            deleteBinding.actionRoot.isEnabled = presentation.isEnabled
+            deleteBinding.actionRoot.alpha = presentation.alpha
+            deleteBinding.actionRoot.contentDescription = presentation.contentDescription
         }
         fun renderRemoteSettingsAvailability(canChange: Boolean) {
             val editBinding = actionBindings[MetaProfileAction.Edit] ?: return
-            editBinding.actionRoot.isEnabled = !profile.isRemote || canChange
-            editBinding.actionRoot.alpha = if (!profile.isRemote || canChange) 1f else 0.38f
+            // Keep the CMFA appearance and let a blocked click explain why editing is unavailable.
+            val presentation = metaProfileActionPresentation(
+                label = getString(R.string.profile_menu_edit),
+                blockedReason = if (profile.isRemote && !canChange) {
+                    getString(R.string.cmfa_options_unavailable)
+                } else {
+                    null
+                },
+            ) { label, reason -> getString(R.string.profile_action_blocked, label, reason) }
+            editBinding.actionRoot.isEnabled = presentation.isEnabled
+            editBinding.actionRoot.alpha = presentation.alpha
+            editBinding.actionRoot.contentDescription = presentation.contentDescription
         }
         actions.forEach { action ->
             val actionBinding = MetaProfileActionItemBinding.inflate(
@@ -225,10 +237,6 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
                 )
                 actionBinding.actionIcon.setColorFilter(errorColor)
                 actionBinding.actionLabel.setTextColor(errorColor)
-            }
-            if (action == MetaProfileAction.Edit && profile.isRemote) {
-                actionBinding.actionRoot.isEnabled = canChangeRemoteSettings
-                actionBinding.actionRoot.alpha = if (canChangeRemoteSettings) 1f else 0.38f
             }
             actionBinding.actionRoot.setOnClickListener {
                 val remoteSettingsBlocked = action == MetaProfileAction.Edit &&
@@ -258,6 +266,7 @@ class MetaProfilesDesignActivity : AppCompatActivity() {
             actionBindings[action] = actionBinding
         }
         renderDeleteAvailability(deleteBlockedMessage)
+        renderRemoteSettingsAvailability(canChangeRemoteSettings)
         updateActionMenuViewport()
         dialog.setContentView(binding.root)
         val availabilityObserver = lifecycleScope.launch {
