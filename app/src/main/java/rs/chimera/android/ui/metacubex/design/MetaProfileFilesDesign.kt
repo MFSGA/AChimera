@@ -1,5 +1,6 @@
 package rs.chimera.android.ui.metacubex.design
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.view.View
 import androidx.core.view.ViewCompat
@@ -27,6 +28,8 @@ internal class MetaProfileFilesDesign(
 
     private val activityBar = root.findViewById<View>(R.id.profile_files_activity_bar)
     private val recycler = root.findViewById<RecyclerView>(R.id.profile_files_recycler)
+    private var activityBarElevated = false
+    private var activityBarElevationAnimator: ValueAnimator? = null
     private val adapter = MetaProfileFileAdapter { entry ->
         when (entry.action) {
             MetaProfileFileEntry.Action.OPEN_CONFIGURATION -> requests.trySend(Request.OpenConfiguration)
@@ -43,6 +46,14 @@ internal class MetaProfileFilesDesign(
         showProfileRoot(metadata)
         recycler.layoutManager = LinearLayoutManager(context)
         recycler.adapter = adapter
+        recycler.addOnScrollListener(
+            object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    updateActivityBarElevation()
+                }
+            },
+        )
+        recycler.post { updateActivityBarElevation() }
         applySystemBarInsets()
     }
 
@@ -65,6 +76,7 @@ internal class MetaProfileFilesDesign(
                 ),
             ),
         )
+        recycler.post { updateActivityBarElevation() }
     }
 
     fun showProviderDirectory(files: List<ProfileProviderFileMetadata>) {
@@ -84,6 +96,25 @@ internal class MetaProfileFilesDesign(
                 )
             },
         )
+        recycler.post { updateActivityBarElevation() }
+    }
+
+    private fun updateActivityBarElevation() {
+        val elevated = recycler.canScrollVertically(-1)
+        if (activityBarElevated == elevated) return
+
+        activityBarElevated = elevated
+        activityBarElevationAnimator?.cancel()
+        val targetElevation = if (elevated) {
+            context.resources.getDimension(R.dimen.metacubex_tab_layout_elevation)
+        } else {
+            0f
+        }
+        activityBarElevationAnimator = ValueAnimator.ofFloat(activityBar.elevation, targetElevation).apply {
+            duration = 300L
+            addUpdateListener { activityBar.elevation = it.animatedValue as Float }
+            start()
+        }
     }
 
     private fun applySystemBarInsets() {
