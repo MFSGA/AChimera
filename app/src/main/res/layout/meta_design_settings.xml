@@ -865,33 +865,13 @@
                     android:text="@string/settings_known_issues"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
                 <LinearLayout
+                    android:id="@+id/meta_features_content"
                     android:tag="meta_features"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="24dp"
-                        android:layout_marginBottom="8dp"
-                        android:text="@string/settings_meta_features_unavailable_title"
-                        android:textColor="?attr/colorPrimary"
-                        android:textStyle="bold" />
-
-                    <com.google.android.material.card.MaterialCardView
-                        android:id="@+id/meta_features_unavailable_notice"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:padding="16dp"
-                            android:text="@string/settings_meta_features_unavailable_summary"
-                            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
-                    </com.google.android.material.card.MaterialCardView>
-                </LinearLayout>
+                    android:layout_marginHorizontal="-16dp"
+                    android:layout_marginTop="-16dp"
+                    android:orientation="vertical" />
 
                 <TextView
                     android:tag="chimera"
@@ -1088,6 +1068,23 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:id="@+id/toolbar_reset"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginStart="17.5dp"
+                android:layout_marginEnd="17.5dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/meta_feature_reset_unavailable"
+                android:padding="5dp"
+                android:src="@drawable/ic_baseline_replay"
+                android:visibility="gone" />
         </LinearLayout>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 </layout>

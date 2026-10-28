@@ -96,7 +96,9 @@ class SettingsDesign(
     private val toolbarNavigation = root.findViewById<View>(R.id.toolbar_navigation)
     private val toolbar = root.findViewById<View>(R.id.toolbar)
     private val toolbarTitle = root.findViewById<TextView>(R.id.toolbar_title)
+    private val toolbarReset = root.findViewById<View>(R.id.toolbar_reset)
     private val settingsScroll = root.findViewById<ScrollView>(R.id.settings_scroll)
+    private val metaFeaturesContent = root.findViewById<LinearLayout>(R.id.meta_features_content)
     private val cardLanguage = root.findViewById<View>(R.id.card_language)
     private val cardAppearance = root.findViewById<View>(R.id.card_appearance)
     private val cardUiVariant = root.findViewById<View>(R.id.card_ui_variant)
@@ -159,6 +161,14 @@ class SettingsDesign(
                 val child = content.getChildAt(index)
                 child.visibility = if (child.tag == category.viewTag) View.VISIBLE else View.GONE
             }
+        }
+        if (category == Category.META_FEATURES) {
+            toolbarReset.visibility = View.VISIBLE
+            toolbarReset.isEnabled = false
+            toolbarReset.isClickable = false
+            toolbarReset.isFocusable = false
+            toolbarReset.alpha = 0.33f
+            metaFeaturesContent.addMetaFeatureUnavailableContent()
         }
 
         toolbarNavigation.setOnClickListener { request(Request.NavigateBack) }
