@@ -29,6 +29,10 @@ internal class MetaProfileFileAdapter(
     private val onClick: (MetaProfileFileEntry) -> Unit,
     private val onMoreClick: (MetaProfileFileEntry) -> Unit,
 ) : ListAdapter<MetaProfileFileEntry, MetaProfileFileAdapter.Holder>(DiffCallback) {
+    fun updateElapsed() {
+        if (itemCount > 0) notifyItemRangeChanged(0, itemCount)
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
         Holder(LayoutInflater.from(parent.context).inflate(R.layout.meta_item_profile_file, parent, false))
 

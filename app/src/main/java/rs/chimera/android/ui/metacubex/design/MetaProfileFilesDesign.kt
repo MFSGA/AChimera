@@ -111,6 +111,10 @@ internal class MetaProfileFilesDesign(
         recycler.post { updateActivityBarElevation() }
     }
 
+    fun updateElapsed() {
+        adapter.updateElapsed()
+    }
+
     private fun updateActivityBarElevation() {
         val elevated = recycler.canScrollVertically(-1)
         if (activityBarElevated == elevated) return

@@ -8,13 +8,17 @@ import android.widget.FrameLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
@@ -47,6 +51,14 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
         setContentView(FrameLayout(this).apply {
             addView(ProgressBar(context), FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         })
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (true) {
+                    delay(TimeUnit.MINUTES.toMillis(1))
+                    filesDesign?.updateElapsed()
+                }
+            }
+        }
         lifecycleScope.launch {
             try {
                 showFiles(backend.readProfileFileMetadata(id))

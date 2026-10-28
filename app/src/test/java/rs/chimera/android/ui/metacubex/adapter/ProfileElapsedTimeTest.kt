@@ -37,4 +37,19 @@ class ProfileElapsedTimeTest {
             profileElapsedTime(lastUpdatedAt = now - TimeUnit.DAYS.toMillis(1), now = now),
         )
     }
+
+    @Test
+    fun elapsedTimeAdvancesFromMinutesToHoursAfterTheBoundary() {
+        val updatedAt = TimeUnit.DAYS.toMillis(10)
+        val oneHourLater = updatedAt + TimeUnit.HOURS.toMillis(1)
+
+        assertEquals(
+            ProfileElapsedTime(ProfileElapsedTime.Unit.MINUTES, 59L),
+            profileElapsedTime(lastUpdatedAt = updatedAt, now = oneHourLater - 1L),
+        )
+        assertEquals(
+            ProfileElapsedTime(ProfileElapsedTime.Unit.HOURS, 1L),
+            profileElapsedTime(lastUpdatedAt = updatedAt, now = oneHourLater),
+        )
+    }
 }
