@@ -39,6 +39,7 @@
     <string name="cmfa_main_profile_title">Profile</string>
     <string name="logs_screen">Logs</string>
     <string name="meta_logcat">Runtime logs</string>
+    <string name="meta_logcat_title">Logcat</string>
     <string name="meta_logs_archive_title">Logcat</string>
     <string name="meta_logcat_close">Close</string>
     <string name="meta_log_message_copied">Copied</string>
