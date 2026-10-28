@@ -368,6 +368,52 @@ class ProfilePropertiesInstrumentedTest {
         }
     }
 
+    @Test
+    fun newRemoteFormHidesClientOptionsAndPreservesExistingValues() {
+        ActivityScenario.launch(MetaMainActivity::class.java).use { scenario ->
+            lateinit var page: MetaRemoteProfilePropertiesDesign
+            scenario.onActivity {
+                WindowCompat.setDecorFitsSystemWindows(it.window, false)
+                page = MetaRemoteProfilePropertiesDesign(
+                    it,
+                    "",
+                    it.getString(R.string.profile_properties_new_name),
+                    initialUserAgent = "fixture-agent",
+                    initialProxyUrl = "http://127.0.0.1:7890",
+                )
+                it.setContentView(page.root)
+            }
+            awaitUi(scenario) { page.root.isAttachedToWindow }
+            scenario.onActivity {
+                assertEquals(
+                    it.getString(R.string.profile_properties_screen_title),
+                    page.root.findViewById<TextView>(R.id.toolbar_title).text.toString(),
+                )
+                assertEquals(View.GONE, page.root.findViewById<View>(R.id.property_options).visibility)
+            }
+            capture(scenario, "new-remote-ready")
+            scenario.onActivity {
+                page = MetaRemoteProfilePropertiesDesign(
+                    it,
+                    "https://example.com/profile.yaml",
+                    it.getString(R.string.profile_properties_new_name),
+                    initialUserAgent = "fixture-agent",
+                    initialProxyUrl = "http://127.0.0.1:7890",
+                )
+                it.setContentView(page.root)
+            }
+            awaitUi(scenario) { page.root.isAttachedToWindow }
+            scenario.onActivity {
+                assertEquals(View.GONE, page.root.findViewById<View>(R.id.property_options).visibility)
+                assertTrue(page.root.findViewById<View>(R.id.remote_profile_save).performClick())
+                val form = (page.requests.tryReceive().getOrNull() as MetaRemoteProfilePropertiesDesign.Request.Submit).form
+                assertEquals("fixture-agent", form.userAgent)
+                assertEquals("http://127.0.0.1:7890", form.proxyUrl)
+                assertFalse(form.autoUpdate)
+            }
+        }
+    }
+
     private fun withLocalProfile(block: (String) -> Unit) = withProfile(remote = false, block = block)
 
     private fun withProfile(remote: Boolean, autoUpdate: Boolean = false, block: (String) -> Unit) {

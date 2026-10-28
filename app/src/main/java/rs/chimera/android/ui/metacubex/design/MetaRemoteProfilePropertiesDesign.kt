@@ -88,13 +88,7 @@ internal class MetaRemoteProfilePropertiesDesign(
 
     init {
         applySystemBarInsets()
-        root.findViewById<TextView>(R.id.toolbar_title).setText(
-            if (existingProfile) {
-                R.string.profile_properties_screen_title
-            } else {
-                R.string.profile_properties_title
-            },
-        )
+        root.findViewById<TextView>(R.id.toolbar_title).setText(R.string.profile_properties_screen_title)
         root.findViewById<TextView>(R.id.remote_profile_tips).text = HtmlCompat.fromHtml(
             context.getString(
                 if (snapshotMode) {
@@ -106,7 +100,7 @@ internal class MetaRemoteProfilePropertiesDesign(
             HtmlCompat.FROM_HTML_MODE_COMPACT,
         )
         if (snapshotMode) autoUpdateRow.visibility = View.GONE
-        if (localProfile || existingProfile) optionsRow.visibility = View.GONE
+        optionsRow.visibility = View.GONE
         bindProperty(nameRow, R.drawable.ic_outline_label, R.string.profile_properties_name)
         bindProperty(urlRow, R.drawable.ic_outline_inbox, R.string.profile_properties_url)
         root.findViewById<View>(R.id.property_age)?.let { row ->

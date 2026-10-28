@@ -417,7 +417,7 @@
     <string name="profile_properties_update_minutes_error">至少 15 分钟</string>
     <string name="profile_properties_changed">配置已更改，请重新打开后再保存。</string>
     <string name="profile_properties_browse_files">浏览文件</string>
-    <string name="profile_properties_browse_summary">打开文件选择器导入本地配置</string>
+    <string name="profile_properties_browse_summary">浏览本地配置</string>
     <string name="profile_properties_name_empty">名称不能为空。</string>
     <string name="profile_properties_name_input_error">不能为空</string>
     <string name="profile_properties_url_input_hint">配置 URL</string>

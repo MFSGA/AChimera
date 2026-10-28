@@ -430,7 +430,7 @@
     <string name="profile_properties_update_minutes_error">At least 15 minutes or empty</string>
     <string name="profile_properties_changed">Profile changed. Reopen it before saving.</string>
     <string name="profile_properties_browse_files">Browse Files</string>
-    <string name="profile_properties_browse_summary">Open the file picker to import a local configuration</string>
+    <string name="profile_properties_browse_summary">Browse local configuration</string>
     <string name="profile_properties_name_empty">Name cannot be empty.</string>
     <string name="profile_properties_name_input_error">Should not be blank</string>
     <string name="profile_properties_url_input_hint">Profile URL</string>
