@@ -215,7 +215,7 @@ class AccessControlDesign(context: Context) : Design<AccessControlDesign.Request
         val popup = PopupMenu(context, toolbarMenu)
         popup.menuInflater.inflate(R.menu.menu_access_control, popup.menu)
         popup.menu.apply {
-            findItem(R.id.access_control_system_apps).isChecked = state.showSystemApps
+            findItem(R.id.access_control_system_apps).isChecked = !state.showSystemApps
             findItem(R.id.access_control_sort_name).isChecked = state.sort == Sort.NAME
             findItem(R.id.access_control_sort_package).isChecked = state.sort == Sort.PACKAGE_NAME
             findItem(R.id.access_control_sort_install_time).isChecked = state.sort == Sort.INSTALL_TIME

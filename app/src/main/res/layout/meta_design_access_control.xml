@@ -73,6 +73,7 @@
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
+            android:layout_toStartOf="@id/access_control_search_button"
             android:gravity="center_vertical"
             android:minHeight="@dimen/metacubex_toolbar_height"
             android:orientation="horizontal">
