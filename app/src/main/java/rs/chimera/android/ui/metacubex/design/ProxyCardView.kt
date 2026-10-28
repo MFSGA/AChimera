@@ -233,7 +233,7 @@ class ProxyCardView(context: Context) : View(context) {
             0,
             typeCount,
             textX,
-            layoutPadding + (height - layoutPadding * 2) * 2f / 3f - textOffset,
+            layoutPadding + (height - layoutPadding * 2) / 3f * 2 - textOffset,
             paint,
         )
     }
