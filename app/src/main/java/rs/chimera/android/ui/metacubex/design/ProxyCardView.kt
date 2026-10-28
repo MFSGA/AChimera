@@ -185,10 +185,7 @@ class ProxyCardView(context: Context) : View(context) {
         val delayText = delayTextState.text
 
         paint.reset()
-        paint.isAntiAlias = true
-        paint.color = if (item.isSelected) colorOnPrimary else colorOnSurface
         paint.textSize = textSize
-        paint.typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
 
         val delayCount = paint.breakText(
             delayText,
@@ -205,6 +202,12 @@ class ProxyCardView(context: Context) : View(context) {
         val titleCount = paint.breakText(item.title, false, mainTextWidth, null)
         val typeCount = paint.breakText(item.subtitle, false, mainTextWidth, null)
         val textOffset = (paint.descent() + paint.ascent()) / 2f
+
+        // CMFA measures text using the default Paint flags, then enables antialiasing to draw.
+        paint.reset()
+        paint.isAntiAlias = true
+        paint.color = if (item.isSelected) colorOnPrimary else colorOnSurface
+        paint.textSize = textSize
 
         if (delayCount > 0) {
             canvas.drawText(
