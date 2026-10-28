@@ -132,7 +132,7 @@
     <string name="meta_override_tproxy_port">TProxy Port</string>
     <string name="meta_override_mixed_port">Mixed Port</string>
     <string name="meta_override_authentication">Authentication</string>
-    <string name="meta_override_allow_lan">Allow LAN connections</string>
+    <string name="meta_override_allow_lan">Allow LAN</string>
     <string name="meta_override_ipv6">IPv6</string>
     <string name="meta_override_bind_address">Bind Address</string>
     <string name="meta_override_external_controller">External Controller</string>
