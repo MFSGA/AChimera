@@ -405,7 +405,7 @@
     <string name="profile_properties_files_available">View this profile’s configuration file</string>
     <string name="profile_files_title">Files</string>
     <string name="profile_files_configuration">Configuration</string>
-    <string name="profile_files_providers">Provider files</string>
+    <string name="profile_files_providers">Provider Files</string>
     <string name="profile_files_open_failed">Could not open the configuration file: %1$s</string>
     <string name="profile_files_list_failed">Could not list provider files: %1$s</string>
     <string name="profile_properties_tip"><![CDATA[Accept Only <b>Clash Config</b>(including <b>Proxy</b>/<b>Rules</b>)]]></string>
