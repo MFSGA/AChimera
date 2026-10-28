@@ -38,7 +38,7 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 
 - [Chimera](https://github.com/MFSGA/Chimera) — 跨平台桌面应用
 - [Chimera_Client](https://github.com/MFSGA/Chimera_Client) — Rust 客户端核心及 `clash-lib`
-- [Chimera Server](https://github.com/MFSGA/Chimera_Server) — Rust 编写的代理服务端，目标兼容 Xray-core 的服务端配置与运行行为；兼容范围以其兼容性矩阵为准
+- [Chimera Server](https://github.com/MFSGA/Chimera_Server) — Rust 编写的代理服务端，以兼容 Xray-core 的服务端配置与运行行为为目标；实际支持范围和验证状态以其兼容性矩阵及验证记录为准
 - [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — 使用与部署文档
 
 ## 技术栈

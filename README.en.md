@@ -23,7 +23,7 @@ The core inherits broad proxy protocol and transport capabilities from the upstr
 
 - [Chimera](https://github.com/MFSGA/Chimera) — cross-platform desktop application
 - [Chimera_Client](https://github.com/MFSGA/Chimera_Client) — Rust client core and `clash-lib`
-- [Chimera Server](https://github.com/MFSGA/Chimera_Server) — a Rust proxy server aiming for Xray-core-compatible server configuration and runtime behavior; see its compatibility matrix for the current scope
+- [Chimera Server](https://github.com/MFSGA/Chimera_Server) — a Rust proxy server targeting compatibility with Xray-core server configuration and runtime behavior; see its compatibility matrix and validation records for the verified scope
 - [Proxy Wiki](https://mfsga.github.io/Proxy_WIKI/) — usage and deployment documentation
 
 ## Tech Stack
