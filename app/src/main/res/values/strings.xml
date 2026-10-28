@@ -370,11 +370,11 @@
     <string name="profile_updated_recently">Recently</string>
     <string name="profile_updated_minutes_ago">%1$d min ago</string>
     <plurals name="profile_updated_hours_ago">
-        <item quantity="one">%1$d hour ago</item>
+        <item quantity="one">%1$d hours ago</item>
         <item quantity="other">%1$d hours ago</item>
     </plurals>
     <plurals name="profile_updated_days_ago">
-        <item quantity="one">%1$d day ago</item>
+        <item quantity="one">%1$d days ago</item>
         <item quantity="other">%1$d days ago</item>
     </plurals>
     <string name="profile_activate">Activate</string>
