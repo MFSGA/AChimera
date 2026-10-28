@@ -13,7 +13,6 @@ import rs.chimera.android.ui.metacubex.design.util.root
 class HelpDesign(context: Context) : Design<HelpDesign.Request>(context) {
     sealed interface Request {
         data object NavigateBack : Request
-        data object OpenOnboarding : Request
         data class OpenLink(val uri: Uri) : Request
     }
 
@@ -38,9 +37,6 @@ class HelpDesign(context: Context) : Design<HelpDesign.Request>(context) {
             R.id.help_clash_meta_for_android,
             R.string.meta_help_clash_meta_for_android_url,
         )
-        root.findViewById<View>(R.id.help_onboarding).setOnClickListener {
-            request(Request.OpenOnboarding)
-        }
     }
 
     private fun bindLink(viewId: Int, urlRes: Int) {
