@@ -61,18 +61,18 @@ internal class MetaProfileFilesDesign(
         adapter.submitList(
             listOf(
                 MetaProfileFileEntry(
-                    name = context.getString(R.string.profile_files_configuration) +
-                        metadata.extension?.let { ".$it" }.orEmpty(),
-                    size = metadata.size,
-                    modifiedAt = metadata.lastModified,
-                    action = MetaProfileFileEntry.Action.OPEN_CONFIGURATION,
-                ),
-                MetaProfileFileEntry(
                     name = context.getString(R.string.profile_files_providers),
                     size = 0L,
                     modifiedAt = null,
                     isDirectory = true,
                     action = MetaProfileFileEntry.Action.OPEN_DIRECTORY,
+                ),
+                MetaProfileFileEntry(
+                    name = context.getString(R.string.profile_files_configuration) +
+                        metadata.extension?.let { ".$it" }.orEmpty(),
+                    size = metadata.size,
+                    modifiedAt = metadata.lastModified,
+                    action = MetaProfileFileEntry.Action.OPEN_CONFIGURATION,
                 ),
             ),
         )
