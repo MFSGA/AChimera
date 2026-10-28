@@ -391,7 +391,7 @@
     <string name="profile_properties_missing">此配置已不存在。</string>
     <string name="profile_properties_age">Age 私钥</string>
     <string name="profile_properties_save_failed">保存配置设置失败：%1$s</string>
-    <string name="profile_properties_files_available">查看此配置文件</string>
+    <string name="profile_properties_files_available">浏览配置文件和外部资源</string>
     <string name="profile_files_title">文件</string>
     <string name="profile_files_configuration">配置文件</string>
     <string name="profile_files_providers">外部资源文件列表</string>

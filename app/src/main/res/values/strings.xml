@@ -404,7 +404,7 @@
     <string name="profile_properties_missing">This profile no longer exists.</string>
     <string name="profile_properties_age">Age Secret Key</string>
     <string name="profile_properties_save_failed">Failed to save profile settings: %1$s</string>
-    <string name="profile_properties_files_available">View this profile’s configuration file</string>
+    <string name="profile_properties_files_available">Browse configuration &amp; providers</string>
     <string name="profile_files_title">Files</string>
     <string name="profile_files_configuration">Configuration</string>
     <string name="profile_files_providers">Provider Files</string>
