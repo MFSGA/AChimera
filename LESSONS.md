@@ -19,6 +19,7 @@
 | LESSON-20261022-001 | 2026-10-22 | Android instrumentation tests | 本机 instrumentation 后 debug 应用与配置不可用 | `connectedDebugAndroidTest` 后 `adb shell pm path rs.chimera.android.dev` 无输出；随后通过 `installDebug` 和应用内重新导入恢复 | Mitigated |
 | LESSON-20261022-002 | 2026-10-22 | CI Android instrumentation | Headless AVD 测试期间窗口失焦 | [失败 run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637)、[修复验证 run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292) | Verified |
 | LESSON-20261022-003 | 2026-10-22 | CI Android SDK setup | Emulator SDK 下载遇到 Premature EOF，后续检查未运行 | [失败 run 39699535693](https://github.com/MFSGA/AChimera/actions/runs/39699535693)、[修复验证 run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292) | Verified |
+| LESSON-20261028-001 | 2026-10-28 | MetaCubeX proxy filter | 过滤回退页未更新已记忆的代理组 | API 36 模拟器本地复现；`ProxyDisplayPolicyTest` 回归用例与 CMFA 页面行为比对 | Verified |
 
 ## 条目模板
 
@@ -108,5 +109,22 @@
 - 修复改动及其归属：在 CI SDK 安装脚本中为整组固定 SDK 包安装增加最多 3 次尝试，失败间隔为 15 秒、30 秒；最终仍失败则返回错误，不跳过后续步骤。
 - 预防措施：对 SDK 包安装失败有限重试并保留失败门禁；完整 GitHub CI 验证重试步骤及其后的全部质量检查和 instrumentation tests。
 - 复验命令、场景和真实结果：`python3 .github/check_action_pins.py`、`git diff --check`、抽取后的 Bash `bash -n` 语法检查及重试成功/最终失败的本地故障注入均通过。GitHub CI run 39700416292 中 SDK 配置在首次尝试成功，Rust 格式、Clippy、测试、UniFFI 绑定、Android quality、Debug APK、KVM、API 36 x86_64 模拟器和全部 88 项 instrumentation tests 均通过；实际重试路径由本地故障注入覆盖。
+- 关联独立事件（用于累计出现次数）：无
+- 是否提议升级治理规范及审批链接：否
+
+### LESSON-20261028-001: 代理过滤后回退组没有同步到记忆状态
+
+- 发生/确认时间（含时区）：2026-10-28，Asia/Shanghai
+- 模块：Meta UI / 代理页导航状态
+- 严重度：Medium（仅影响代理页组导航偏好；没有修改代理节点选择或配置）
+- 状态：Verified
+- Issue、PR、commit、CI 运行或复现证据：在本机 `emulator-5558` 上复现；过滤隐藏当前“延迟最低”组后，界面切换到首个可见组，但 `shared_prefs/metacubex_ui.xml` 中 `proxy_last_group` 仍为旧组；取消过滤后页面跳回旧组。参考应用 CMFA 在相同操作下保留首个可见组。
+- 环境：Android API 36 x86_64 模拟器，1080×1920、420 dpi；参考基线 `ref/ClashMetaForAndroid@3cc102aab3f251ef460a3b6e2835b6c1eb581e73`。对比截图保存在仓库外，未包含订阅 URL 或节点凭据。
+- 预期行为：过滤隐藏当前组时切换到首个可见组并记住它；取消过滤后继续停留在该组。
+- 实际失败与可复现步骤：在代理页选中“延迟最低”标签，打开溢出菜单启用“Not Selectable”，页面显示首个可见标签；随后取消过滤，页面又回到“延迟最低”。
+- 根本原因及证据：`ProxyDesign.updateSelectableFilter` 从缓存的 `currentGroupIndex` 取当前组名；页数据变更后该索引可能落后于 `ViewPager2.currentItem`。本地界面已显示回退组时，偏好文件仍记录被隐藏组，证明该状态源不一致。
+- 修复改动及其归属：过滤切换改用 `ViewPager2.currentItem` 对应的显示组，再按可见组决定要记忆的组名；未修改过滤规则、代理 backend 或核心配置。
+- 预防措施：增加按实际 pager 页索引解析组名的策略测试，覆盖过滤隐藏当前页、切到首个可见页及取消过滤后的完整序列。
+- 复验命令、场景和真实结果：`./gradlew :app:testDebugUnitTest --tests 'rs.chimera.android.ui.metacubex.design.ProxyDisplayPolicyTest'`、`./gradlew :app:ktlintCheck`、`./gradlew :app:installDebug` 均通过；在 5558 上实测过滤开启后显示并保存“上网入口”，关闭过滤后仍停留“上网入口”。未运行 instrumentation tests。
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否

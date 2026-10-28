@@ -144,6 +144,17 @@ object ProxyDisplayPolicy {
             ?.takeIf { name -> visibleGroups.any { it.name == name } }
             ?: visibleGroups.first().name
     }
+
+    fun groupNameAfterFilterChange(
+        currentlyDisplayedPageIndex: Int,
+        displayedGroups: List<ProxyDisplayGroup>,
+        lastGroupName: String?,
+        visibleGroups: List<ProxyDisplayGroup>,
+    ): String? = groupNameAfterFilterChange(
+        currentlyDisplayedGroupName = displayedGroups.getOrNull(currentlyDisplayedPageIndex)?.name,
+        lastGroupName = lastGroupName,
+        visibleGroups = visibleGroups,
+    )
 }
 
 class ProxyDisplayPreferences(context: Context) {

@@ -389,16 +389,17 @@ class ProxyDesign(context: Context) : Design<ProxyDesign.Request>(context) {
     private fun updateSelectableFilter(item: android.view.MenuItem) {
         item.isChecked = !item.isChecked
         displayOptions = displayPreferences.updateExcludeNotSelectable(item.isChecked)
-        val currentlyDisplayedGroupName = groups.getOrNull(currentGroupIndex)?.name
         val visibleGroups = ProxyDisplayPolicy.groupPages(
             sourceGroups,
             unavailableType = context.getString(R.string.not_available),
             excludeNotSelectable = displayOptions.excludeNotSelectable,
         )
+        // The pager can already show the fallback page while the cached index still points at a removed tab.
         lastGroupName = ProxyDisplayPolicy.groupNameAfterFilterChange(
-            currentlyDisplayedGroupName,
-            lastGroupName,
-            visibleGroups,
+            currentlyDisplayedPageIndex = binding.viewPager.currentItem,
+            displayedGroups = groups,
+            lastGroupName = lastGroupName,
+            visibleGroups = visibleGroups,
         )
         displayPreferences.updateLastGroupName(lastGroupName)
         renderGroups()

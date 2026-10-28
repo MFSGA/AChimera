@@ -329,4 +329,44 @@ class ProxyDisplayPolicyTest {
             ),
         )
     }
+
+    @Test
+    fun filterChangeTracksDisplayedPagerPageWhenCachedIndexIsStale() {
+        val visibleGroups = listOf(
+            ProxyDisplayGroup("selector", isSelectable = true, proxies = emptyList()),
+            ProxyDisplayGroup("fallback", isSelectable = true, proxies = emptyList()),
+        )
+        val allGroups = visibleGroups + ProxyDisplayGroup(
+            "url-test",
+            isSelectable = false,
+            proxies = emptyList(),
+        )
+
+        val selectedAfterFiltering = ProxyDisplayPolicy.groupNameAfterFilterChange(
+            currentlyDisplayedPageIndex = 2,
+            displayedGroups = allGroups,
+            lastGroupName = "url-test",
+            visibleGroups = visibleGroups,
+        )
+        assertEquals("selector", selectedAfterFiltering)
+
+        assertEquals(
+            "fallback",
+            ProxyDisplayPolicy.groupNameAfterFilterChange(
+                currentlyDisplayedPageIndex = 1,
+                displayedGroups = visibleGroups,
+                lastGroupName = "url-test",
+                visibleGroups = allGroups,
+            ),
+        )
+        assertEquals(
+            "selector",
+            ProxyDisplayPolicy.groupNameAfterFilterChange(
+                currentlyDisplayedPageIndex = 0,
+                displayedGroups = visibleGroups,
+                lastGroupName = selectedAfterFiltering,
+                visibleGroups = allGroups,
+            ),
+        )
+    }
 }
