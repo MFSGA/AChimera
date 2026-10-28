@@ -116,6 +116,8 @@
     <string name="vpn_service_options">VpnService 选项</string>
     <string name="settings_category_override">覆写</string>
     <string name="settings_category_meta_features">Meta 特性</string>
+    <string name="settings_meta_features_unavailable_title">Meta 特性暂不可用</string>
+    <string name="settings_meta_features_unavailable_summary">当前锁定的 Chimera Rust 核心尚未开放 CMFA 配置覆写接口，因此应用目前无法应用这些设置。</string>
     <string name="settings_category_override_unavailable">Chimera 当前版本尚不支持配置覆写。</string>
     <string name="meta_override_reset">重置覆写设置</string>
     <string name="meta_override_no_change">不修改</string>

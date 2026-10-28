@@ -864,8 +864,37 @@
                     android:paddingEnd="17.5dp"
                     android:text="@string/settings_known_issues"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
-                <TextView
+                <LinearLayout
                     android:tag="meta_features"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="24dp"
+                        android:layout_marginBottom="8dp"
+                        android:text="@string/settings_meta_features_unavailable_title"
+                        android:textColor="?attr/colorPrimary"
+                        android:textStyle="bold" />
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/meta_features_unavailable_notice"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:padding="16dp"
+                            android:text="@string/settings_meta_features_unavailable_summary"
+                            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+
+                <TextView
+                    android:tag="chimera"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
@@ -876,7 +905,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_logs"
-                    android:tag="meta_features"
+                    android:tag="chimera"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:clickable="true"
@@ -906,7 +935,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_diagnostics"
-                    android:tag="meta_features"
+                    android:tag="chimera"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -937,7 +966,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_dns"
-                    android:tag="meta_features"
+                    android:tag="chimera"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -968,7 +997,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_rules"
-                    android:tag="meta_features"
+                    android:tag="chimera"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -999,7 +1028,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_providers"
-                    android:tag="meta_features"
+                    android:tag="chimera"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"

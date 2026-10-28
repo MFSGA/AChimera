@@ -122,6 +122,8 @@
     <string name="vpn_service_options">VpnService Options</string>
     <string name="settings_category_override">Override</string>
     <string name="settings_category_meta_features">Meta Features</string>
+    <string name="settings_meta_features_unavailable_title">Meta Features unavailable</string>
+    <string name="settings_meta_features_unavailable_summary">The locked Chimera Rust core does not expose CMFA configuration overrides yet. These settings cannot be applied by this app.</string>
     <string name="settings_category_override_unavailable">Profile overrides are not supported in Chimera yet.</string>
     <string name="meta_override_reset">Reset overrides</string>
     <string name="meta_override_no_change">Do not modify</string>

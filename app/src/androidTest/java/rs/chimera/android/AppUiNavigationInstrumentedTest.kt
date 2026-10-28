@@ -1575,14 +1575,30 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun metaSettingsMetaFeaturesCategoryShowsDiagnosticsOnly() {
+    fun metaSettingsMetaFeaturesCategoryShowsUnavailableNotice() {
         ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
             waitForResumedActivity<MetaSettingsHomeActivity>()
             onView(withId(R.id.category_meta_features)).perform(click())
             waitForResumedActivity<MetaSettingsActivity>()
-            onView(withId(R.id.card_dns)).check(matches(isDisplayed()))
+            onView(withId(R.id.meta_features_unavailable_notice)).check(matches(isDisplayed()))
+            onView(withId(R.id.card_dns)).check { view, _ ->
+                assertEquals(View.GONE, view.visibility)
+            }
             onView(withId(R.id.card_ports)).check { view, _ ->
                 assertEquals(View.GONE, view.visibility)
+            }
+        }
+    }
+
+    @Test
+    fun metaSettingsChimeraCategoryKeepsDiagnosticsAvailable() {
+        ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
+            waitForResumedActivity<MetaSettingsHomeActivity>()
+            onView(withId(R.id.category_chimera)).perform(click())
+            waitForResumedActivity<MetaSettingsActivity>()
+            onView(withId(R.id.card_dns)).check(matches(isDisplayed()))
+            onView(withId(R.id.meta_features_unavailable_notice)).check { view, _ ->
+                assertFalse(view.isShown)
             }
         }
     }
