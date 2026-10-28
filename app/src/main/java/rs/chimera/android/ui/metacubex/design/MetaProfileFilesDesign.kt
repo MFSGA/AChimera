@@ -8,12 +8,13 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnAttach
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
 import rs.chimera.android.R
 import rs.chimera.android.backend.model.ProfileFileMetadata
 import rs.chimera.android.backend.model.ProfileProviderFileMetadata
+import rs.chimera.android.databinding.MetaProfileActionItemBinding
 import rs.chimera.android.ui.metacubex.adapter.MetaProfileFileAdapter
 import rs.chimera.android.ui.metacubex.adapter.MetaProfileFileEntry
+import rs.chimera.android.ui.metacubex.design.util.MetaBottomSheetDialog
 import rs.chimera.android.ui.metacubex.design.util.layoutInflater
 import rs.chimera.android.ui.metacubex.design.util.root
 
@@ -28,7 +29,6 @@ internal class MetaProfileFilesDesign(
     )
 
     private val activityBar = root.findViewById<View>(R.id.profile_files_activity_bar)
-    private val addFile = root.findViewById<View>(R.id.profile_files_add)
     private val recycler = root.findViewById<RecyclerView>(R.id.profile_files_recycler)
     private var activityBarElevated = false
     private var activityBarElevationAnimator: ValueAnimator? = null
@@ -41,17 +41,12 @@ internal class MetaProfileFilesDesign(
                 MetaProfileFileEntry.Action.NONE -> Unit
             }
         },
-        onMoreClick = {
-            Snackbar.make(root, R.string.profile_files_read_only_notice, Snackbar.LENGTH_SHORT).show()
-        },
+        onMoreClick = { showReadOnlyActions() },
     )
 
     init {
         root.findViewById<View>(R.id.profile_files_back).setOnClickListener {
             requests.trySend(Request.NavigateBack)
-        }
-        addFile.setOnClickListener {
-            Snackbar.make(root, R.string.profile_files_read_only_notice, Snackbar.LENGTH_SHORT).show()
         }
         showProfileRoot(metadata)
         recycler.layoutManager = LinearLayoutManager(context)
@@ -68,7 +63,6 @@ internal class MetaProfileFilesDesign(
     }
 
     fun showProfileRoot(metadata: ProfileFileMetadata) {
-        addFile.visibility = View.GONE
         adapter.submitList(
             listOf(
                 MetaProfileFileEntry(
@@ -91,7 +85,6 @@ internal class MetaProfileFilesDesign(
     }
 
     fun showProviderDirectory(files: List<ProfileProviderFileMetadata>) {
-        addFile.visibility = View.VISIBLE
         adapter.submitList(
             files.map { file ->
                 MetaProfileFileEntry(
@@ -113,6 +106,24 @@ internal class MetaProfileFilesDesign(
 
     fun updateElapsed() {
         adapter.updateElapsed()
+    }
+
+    private fun showReadOnlyActions() {
+        val action = MetaProfileActionItemBinding.inflate(context.layoutInflater)
+        val explanation = context.getString(R.string.profile_files_read_only_notice)
+        action.actionIcon.setImageResource(R.drawable.ic_outline_info)
+        action.actionLabel.text = explanation
+        action.actionRoot.apply {
+            background = null
+            contentDescription = explanation
+            isClickable = false
+            isFocusable = false
+        }
+
+        MetaBottomSheetDialog(context).apply {
+            setContentView(action.root)
+            show()
+        }
     }
 
     private fun updateActivityBarElevation() {

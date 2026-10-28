@@ -26,7 +26,6 @@
                 android:layout_height="wrap_content"
                 android:layout_alignParentStart="true"
                 android:layout_centerVertical="true"
-                android:layout_toStartOf="@id/profile_files_add"
                 android:gravity="center_vertical"
                 android:minHeight="@dimen/metacubex_toolbar_height"
                 android:orientation="horizontal">
@@ -51,21 +50,6 @@
                     android:text="@string/profile_files_title"
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6" />
             </LinearLayout>
-
-            <ImageView
-                android:id="@+id/profile_files_add"
-                android:layout_width="@dimen/metacubex_item_tailing_component_size"
-                android:layout_height="@dimen/metacubex_item_tailing_component_size"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:layout_marginStart="@dimen/metacubex_item_tailing_margin"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:clickable="true"
-                android:contentDescription="@string/profile_files_add"
-                android:focusable="true"
-                android:padding="@dimen/metacubex_toolbar_image_action_padding"
-                android:src="@drawable/ic_baseline_add"
-                android:visibility="gone" />
         </RelativeLayout>
     </rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
