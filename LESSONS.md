@@ -20,7 +20,7 @@
 | LESSON-20261022-002 | 2026-10-22 | CI Android instrumentation | Headless AVD 测试期间窗口失焦 | [失败 run 39697174637](https://github.com/MFSGA/AChimera/actions/runs/39697174637)、[修复验证 run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292) | Verified |
 | LESSON-20261022-003 | 2026-10-22 | CI Android SDK setup | Emulator SDK 下载遇到 Premature EOF，后续检查未运行 | [失败 run 39699535693](https://github.com/MFSGA/AChimera/actions/runs/39699535693)、[修复验证 run 39700416292](https://github.com/MFSGA/AChimera/actions/runs/39700416292) | Verified |
 | LESSON-20261028-001 | 2026-10-28 | MetaCubeX proxy filter | 过滤回退页未更新已记忆的代理组 | API 36 模拟器本地复现；`ProxyDisplayPolicyTest` 回归用例与 CMFA 页面行为比对 | Verified |
-| LESSON-20261028-002 | 2026-10-28 | Local Android emulator visual QA | 父组分页截图尝试后宿主 QEMU 多次 SIGSEGV | 本机 `coredumpctl` 记录与三次操作时序对应的 PIDs 582176、588059、594806 | Mitigated |
+| LESSON-20261028-002 | 2026-10-28–2026-10-29 | Local Android emulator visual QA | 代理分页验证期间宿主 QEMU 多次 SIGSEGV | 本机 `coredumpctl` 记录 PIDs 582176、588059、594806、620358；操作与崩溃的时间关系见下文，不能据此确认因果 | Mitigated |
 
 ## 条目模板
 
@@ -130,19 +130,19 @@
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否
 
-### LESSON-20261028-002: 本机模拟器切换代理组时宿主 QEMU 崩溃
+### LESSON-20261028-002: 本机模拟器代理分页时宿主 QEMU 崩溃
 
-- 发生/确认时间（含时区）：2026-10-28 23:13、23:16、23:22，Asia/Shanghai
+- 发生/确认时间（含时区）：2026-10-28 23:13、23:16、23:22，以及 2026-10-29 01:35，Asia/Shanghai；最新事件在 `coredumpctl list` 中记为 01:35:21，`coredumpctl info` 元数据记为 01:35:19
 - 模块：本机 Android 模拟器 / Meta UI 视觉验证
-- 严重度：Low（阻断该模拟器上的父组截图核验；应用数据未丢失）
+- 严重度：Medium（阻断模拟器分页验证；最近一次恢复启动显示较旧的应用/配置状态，之后通过重新安装并导入测试配置恢复了代理页验证环境；未影响仓库或远端数据）
 - 状态：Mitigated
-- Issue、PR、commit、CI 运行或复现证据：本机 `coredumpctl` 记录 QEMU PIDs `582176`、`588059`、`594806` 均以 `SIGSEGV` 退出；时间分别为 2026-10-28 23:13:01、23:16:04、23:22:42 CST，与三次父组分页操作尝试在时间上对应。同一 AVD 另有 23:08:21 的 PID `564872` 崩溃，但没有可核实证据将其与本条分页操作联系，因此不纳入三次复现。
-- 环境：Android Emulator 36.5.11，Android API 36 x86_64，AVD `CMFA_Settings_5558`，1080×1920；MetaCubeX 代理页已加载。避免记录实际配置的组名、订阅链接、配置正文或节点凭据。
+- Issue、PR、commit、CI 运行或复现证据：本机 `coredumpctl` 记录 QEMU PIDs `582176`、`588059`、`594806` 均以 `SIGSEGV` 退出；时间分别为 2026-10-28 23:13:01、23:16:04、23:22:42 CST，与三次父组分页操作尝试在时间上对应。2026-10-29，PID `620358` 再次以 `SIGSEGV` 退出；`coredumpctl list` 记为 01:35:21 CST，而 `coredumpctl info` 元数据记为 01:35:19 CST。当时在代理页执行了两次横向分页手势后 ADB 脱机。该时序仍不能证明手势导致 QEMU 崩溃。同一 AVD 另有 2026-10-28 23:08:21 的 PID `564872` 崩溃，但没有可核实证据将其与本条分页操作联系，因此不纳入已确认的分页关联事件。
+- 环境：Android Emulator 36.5.11，Android API 36 x86_64，1080×1920；崩溃进程命令行记录的 AVD 名为 `CMFA_Settings_5558`。恢复时本机可用 AVD 名为 `chimera-api36`，并通过 `emulator-5558` 运行；现有证据不能确认崩溃前后是同一 AVD。避免记录实际配置的组名、订阅链接、配置正文或节点凭据。
 - 预期行为：点击父组标签后代理页切换到对应页面并可通过 ADB 截图；模拟器和 ADB transport 保持在线。
 - 实际失败与可复现步骤：在代理页向父组标签发送 `adb -s emulator-5558 shell input tap 430 273`；三次中输入命令均返回成功，随后 ADB 设备不可用，并在相近时间出现对应 QEMU `SIGSEGV` coredump，导致截图命令无法完成。三个尝试分别使用 `-gpu off`、`-gpu swiftshader`、`-no-window -gpu software -feature -Vulkan` 启动。
 - 根本原因及证据（仍存疑点需注明）：确认崩溃进程是宿主 `qemu-system-x86_64`；coredump 的符号化栈信息不足（只有未解析的首帧）。现有证据只建立输入操作、ADB 脱机与 QEMU 崩溃的时间顺序，不能证明点击导致崩溃，也无法判断是模拟器渲染、输入处理或其他底层缺陷；不能归因于应用代码。
-- 修复改动及其归属：没有修改应用、模拟器 SDK 或用户配置；每次均以同一 AVD 冷启动恢复，确认应用配置仍保留，并在打开 Chimera 后确认 VPN 重新活动。模拟器底层崩溃尚无修复。
-- 预防措施：当前 AVD 上停止重复执行代理分页切换；该页后续先用源码和 JVM 单测核验，待宿主模拟器环境修复或有独立可丢弃设备后再完成父组运行时截图。对比截图继续保存在仓库外。
-- 复验命令、场景和真实结果：重复的 `adb -s emulator-5558 shell input tap 430 273` 后可在 `coredumpctl list` 中观察到宿主 `SIGSEGV`；冷启动后 `adb -s emulator-5558 shell getprop sys.boot_completed` 返回 `1`，启动 Chimera 后 `dumpsys vpn_management` 确认 `rs.chimera.android.dev` VPN 活动。`./gradlew :app:testDebugUnitTest --tests 'rs.chimera.android.ui.metacubex.design.ProxyDisplayPolicyTest'` 通过，但该 JVM 测试不覆盖宿主模拟器崩溃。
+- 修复改动及其归属：模拟器底层崩溃尚无修复。2026-10-29 在恢复时可用的 `chimera-api36` AVD 上使用了 `-no-snapshot-load`；启动后检查 `pm path rs.chimera.android.dev` 无输出。随后以普通 `./gradlew :app:installDebug` 安装（未清除应用数据）并启动应用；应用配置列表显示较旧的状态，保留了恢复后仍可见的既有测试配置，但此前的 Chimera 测试配置未出现。之后将已授权的测试订阅重新导入为独立配置并激活，恢复了代理页验证环境和 VPN。现有证据无法证明启动参数是状态回退的唯一原因，也不能据此断言其他应用数据已丢失。
+- 预防措施：当前 AVD 上停止重复执行代理分页操作；该页后续先用源码和 JVM 单测核验，待宿主模拟器环境修复或有独立可丢弃设备后再继续高频交互。QEMU 异常退出后，优先尝试默认快照恢复；若要使用 `-no-snapshot-load`，先确认用户数据可恢复并检查当前快照，不假定冷启动会保留最新应用状态。重装或重新导入前先核对应用包与配置清单，保留已有配置、不覆盖；对比截图继续保存在仓库外。
+- 复验命令、场景和真实结果：此前重复的 `adb -s emulator-5558 shell input tap 430 273` 后可在 `coredumpctl list` 中观察到宿主 `SIGSEGV`；本次两次横向分页尝试后 ADB 脱机并出现 PID `620358`。恢复时 `./scripts/start-emulator.sh CMFA_Settings_5558` 因本机没有该 AVD 名而安全退出；随后在 `emulator-5558` 启动当时可用的 `chimera-api36`，等待 `sys.boot_completed=1`，`installDebug` 成功。重新导入并激活测试配置后主页显示服务运行，`dumpsys vpn_management` 为 `Active vpn type: 1`。节点切换即时/稳定截图保存在仓库外；截图与本次分页操作测试均不能证明宿主崩溃已修复。
 - 关联独立事件（用于累计出现次数）：无
 - 是否提议升级治理规范及审批链接：否
