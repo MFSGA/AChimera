@@ -27,6 +27,7 @@ internal data class MetaProfileFileEntry(
 
 internal class MetaProfileFileAdapter(
     private val onClick: (MetaProfileFileEntry) -> Unit,
+    private val onMoreClick: (MetaProfileFileEntry) -> Unit,
 ) : ListAdapter<MetaProfileFileEntry, MetaProfileFileAdapter.Holder>(DiffCallback) {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder =
         Holder(LayoutInflater.from(parent.context).inflate(R.layout.meta_item_profile_file, parent, false))
@@ -55,6 +56,7 @@ internal class MetaProfileFileAdapter(
         holder.itemView.setOnClickListener {
             if (entry.action != MetaProfileFileEntry.Action.NONE) onClick(entry)
         }
+        holder.more.setOnClickListener { onMoreClick(entry) }
     }
 
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
@@ -62,6 +64,7 @@ internal class MetaProfileFileAdapter(
         val size: TextView = view.findViewById(R.id.profile_file_size)
         val modified: TextView = view.findViewById(R.id.profile_file_modified)
         val icon: android.widget.ImageView = view.findViewById(R.id.profile_file_icon)
+        val more: View = view.findViewById(R.id.profile_file_more)
     }
 
     private object DiffCallback : DiffUtil.ItemCallback<MetaProfileFileEntry>() {

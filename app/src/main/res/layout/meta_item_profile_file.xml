@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root_view"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="?attr/selectableItemBackground"
     android:clickable="true"
     android:focusable="true"
     android:minHeight="@dimen/metacubex_item_min_height"
-    android:paddingVertical="@dimen/metacubex_item_padding_vertical">
+    android:nextFocusRight="@id/profile_file_more">
 
     <ImageView
         android:id="@+id/profile_file_icon"
@@ -23,7 +24,8 @@
         android:layout_centerVertical="true"
         android:layout_toStartOf="@id/profile_file_modified"
         android:layout_toEndOf="@id/profile_file_icon"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:paddingVertical="@dimen/metacubex_item_padding_vertical">
 
         <TextView
             android:id="@+id/profile_file_name"
@@ -39,12 +41,40 @@
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2" />
     </LinearLayout>
 
+    <View
+        android:id="@+id/profile_file_divider"
+        android:layout_width="@dimen/metacubex_divider_size"
+        android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_toStartOf="@id/profile_file_more"
+        android:background="?attr/colorControlHighlight"
+        android:minHeight="@dimen/metacubex_item_divider_height" />
+
     <TextView
         android:id="@+id/profile_file_modified"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_centerVertical="true"
+        android:layout_marginEnd="@dimen/metacubex_item_middle_margin"
+        android:layout_toStartOf="@id/profile_file_divider"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Tooltip" />
+
+    <FrameLayout
+        android:id="@+id/profile_file_more"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_centerVertical="true"
-        android:layout_marginEnd="@dimen/metacubex_item_tailing_margin"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Tooltip" />
+        android:background="?attr/selectableItemBackground"
+        android:clickable="true"
+        android:focusable="true"
+        android:nextFocusLeft="@id/root_view">
+
+        <ImageView
+            android:layout_width="@dimen/metacubex_item_tailing_component_size"
+            android:layout_height="@dimen/metacubex_item_tailing_component_size"
+            android:layout_margin="@dimen/metacubex_item_tailing_margin"
+            android:contentDescription="@string/access_control_options"
+            android:src="@drawable/ic_baseline_more_vert" />
+    </FrameLayout>
 </RelativeLayout>

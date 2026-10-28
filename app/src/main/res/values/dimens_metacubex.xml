@@ -32,6 +32,7 @@
     <dimen name="metacubex_item_min_height">75dp</dimen>
     <dimen name="metacubex_item_padding_vertical">16dp</dimen>
     <dimen name="metacubex_item_middle_margin">10dp</dimen>
+    <dimen name="metacubex_item_divider_height">45dp</dimen>
     <dimen name="metacubex_item_text_margin">5dp</dimen>
     <dimen name="metacubex_item_tailing_component_size">30dp</dimen>
     <dimen name="metacubex_item_tailing_margin">17.5dp</dimen>
