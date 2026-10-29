@@ -17,6 +17,7 @@ import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
+import rs.chimera.android.ui.metacubex.design.showExceptionToast
 import rs.chimera.android.util.runCatchingPreservingCancellation
 
 class MetaProxyDesignActivity : AppCompatActivity() {
@@ -236,7 +237,7 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 refresh = { refreshGroups() },
                 onFailure = { error ->
                     design.rejectProxySelection(request.selectionToken)
-                    design.showToast(
+                    design.showExceptionToast(
                         getString(
                             R.string.proxy_select_failed,
                             error.message ?: getString(R.string.profile_unknown_error),

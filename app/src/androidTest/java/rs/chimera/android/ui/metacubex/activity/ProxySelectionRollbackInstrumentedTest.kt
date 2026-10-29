@@ -17,6 +17,13 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
+import androidx.test.espresso.Espresso.onView
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.assertion.ViewAssertions.matches
+import androidx.test.espresso.matcher.RootMatchers.isDialog
+import androidx.test.espresso.matcher.ViewMatchers.isDisplayed
+import androidx.test.espresso.matcher.ViewMatchers.withId
+import androidx.test.espresso.matcher.ViewMatchers.withText
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +55,7 @@ import rs.chimera.android.ui.metacubex.design.ProxyCardView
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
 import rs.chimera.android.ui.metacubex.design.ProxyDisplayPolicy
 import rs.chimera.android.ui.metacubex.design.ProxySelectionColorTransition
+import rs.chimera.android.ui.metacubex.design.showExceptionToast
 import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.CopyOnWriteArrayList
@@ -70,6 +78,26 @@ class ProxySelectionRollbackInstrumentedTest {
         originalLastGroup = preferences.getString("proxy_last_group", null)
         hadColumns = preferences.contains("proxy_columns")
         originalColumns = preferences.getInt("proxy_columns", 2)
+    }
+
+    @Test
+    fun selectionFailureShowsCmfaDetailsToastAndDialog() = withFixture { _, design ->
+        val message = "selection failed"
+        runBlocking { design.showExceptionToast(message) }
+
+        onView(withText(message)).check(matches(isDisplayed()))
+        onView(withId(com.google.android.material.R.id.snackbar_action))
+            .check(matches(withText(R.string.meta_error_details)))
+            .perform(click())
+        onView(withText(R.string.meta_error_title))
+            .inRoot(isDialog())
+            .check(matches(isDisplayed()))
+        onView(withText(message))
+            .inRoot(isDialog())
+            .check(matches(isDisplayed()))
+        onView(withId(android.R.id.button1))
+            .inRoot(isDialog())
+            .perform(click())
     }
 
     @After

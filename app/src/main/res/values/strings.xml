@@ -68,6 +68,8 @@
     <string name="logs_cleared">Logs cleared.</string>
     <string name="logs_clear_error">Failed to clear logs: %1$s</string>
     <string name="home_error_title">Home Error</string>
+    <string name="meta_error_title">Error</string>
+    <string name="meta_error_details">Detail</string>
     <string name="action_about">About</string>
     <string name="action_restart">Reload</string>
     <string name="about_title">About</string>
