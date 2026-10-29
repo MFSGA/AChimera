@@ -81,11 +81,12 @@ class ProxySelectionRollbackInstrumentedTest {
     }
 
     @Test
-    fun selectionFailureShowsCmfaDetailsToastAndDialog() = withFixture { _, design ->
+    fun selectionFailureShowsCmfaDetailsToastAndDialog() = withFixture { scenario, design ->
         val message = "selection failed"
         runBlocking { design.showExceptionToast(message) }
 
         onView(withText(message)).check(matches(isDisplayed()))
+        capture(scenario, design, "selection-failure-toast")
         onView(withId(com.google.android.material.R.id.snackbar_action))
             .check(matches(withText(R.string.meta_error_details)))
             .perform(click())
@@ -95,6 +96,7 @@ class ProxySelectionRollbackInstrumentedTest {
         onView(withText(message))
             .inRoot(isDialog())
             .check(matches(isDisplayed()))
+        capture(scenario, design, "selection-failure-details")
         onView(withId(android.R.id.button1))
             .inRoot(isDialog())
             .perform(click())
