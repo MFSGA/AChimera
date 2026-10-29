@@ -1575,12 +1575,26 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun metaSettingsMetaFeaturesCategoryShowsUnavailableNotice() {
+    fun metaSettingsMetaFeaturesCategoryShowsUnavailableOptions() {
         ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
             waitForResumedActivity<MetaSettingsHomeActivity>()
             onView(withId(R.id.category_meta_features)).perform(click())
             waitForResumedActivity<MetaSettingsActivity>()
-            onView(withId(R.id.meta_features_unavailable_notice)).check(matches(isDisplayed()))
+            onView(withId(R.id.meta_features_content)).check { view, _ ->
+                assertEquals(View.VISIBLE, view.visibility)
+            }
+            onView(withText(R.string.meta_feature_unified_delay)).check { view, _ ->
+                val item = view.parent.parent as View
+                assertFalse(item.isEnabled)
+                assertFalse(item.isClickable)
+                assertFalse(item.isFocusable)
+                assertEquals(0.33f, item.alpha, 0.001f)
+                assertEquals(
+                    context.getString(R.string.meta_feature_unavailable_summary),
+                    item.findViewById<android.widget.TextView>(R.id.meta_feature_summary)
+                        .text.toString(),
+                )
+            }
             onView(withId(R.id.card_dns)).check { view, _ ->
                 assertEquals(View.GONE, view.visibility)
             }
@@ -1597,7 +1611,7 @@ class AppUiNavigationInstrumentedTest {
             onView(withId(R.id.category_chimera)).perform(click())
             waitForResumedActivity<MetaSettingsActivity>()
             onView(withId(R.id.card_dns)).check(matches(isDisplayed()))
-            onView(withId(R.id.meta_features_unavailable_notice)).check { view, _ ->
+            onView(withId(R.id.meta_features_content)).check { view, _ ->
                 assertFalse(view.isShown)
             }
         }
