@@ -85,9 +85,7 @@
     <rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout
         android:id="@+id/remote_profile_toolbar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:alpha="0.96"
-        android:background="?android:attr/windowBackground">
+        android:layout_height="wrap_content">
 
     <RelativeLayout
         android:layout_width="match_parent"

@@ -12,9 +12,7 @@
     <rs.chimera.android.ui.metacubex.design.view.ActivityBarLayout
         android:id="@+id/profile_files_activity_bar"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:alpha="0.96"
-        android:background="?android:windowBackground">
+        android:layout_height="wrap_content">
 
         <RelativeLayout
             android:layout_width="match_parent"
