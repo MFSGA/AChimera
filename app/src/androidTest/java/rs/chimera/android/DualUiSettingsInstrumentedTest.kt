@@ -135,7 +135,7 @@ class DualUiSettingsInstrumentedTest {
             scrollWatfaqTo(context.getString(R.string.proxy_providers_title)).assertIsDisplayed()
         }
 
-        launchMetaSettings(SettingsDesign.Category.CHIMERA).use {
+        launchMetaSettings(SettingsDesign.Category.APP).use {
             onView(withId(R.id.card_dns)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.card_rules)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.card_providers)).perform(scrollTo()).check(matches(isDisplayed()))

@@ -874,7 +874,7 @@
                     android:orientation="vertical" />
 
                 <TextView
-                    android:tag="chimera"
+                    android:tag="app"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="24dp"
@@ -885,7 +885,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_logs"
-                    android:tag="chimera"
+                    android:tag="app"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:clickable="true"
@@ -915,7 +915,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_diagnostics"
-                    android:tag="chimera"
+                    android:tag="app"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -946,7 +946,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_dns"
-                    android:tag="chimera"
+                    android:tag="app"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -977,7 +977,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_rules"
-                    android:tag="chimera"
+                    android:tag="app"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
@@ -1008,7 +1008,7 @@
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_providers"
-                    android:tag="chimera"
+                    android:tag="app"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"

@@ -16,7 +16,6 @@ class SettingsHomeDesign(context: Context) : Design<SettingsHomeDesign.Request>(
         OpenNetwork,
         OpenOverride,
         OpenMetaFeatures,
-        OpenChimera,
     }
 
     override val root: View = context.layoutInflater.inflate(
@@ -58,8 +57,6 @@ class SettingsHomeDesign(context: Context) : Design<SettingsHomeDesign.Request>(
             .setOnClickListener { request(Request.OpenOverride) }
         root.findViewById<View>(R.id.category_meta_features)
             .setOnClickListener { request(Request.OpenMetaFeatures) }
-        root.findViewById<View>(R.id.category_chimera)
-            .setOnClickListener { request(Request.OpenChimera) }
     }
 
     private fun request(request: Request) {

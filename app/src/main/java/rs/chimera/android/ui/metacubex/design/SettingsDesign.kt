@@ -33,7 +33,6 @@ class SettingsDesign(
         APP("app", R.string.settings_category_app),
         NETWORK("network", R.string.settings_category_network),
         META_FEATURES("meta_features", R.string.settings_category_meta_features),
-        CHIMERA("chimera", R.string.settings_chimera_features),
     }
 
     companion object {

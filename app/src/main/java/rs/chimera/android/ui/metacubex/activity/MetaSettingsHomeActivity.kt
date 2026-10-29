@@ -27,8 +27,6 @@ class MetaSettingsHomeActivity : AppCompatActivity() {
                         startActivity(Intent(this@MetaSettingsHomeActivity, MetaOverrideActivity::class.java))
                     SettingsHomeDesign.Request.OpenMetaFeatures ->
                         openCategory(SettingsDesign.Category.META_FEATURES)
-                    SettingsHomeDesign.Request.OpenChimera ->
-                        openCategory(SettingsDesign.Category.CHIMERA)
                 }
             }
         }

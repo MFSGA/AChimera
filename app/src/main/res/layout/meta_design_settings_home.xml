@@ -115,30 +115,6 @@
                     android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
             </LinearLayout>
 
-            <LinearLayout
-                android:id="@+id/category_chimera"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/selectableItemBackground"
-                android:clickable="true"
-                android:focusable="true"
-                android:gravity="center_vertical"
-                android:minHeight="75dp"
-                android:orientation="horizontal"
-                android:paddingVertical="16dp">
-
-                <View
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
-                    android:layout_marginHorizontal="17.5dp"
-                    android:background="@drawable/ic_baseline_info" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings_chimera_features"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Body1" />
-            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 

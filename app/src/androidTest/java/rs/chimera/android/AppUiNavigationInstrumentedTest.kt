@@ -1605,12 +1605,14 @@ class AppUiNavigationInstrumentedTest {
     }
 
     @Test
-    fun metaSettingsChimeraCategoryKeepsDiagnosticsAvailable() {
+    fun metaSettingsAppCategoryKeepsDiagnosticsAvailable() {
         ActivityScenario.launch(MetaSettingsHomeActivity::class.java).use {
             waitForResumedActivity<MetaSettingsHomeActivity>()
-            onView(withId(R.id.category_chimera)).perform(click())
+            onView(withId(R.id.category_app)).perform(click())
             waitForResumedActivity<MetaSettingsActivity>()
-            onView(withId(R.id.card_dns)).check(matches(isDisplayed()))
+            onView(withId(R.id.card_dns)).perform(scrollTo()).check(matches(isDisplayed()))
+            onView(withId(R.id.card_rules)).perform(scrollTo()).check(matches(isDisplayed()))
+            onView(withId(R.id.card_providers)).perform(scrollTo()).check(matches(isDisplayed()))
             onView(withId(R.id.meta_features_content)).check { view, _ ->
                 assertFalse(view.isShown)
             }
