@@ -80,6 +80,11 @@ class AppUiNavigationInstrumentedTest {
 
     @Before
     fun setUp() {
+        val device = UiDevice.getInstance(instrumentation)
+        device.wakeUp()
+        device.pressHome()
+        instrumentation.waitForIdleSync()
+
         originalPreferences = snapshotPreferences()
         clearPreferences()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
