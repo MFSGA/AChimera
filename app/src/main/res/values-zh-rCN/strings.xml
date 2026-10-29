@@ -432,6 +432,11 @@
     <string name="profile_files_configuration">配置文件</string>
     <string name="profile_files_providers">外部资源文件列表</string>
     <string name="profile_files_read_only_notice">文件操作暂不可用；此页面仅支持只读查看。</string>
+    <string name="profile_file_action_import">导入</string>
+    <string name="profile_file_action_export">导出</string>
+    <string name="profile_file_action_rename">重命名</string>
+    <string name="profile_file_action_delete">删除</string>
+    <string name="profile_file_action_unavailable">此只读页面暂不支持%1$s。</string>
     <string name="profile_files_open_failed">无法打开配置文件：%1$s</string>
     <string name="profile_files_list_failed">无法读取提供器文件列表：%1$s</string>
     <string name="profile_properties_tip"><![CDATA[仅接受 <b>Clash 配置文件</b>(包含<b>代理</b>/<b>规则</b>)]]></string>

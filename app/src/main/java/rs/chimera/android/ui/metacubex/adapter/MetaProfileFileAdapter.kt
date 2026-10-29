@@ -16,6 +16,7 @@ internal data class MetaProfileFileEntry(
     val modifiedAt: Long?,
     val isDirectory: Boolean = false,
     val relativePath: List<String> = emptyList(),
+    val currentInBaseDirectory: Boolean = true,
     val action: Action = Action.NONE,
 ) {
     enum class Action {

@@ -40,6 +40,7 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
         val id = intent.getStringExtra(EXTRA_PROFILE_ID)
         profileId = id
         if (id == null) return finish()
+        val configurationEditable = intent.getBooleanExtra(EXTRA_CONFIGURATION_EDITABLE, false)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 val design = filesDesign ?: return finish()
@@ -61,7 +62,7 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
         }
         lifecycleScope.launch {
             try {
-                showFiles(backend.readProfileFileMetadata(id))
+                showFiles(backend.readProfileFileMetadata(id), configurationEditable)
             } catch (cancellation: CancellationException) {
                 throw cancellation
             } catch (error: Exception) {
@@ -75,9 +76,9 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
         }
     }
 
-    private fun showFiles(metadata: ProfileFileMetadata) {
+    private fun showFiles(metadata: ProfileFileMetadata, configurationEditable: Boolean) {
         val id = profileId ?: return finish()
-        val design = MetaProfileFilesDesign(this, metadata)
+        val design = MetaProfileFilesDesign(this, metadata, configurationEditable)
         profileMetadata = metadata
         filesDesign = design
         setContentView(design.root)
@@ -158,9 +159,11 @@ internal class MetaProfileFilesActivity : AppCompatActivity() {
 
     companion object {
         private const val EXTRA_PROFILE_ID = "rs.chimera.android.profile_id"
+        private const val EXTRA_CONFIGURATION_EDITABLE = "rs.chimera.android.configuration_editable"
 
-        fun intent(context: Context, profileId: String): Intent =
+        fun intent(context: Context, profileId: String, configurationEditable: Boolean): Intent =
             Intent(context, MetaProfileFilesActivity::class.java)
                 .putExtra(EXTRA_PROFILE_ID, profileId)
+                .putExtra(EXTRA_CONFIGURATION_EDITABLE, configurationEditable)
     }
 }

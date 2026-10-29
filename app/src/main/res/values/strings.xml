@@ -445,6 +445,11 @@
     <string name="profile_files_configuration">Configuration</string>
     <string name="profile_files_providers">Provider Files</string>
     <string name="profile_files_read_only_notice">File actions are not available; this page is read-only.</string>
+    <string name="profile_file_action_import">Import</string>
+    <string name="profile_file_action_export">Export</string>
+    <string name="profile_file_action_rename">Rename</string>
+    <string name="profile_file_action_delete">Delete</string>
+    <string name="profile_file_action_unavailable">%1$s is unavailable on this read-only page.</string>
     <string name="profile_files_open_failed">Could not open the configuration file: %1$s</string>
     <string name="profile_files_list_failed">Could not list provider files: %1$s</string>
     <string name="profile_properties_tip"><![CDATA[Accept Only <b>Clash Config</b>(including <b>Proxy</b>/<b>Rules</b>)]]></string>

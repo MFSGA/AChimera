@@ -3,6 +3,7 @@ package rs.chimera.android.ui.metacubex.design
 import android.animation.ValueAnimator
 import android.content.Context
 import android.view.View
+import android.widget.LinearLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.doOnAttach
@@ -21,6 +22,7 @@ import rs.chimera.android.ui.metacubex.design.util.root
 internal class MetaProfileFilesDesign(
     context: Context,
     metadata: ProfileFileMetadata,
+    private val configurationEditable: Boolean,
 ) : Design<MetaProfileFilesDesign.Request>(context) {
     override val root: View = context.layoutInflater.inflate(
         R.layout.meta_design_profile_files,
@@ -41,7 +43,7 @@ internal class MetaProfileFilesDesign(
                 MetaProfileFileEntry.Action.NONE -> Unit
             }
         },
-        onMoreClick = { showReadOnlyActions() },
+        onMoreClick = ::showReadOnlyActions,
     )
 
     init {
@@ -93,6 +95,7 @@ internal class MetaProfileFilesDesign(
                     modifiedAt = file.lastModified,
                     isDirectory = file.isDirectory,
                     relativePath = file.relativePath,
+                    currentInBaseDirectory = false,
                     action = if (file.isDirectory) {
                         MetaProfileFileEntry.Action.OPEN_DIRECTORY
                     } else {
@@ -108,20 +111,60 @@ internal class MetaProfileFilesDesign(
         adapter.updateElapsed()
     }
 
-    private fun showReadOnlyActions() {
-        val action = MetaProfileActionItemBinding.inflate(context.layoutInflater)
-        val explanation = context.getString(R.string.profile_files_read_only_notice)
-        action.actionIcon.setImageResource(R.drawable.ic_outline_info)
-        action.actionLabel.text = explanation
-        action.actionRoot.apply {
+    private fun showReadOnlyActions(entry: MetaProfileFileEntry) {
+        val content = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        ProfileFileMenuPolicy.visibleActions(
+            isDirectory = entry.isDirectory,
+            size = entry.size,
+            currentInBaseDirectory = entry.currentInBaseDirectory,
+            configurationEditable = configurationEditable,
+        ).forEach { action ->
+            val item = MetaProfileActionItemBinding.inflate(context.layoutInflater, content, false)
+            item.actionIcon.setImageResource(
+                when (action) {
+                    ProfileFileMenuAction.IMPORT -> R.drawable.ic_baseline_get_app
+                    ProfileFileMenuAction.EXPORT -> R.drawable.ic_baseline_publish
+                    ProfileFileMenuAction.RENAME -> R.drawable.ic_baseline_edit
+                    ProfileFileMenuAction.DELETE -> R.drawable.ic_outline_delete
+                },
+            )
+            item.actionLabel.setText(
+                when (action) {
+                    ProfileFileMenuAction.IMPORT -> R.string.profile_file_action_import
+                    ProfileFileMenuAction.EXPORT -> R.string.profile_file_action_export
+                    ProfileFileMenuAction.RENAME -> R.string.profile_file_action_rename
+                    ProfileFileMenuAction.DELETE -> R.string.profile_file_action_delete
+                },
+            )
+            item.actionRoot.apply {
+                background = null
+                alpha = READ_ONLY_ACTION_ALPHA
+                contentDescription = context.getString(
+                    R.string.profile_file_action_unavailable,
+                    item.actionLabel.text,
+                )
+                isClickable = false
+                isFocusable = false
+                isEnabled = false
+            }
+            content.addView(item.root)
+        }
+
+        val explanation = MetaProfileActionItemBinding.inflate(context.layoutInflater, content, false)
+        explanation.actionIcon.setImageResource(R.drawable.ic_outline_info)
+        explanation.actionLabel.setText(R.string.profile_files_read_only_notice)
+        explanation.actionRoot.apply {
             background = null
-            contentDescription = explanation
+            contentDescription = explanation.actionLabel.text
             isClickable = false
             isFocusable = false
         }
+        content.addView(explanation.root)
 
         MetaBottomSheetDialog(context).apply {
-            setContentView(action.root)
+            setContentView(content)
             show()
         }
     }
@@ -165,5 +208,9 @@ internal class MetaProfileFilesDesign(
         data object OpenConfiguration : Request()
         data class OpenProviderDirectory(val path: List<String>) : Request()
         data object NavigateBack : Request()
+    }
+
+    private companion object {
+        const val READ_ONLY_ACTION_ALPHA = 0.38f
     }
 }
