@@ -21,6 +21,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ChimeraBackend
+import rs.chimera.android.backend.ProxySelectionException
 import rs.chimera.android.backend.model.ProxyGroupSnapshot
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.backend.model.StartVpnResult
@@ -185,7 +186,11 @@ class HomeViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                errorMessage = formatError("Failed to select proxy", error)
+                errorMessage = if (error is ProxySelectionException) {
+                    error.message
+                } else {
+                    formatError("Failed to select proxy", error)
+                }
             }
         }
     }

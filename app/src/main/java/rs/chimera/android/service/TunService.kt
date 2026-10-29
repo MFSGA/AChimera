@@ -217,7 +217,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         )
         currentCoroutineContext().ensureActive()
 
-        val startResult =
+        val startResult = backend.withCoreProfileLoad(profilePath) { restoreSelections ->
             initClash(
                 configPath = profilePath,
                 workDir = workDirectory.absolutePath,
@@ -226,7 +226,10 @@ class TunService : VpnService(), VpnRuntimeControl {
                     settings = settings,
                     logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
                 ),
-            )
+            ).also { result ->
+                if (result.isSuccess) restoreSelections()
+            }
+        }
         currentCoroutineContext().ensureActive()
         if (startResult.isFailure) {
             closeDetachedTunFd(currentTunFd)
@@ -239,6 +242,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         currentCoroutineContext().ensureActive()
         Global.updateActiveCoreWorkDirectory(workDirectory.absolutePath)
         Global.proxyPort = finalProfile.mixedPort
+        currentCoroutineContext().ensureActive()
         appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
         BackendRuntimeState.updateServiceState(ServiceState.RUNNING)

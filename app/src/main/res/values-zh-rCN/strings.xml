@@ -339,6 +339,8 @@
     <string name="proxy_refresh_failed">刷新代理组失败。</string>
     <string name="proxy_select_not_applied">核心未能应用 %1$s。</string>
     <string name="proxy_select_failed">选择代理失败：%1$s</string>
+    <string name="proxy_selection_persistence_failed">代理已在当前会话中选中，但无法保存为下次启动的选择。</string>
+    <string name="proxy_selection_profile_reload_required">当前运行的核心仍在使用旧配置，请重启 VPN 后再选择节点。</string>
     <string name="proxy_delay_testing_progress">正在测试 %1$d/%2$d</string>
     <string name="proxy_menu_mode">模式</string>
     <string name="proxy_menu_filter">过滤</string>

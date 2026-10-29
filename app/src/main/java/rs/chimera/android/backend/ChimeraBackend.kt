@@ -80,6 +80,17 @@ interface ChimeraBackend {
     suspend fun verifyProfile(filePath: String): Result<String>
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot>
     suspend fun selectProxy(groupName: String, proxyName: String)
+
+    /**
+     * Keeps a matching profile update from replacing its file while the VPN core loads it, then
+     * restores saved choices before returning. The callback must invoke restore after successful
+     * core initialization; if the profile is being updated, restore is skipped without blocking
+     * VPN startup and selections are not persisted until a matching profile is loaded.
+     */
+    suspend fun <T> withCoreProfileLoad(
+        profilePath: String,
+        initializeCore: suspend (restoreSelections: suspend () -> Unit) -> T,
+    ): T
     suspend fun setMode(mode: ProxyMode?)
     suspend fun resetNetwork()
     suspend fun testProxyDelay(proxyName: String): String

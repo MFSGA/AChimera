@@ -348,6 +348,8 @@
     <string name="proxy_refresh_failed">Failed to refresh proxy groups.</string>
     <string name="proxy_select_not_applied">The core did not apply %1$s.</string>
     <string name="proxy_select_failed">Failed to select proxy: %1$s</string>
+    <string name="proxy_selection_persistence_failed">The proxy is selected for this session, but could not be saved for the next startup.</string>
+    <string name="proxy_selection_profile_reload_required">The running core still uses an older profile. Restart the VPN before selecting a proxy.</string>
     <string name="proxy_delay_testing_progress">Testing %1$d/%2$d</string>
     <string name="proxy_menu_mode">Mode</string>
     <string name="proxy_menu_filter">Filter</string>

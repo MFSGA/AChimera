@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
+import rs.chimera.android.backend.ProxySelectionException
 import rs.chimera.android.backend.model.BackendRuntimeErrorSource
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.metacubex.design.ProxyDesign
@@ -237,12 +238,15 @@ class MetaProxyDesignActivity : AppCompatActivity() {
                 refresh = { refreshGroups() },
                 onFailure = { error ->
                     design.rejectProxySelection(request.selectionToken)
-                    design.showExceptionToast(
+                    val message = if (error is ProxySelectionException) {
+                        error.message ?: getString(R.string.proxy_selection_persistence_failed)
+                    } else {
                         getString(
                             R.string.proxy_select_failed,
                             error.message ?: getString(R.string.profile_unknown_error),
-                        ),
-                    )
+                        )
+                    }
+                    design.showExceptionToast(message)
                 },
                 onCancellation = {
                     design.rejectProxySelection(request.selectionToken)

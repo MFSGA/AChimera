@@ -66,6 +66,16 @@ internal class BackendControllerOperations(
         controller.getProxies().toProxyGroupSnapshots(mode, proxySubtitlePattern())
     }
 
+    suspend fun fetchProxyGroupsForSelectionRestore(): List<ProxyGroupSnapshot> = withControllerContext {
+        // Use the full group view even when the active mode is DIRECT; otherwise valid choices look stale.
+        controller.getProxies().toProxyGroupSnapshots(Mode.RULE, proxySubtitlePattern())
+    }
+
+    suspend fun restoreProxySelection(groupName: String, proxyName: String) = withControllerContext {
+        // Called only after core initialization, while the VPN service is still STARTING.
+        controller.selectProxy(groupName, proxyName)
+    }
+
     suspend fun listProxyGroups(): List<ProxyGroupSnapshot> =
         runProxyOperation("Failed to refresh proxy groups", ::fetchProxyGroups)
 

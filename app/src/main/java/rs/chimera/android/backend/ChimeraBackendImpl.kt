@@ -8,8 +8,10 @@ import rs.chimera.android.settings.SettingsRepository
 
 import android.content.Context
 import android.net.Uri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,10 +61,14 @@ class ChimeraBackendImpl(
     private val context: Context,
     private val settingsRepository: SettingsRepository,
 ) : ChimeraBackend {
+    @Volatile
+    private var loadedCoreProfileRevision: CoreProfileRevision? = null
+
     override val settings = settingsRepository.settings
     private val settingsUpdateMutex = Mutex()
     private val backendScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val profilePrefs = context.getSharedPreferences(FILE_PREFS, Context.MODE_PRIVATE)
+    private val proxySelectionStore = ProxySelectionStore(context)
     private val profileAutoUpdateScheduler = ProfileAutoUpdateScheduler(context)
     private val profileAutoUpdateStateStore = ProfileAutoUpdateStateStore(context)
     private val profileUpdateCoordinator = ProfileUpdateCoordinator()
@@ -318,6 +324,9 @@ class ChimeraBackendImpl(
             if (!profileAutoUpdateStateStore.clear(id)) {
                 PrivacySafeLog.warningDetail(TAG, "Failed to clear deleted auto-update state", "profileId=$id")
             }
+            if (!proxySelectionStore.removeProfile(id)) {
+                PrivacySafeLog.warningDetail(TAG, "Failed to clear deleted profile proxy selections", "profileId=$id")
+            }
             refreshActiveProfile()
         }
     }
@@ -483,9 +492,181 @@ class ChimeraBackendImpl(
     override suspend fun selectProxy(groupName: String, proxyName: String) {
         runtimeTelemetry.invalidateProxyGroupsSnapshot()
         try {
-            controllerOperations.selectProxy(groupName, proxyName)
+            profileRuntimeMutationGate.withLock {
+                val profile = activeProfile.value
+                if (profile == null) {
+                    controllerOperations.selectProxy(groupName, proxyName)
+                    return@withLock
+                }
+
+                profileUpdateCoordinator.withLock(profile.id) {
+                    val currentProfile = activeProfile.value
+                    if (
+                        currentProfile == null ||
+                        currentProfile.id != profile.id ||
+                        currentProfile.lastUpdated != profile.lastUpdated ||
+                        !coreProfileRevisionMatches(loadedCoreProfileRevision, currentProfile)
+                    ) {
+                        throw ProxySelectionProfileReloadRequiredException(
+                            context.getString(rs.chimera.android.R.string.proxy_selection_profile_reload_required),
+                        )
+                    }
+                    controllerOperations.selectProxy(groupName, proxyName)
+                    val saved = withContext(NonCancellable + Dispatchers.IO) {
+                        proxySelectionStore.save(
+                            currentProfile.id,
+                            currentProfile.lastUpdated,
+                            groupName,
+                            proxyName,
+                        )
+                    }
+                    if (!saved) {
+                        PrivacySafeLog.warningDetail(
+                            TAG,
+                            "Failed to persist selected proxy",
+                            "profileId=${profile.id}",
+                        )
+                        throw ProxySelectionPersistenceException(
+                            context.getString(rs.chimera.android.R.string.proxy_selection_persistence_failed),
+                        )
+                    }
+                }
+            }
         } finally {
             runtimeTelemetry.refreshProxyGroupsSoon()
+        }
+    }
+
+    override suspend fun <T> withCoreProfileLoad(
+        profilePath: String,
+        initializeCore: suspend (restoreSelections: suspend () -> Unit) -> T,
+    ): T {
+        loadedCoreProfileRevision = null
+        val candidate = withContext(Dispatchers.IO) {
+            profileCatalogReader.readProfiles().firstOrNull { profile ->
+                pathsReferToSameFile(profile.filePath, profilePath)
+            }
+        } ?: return initializeCore {}
+
+        val attempt = profileUpdateCoordinator.tryWithLockResult(candidate.id) {
+            val profile = withContext(Dispatchers.IO) {
+                profileCatalogReader.readProfiles().firstOrNull { current ->
+                    current.id == candidate.id && pathsReferToSameFile(current.filePath, profilePath)
+                }
+            } ?: return@tryWithLockResult initializeCore {}
+
+            var initialized = false
+            try {
+                initializeCore {
+                    if (initialized) return@initializeCore
+                    initialized = true
+                    loadedCoreProfileRevision = CoreProfileRevision(profile.id, profile.lastUpdated)
+                    if (serviceState.value != ServiceState.STARTING) return@initializeCore
+                    runProxySelectionRestoreWithinTimeout(
+                        timeoutMillis = PROXY_SELECTION_RESTORE_TIMEOUT_MILLIS,
+                        onTimeout = {
+                            PrivacySafeLog.warningDetail(
+                                TAG,
+                                "Timed out restoring saved proxy selections",
+                                "profileId=${profile.id}",
+                            )
+                        },
+                        restore = {
+                            restoreProxySelectionsForLockedProfile(profile, profilePath)
+                        },
+                    )
+                }
+            } catch (error: Throwable) {
+                loadedCoreProfileRevision = null
+                throw error
+            }.also {
+                if (!initialized) loadedCoreProfileRevision = null
+            }
+        }
+        return when (attempt) {
+            is ProfileUpdateLockAttempt.Acquired -> attempt.value
+            ProfileUpdateLockAttempt.Busy -> {
+                PrivacySafeLog.warningDetail(
+                    TAG,
+                    "Skipped proxy selection restore while profile update is in progress",
+                    "profileId=${candidate.id}",
+                )
+                initializeCore {}
+            }
+        }
+    }
+
+    private fun pathsReferToSameFile(first: String, second: String): Boolean = runCatching {
+        File(first).canonicalFile == File(second).canonicalFile
+    }.getOrDefault(false)
+
+    private suspend fun restoreProxySelectionsForLockedProfile(
+        profile: ProfileSummary,
+        profilePath: String,
+    ) {
+        val profileId = profile.id
+        val savedSelections = withContext(Dispatchers.IO) {
+            proxySelectionStore.read(profileId, profile.lastUpdated)
+        }
+        if (!savedSelections.revisionMatches) {
+            if (savedSelections.hasSelections) {
+                val removed = withContext(Dispatchers.IO) {
+                    proxySelectionStore.removeProfile(profileId)
+                }
+                if (!removed) {
+                    PrivacySafeLog.warningDetail(
+                        TAG,
+                        "Failed to remove proxy selections from an older profile revision",
+                        "profileId=$profileId",
+                    )
+                }
+            }
+            return
+        }
+        if (savedSelections.selections.isEmpty()) return
+
+        val groups = try {
+            controllerOperations.fetchProxyGroupsForSelectionRestore()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            PrivacySafeLog.warning(
+                TAG,
+                "Failed to load proxy groups for saved selections",
+                error,
+                debugDetail = "profileId=$profileId",
+            )
+            return
+        }
+
+        val plan = planProxySelectionRestore(groups, savedSelections.selections)
+        if (plan.obsoleteGroups.isNotEmpty()) {
+            val removed = withContext(Dispatchers.IO) {
+                proxySelectionStore.removeGroups(profileId, plan.obsoleteGroups)
+            }
+            if (!removed) {
+                PrivacySafeLog.warningDetail(
+                    TAG,
+                    "Failed to remove obsolete proxy selections",
+                    "profileId=$profileId",
+                )
+            }
+        }
+
+        plan.selections.forEach { selection ->
+            try {
+                controllerOperations.restoreProxySelection(selection.groupName, selection.proxyName)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                // Keep the saved choice so a transient controller failure can be retried next start.
+                PrivacySafeLog.warning(
+                    TAG,
+                    "Failed to restore a saved proxy selection",
+                    error,
+                    debugDetail = "profileId=$profileId",
+                )
+            }
         }
     }
 
@@ -722,5 +903,6 @@ class ChimeraBackendImpl(
     private companion object {
         const val TAG = "ChimeraBackend"
         const val FILE_PREFS = "file_prefs"
+        const val PROXY_SELECTION_RESTORE_TIMEOUT_MILLIS = 10_000L
     }
 }

@@ -84,4 +84,52 @@ class ProfileUpdateCoordinatorTest {
         first.await()
         assertEquals(0, coordinator.retainedLockCount)
     }
+
+    @Test
+    fun tryWithLockSkipsBusyProfileAndReleasesItsReference() = runBlocking {
+        val coordinator = ProfileUpdateCoordinator()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val first = async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.withLock("profile") {
+                releaseFirst.await()
+            }
+        }
+
+        assertFalse(coordinator.tryWithLock("profile") { error("busy profile must be skipped") })
+        assertEquals(1, coordinator.retainedLockCount)
+
+        releaseFirst.complete(Unit)
+        first.await()
+        var entered = false
+        assertTrue(coordinator.tryWithLock("profile") { entered = true })
+        assertTrue(entered)
+        assertEquals(0, coordinator.retainedLockCount)
+    }
+
+    @Test
+    fun tryWithLockResultReturnsTheProtectedValue() = runBlocking {
+        val coordinator = ProfileUpdateCoordinator()
+
+        val attempt = coordinator.tryWithLockResult("profile") { "loaded" }
+
+        assertEquals(ProfileUpdateLockAttempt.Acquired("loaded"), attempt)
+        assertEquals(0, coordinator.retainedLockCount)
+    }
+
+    @Test
+    fun tryWithLockResultReportsBusyWithoutWaiting() = runBlocking {
+        val coordinator = ProfileUpdateCoordinator()
+        val releaseFirst = CompletableDeferred<Unit>()
+        val first = async(start = CoroutineStart.UNDISPATCHED) {
+            coordinator.withLock("profile") {
+                releaseFirst.await()
+            }
+        }
+
+        assertEquals(ProfileUpdateLockAttempt.Busy, coordinator.tryWithLockResult("profile") { "ignored" })
+
+        releaseFirst.complete(Unit)
+        first.await()
+        assertEquals(0, coordinator.retainedLockCount)
+    }
 }
