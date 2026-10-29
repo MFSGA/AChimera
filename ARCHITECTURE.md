@@ -34,6 +34,7 @@ AChimera 的 MetaCubeX / CMFA 风格界面（`app/src/main/java/rs/chimera/andro
 - 代理页横屏内容宽度同样沿用 CMFA `Insets.landscape` 的 500dp 最小视口约束，在超宽屏上居中；具体页面仍需提供参考/实现截图，不能以该约束通过推断整页已对齐。
 - CMFA 主页面保留参考基线定义的内容入口和状态信息；由于 Chimera 同时提供 Watfaq 与 MetaCubeX 两套界面，在现有顶部品牌栏增加紧凑的“切换到 Watfaq”按钮作为 Chimera 专属扩展（参考 CMFA 无对应入口），不额外增加主页内容行。Chimera 专属的连接管理仍由 Watfaq 首页提供入口，内存遥测不在 MetaCubeX 主页面展示。
 - MetaCubeX 配置操作菜单仅展示 CMFA 基线中的更新、编辑、复制、二维码和删除，并按配置类型应用参考的可用性规则；Chimera 的配置详情和验证操作仍可从 Watfaq 界面进入，不在 CMFA 菜单中追加滚动操作项。
+- 配置 Override 页沿用 CMFA 偏好分类和行布局，但当前 Chimera backend/UniFFI 尚无完整的 Override 查询、更新和重置接口；页面会说明能力暂不可用，并禁用各设置项与重置入口，不能把占位项误认为已生效的配置。
 
 不得仅因 AChimera 使用了不同的 Compose/Material 组件或实现起来更方便，就改变参考布局、控件层级、默认尺寸、配色或交互位置。优先调整本项目现有布局与资源以达到视觉一致。Chimera 应用名称、品牌图标、包名和必要版权信息可以保留；当前后端、配置模型、VPN 生命周期、Android 权限流程、产品明确关闭/尚不支持的能力，以及平台、无障碍或语言适配引起的差异，只允许限于必要范围，且必须在变更说明中写明原因、影响和未实现部分。不得为了外观虚构可用功能。
 

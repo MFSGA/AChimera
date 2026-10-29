@@ -160,7 +160,7 @@
     <string name="meta_feature_import_asn">Import ASN Database</string>
     <string name="settings_category_override_unavailable">Profile overrides are not supported in Chimera yet.</string>
     <string name="meta_override_reset">Reset overrides</string>
-    <string name="meta_override_no_change">Do not modify</string>
+    <string name="meta_override_unavailable">Unavailable</string>
     <string name="meta_override_general">General</string>
     <string name="meta_override_dns">DNS</string>
     <string name="meta_override_http_port">HTTP Port</string>

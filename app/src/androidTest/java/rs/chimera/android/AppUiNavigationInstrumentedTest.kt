@@ -1624,7 +1624,30 @@ class AppUiNavigationInstrumentedTest {
             onView(withId(R.id.category_override)).perform(click())
             waitForResumedActivity<MetaOverrideActivity>()
             onView(withText(R.string.meta_override_general)).check(matches(isDisplayed()))
-            onView(withText(R.string.meta_override_http_port)).check(matches(isDisplayed()))
+            onView(withText(R.string.settings_category_override_unavailable))
+                .check(matches(isDisplayed()))
+            onView(withText(R.string.meta_override_http_port)).check { view, _ ->
+                var item: View = view
+                while (item.id != R.id.meta_feature_preference_item) {
+                    item = item.parent as? View
+                        ?: error("Override preference row root not found")
+                }
+                assertFalse(item.isEnabled)
+                assertFalse(item.isClickable)
+                assertFalse(item.isFocusable)
+                assertEquals(0.33f, item.alpha, 0.001f)
+                assertEquals(
+                    context.getString(R.string.meta_override_unavailable),
+                    item.findViewById<android.widget.TextView>(R.id.meta_feature_summary)
+                        .text.toString(),
+                )
+            }
+            onView(withId(R.id.toolbar_reset)).check { view, _ ->
+                assertFalse(view.isEnabled)
+                assertFalse(view.isClickable)
+                assertFalse(view.isFocusable)
+                assertEquals(0.33f, view.alpha, 0.001f)
+            }
         }
     }
 

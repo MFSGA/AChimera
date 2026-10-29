@@ -2,9 +2,7 @@ package rs.chimera.android.ui.metacubex.design
 
 import android.animation.ValueAnimator
 import android.content.Context
-import android.util.TypedValue
 import android.view.View
-import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -18,7 +16,6 @@ import rs.chimera.android.ui.metacubex.design.util.root
 class MetaOverrideDesign(context: Context) : Design<MetaOverrideDesign.Request>(context) {
     enum class Request {
         NavigateBack,
-        Unsupported,
     }
 
     private data class Section(
@@ -60,8 +57,12 @@ class MetaOverrideDesign(context: Context) : Design<MetaOverrideDesign.Request>(
         ViewCompat.requestApplyInsets(root)
         root.findViewById<View>(R.id.toolbar_navigation)
             .setOnClickListener { request(Request.NavigateBack) }
-        root.findViewById<View>(R.id.toolbar_reset)
-            .setOnClickListener { request(Request.Unsupported) }
+        root.findViewById<View>(R.id.toolbar_reset).apply {
+            isEnabled = false
+            isClickable = false
+            isFocusable = false
+            alpha = DISABLED_ALPHA
+        }
         scroll.setOnScrollChangeListener { _, _, scrollY, _, _ ->
             val shouldElevate = scrollY > 0
             if (elevated != shouldElevate) {
@@ -80,73 +81,39 @@ class MetaOverrideDesign(context: Context) : Design<MetaOverrideDesign.Request>(
             }
         }
 
+        content.addView(createUnavailableNotice())
         sections.forEach { section ->
             content.addView(createCategory(section.title))
             section.rows.forEach { row -> content.addView(createRow(row)) }
         }
     }
 
-    private fun createCategory(@StringRes title: Int): TextView = TextView(context).apply {
-        text = context.getString(title)
-        setTextColor(resolveActivatedColor())
-        setPaddingRelative(dp(65), dp(16), dp(17.5f), dp(16))
-        layoutParams = ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-        )
+    private fun createUnavailableNotice(): TextView = TextView(context).apply {
+        setText(R.string.settings_category_override_unavailable)
+        setTextAppearance(R.style.TextAppearance_MaterialComponents_Body2)
+        setPaddingRelative(dp(65), dp(8), dp(17.5f), dp(8))
     }
 
-    private fun createRow(@StringRes title: Int): View = LinearLayout(context).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = android.view.Gravity.CENTER_VERTICAL
-        minimumHeight = dp(75)
-        setPaddingRelative(0, dp(16), dp(17.5f), dp(16))
-        val selectableBackground = context.obtainStyledAttributes(
-            intArrayOf(android.R.attr.selectableItemBackground),
-        )
-        background = selectableBackground.getDrawable(0)
-        selectableBackground.recycle()
-        isClickable = true
-        isFocusable = true
-
-        addView(
-            View(context),
-            LinearLayout.LayoutParams(dp(30), dp(30)).apply {
-                marginStart = dp(17.5f)
-                marginEnd = dp(17.5f)
-            },
-        )
-
-        addView(
-            LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                addView(TextView(context).apply {
-                    text = context.getString(title)
-                    setTextAppearance(R.style.TextAppearance_MaterialComponents_Body1)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    )
-                })
-                addView(TextView(context).apply {
-                    text = context.getString(R.string.meta_override_no_change)
-                    setTextAppearance(R.style.TextAppearance_MaterialComponents_Body2)
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ).apply { topMargin = dp(5) }
-                })
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
-        )
-
-        setOnClickListener { request(Request.Unsupported) }
+    private fun createCategory(@StringRes title: Int): View = (context.layoutInflater.inflate(
+        R.layout.meta_feature_preference_category,
+        content,
+        false,
+    ) as TextView).apply {
+        setText(title)
     }
 
-    private fun resolveActivatedColor(): Int {
-        val value = TypedValue()
-        context.theme.resolveAttribute(com.google.android.material.R.attr.colorControlActivated, value, true)
-        return if (value.resourceId != 0) context.getColor(value.resourceId) else value.data
+    private fun createRow(@StringRes title: Int): View = context.layoutInflater.inflate(
+        R.layout.meta_feature_preference_item,
+        content,
+        false,
+    ).apply {
+        findViewById<TextView>(R.id.meta_feature_title).setText(title)
+        findViewById<TextView>(R.id.meta_feature_summary)
+            .setText(R.string.meta_override_unavailable)
+        isEnabled = false
+        isClickable = false
+        isFocusable = false
+        alpha = DISABLED_ALPHA
     }
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
@@ -158,6 +125,8 @@ class MetaOverrideDesign(context: Context) : Design<MetaOverrideDesign.Request>(
     }
 
     private companion object {
+        const val DISABLED_ALPHA = 0.33f
+
         val sections = listOf(
             Section(
                 R.string.meta_override_general,

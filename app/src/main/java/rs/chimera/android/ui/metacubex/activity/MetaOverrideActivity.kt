@@ -1,7 +1,6 @@
 package rs.chimera.android.ui.metacubex.activity
 
 import android.os.Bundle
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -19,12 +18,6 @@ class MetaOverrideActivity : AppCompatActivity() {
             for (request in design.requests) {
                 when (request) {
                     MetaOverrideDesign.Request.NavigateBack -> finish()
-                    MetaOverrideDesign.Request.Unsupported ->
-                        Toast.makeText(
-                            this@MetaOverrideActivity,
-                            R.string.settings_category_override_unavailable,
-                            Toast.LENGTH_SHORT,
-                        ).show()
                 }
             }
         }

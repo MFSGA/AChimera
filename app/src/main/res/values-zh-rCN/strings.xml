@@ -154,7 +154,7 @@
     <string name="meta_feature_import_asn">导入 ASN 数据库</string>
     <string name="settings_category_override_unavailable">Chimera 当前版本尚不支持配置覆写。</string>
     <string name="meta_override_reset">重置覆写设置</string>
-    <string name="meta_override_no_change">不修改</string>
+    <string name="meta_override_unavailable">暂不支持</string>
     <string name="meta_override_general">常规</string>
     <string name="meta_override_dns">DNS</string>
     <string name="meta_override_http_port">HTTP 端口</string>
