@@ -80,6 +80,7 @@
     <string name="restart_confirm_title">Reload app?</string>
     <string name="restart_confirm_message">This will reopen the main screen and clear the current activity stack.</string>
     <string name="confirm">Confirm</string>
+    <string name="ok">OK</string>
     <string name="cancel">Cancel</string>
     <string name="connections_title">Connections</string>
     <string name="connections_summary">Traffic Summary</string>

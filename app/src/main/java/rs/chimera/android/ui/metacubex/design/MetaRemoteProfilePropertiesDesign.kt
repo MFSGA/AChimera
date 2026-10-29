@@ -301,7 +301,7 @@ internal class MetaRemoteProfilePropertiesDesign(
             .setTitle(title)
             .setView(content)
             .setCancelable(true)
-            .setPositiveButton(R.string.save) { _, _ ->
+            .setPositiveButton(R.string.ok) { _, _ ->
                 val text = field.text?.toString().orEmpty()
                 if (validator(text)) onSave(text.trim())
             }
