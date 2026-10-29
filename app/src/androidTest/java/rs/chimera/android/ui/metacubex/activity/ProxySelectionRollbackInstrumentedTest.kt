@@ -102,6 +102,38 @@ class ProxySelectionRollbackInstrumentedTest {
             .perform(click())
     }
 
+    @Test
+    fun selectionProjectionAndRollbackCanBeVisuallyCompared() = withFixture { scenario, design ->
+        awaitCard(scenario, design, OLD_NODE, selected = true)
+        lateinit var selection: ProxyDesign.Request.SelectProxy
+        scenario.onActivity {
+            assertTrue(card(design, NEW_NODE)!!.performClick())
+            selection = assertProjectedSelectionRequest(
+                design.requests.tryReceive().getOrNull(),
+                NEW_NODE,
+            )
+            assertTrue(card(design, NEW_NODE)!!.entry!!.isSelected)
+            assertFalse(card(design, OLD_NODE)!!.entry!!.isSelected)
+        }
+        awaitCondition(scenario) {
+            val selectedCard = card(design, NEW_NODE) ?: return@awaitCondition false
+            val previousCard = card(design, OLD_NODE) ?: return@awaitCondition false
+            selectedCard.entry?.isSelected == true &&
+                previousCard.entry?.isSelected == false &&
+                selectionColorSettled(selectedCard) &&
+                selectionColorSettled(previousCard)
+        }
+        capture(scenario, design, "selection-projected-settled")
+
+        scenario.onActivity {
+            design.rejectProxySelection(selection.selectionToken)
+            assertSnapped(card(design, OLD_NODE)!!, selected = true)
+            assertSnapped(card(design, NEW_NODE)!!, selected = false)
+        }
+        awaitCard(scenario, design, OLD_NODE, selected = true)
+        capture(scenario, design, "selection-rolled-back-settled")
+    }
+
     @After
     fun restoreDisplayPreferences() {
         preferences.edit(commit = true) {
@@ -691,6 +723,17 @@ class ProxySelectionRollbackInstrumentedTest {
         val frame = transition.advance(target, SystemClock.uptimeMillis())
         assertEquals(target, frame.color)
         assertFalse("Rollback must snap, not animate a rejected choice", frame.animating)
+    }
+
+    private fun selectionColorSettled(card: ProxyCardView): Boolean {
+        val entry = card.entry ?: return false
+        val transition = ProxyCardView::class.java.getDeclaredField("selectionColorTransition")
+            .apply { isAccessible = true }.get(card) as ProxySelectionColorTransition
+        val target = ProxyCardView::class.java.getDeclaredMethod(
+            "backgroundColor", rs.chimera.android.ui.metacubex.design.ProxyDisplayEntry::class.java,
+        ).apply { isAccessible = true }.invoke(card, entry) as Int
+        // Advance with the same frame-time policy as draw() so captures happen after the fill settles.
+        return !transition.advance(target, System.currentTimeMillis()).animating
     }
 
     private fun scenarioSnackbar(root: View): TextView? =
