@@ -7,7 +7,7 @@
 | 工作流 | 真实触发方式 | 作用与权限 |
 | --- | --- | --- |
 | `ci.yml` | `main` push / PR | 固定 Ubuntu 24.04（兼容 `cargo-ndk` 所需的 GLIBC 2.39）；只读 Token；Android SDK 包安装失败时最多尝试 3 次（含首次安装）；配置后检查并验证 runner 用户的 KVM 加速权限；核验 Actions 引用、Cargo dependency policy、Rust fmt/Clippy/tests、UniFFI 绑定、Gradle ktlint/JVM/lint、Debug APK，并在 Android 36 x86_64 模拟器运行现有 instrumentation tests |
-| `nightly.yml` | 每日 19:17 UTC / 手工 dispatch | 构建全 ABI Debug APK，上传 Artifact，使用 `contents: write` 更新滚动 `nightly` GitHub 预发布 |
+| `nightly.yml` | 每日 19:17 UTC / 手工 dispatch | 构建全 ABI Debug APK，上传 Artifact；使用 `contents: write` 重建滚动 `nightly` 预发布，使 Release 发布时间和标签目标对应实际构建的 `main` 提交，GitHub 列表按本次发布时间排列 |
 | `release.yml` | `v*` 标签 push / 手工 dispatch（仅 main） | 手工 dispatch 可更改版本并推 tag；必须配置签名 Secrets，否则失败；校验 tag 提交属于 main 且版本匹配；构建后逐个用 `apksigner` 验证 APK 与固定证书指纹，再生成依赖清单、校验和并发布 GitHub Release |
 
 ### 不可误判
@@ -15,6 +15,7 @@
 - CI 固定在 `ubuntu-24.04`，避免 `ubuntu-latest` 镜像迁移造成工具链漂移；`cargo-ndk` 使用的二进制要求 `GLIBC_2.39`，因此 Ubuntu 22.04 不兼容。Android 模拟器启动前，工作流仅将临时 runner 上 `/dev/kvm` 的所有者和权限调整为当前 runner 用户，并通过 `emulator -accel-check` 验证硬件加速；CI 失败日志曾证实该设备原本不可访问。
 - CI 通过 **不等于** Android 设备端 VPN、权限撤销、后台恢复、双 UI 一致性、ARM ABI 运行成功。
 - Nightly 是**已有的自动预发布流水线**，不是夜间 AI 复盘；Nightly 具有写入 GitHub Release 的权限。
+- Nightly 每次在 APK 构建成功后删除并重建滚动 Release 和 `nightly` 标签，使列表时间及标签指向当前构建的提交；若发布步骤在删除后中断，Nightly Release 会暂时缺失，重跑工作流即可恢复。
 - Release 接收 `v*` 标签 push；Codex 不得未经授权执行 tagging 或 workflow dispatch，也不得把普通合并当作稳定发布授权。
 - `release.yml` 缺少签名材料、密钥解码/校验失败或 APK 签名验证失败时会停止，不会上传 unsigned Release APK。正式发布密钥不能提交到仓库。
 - 当前发布脚本通过环境变量读取 dispatch/tag 值，不把用户可控字符串直接插入 shell；该版本还会校验 tag 提交属于 `main` 且与应用基础版本一致。注意：tag push 事件使用 tag 所指提交中的 workflow 文件，因此旧提交上的旧版 workflow 不受这项新检查保护；正式使用前仍须在 GitHub Rulesets 中保护 `v*` 标签，并核实保护规则。
