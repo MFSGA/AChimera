@@ -2,8 +2,11 @@ package rs.chimera.android.ui.metacubex.activity
 
 import android.content.Intent
 import android.app.job.JobScheduler
+import android.content.ContentValues
 import android.graphics.Bitmap
+import android.os.Environment
 import android.os.SystemClock
+import android.provider.MediaStore
 import android.view.View
 import android.widget.EditText
 import android.widget.TextView
@@ -488,10 +491,80 @@ class ProfilePropertiesInstrumentedTest {
         activity.findViewById<View>(id).findViewById(R.id.property_action)
 
     private fun editName(scenario: ActivityScenario<MetaProfilePropertiesActivity>) {
-        scenario.onActivity { assertTrue(action(it, R.id.property_name).performClick()) }
-        onView(isAssignableFrom(EditText::class.java)).inRoot(isDialog()).perform(replaceText(RENAMED), closeSoftKeyboard())
-        onView(withId(android.R.id.button1)).inRoot(isDialog()).perform(click())
-        awaitPage(scenario, RENAMED)
+        var enteredText: String? = null
+        var confirmEnabled: Boolean? = null
+        try {
+            scenario.onActivity { assertTrue(action(it, R.id.property_name).performClick()) }
+            onView(withId(R.id.meta_text_field)).inRoot(isDialog()).perform(replaceText(RENAMED), closeSoftKeyboard())
+            onView(withId(R.id.meta_text_field)).inRoot(isDialog()).check { view, error ->
+                if (error != null) throw error
+                enteredText = (view as EditText).text.toString()
+                assertEquals("Name editor must contain the requested draft", RENAMED, enteredText)
+            }
+            onView(withId(android.R.id.button1)).inRoot(isDialog()).check { view, error ->
+                if (error != null) throw error
+                confirmEnabled = view.isEnabled
+                assertTrue("Name editor confirmation must be enabled", view.isEnabled)
+                // Headless emulator focus can be lost mid-suite; invoke the real listener
+                // on the UI thread instead of depending on an injected touch event.
+                assertTrue("Name editor confirmation must handle the click", view.performClick())
+            }
+            awaitPage(scenario, RENAMED)
+        } catch (failure: AssertionError) {
+            throw nameEditFailure(scenario, enteredText, confirmEnabled, failure)
+        } catch (failure: RuntimeException) {
+            throw nameEditFailure(scenario, enteredText, confirmEnabled, failure)
+        }
+    }
+
+    private fun nameEditFailure(
+        scenario: ActivityScenario<MetaProfilePropertiesActivity>,
+        enteredText: String?,
+        confirmEnabled: Boolean?,
+        failure: Throwable,
+    ): AssertionError {
+        val pageState = runCatching {
+            var state = "unavailable"
+            scenario.onActivity { activity ->
+                val row = activity.findViewById<View>(R.id.property_name)
+                val displayedName = row?.findViewById<TextView>(R.id.property_value)?.text?.toString()
+                val nameActionEnabled = row?.findViewById<View>(R.id.property_action)?.isEnabled
+                state = "displayedName=$displayedName, nameActionEnabled=$nameActionEnabled, " +
+                    "windowFocused=${activity.window.decorView.hasWindowFocus()}, " +
+                    "focusedView=${activity.currentFocus?.javaClass?.simpleName}"
+            }
+            state
+        }.getOrElse { "unavailable (${it.javaClass.simpleName}: ${it.message})" }
+        val screenshot = if (InstrumentationRegistry.getArguments().getString("capturePropertiesFailureScreenshot") != "true") {
+            "disabled (set capturePropertiesFailureScreenshot=true to collect on a disposable test device)"
+        } else runCatching {
+            val fileName = "profile-properties-name-${SystemClock.uptimeMillis()}.png"
+            val location = "${Environment.DIRECTORY_DOWNLOADS}/chimera-ci-diagnostics"
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, location)
+            }
+            val uri = checkNotNull(context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values))
+            val bitmap = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+            try {
+                context.contentResolver.openOutputStream(uri)!!.use { output ->
+                    check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
+                }
+            } catch (failure: Exception) {
+                context.contentResolver.delete(uri, null, null)
+                throw failure
+            } finally {
+                bitmap.recycle()
+            }
+            "/sdcard/$location/$fileName"
+        }.getOrElse { "unavailable (${it.javaClass.simpleName}: ${it.message})" }
+        return AssertionError(
+            "Profile name edit did not reach expected draft '$RENAMED': " +
+                "enteredText=$enteredText, confirmEnabled=$confirmEnabled, $pageState, " +
+                "screenshot=$screenshot",
+            failure,
+        )
     }
 
     private fun save(scenario: ActivityScenario<MetaProfilePropertiesActivity>) =

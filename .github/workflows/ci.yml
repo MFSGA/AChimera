@@ -247,7 +247,19 @@ jobs:
           "$ADB" shell input keyevent KEYCODE_WAKEUP
 
       - name: Run Android instrumentation tests
-        run: ./gradlew connectedDebugAndroidTest
+        run: ./gradlew connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.capturePropertiesFailureScreenshot=true
+
+      - name: Collect profile properties failure screenshots
+        if: failure()
+        run: |
+          ADB="${ANDROID_HOME}/platform-tools/adb"
+          OUTPUT_DIR="app/build/outputs/androidTest-results/connected/profile-properties-diagnostics"
+          mkdir -p "$OUTPUT_DIR"
+          if "$ADB" shell test -d /sdcard/Download/chimera-ci-diagnostics; then
+            "$ADB" pull /sdcard/Download/chimera-ci-diagnostics/. "$OUTPUT_DIR/" || echo "::warning::Could not pull UI failure screenshots."
+          else
+            echo "No profile properties failure screenshots to collect."
+          fi
 
       - name: Stop Android emulator
         if: always()
