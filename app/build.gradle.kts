@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
-val baseVersionName = "0.9.2"
+val baseVersionName = "0.9.3"
 val clashDependencySection = Regex(
     """(?ms)^\[dependencies\.clash-lib\]\s*(.*?)(?=^\[|\z)""",
 ).find(rootProject.file("uniffi/chimera-ffi/Cargo.toml").readText())
