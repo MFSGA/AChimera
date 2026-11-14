@@ -162,6 +162,11 @@ class MetaSettingsActivity : AppCompatActivity() {
             is SettingsDesign.Request.SetAllowBypass -> {
                 if (canChangeVpnSettings()) saveSettings(SettingsPatch(allowBypass = request.enabled))
             }
+            is SettingsDesign.Request.SetBypassPrivateNetwork -> {
+                if (canChangeVpnSettings()) {
+                    saveSettings(SettingsPatch(bypassPrivateNetwork = request.enabled))
+                }
+            }
             is SettingsDesign.Request.SetFakeIp -> {
                 if (canChangeVpnSettings()) saveSettings(SettingsPatch(fakeIp = request.enabled))
             }
@@ -582,6 +587,7 @@ class MetaSettingsActivity : AppCompatActivity() {
         return SettingsDesign.State(
             allowLan = settings.allowLan,
             allowBypass = settings.allowBypass,
+            bypassPrivateNetwork = settings.bypassPrivateNetwork,
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
             appFilterMode = appFilterMode,

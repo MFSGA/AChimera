@@ -37,6 +37,7 @@ class SettingsPatchTest {
         listOf(
             SettingsPatch(ipv6 = true),
             SettingsPatch(allowBypass = false),
+            SettingsPatch(bypassPrivateNetwork = false),
             SettingsPatch(appFilterMode = "ALLOWED"),
             SettingsPatch(allowedApps = setOf("example.allowed")),
             SettingsPatch(disallowedApps = setOf("example.disallowed")),

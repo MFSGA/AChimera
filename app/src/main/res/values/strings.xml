@@ -214,6 +214,8 @@
     <string name="settings_allow_lan_desc">Accept proxy connections from devices on the local network.</string>
     <string name="settings_allow_bypass">Allow Bypass</string>
     <string name="settings_allow_bypass_desc">Allows all apps to bypass this VPN connection</string>
+    <string name="settings_bypass_private_network">Bypass private network</string>
+    <string name="settings_bypass_private_network_desc">Bypass private network addresses</string>
     <string name="settings_listener_ports">Listener Ports</string>
     <string name="settings_mixed_port">Mixed port</string>
     <string name="settings_http_port">HTTP port (optional)</string>

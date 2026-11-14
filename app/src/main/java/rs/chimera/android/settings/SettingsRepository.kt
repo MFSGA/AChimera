@@ -35,6 +35,7 @@ internal class PreferenceSettingsRepository(
         prefs.edit {
             patch.allowLan?.let { putBoolean("allow_lan", it) }
             patch.allowBypass?.let { putBoolean("allow_bypass", it) }
+            patch.bypassPrivateNetwork?.let { putBoolean("bypass_private_network", it) }
             patch.mixedPort?.let { putInt("mixed_port", it.toInt()) }
             if (patch.clearHttpPort) remove("http_port")
             patch.httpPort?.let { putInt("http_port", it.toInt()) }

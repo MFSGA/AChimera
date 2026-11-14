@@ -29,3 +29,26 @@ internal object TunServiceSettingsLoader {
             ipv6 = settings.ipv6,
         )
 }
+
+internal object TunRoutePolicy {
+    fun ipv4Routes(
+        bypassPrivateNetwork: Boolean,
+        publicRoutes: List<String>,
+        dnsServer: String,
+    ): List<String> = if (bypassPrivateNetwork) {
+        publicRoutes + "$dnsServer/32"
+    } else {
+        listOf("0.0.0.0/0")
+    }
+
+    fun ipv6Routes(
+        ipv6Enabled: Boolean,
+        bypassPrivateNetwork: Boolean,
+        publicRoutes: List<String>,
+        dnsServer: String,
+    ): List<String> = when {
+        !ipv6Enabled -> emptyList()
+        bypassPrivateNetwork -> publicRoutes + "$dnsServer/128"
+        else -> listOf("::/0")
+    }
+}

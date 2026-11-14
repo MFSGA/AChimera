@@ -83,6 +83,11 @@ class SettingsViewModel(
     var allowBypassEnabled: Boolean by mutableStateOf(backend.settings.value.allowBypass)
         private set
 
+    var bypassPrivateNetworkEnabled: Boolean by mutableStateOf(
+        backend.settings.value.bypassPrivateNetwork,
+    )
+        private set
+
     var fakeIpEnabled: Boolean by mutableStateOf(backend.settings.value.fakeIp)
         private set
 
@@ -140,6 +145,9 @@ class SettingsViewModel(
 
     fun updateAllowBypass(enabled: Boolean) =
         updateRuntimeSetting(SettingsPatch(allowBypass = enabled))
+
+    fun updateBypassPrivateNetwork(enabled: Boolean) =
+        updateRuntimeSetting(SettingsPatch(bypassPrivateNetwork = enabled))
 
     fun updateFakeIpEnabled(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(fakeIp = enabled))
 
@@ -265,6 +273,7 @@ class SettingsViewModel(
         val settings = backend.settings.value
         allowLan = settings.allowLan
         allowBypassEnabled = settings.allowBypass
+        bypassPrivateNetworkEnabled = settings.bypassPrivateNetwork
         fakeIpEnabled = settings.fakeIp
         ipv6Enabled = settings.ipv6
         mixedPort = settings.mixedPort

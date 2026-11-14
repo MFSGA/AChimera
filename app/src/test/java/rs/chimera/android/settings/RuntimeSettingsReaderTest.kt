@@ -10,12 +10,28 @@ class RuntimeSettingsReaderTest {
     fun emptyPreferencesUseSharedDefaults() {
         assertEquals(RuntimeSettings(), RuntimeSettingsReader.read(emptyMap<String, Any>()))
         assertEquals(SettingsDefaults.ALLOW_BYPASS, RuntimeSettingsReader.read(emptyMap<String, Any>()).allowBypass)
+        assertEquals(
+            SettingsDefaults.BYPASS_PRIVATE_NETWORK,
+            RuntimeSettingsReader.read(emptyMap<String, Any>()).bypassPrivateNetwork,
+        )
     }
 
     @Test
     fun allowBypassReadsStoredValueAndDefaultsToReferenceBehavior() {
         assertEquals(false, RuntimeSettingsReader.read(mapOf("allow_bypass" to false)).allowBypass)
         assertEquals(SettingsDefaults.ALLOW_BYPASS, RuntimeSettingsReader.read(emptyMap<String, Any>()).allowBypass)
+    }
+
+    @Test
+    fun bypassPrivateNetworkReadsStoredValueAndDefaultsToReferenceBehavior() {
+        assertEquals(
+            false,
+            RuntimeSettingsReader.read(mapOf("bypass_private_network" to false)).bypassPrivateNetwork,
+        )
+        assertEquals(
+            SettingsDefaults.BYPASS_PRIVATE_NETWORK,
+            RuntimeSettingsReader.read(emptyMap<String, Any>()).bypassPrivateNetwork,
+        )
     }
 
     @Test

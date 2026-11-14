@@ -60,6 +60,7 @@ class SettingsDesign(
         data class SetShowTrafficInNotification(val enabled: Boolean) : Request()
         data class SetAllowLan(val enabled: Boolean) : Request()
         data class SetAllowBypass(val enabled: Boolean) : Request()
+        data class SetBypassPrivateNetwork(val enabled: Boolean) : Request()
         data class SetFakeIp(val enabled: Boolean) : Request()
         data class SetIpv6(val enabled: Boolean) : Request()
     }
@@ -67,6 +68,7 @@ class SettingsDesign(
     data class State(
         val allowLan: Boolean,
         val allowBypass: Boolean,
+        val bypassPrivateNetwork: Boolean,
         val fakeIp: Boolean,
         val ipv6: Boolean,
         val appFilterMode: AppFilterMode,
@@ -103,6 +105,7 @@ class SettingsDesign(
     private val cardUiVariant = root.findViewById<View>(R.id.card_ui_variant)
     private val rowAllowLan = root.findViewById<View>(R.id.row_allow_lan)
     private val rowAllowBypass = root.findViewById<View>(R.id.row_allow_bypass)
+    private val rowBypassPrivateNetwork = root.findViewById<View>(R.id.row_bypass_private_network)
     private val rowFakeIp = root.findViewById<View>(R.id.row_fake_ip)
     private val rowIpv6 = root.findViewById<View>(R.id.row_ipv6)
     private val cardPorts = root.findViewById<View>(R.id.card_ports)
@@ -119,6 +122,7 @@ class SettingsDesign(
     private val cardResetSettings = root.findViewById<View>(R.id.card_reset_settings)
     private val vpnSettingRows = listOf(
         rowAllowLan,
+        rowBypassPrivateNetwork,
         rowAllowBypass,
         rowFakeIp,
         rowIpv6,
@@ -138,6 +142,8 @@ class SettingsDesign(
     private val switchShowTraffic = root.findViewById<SwitchMaterial>(R.id.switch_show_traffic)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchAllowBypass = root.findViewById<SwitchMaterial>(R.id.switch_allow_bypass)
+    private val switchBypassPrivateNetwork =
+        root.findViewById<SwitchMaterial>(R.id.switch_bypass_private_network)
     private val switchFakeIp = root.findViewById<SwitchMaterial>(R.id.switch_fake_ip)
     private val switchIpv6 = root.findViewById<SwitchMaterial>(R.id.switch_ipv6)
     private val languageSummary = root.findViewById<TextView>(R.id.text_language_summary)
@@ -238,6 +244,9 @@ class SettingsDesign(
             },
         )
         rowAllowLan.setOnClickListener { switchAllowLan.isChecked = !switchAllowLan.isChecked }
+        rowBypassPrivateNetwork.setOnClickListener {
+            switchBypassPrivateNetwork.isChecked = !switchBypassPrivateNetwork.isChecked
+        }
         rowAllowBypass.setOnClickListener {
             switchAllowBypass.isChecked = !switchAllowBypass.isChecked
         }
@@ -261,6 +270,9 @@ class SettingsDesign(
         cardResetSettings.setOnClickListener { request(Request.ResetRuntimeSettings) }
         switchAllowLan.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAllowLan(checked))
+        }
+        switchBypassPrivateNetwork.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) request(Request.SetBypassPrivateNetwork(checked))
         }
         switchAllowBypass.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAllowBypass(checked))
@@ -303,6 +315,7 @@ class SettingsDesign(
         switchHideFromRecents.isChecked = state.hideFromRecents
         switchShowTraffic.isChecked = state.showTrafficInNotification
         switchAllowLan.isChecked = state.allowLan
+        switchBypassPrivateNetwork.isChecked = state.bypassPrivateNetwork
         switchAllowBypass.isChecked = state.allowBypass
         switchFakeIp.isChecked = state.fakeIp
         switchIpv6.isChecked = state.ipv6
@@ -310,7 +323,13 @@ class SettingsDesign(
             row.isEnabled = state.canChangeVpnSettings
             row.alpha = if (state.canChangeVpnSettings) 1f else 0.38f
         }
-        listOf(switchAllowLan, switchAllowBypass, switchFakeIp, switchIpv6).forEach { switch ->
+        listOf(
+            switchAllowLan,
+            switchBypassPrivateNetwork,
+            switchAllowBypass,
+            switchFakeIp,
+            switchIpv6,
+        ).forEach { switch ->
             switch.isEnabled = state.canChangeVpnSettings
         }
         rowShowTraffic.isEnabled = state.canChangeTrafficNotification

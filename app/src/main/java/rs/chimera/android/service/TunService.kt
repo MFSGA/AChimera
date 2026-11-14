@@ -19,6 +19,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import rs.chimera.android.Global
+import rs.chimera.android.R
 import rs.chimera.android.backend.BackendProvider
 import rs.chimera.android.backend.ProfileRuntimeDirectoryPolicy
 import rs.chimera.android.backend.BackendRuntimeState
@@ -253,11 +254,20 @@ class TunService : VpnService(), VpnRuntimeControl {
         val builder = Builder()
         builder.setSession("ClashRS VPNService")
         builder.addAddress(TUN_GATEWAY_V4, TUN_PREFIX_V4)
-        builder.addRoute("0.0.0.0", 0)
+        TunRoutePolicy.ipv4Routes(
+            bypassPrivateNetwork = settings.bypassPrivateNetwork,
+            publicRoutes = resources.getStringArray(R.array.bypass_private_route).toList(),
+            dnsServer = TUN_DNS_V4,
+        ).forEach { route -> builder.addRoute(route.addressPart(), route.prefixPart()) }
         builder.addDnsServer(TUN_DNS_V4)
         if (settings.ipv6) {
             builder.addAddress(TUN_GATEWAY_V6, TUN_PREFIX_V6)
-            builder.addRoute("::", 0)
+            TunRoutePolicy.ipv6Routes(
+                ipv6Enabled = true,
+                bypassPrivateNetwork = settings.bypassPrivateNetwork,
+                publicRoutes = resources.getStringArray(R.array.bypass_private_route6).toList(),
+                dnsServer = TUN_DNS_V6,
+            ).forEach { route -> builder.addRoute(route.addressPart(), route.prefixPart()) }
             builder.addDnsServer(TUN_DNS_V6)
         }
         TunAppFilter.apply(builder, settings, packageName)
@@ -303,6 +313,10 @@ class TunService : VpnService(), VpnRuntimeControl {
         ParcelFileDescriptor
             .dup(interfaceFd.fileDescriptor)
             .detachFd()
+
+    private fun String.addressPart(): String = substringBefore('/')
+
+    private fun String.prefixPart(): Int = substringAfter('/').toInt()
 
     private fun closeDetachedTunFd(fd: Int) {
         if (fd < 0) return

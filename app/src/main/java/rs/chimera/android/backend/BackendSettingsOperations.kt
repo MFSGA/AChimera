@@ -24,6 +24,7 @@ internal class BackendSettingsOperations(
             val editor = preferences.edit()
             patch.allowLan?.let { editor.putBoolean("allow_lan", it) }
             patch.allowBypass?.let { editor.putBoolean("allow_bypass", it) }
+            patch.bypassPrivateNetwork?.let { editor.putBoolean("bypass_private_network", it) }
             patch.mixedPort?.let { editor.putInt("mixed_port", it.toInt()) }
             if (patch.clearHttpPort) editor.remove("http_port")
             patch.httpPort?.let { editor.putInt("http_port", it.toInt()) }

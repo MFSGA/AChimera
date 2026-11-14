@@ -13,6 +13,7 @@ class SettingsDefaultsTest {
 
         assertEquals(false, patch.allowLan)
         assertEquals(SettingsDefaults.ALLOW_BYPASS, patch.allowBypass)
+        assertEquals(SettingsDefaults.BYPASS_PRIVATE_NETWORK, patch.bypassPrivateNetwork)
         assertEquals(SettingsDefaults.MIXED_PORT, patch.mixedPort)
         assertEquals(false, patch.fakeIp)
         assertEquals(false, patch.ipv6)
