@@ -11,8 +11,6 @@ all-features = false
 [advisories]
 ignore = [
     { id = "RUSTSEC-2026-0374", reason = "basic-toml 0.1.10 is pulled transitively by Askama in the currently locked UniFFI 0.31.1 bindgen dependency chain; this is an INFO unmaintained advisory with no safe upgrade available; remove this exception when upstream drops basic-toml" },
-    { id = "RUSTSEC-2026-0118", reason = "hickory-proto 0.25.2 is pulled by dhcproto 0.14 with default features disabled and no DNSSEC feature; remove when the pinned clash-lib upgrades dhcproto/hickory" },
-    { id = "RUSTSEC-2026-0119", reason = "dhcproto 0.14 constrains hickory-proto to 0.25; remove when the pinned clash-lib upgrades dhcproto/hickory to 0.26.1 or newer" },
     { id = "RUSTSEC-2024-0436", reason = "paste is an unmaintained transitive dependency in target-specific netlink code and has no safe upgrade; remove when tun-rs/netlink upstream replaces it" },
     { id = "RUSTSEC-2025-0134", reason = "rustls-pemfile is transitive through the pinned chimera-dns/clash-lib revision and has no safe upgrade; remove when upstream migrates to rustls-pki-types" },
 ]
