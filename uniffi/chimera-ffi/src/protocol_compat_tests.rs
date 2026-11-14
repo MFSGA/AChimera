@@ -2,7 +2,7 @@ use super::{ConfigDef, validate_profile_runtime_handlers, validate_runtime_proxy
 use clash_lib::config::{
     RuntimeConfig,
     internal::proxy::{
-        CommonConfigOptions, Hysteria2Obfs, OutboundHysteria2, OutboundProxyProtocol,
+        CommonConfigOptions, GrpcOpt, Hysteria2Obfs, OutboundHysteria2, OutboundProxyProtocol,
         OutboundTrojan, OutboundTrojanRealityOpts, OutboundVless, XhttpOpt,
     },
 };
@@ -118,18 +118,53 @@ fn validation_error(proxy: OutboundProxyProtocol) -> String {
 }
 
 #[test]
-fn unsupported_vless_network_reports_explicit_error() {
-    let proxy = OutboundVless {
-        common_opts: common_options("unsupported-vless"),
+fn vless_and_trojan_grpc_handlers_require_options_and_build() {
+    let vless = OutboundVless {
+        common_opts: common_options("vless-grpc"),
         uuid: "b831381d-6324-4d53-ad4f-8cda48b30811".to_owned(),
         network: Some("grpc".to_owned()),
+        tls: Some(true),
+        grpc_opts: Some(GrpcOpt {
+            grpc_service_name: Some("chimera-test".to_owned()),
+            ..Default::default()
+        }),
+        ..Default::default()
+    };
+    let trojan = OutboundTrojan {
+        common_opts: common_options("trojan-grpc"),
+        password: "test-password".to_owned(),
+        network: Some("grpc".to_owned()),
+        grpc_opts: Some(GrpcOpt {
+            grpc_service_name: Some("chimera-test".to_owned()),
+            ..Default::default()
+        }),
         ..Default::default()
     };
 
-    let error = validation_error(OutboundProxyProtocol::Vless(proxy));
+    validate_runtime_proxy_handlers(vec![
+        OutboundProxyProtocol::Vless(vless),
+        OutboundProxyProtocol::Trojan(trojan),
+    ])
+    .expect("VLESS and Trojan gRPC handlers should build when grpc-opts are present");
 
-    assert!(error.contains("proxy `unsupported-vless` (vless)"));
-    assert!(error.contains("unsupported vless network: grpc"));
+    let vless_without_options = OutboundVless {
+        common_opts: common_options("vless-grpc-without-options"),
+        uuid: "b831381d-6324-4d53-ad4f-8cda48b30811".to_owned(),
+        network: Some("grpc".to_owned()),
+        tls: Some(true),
+        ..Default::default()
+    };
+    let vless_error = validation_error(OutboundProxyProtocol::Vless(vless_without_options));
+    assert!(vless_error.contains("grpc_opts is required for vless grpc"));
+
+    let trojan_without_options = OutboundTrojan {
+        common_opts: common_options("trojan-grpc-without-options"),
+        password: "test-password".to_owned(),
+        network: Some("grpc".to_owned()),
+        ..Default::default()
+    };
+    let trojan_error = validation_error(OutboundProxyProtocol::Trojan(trojan_without_options));
+    assert!(trojan_error.contains("grpc_opts is required for trojan grpc"));
 }
 
 #[test]

@@ -12,20 +12,20 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 
 我们承诺将 **Mihomo 配置兼容**作为持续对齐目标：逐步对齐配置解析与运行行为，并针对支持范围补充验证。这里承诺的是持续缩小与 Mihomo 的兼容差距，不代表当前版本已能不加修改地运行所有 Mihomo 配置。实际支持范围由本项目锁定的上游版本、显式启用的核心 feature、本地[运行时校验](uniffi/chimera-ffi/src/runtime_config.rs)及 Android 集成共同决定。
 
-当前核心锁定于 [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1)，对应完整修订 [`daf67cb`](https://github.com/MFSGA/Chimera_Client/tree/daf67cb09a8f37bbca59b9758801155a2989962a)。下表依据该修订的 [`clash-lib` 配置类型](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/src/config/internal/proxy.rs)、[协议转换实现](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/src/proxy/converters/mod.rs)及本项目[显式启用的 features](uniffi/chimera-ffi/Cargo.toml)整理；它描述的是当前配置与运行实现范围，不是上游能力全集。
+当前核心锁定于 [Chimera_Client v0.29.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.29.1)，对应完整修订 [`f304da1`](https://github.com/MFSGA/Chimera_Client/tree/f304da17b7eaf6a187daf03a96bb1e77a26dd049)。下表依据该修订的 [`clash-lib` 配置类型](https://github.com/MFSGA/Chimera_Client/blob/f304da17b7eaf6a187daf03a96bb1e77a26dd049/clash-lib/src/config/internal/proxy.rs)、[协议转换实现](https://github.com/MFSGA/Chimera_Client/blob/f304da17b7eaf6a187daf03a96bb1e77a26dd049/clash-lib/src/proxy/converters/mod.rs)及本项目[显式启用的 features](uniffi/chimera-ffi/Cargo.toml)整理；它描述的是当前配置与运行实现范围，不是上游能力全集。
 
 | Mihomo 配置类型 | 当前状态 | 支持范围与已知限制 |
 | --- | --- | --- |
 | `ss`（Shadowsocks） | 已启用 | 支持 Shadowsocks 出站代理；配置包含加密方式、密码、UDP 及插件选项。当前实现的插件范围包括 `obfs`、`v2ray-plugin` 和 `shadow-tls`，不代表任意 SIP003 插件都可用。 |
 | `socks5` | 已启用 | 支持 SOCKS5 出站代理；配置模型包含认证、TLS 与 UDP 选项。 |
 | `anytls`（AnyTLS） | 已启用 | 支持 AnyTLS 出站代理及 TLS 客户端证书配置；客户端指纹和 idle-session 相关字段可读取，但当前不会应用。 |
-| `vless`（VLESS） | 部分支持 | 本项目运行时校验允许 TCP、WebSocket 和 XHTTP；TLS、REALITY 与 VLESS 原生加密 feature 已启用。XUDP 尚未实现（对应节点会关闭 UDP），SMUX 设置虽可读取但不会生效；目前原生加密仅支持 1-RTT。 |
+| `vless`（VLESS） | 部分支持 | 本项目运行时校验允许 TCP、WebSocket、gRPC 和 XHTTP（gRPC 需要 `grpc-opts`）；TLS、REALITY 与 VLESS 原生加密 feature 已启用。XUDP 尚未实现（对应节点会关闭 UDP），SMUX 设置虽可读取但不会生效；目前原生加密仅支持 1-RTT。 |
 | `wireguard`（WireGuard） | 已启用 | 支持 WireGuard 出站配置，包含密钥、地址及路由相关选项。 |
-| `trojan`（Trojan） | 部分支持 | 支持 TLS 及默认 TCP、WebSocket 网络；虽然上游转换器包含 gRPC 实现，本项目的运行时校验目前仍拒绝 gRPC。`client-fingerprint` 字段可被读取，但客户端指纹模拟尚未实现。 |
+| `trojan`（Trojan） | 部分支持 | 支持 TLS 及默认 TCP、WebSocket、gRPC 网络（gRPC 需要 `grpc-opts`）。`client-fingerprint` 字段可被读取，但客户端指纹模拟尚未实现。 |
 | `hysteria2`（Hysteria 2） | 已启用 | 上游 Hysteria 2（QUIC/TLS）实现已启用，支持项以该版本配置模型为准；`client-fingerprint` 不代表已实现客户端指纹模拟。 |
 | `direct` / `reject` | 内置动作 | 分别表示直连和拒绝流量，不属于代理协议。 |
 
-传输与安全能力方面，本项目启用了 TLS、REALITY、WebSocket、XHTTP-H3 和 VLESS 原生加密相关 feature。需要注意，feature 已启用不等于 Mihomo 的每个字段组合都已适配：例如当前运行时校验不接受 VLESS/Trojan 的 gRPC 网络。`http-port`、`mixed-port` 是本地入站监听端口，不代表支持 HTTP 出站代理；当前出站类型定义也不包含 `vmess`。
+传输与安全能力方面，本项目启用了 TLS、REALITY、WebSocket、XHTTP-H3 和 VLESS 原生加密相关 feature。需要注意，feature 已启用不等于 Mihomo 的每个字段组合都已适配：例如 VLESS/Trojan 的 gRPC 配置必须包含 `grpc-opts`。`http-port`、`mixed-port` 是本地入站监听端口，不代表支持 HTTP 出站代理；当前出站类型定义也不包含 `vmess`。
 
 ## 应用能力
 
@@ -58,9 +58,15 @@ AChimera 提供 Watfaq（Compose）和 MetaCubeX 风格两套可切换界面；�
 - Rust `1.97.1`，以及仓库 `rust-toolchain.toml` 中声明的 Android targets 和组件
 - `cargo-ndk`；只有使用仓库 `justfile` 中的命令时才需要安装 `just`
 
+Linux x86_64 可通过 Nix Flake 使用项目固定的 Android SDK/NDK、JDK 和命令行工具：
+
+```sh
+nix develop
+```
+
 让 Gradle 找到 Android SDK/NDK，可在本机 `local.properties` 中配置 `sdk.dir`（可选 `ndk.dir`），或设置 `ANDROID_SDK_ROOT` / `ANDROID_HOME`（可选 `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`）。`local.properties` 是本机配置，不要提交其中的本机路径。
 
-安装命令行构建依赖：
+不使用 Nix Flake 时，安装命令行构建依赖：
 
 ```sh
 cargo install cargo-ndk --locked
@@ -92,6 +98,12 @@ cargo install just --locked
 ./gradlew ktlintCheck testDebugUnitTest lintDebug
 ```
 
+在 `arm64-v8a` 真机上运行 instrumentation tests：
+
+```sh
+just test-arm64-device
+```
+
 Rust 导出接口变化后，使用仓库脚本生成 Kotlin UniFFI 绑定；检查已提交绑定与 Rust 接口是否一致：
 
 ```sh
@@ -100,6 +112,8 @@ just check-bindings
 ```
 
 Gradle 构建会为 Android ABI 编译 Rust 原生库，但**不会自动重新生成 Kotlin UniFFI 绑定**。绑定检查和生成需要 Android NDK、Rust Android target 与 `cargo-ndk`。
+
+`just test-arm64-device` 会确认已连接的设备包含 `arm64-v8a`，然后构建完整 ABI 并运行 instrumentation tests。多设备连接时可设置 `ADB_SERIAL` 指定设备；当前没有可用 ARM64 设备时，该命令会明确报错退出。
 
 Windows 可将上述 `./gradlew` 替换为 `.\gradlew.bat`。`scripts/start-emulator.sh` 需要 Bash 环境；运行前请在 Android Studio Device Manager 中创建 AVD：
 

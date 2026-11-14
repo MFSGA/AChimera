@@ -136,6 +136,10 @@ fn validate_proxy_options(proxy: &OutboundProxyProtocol) -> Result<(), String> {
             "tcp" => Ok(()),
             "ws" if proxy.ws_opts.is_none() => Err("ws_opts is required for vless ws".to_string()),
             "ws" => Ok(()),
+            "grpc" if proxy.grpc_opts.is_none() => {
+                Err("grpc_opts is required for vless grpc".to_string())
+            }
+            "grpc" => Ok(()),
             "xhttp" => proxy
                 .xhttp_opts
                 .as_ref()
@@ -149,6 +153,10 @@ fn validate_proxy_options(proxy: &OutboundProxyProtocol) -> Result<(), String> {
                 Err("ws_opts is required for trojan ws".to_string())
             }
             Some("ws") => Ok(()),
+            Some("grpc") if proxy.grpc_opts.is_none() => {
+                Err("grpc_opts is required for trojan grpc".to_string())
+            }
+            Some("grpc") => Ok(()),
             Some(other) => Err(format!("unsupported trojan network: {other}")),
         },
         OutboundProxyProtocol::Hysteria2(proxy)

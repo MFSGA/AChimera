@@ -10,7 +10,7 @@ AChimera offers two switchable interfaces: Watfaq (Compose) and a MetaCubeX-styl
 
 The proxy core is written in Rust and runs as an Android native library. It is designed for efficient network processing with low resource overhead. Actual CPU and memory use vary with the device, configuration, protocols, rules, and number of connections; this project does not claim fixed resource figures without benchmark data.
 
-The core inherits broad proxy protocol and transport capabilities from the upstream clash-chimera core. **The protocols and features available in AChimera are determined by the pinned upstream [`clash-lib` revision and feature definitions in Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) and this project's explicitly enabled [core features](uniffi/chimera-ffi/Cargo.toml).** The currently pinned revision is [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1). An upstream capability is not necessarily exposed by AChimera's configuration parser, Android integration, or UI. For that reason, this README does not maintain a separate protocol list that could become stale, and does not promise compatibility with every mihomo configuration.
+The core inherits broad proxy protocol and transport capabilities from the upstream clash-chimera core. **The protocols and features available in AChimera are determined by the pinned upstream [`clash-lib` revision and feature definitions in Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/f304da17b7eaf6a187daf03a96bb1e77a26dd049/clash-lib/Cargo.toml) and this project's explicitly enabled [core features](uniffi/chimera-ffi/Cargo.toml).** The currently pinned revision is [Chimera_Client v0.29.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.29.1). An upstream capability is not necessarily exposed by AChimera's configuration parser, Android integration, or UI. For the current per-protocol support matrix and known limits, see the [Chinese README](README.md); AChimera does not promise compatibility with every mihomo configuration.
 
 ## App Capabilities
 
@@ -43,9 +43,15 @@ The core inherits broad proxy protocol and transport capabilities from the upstr
 - Rust `1.97.1`, with the Android targets and components declared in `rust-toolchain.toml`
 - `cargo-ndk`; `just` is needed only to generate or check UniFFI bindings
 
+On Linux x86_64, the Nix Flake provides the pinned Android SDK/NDK, JDK, and command-line tools:
+
+```sh
+nix develop
+```
+
 To let Gradle locate the Android SDK/NDK, configure `sdk.dir` (and optionally `ndk.dir`) in a local `local.properties`, or set `ANDROID_SDK_ROOT` / `ANDROID_HOME` (and optionally `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`). `local.properties` contains machine-specific configuration; do not commit local paths.
 
-Install the command-line build tools:
+If you are not using the Nix Flake, install the command-line build tools:
 
 ```sh
 cargo install cargo-ndk --locked
@@ -85,6 +91,8 @@ just check-bindings
 ```
 
 Gradle builds the Rust native library for Android, but **does not automatically regenerate Kotlin UniFFI bindings**. Binding generation and checks require the Android NDK, Rust Android targets, and `cargo-ndk`.
+
+Run instrumentation tests on an `arm64-v8a` device with `just test-arm64-device`. The command checks the device ABI, builds all ABIs, and runs the tests. Set `ADB_SERIAL` when multiple devices are connected.
 
 On Windows, replace `./gradlew` with `.\gradlew.bat`. The `scripts/start-emulator.sh` helper requires a Bash environment. Create an AVD in Android Studio Device Manager first:
 

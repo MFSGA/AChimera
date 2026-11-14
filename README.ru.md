@@ -10,7 +10,7 @@ AChimera предлагает два переключаемых интерфей
 
 Прокси-ядро написано на Rust и работает как нативная библиотека Android. Оно спроектировано для эффективной обработки сети с низким потреблением ресурсов. Фактическое использование CPU и памяти зависит от устройства, конфигурации, протоколов, правил и числа соединений; проект не обещает фиксированные показатели без измерений.
 
-Ядро наследует широкие возможности прокси-протоколов и транспорта от вышестоящего clash-chimera. **Доступные в AChimera протоколы и функции определяются закреплённой версией [`clash-lib` в Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) и [явно включёнными функциями ядра в этом проекте](uniffi/chimera-ffi/Cargo.toml).** Сейчас закреплена версия [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1). Наличие функции в вышестоящем ядре не означает, что она уже доступна через разбор конфигурации, интеграцию Android или интерфейс AChimera. Поэтому здесь нет отдельного списка протоколов, который может устареть, и не обещается совместимость со всеми конфигурациями mihomo.
+Ядро наследует широкие возможности прокси-протоколов и транспорта от вышестоящего clash-chimera. **Доступные в AChimera протоколы и функции определяются закреплённой версией [`clash-lib` в Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/f304da17b7eaf6a187daf03a96bb1e77a26dd049/clash-lib/Cargo.toml) и [явно включёнными функциями ядра в этом проекте](uniffi/chimera-ffi/Cargo.toml).** Сейчас закреплена версия [Chimera_Client v0.29.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.29.1). Наличие функции в вышестоящем ядре не означает, что она уже доступна через разбор конфигурации, интеграцию Android или интерфейс AChimera. Актуальная таблица протоколов и известных ограничений приведена в [README на китайском](README.md); совместимость со всеми конфигурациями mihomo не гарантируется.
 
 ## Возможности приложения
 
@@ -36,7 +36,15 @@ AChimera предлагает два переключаемых интерфей
 - Rust `1.97.1`, а также Android targets и компоненты из `rust-toolchain.toml`
 - `cargo-ndk`; `just` нужен только для генерации или проверки UniFFI bindings.
 
+В Linux x86_64 Nix Flake предоставляет закреплённые Android SDK/NDK, JDK и инструменты командной строки:
+
+```sh
+nix develop
+```
+
 Чтобы Gradle нашёл Android SDK/NDK, задайте `sdk.dir` (и при необходимости `ndk.dir`) в локальном `local.properties` либо настройте `ANDROID_SDK_ROOT` / `ANDROID_HOME` (и при необходимости `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`). `local.properties` содержит локальные пути и не должен попадать в Git.
+
+Если вы не используете Nix Flake, установите инструменты командной строки:
 
 ```sh
 cargo install cargo-ndk --locked
@@ -76,6 +84,8 @@ just check-bindings
 ```
 
 Gradle собирает нативную библиотеку Rust для Android, но **не генерирует Kotlin bindings UniFFI автоматически**. Для генерации и проверки нужны Android NDK, Rust targets для Android и `cargo-ndk`.
+
+Запустите instrumentation tests на устройстве `arm64-v8a` командой `just test-arm64-device`. Команда проверит ABI, соберёт все ABI и запустит тесты. Если подключено несколько устройств, задайте `ADB_SERIAL`.
 
 В Windows замените `./gradlew` на `.\gradlew.bat`. Скрипту `scripts/start-emulator.sh` нужна среда Bash и AVD, созданный в Android Studio Device Manager.
 

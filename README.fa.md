@@ -10,7 +10,7 @@ AChimera دو رابط قابل‌تعویض دارد: Watfaq و رابط به �
 
 هستهٔ پراکسی با Rust نوشته شده و به‌صورت کتابخانهٔ بومی Android اجرا می‌شود. طراحی آن بر پردازش کارآمد شبکه و سربار کم منابع تمرکز دارد. مصرف واقعی CPU و حافظه به دستگاه، پیکربندی، پروتکل‌ها، قوانین و تعداد اتصال‌ها بستگی دارد؛ پروژه بدون اندازه‌گیری، عدد ثابتی برای مصرف منابع تضمین نمی‌کند.
 
-هسته، قابلیت‌های گستردهٔ پروتکل‌ها و انتقال داده را از clash-chimera بالادستی به ارث می‌برد. **پروتکل‌ها و قابلیت‌های در دسترس AChimera بر اساس نسخهٔ قفل‌شدهٔ بالادستی [`clash-lib` در Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/daf67cb09a8f37bbca59b9758801155a2989962a/clash-lib/Cargo.toml) و [قابلیت‌های صریحاً فعال‌شدهٔ هسته در این پروژه](uniffi/chimera-ffi/Cargo.toml) تعیین می‌شوند.** نسخهٔ فعلی قفل‌شده [Chimera_Client v0.28.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.28.1) است. وجود قابلیتی در هستهٔ بالادستی لزوماً به معنای پشتیبانی آن در تجزیهٔ پیکربندی، یکپارچه‌سازی Android یا رابط AChimera نیست؛ بنابراین این README فهرست جداگانه و احتمالاً منسوخ پروتکل‌ها ارائه نمی‌کند و سازگاری با همهٔ پیکربندی‌های mihomo را تضمین نمی‌کند.
+هسته، قابلیت‌های گستردهٔ پروتکل‌ها و انتقال داده را از clash-chimera بالادستی به ارث می‌برد. **پروتکل‌ها و قابلیت‌های در دسترس AChimera بر اساس نسخهٔ قفل‌شدهٔ بالادستی [`clash-lib` در Chimera_Client](https://github.com/MFSGA/Chimera_Client/blob/f304da17b7eaf6a187daf03a96bb1e77a26dd049/clash-lib/Cargo.toml) و [قابلیت‌های صریحاً فعال‌شدهٔ هسته در این پروژه](uniffi/chimera-ffi/Cargo.toml) تعیین می‌شوند.** نسخهٔ فعلی قفل‌شده [Chimera_Client v0.29.1](https://github.com/MFSGA/Chimera_Client/releases/tag/v0.29.1) است. وجود قابلیتی در هستهٔ بالادستی لزوماً به معنای پشتیبانی آن در تجزیهٔ پیکربندی، یکپارچه‌سازی Android یا رابط AChimera نیست؛ جدول فعلی پشتیبانی پروتکل و محدودیت‌های شناخته‌شده در [README چینی](README.md) آمده است و سازگاری با همهٔ پیکربندی‌های mihomo تضمین نمی‌شود.
 
 ## قابلیت‌های برنامه
 
@@ -36,7 +36,15 @@ AChimera دو رابط قابل‌تعویض دارد: Watfaq و رابط به �
 - Rust `1.97.1` به‌همراه targetها و مؤلفه‌های Android اعلام‌شده در `rust-toolchain.toml`
 - `cargo-ndk`؛ ابزار `just` فقط برای تولید یا بررسی bindingهای UniFFI لازم است.
 
+در Linux x86_64، Nix Flake نسخه‌های ثابت Android SDK/NDK، JDK و ابزارهای خط فرمان را فراهم می‌کند:
+
+```sh
+nix develop
+```
+
 برای یافتن SDK/NDK توسط Gradle، `sdk.dir` (و در صورت نیاز `ndk.dir`) را در فایل محلی `local.properties` تنظیم کنید یا متغیرهای `ANDROID_SDK_ROOT` / `ANDROID_HOME` (و در صورت نیاز `ANDROID_NDK_HOME` / `ANDROID_NDK_ROOT`) را تنظیم کنید. فایل `local.properties` شامل مسیرهای مخصوص دستگاه شماست و نباید commit شود.
+
+اگر از Nix Flake استفاده نمی‌کنید، ابزارهای خط فرمان را نصب کنید:
 
 ```sh
 cargo install cargo-ndk --locked
@@ -76,6 +84,8 @@ just check-bindings
 ```
 
 Gradle کتابخانهٔ بومی Rust را برای Android می‌سازد، اما bindingهای Kotlin UniFFI را خودکار دوباره تولید نمی‌کند. تولید و بررسی bindingها به Android NDK، targetهای Rust برای Android و `cargo-ndk` نیاز دارد.
+
+برای اجرای instrumentation tests روی دستگاه `arm64-v8a` از `just test-arm64-device` استفاده کنید. این فرمان ABI را بررسی می‌کند، همهٔ ABIها را می‌سازد و آزمون‌ها را اجرا می‌کند. اگر چند دستگاه وصل است، `ADB_SERIAL` را تنظیم کنید.
 
 برای Windows، `./gradlew` را با `.\gradlew.bat` جایگزین کنید. اسکریپت `scripts/start-emulator.sh` به محیط Bash و یک AVD ساخته‌شده در Android Studio Device Manager نیاز دارد.
 
