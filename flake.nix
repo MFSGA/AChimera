@@ -18,7 +18,7 @@
       devShells.${system}.default = pkgs.mkShell {
         nativeBuildInputs = with pkgs; [
           androidComposition.androidsdk jdk25 gradle
-          rustup
+          rustup cargo-ndk just
           clang cmake ninja pkg-config protobuf
         ];
         ANDROID_HOME = "${androidComposition.androidsdk}/libexec/android-sdk";

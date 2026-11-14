@@ -24,3 +24,6 @@ check-bindings: generate-binding-library
 
 build:
   ./gradlew assembleDebug
+
+test-arm64-device:
+  ./scripts/test-arm64-device.sh
