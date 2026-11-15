@@ -57,7 +57,7 @@ internal fun SettingsItem(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showChevron: Boolean = true,
     subtitleColor: Color? = null,
@@ -66,7 +66,10 @@ internal fun SettingsItem(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            .then(
+                onClick?.let { Modifier.clickable(enabled = enabled, onClick = it) }
+                    ?: Modifier,
+            )
             .alpha(if (enabled) 1f else 0.38f)
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,

@@ -81,17 +81,10 @@ class MetaOverrideDesign(context: Context) : Design<MetaOverrideDesign.Request>(
             }
         }
 
-        content.addView(createUnavailableNotice())
         sections.forEach { section ->
             content.addView(createCategory(section.title))
             section.rows.forEach { row -> content.addView(createRow(row)) }
         }
-    }
-
-    private fun createUnavailableNotice(): TextView = TextView(context).apply {
-        setText(R.string.settings_category_override_unavailable)
-        setTextAppearance(R.style.TextAppearance_MaterialComponents_Body2)
-        setPaddingRelative(dp(65), dp(8), dp(17.5f), dp(8))
     }
 
     private fun createCategory(@StringRes title: Int): View = (context.layoutInflater.inflate(
@@ -115,8 +108,6 @@ class MetaOverrideDesign(context: Context) : Design<MetaOverrideDesign.Request>(
         isFocusable = false
         alpha = DISABLED_ALPHA
     }
-
-    private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     private fun dp(value: Float): Int = (value * context.resources.displayMetrics.density).toInt()
 

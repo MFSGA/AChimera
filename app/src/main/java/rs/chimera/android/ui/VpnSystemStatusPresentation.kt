@@ -14,12 +14,15 @@ internal data class VpnSystemStatusPresentation(
     val mode: VpnSystemStatusDisplayMode,
     val alwaysOn: Boolean,
     val lockdown: Boolean,
+    val routeSystemTrafficForcedByLockdown: Boolean,
 ) {
     val restricted: Boolean
         get() = lockdown
 }
 
-internal fun VpnSystemStatus.resolvePresentation(): VpnSystemStatusPresentation =
+internal fun VpnSystemStatus.resolvePresentation(
+    configuredRouteSystemTraffic: Boolean? = null,
+): VpnSystemStatusPresentation =
     VpnSystemStatusPresentation(
         mode = when {
             !observed -> VpnSystemStatusDisplayMode.UNOBSERVED
@@ -28,6 +31,7 @@ internal fun VpnSystemStatus.resolvePresentation(): VpnSystemStatusPresentation 
         },
         alwaysOn = alwaysOn,
         lockdown = lockdown,
+        routeSystemTrafficForcedByLockdown = lockdown && configuredRouteSystemTraffic == false,
     )
 
 internal fun VpnSystemStatusPresentation.format(context: Context): String {
@@ -49,6 +53,9 @@ internal fun VpnSystemStatusPresentation.format(context: Context): String {
         alwaysOnLabel,
         lockdownLabel,
     )
+    if (routeSystemTrafficForcedByLockdown) {
+        return context.getString(R.string.vpn_system_status_lockdown_route_override, summary)
+    }
     return if (lockdown) {
         context.getString(R.string.vpn_system_status_lockdown_warning, summary)
     } else {

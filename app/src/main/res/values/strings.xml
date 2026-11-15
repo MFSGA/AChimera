@@ -114,6 +114,7 @@
     <string name="vpn_system_status_current">Current: Always-on %1$s, Lockdown %2$s</string>
     <string name="vpn_system_status_last_observed">Last observed: Always-on %1$s, Lockdown %2$s</string>
     <string name="vpn_system_status_lockdown_warning">%1$s. Lockdown requires a valid profile and VPN permission for recovery.</string>
+    <string name="vpn_system_status_lockdown_route_override">%1$s. Lockdown blocks traffic outside the VPN, so Chimera will route system traffic through the VPN even when this setting is off.</string>
     <string name="status_enabled">enabled</string>
     <string name="status_disabled">disabled</string>
     <string name="panel_screen">Nodes</string>
@@ -205,6 +206,14 @@
     <string name="ui_style_watfaq">Chimera (Compose)</string>
     <string name="ui_style_metacubex">CMFA (MetaCubeX)</string>
     <string name="cmfa_settings_network">Network</string>
+    <string name="route_system_traffic">Route System Traffic</string>
+    <string name="routing_via_vpn_service">Auto route all system traffic via VpnService</string>
+    <string name="dns_hijacking">DNS Hijacking</string>
+    <string name="dns_hijacking_summary">Choose which VPN DNS requests the Rust core handles</string>
+    <string name="system_proxy">System Proxy</string>
+    <string name="system_proxy_summary">Attach the active profile HTTP proxy to VpnService</string>
+    <string name="settings_tun_stack_mode">TUN Stack Mode</string>
+    <string name="settings_tun_stack_fixed">Rust core stack (fixed: watfaq_netstack)</string>
     <string name="cmfa_settings_diagnostics">Diagnostics</string>
     <string name="diagnostics_share_title">Share diagnostics</string>
     <string name="diagnostics_share_summary">Create a privacy-filtered support bundle with app/runtime status and recent logs.</string>
@@ -377,11 +386,11 @@
     <string name="service_notification_channel_name">Chimera Service</string>
     <string name="service_notification_title">Chimera</string>
     <string name="service_notification_title_failed">Chimera failed</string>
-    <string name="service_notification_text_starting">VPN service is starting.</string>
-    <string name="service_notification_text_running">VPN service is active.</string>
+    <string name="service_notification_text_starting">Proxy service is starting.</string>
+    <string name="service_notification_text_running">Proxy service is active.</string>
     <string name="service_notification_traffic_rate">%1$s upload · %2$s download</string>
     <string name="service_notification_traffic_total">%1$s uploaded · %2$s downloaded</string>
-    <string name="service_notification_text_failed">VPN service stopped unexpectedly.</string>
+    <string name="service_notification_text_failed">Proxy service stopped unexpectedly.</string>
     <string name="profile_title">Imported Profile</string>
     <string name="profile_active_title">Active Profile</string>
     <string name="profile_local_dialog_title">Import Local Profile</string>

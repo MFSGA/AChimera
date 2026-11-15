@@ -78,6 +78,9 @@ class DualUiSettingsInstrumentedTest {
     @Test
     fun backendSettingsAreRenderedByBothUiRoots() {
         updateRuntimeSettings(
+            routeSystemTraffic = true,
+            dnsHijacking = false,
+            systemProxy = true,
             allowLan = true,
             allowBypass = true,
             fakeIp = true,
@@ -93,10 +96,15 @@ class DualUiSettingsInstrumentedTest {
         var watfaqPortsSummary = ""
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             openWatfaqSettings()
+            scrollWatfaqTo(context.getString(R.string.route_system_traffic)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_allow_lan)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_allow_bypass)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_fake_ip)).assertIsOn()
             scrollWatfaqTo(context.getString(R.string.settings_ipv6)).assertIsOn()
+            scrollWatfaqTo(context.getString(R.string.dns_hijacking)).assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.system_proxy)).assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.settings_tun_stack_mode)).assertIsDisplayed()
+            scrollWatfaqTo(context.getString(R.string.settings_tun_stack_fixed)).assertIsDisplayed()
             scenario.onActivity { activity ->
                 watfaqPortsSummary = activity.getString(
                     R.string.cmfa_ports_summary,
@@ -119,6 +127,15 @@ class DualUiSettingsInstrumentedTest {
                 )
             }
             onView(withId(R.id.switch_allow_lan)).check(matches(isChecked()))
+            onView(withId(R.id.switch_route_system_traffic)).check(matches(isChecked()))
+            onView(withId(R.id.switch_dns_hijacking)).check(matches(not(isChecked())))
+            onView(withId(R.id.switch_system_proxy)).check(matches(isChecked()))
+            onView(withText(R.string.settings_tun_stack_mode))
+                .perform(scrollTo())
+                .check(matches(isDisplayed()))
+            onView(withText(R.string.settings_tun_stack_fixed))
+                .perform(scrollTo())
+                .check(matches(isDisplayed()))
             onView(withId(R.id.switch_allow_bypass)).check(matches(isChecked()))
             onView(withId(R.id.switch_fake_ip)).check(matches(isChecked()))
             onView(withId(R.id.switch_ipv6)).check(matches(isChecked()))
@@ -170,6 +187,24 @@ class DualUiSettingsInstrumentedTest {
     }
 
     @Test
+    fun routeSystemTrafficChangeIsSharedAndDisablesTunnelOptions() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            openWatfaqSettings()
+            scrollWatfaqTo(context.getString(R.string.route_system_traffic)).performClick()
+            waitUntil("Watfaq route-system-traffic change was not persisted") {
+                !prefs.getBoolean(ROUTE_SYSTEM_TRAFFIC_KEY, true)
+            }
+        }
+
+        launchMetaSettings(SettingsDesign.Category.NETWORK).use {
+            onView(withId(R.id.switch_route_system_traffic)).check(matches(not(isChecked())))
+            onView(withId(R.id.switch_dns_hijacking)).check(matches(not(isEnabled())))
+            onView(withId(R.id.switch_bypass_private_network)).check(matches(not(isEnabled())))
+            onView(withId(R.id.switch_system_proxy)).check(matches(not(isEnabled())))
+        }
+    }
+
+    @Test
     fun vpnRuntimeSettingsAreBlockedByBothUiRootsAndSharedBackendWhileRunning() {
         val previousRuntimeStatus = backend.runtimeStatus.value
         val previousSettings = backend.settings.value
@@ -204,9 +239,12 @@ class DualUiSettingsInstrumentedTest {
                     .check(matches(not(isEnabled())))
                 onView(withId(R.id.card_ports)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_allow_lan)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_route_system_traffic)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_dns_hijacking)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_allow_bypass)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_fake_ip)).check(matches(not(isEnabled())))
                 onView(withId(R.id.switch_ipv6)).check(matches(not(isEnabled())))
+                onView(withId(R.id.switch_system_proxy)).check(matches(not(isEnabled())))
                 onView(withId(R.id.card_reset_settings))
                     .perform(scrollTo())
                     .check(matches(not(isEnabled())))
@@ -270,6 +308,9 @@ class DualUiSettingsInstrumentedTest {
         runBlocking {
             backend.updateSettings(
                 SettingsPatch(
+                    routeSystemTraffic = SettingsDefaults.ROUTE_SYSTEM_TRAFFIC,
+                    dnsHijacking = SettingsDefaults.DNS_HIJACKING,
+                    systemProxy = SettingsDefaults.SYSTEM_PROXY,
                     allowLan = false,
                     allowBypass = SettingsDefaults.ALLOW_BYPASS,
                     fakeIp = false,
@@ -286,6 +327,9 @@ class DualUiSettingsInstrumentedTest {
     }
 
     private fun updateRuntimeSettings(
+        routeSystemTraffic: Boolean,
+        dnsHijacking: Boolean,
+        systemProxy: Boolean,
         allowLan: Boolean,
         allowBypass: Boolean,
         fakeIp: Boolean,
@@ -297,6 +341,9 @@ class DualUiSettingsInstrumentedTest {
         runBlocking {
             backend.updateSettings(
                 SettingsPatch(
+                    routeSystemTraffic = routeSystemTraffic,
+                    dnsHijacking = dnsHijacking,
+                    systemProxy = systemProxy,
                     allowLan = allowLan,
                     allowBypass = allowBypass,
                     fakeIp = fakeIp,
@@ -329,6 +376,7 @@ class DualUiSettingsInstrumentedTest {
         const val SETTINGS_PREFS = "settings"
         const val ALLOW_LAN_KEY = "allow_lan"
         const val ALLOW_BYPASS_KEY = "allow_bypass"
+        const val ROUTE_SYSTEM_TRAFFIC_KEY = "route_system_traffic"
         val DEFAULT_MIXED_PORT: UShort = 7890u
         val TEST_MIXED_PORT: UShort = 19_090u
         val TEST_HTTP_PORT: UShort = 18_080u

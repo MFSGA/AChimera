@@ -28,6 +28,17 @@ class VpnSystemStatusPresentationTest {
     }
 
     @Test
+    fun activeCoreWithoutSystemRoutingStillShowsCurrentObservation() {
+        val presentation = VpnSystemStatus(
+            observed = true,
+            serviceActive = true,
+            routesSystemTraffic = false,
+        ).resolvePresentation()
+
+        assertEquals(VpnSystemStatusDisplayMode.CURRENT, presentation.mode)
+    }
+
+    @Test
     fun inactiveLockdownObservationRemainsRestrictedAndHistorical() {
         val presentation = VpnSystemStatus(
             observed = true,
@@ -37,5 +48,16 @@ class VpnSystemStatusPresentationTest {
 
         assertEquals(VpnSystemStatusDisplayMode.LAST_OBSERVED, presentation.mode)
         assertTrue(presentation.restricted)
+    }
+
+    @Test
+    fun lockdownExplainsWhenItOverridesDisabledSystemTrafficRouting() {
+        val presentation = VpnSystemStatus(
+            observed = true,
+            serviceActive = false,
+            lockdown = true,
+        ).resolvePresentation(configuredRouteSystemTraffic = false)
+
+        assertTrue(presentation.routeSystemTrafficForcedByLockdown)
     }
 }

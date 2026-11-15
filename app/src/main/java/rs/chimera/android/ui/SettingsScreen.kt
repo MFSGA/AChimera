@@ -1,5 +1,6 @@
 package rs.chimera.android.ui
 
+import android.os.Build
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -68,7 +69,9 @@ fun SettingsScreen(
     var showRulesDialog by remember { mutableStateOf(false) }
     var showProvidersDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
-    val vpnSystemPresentation = viewModel.vpnSystemStatus.resolvePresentation()
+    val vpnSystemPresentation = viewModel.vpnSystemStatus.resolvePresentation(
+        configuredRouteSystemTraffic = viewModel.routeSystemTrafficEnabled,
+    )
     val vpnSystemSummary = vpnSystemPresentation.format(context)
 
     viewModel.runtimeSettingError?.let { error ->
@@ -192,7 +195,7 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_app_filter),
                         subtitle = viewModel.getAppFilterSummary(),
                         onClick = onAppFilterClick,
-                        enabled = viewModel.canChangeVpnSettings,
+                        enabled = viewModel.canChangeTunnelSettings,
                     )
                 }
             }
@@ -203,6 +206,14 @@ fun SettingsScreen(
 
             item {
                 SettingsCard {
+                    SettingsSwitchItem(
+                        icon = Icons.Default.Security,
+                        title = stringResource(R.string.route_system_traffic),
+                        subtitle = stringResource(R.string.routing_via_vpn_service),
+                        checked = viewModel.routeSystemTrafficEnabled,
+                        onCheckedChange = viewModel::updateRouteSystemTraffic,
+                        enabled = viewModel.canChangeVpnSettings,
+                    )
                     SettingsItem(
                         icon = Icons.Default.Security,
                         title = stringResource(R.string.vpn_system_status_title),
@@ -241,7 +252,15 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_bypass_private_network_desc),
                         checked = viewModel.bypassPrivateNetworkEnabled,
                         onCheckedChange = viewModel::updateBypassPrivateNetwork,
-                        enabled = viewModel.canChangeVpnSettings,
+                        enabled = viewModel.canChangeTunnelSettings,
+                    )
+                    SettingsSwitchItem(
+                        icon = Icons.Default.Dns,
+                        title = stringResource(R.string.dns_hijacking),
+                        subtitle = stringResource(R.string.dns_hijacking_summary),
+                        checked = viewModel.dnsHijackingEnabled,
+                        onCheckedChange = viewModel::updateDnsHijacking,
+                        enabled = viewModel.canChangeTunnelSettings,
                     )
                     SettingsSwitchItem(
                         icon = Icons.Default.Dns,
@@ -257,7 +276,7 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_allow_bypass_desc),
                         checked = viewModel.allowBypassEnabled,
                         onCheckedChange = viewModel::updateAllowBypass,
-                        enabled = viewModel.canChangeVpnSettings,
+                        enabled = viewModel.canChangeTunnelSettings,
                     )
                     SettingsSwitchItem(
                         icon = Icons.Default.Public,
@@ -265,7 +284,23 @@ fun SettingsScreen(
                         subtitle = stringResource(R.string.settings_ipv6_desc),
                         checked = viewModel.ipv6Enabled,
                         onCheckedChange = viewModel::updateIpv6Enabled,
-                        enabled = viewModel.canChangeVpnSettings,
+                        enabled = viewModel.canChangeTunnelSettings,
+                    )
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        SettingsSwitchItem(
+                            icon = Icons.Default.Lan,
+                            title = stringResource(R.string.system_proxy),
+                            subtitle = stringResource(R.string.system_proxy_summary),
+                            checked = viewModel.systemProxyEnabled,
+                            onCheckedChange = viewModel::updateSystemProxy,
+                            enabled = viewModel.canChangeTunnelSettings,
+                        )
+                    }
+                    SettingsItem(
+                        icon = Icons.Default.Lan,
+                        title = stringResource(R.string.settings_tun_stack_mode),
+                        subtitle = stringResource(R.string.settings_tun_stack_fixed),
+                        showChevron = false,
                     )
                     SettingsItem(
                         icon = Icons.Default.Refresh,

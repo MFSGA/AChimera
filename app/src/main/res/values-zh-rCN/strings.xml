@@ -108,6 +108,7 @@
     <string name="vpn_system_status_current">当前：Always-on %1$s，Lockdown %2$s</string>
     <string name="vpn_system_status_last_observed">最近观测：Always-on %1$s，Lockdown %2$s</string>
     <string name="vpn_system_status_lockdown_warning">%1$s。Lockdown 恢复要求有效 Profile 与 VPN 权限。</string>
+    <string name="vpn_system_status_lockdown_route_override">%1$s。Android Lockdown 会阻止 VPN 以外的流量；即使此选项关闭，Chimera 仍会通过 VPN 接管系统流量。</string>
     <string name="status_enabled">已启用</string>
     <string name="status_disabled">未启用</string>
     <string name="panel_screen">节点</string>
@@ -199,6 +200,14 @@
     <string name="ui_style_watfaq">Chimera（Compose）</string>
     <string name="ui_style_metacubex">CMFA（MetaCubeX）</string>
     <string name="cmfa_settings_network">网络</string>
+    <string name="route_system_traffic">自动路由系统流量</string>
+    <string name="routing_via_vpn_service">通过 VpnService 自动路由所有系统流量</string>
+    <string name="dns_hijacking">DNS 劫持</string>
+    <string name="dns_hijacking_summary">控制交由 Rust 核心处理的 VPN DNS 请求范围</string>
+    <string name="system_proxy">系统代理</string>
+    <string name="system_proxy_summary">将活动配置的 HTTP 代理附加到 VpnService</string>
+    <string name="settings_tun_stack_mode">TUN 栈模式</string>
+    <string name="settings_tun_stack_fixed">Rust 核心栈（固定：watfaq_netstack）</string>
     <string name="cmfa_settings_diagnostics">诊断</string>
     <string name="diagnostics_share_title">分享诊断信息</string>
     <string name="diagnostics_share_summary">生成经过隐私过滤的支持包，包含应用/运行状态和近期日志。</string>
@@ -367,11 +376,11 @@
     <string name="service_notification_channel_name">Chimera 服务</string>
     <string name="service_notification_title">Chimera</string>
     <string name="service_notification_title_failed">Chimera 启动失败</string>
-    <string name="service_notification_text_starting">VPN 服务正在启动。</string>
-    <string name="service_notification_text_running">VPN 服务已激活。</string>
+    <string name="service_notification_text_starting">代理服务正在启动。</string>
+    <string name="service_notification_text_running">代理服务正在运行。</string>
     <string name="service_notification_traffic_rate">↑ %1$s  ↓ %2$s</string>
     <string name="service_notification_traffic_total">↑ %1$s  ↓ %2$s</string>
-    <string name="service_notification_text_failed">VPN 服务异常停止。</string>
+    <string name="service_notification_text_failed">代理服务异常停止。</string>
     <string name="profile_title">已导入配置</string>
     <string name="profile_active_title">当前配置</string>
     <string name="profile_local_dialog_title">导入本地配置</string>

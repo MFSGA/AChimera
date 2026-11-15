@@ -58,6 +58,9 @@ class SettingsDesign(
         data class SetHideAppIcon(val enabled: Boolean) : Request()
         data class SetHideFromRecents(val enabled: Boolean) : Request()
         data class SetShowTrafficInNotification(val enabled: Boolean) : Request()
+        data class SetRouteSystemTraffic(val enabled: Boolean) : Request()
+        data class SetDnsHijacking(val enabled: Boolean) : Request()
+        data class SetSystemProxy(val enabled: Boolean) : Request()
         data class SetAllowLan(val enabled: Boolean) : Request()
         data class SetAllowBypass(val enabled: Boolean) : Request()
         data class SetBypassPrivateNetwork(val enabled: Boolean) : Request()
@@ -66,6 +69,9 @@ class SettingsDesign(
     }
 
     data class State(
+        val routeSystemTraffic: Boolean,
+        val dnsHijacking: Boolean,
+        val systemProxy: Boolean,
         val allowLan: Boolean,
         val allowBypass: Boolean,
         val bypassPrivateNetwork: Boolean,
@@ -73,6 +79,7 @@ class SettingsDesign(
         val ipv6: Boolean,
         val appFilterMode: AppFilterMode,
         val canChangeVpnSettings: Boolean,
+        val canChangeTunnelSettings: Boolean,
         val mixedPort: Int,
         val httpPort: Int?,
         val socksPort: Int?,
@@ -103,11 +110,14 @@ class SettingsDesign(
     private val cardLanguage = root.findViewById<View>(R.id.card_language)
     private val cardAppearance = root.findViewById<View>(R.id.card_appearance)
     private val cardUiVariant = root.findViewById<View>(R.id.card_ui_variant)
+    private val rowRouteSystemTraffic = root.findViewById<View>(R.id.row_route_system_traffic)
     private val rowAllowLan = root.findViewById<View>(R.id.row_allow_lan)
     private val rowAllowBypass = root.findViewById<View>(R.id.row_allow_bypass)
     private val rowBypassPrivateNetwork = root.findViewById<View>(R.id.row_bypass_private_network)
     private val rowFakeIp = root.findViewById<View>(R.id.row_fake_ip)
     private val rowIpv6 = root.findViewById<View>(R.id.row_ipv6)
+    private val rowDnsHijacking = root.findViewById<View>(R.id.row_dns_hijacking)
+    private val rowSystemProxy = root.findViewById<View>(R.id.row_system_proxy)
     private val cardPorts = root.findViewById<View>(R.id.card_ports)
     private val cardLogs = root.findViewById<MaterialCardView>(R.id.card_logs)
     private val cardDiagnostics = root.findViewById<MaterialCardView>(R.id.card_diagnostics)
@@ -121,6 +131,7 @@ class SettingsDesign(
     private val cardResetNetwork = root.findViewById<View>(R.id.card_reset_network)
     private val cardResetSettings = root.findViewById<View>(R.id.card_reset_settings)
     private val vpnSettingRows = listOf(
+        rowRouteSystemTraffic,
         rowAllowLan,
         rowBypassPrivateNetwork,
         rowAllowBypass,
@@ -131,6 +142,15 @@ class SettingsDesign(
         cardAccessControl,
         cardResetSettings,
     )
+    private val tunnelSettingRows = listOf(
+        rowBypassPrivateNetwork,
+        rowDnsHijacking,
+        rowAllowBypass,
+        rowIpv6,
+        rowSystemProxy,
+        rowAccessControlMode,
+        cardAccessControl,
+    )
     private val rowAutoRestart = root.findViewById<View>(R.id.row_auto_restart)
     private val switchAutoRestart = root.findViewById<SwitchMaterial>(R.id.switch_auto_restart)
     private val rowHideAppIcon = root.findViewById<View>(R.id.row_hide_app_icon)
@@ -140,6 +160,10 @@ class SettingsDesign(
         root.findViewById<SwitchMaterial>(R.id.switch_hide_from_recents)
     private val rowShowTraffic = root.findViewById<View>(R.id.row_show_traffic)
     private val switchShowTraffic = root.findViewById<SwitchMaterial>(R.id.switch_show_traffic)
+    private val switchRouteSystemTraffic =
+        root.findViewById<SwitchMaterial>(R.id.switch_route_system_traffic)
+    private val switchDnsHijacking = root.findViewById<SwitchMaterial>(R.id.switch_dns_hijacking)
+    private val switchSystemProxy = root.findViewById<SwitchMaterial>(R.id.switch_system_proxy)
     private val switchAllowLan = root.findViewById<SwitchMaterial>(R.id.switch_allow_lan)
     private val switchAllowBypass = root.findViewById<SwitchMaterial>(R.id.switch_allow_bypass)
     private val switchBypassPrivateNetwork =
@@ -159,6 +183,9 @@ class SettingsDesign(
 
     init {
         root.applySystemBarInsets()
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
+            rowSystemProxy.visibility = View.GONE
+        }
 
         toolbarTitle.text = context.getString(category.titleRes)
         root.findViewById<LinearLayout>(R.id.settings_content).let { content ->
@@ -244,14 +271,29 @@ class SettingsDesign(
             },
         )
         rowAllowLan.setOnClickListener { switchAllowLan.isChecked = !switchAllowLan.isChecked }
+        rowRouteSystemTraffic.setOnClickListener {
+            if (switchRouteSystemTraffic.isEnabled) {
+                switchRouteSystemTraffic.isChecked = !switchRouteSystemTraffic.isChecked
+            }
+        }
         rowBypassPrivateNetwork.setOnClickListener {
             switchBypassPrivateNetwork.isChecked = !switchBypassPrivateNetwork.isChecked
+        }
+        rowDnsHijacking.setOnClickListener {
+            if (switchDnsHijacking.isEnabled) {
+                switchDnsHijacking.isChecked = !switchDnsHijacking.isChecked
+            }
         }
         rowAllowBypass.setOnClickListener {
             switchAllowBypass.isChecked = !switchAllowBypass.isChecked
         }
         rowFakeIp.setOnClickListener { switchFakeIp.isChecked = !switchFakeIp.isChecked }
         rowIpv6.setOnClickListener { switchIpv6.isChecked = !switchIpv6.isChecked }
+        rowSystemProxy.setOnClickListener {
+            if (switchSystemProxy.isEnabled) {
+                switchSystemProxy.isChecked = !switchSystemProxy.isChecked
+            }
+        }
         cardPorts.setOnClickListener { request(Request.EditPorts) }
         cardLogs.setOnClickListener { request(Request.OpenLogs) }
         cardDiagnostics.setOnClickListener { request(Request.ShareDiagnostics) }
@@ -270,6 +312,15 @@ class SettingsDesign(
         cardResetSettings.setOnClickListener { request(Request.ResetRuntimeSettings) }
         switchAllowLan.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetAllowLan(checked))
+        }
+        switchRouteSystemTraffic.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) request(Request.SetRouteSystemTraffic(checked))
+        }
+        switchDnsHijacking.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) request(Request.SetDnsHijacking(checked))
+        }
+        switchSystemProxy.setOnCheckedChangeListener { _, checked ->
+            if (!rendering) request(Request.SetSystemProxy(checked))
         }
         switchBypassPrivateNetwork.setOnCheckedChangeListener { _, checked ->
             if (!rendering) request(Request.SetBypassPrivateNetwork(checked))
@@ -314,6 +365,9 @@ class SettingsDesign(
         switchHideAppIcon.isChecked = state.hideAppIcon
         switchHideFromRecents.isChecked = state.hideFromRecents
         switchShowTraffic.isChecked = state.showTrafficInNotification
+        switchRouteSystemTraffic.isChecked = state.routeSystemTraffic
+        switchDnsHijacking.isChecked = state.dnsHijacking
+        switchSystemProxy.isChecked = state.systemProxy
         switchAllowLan.isChecked = state.allowLan
         switchBypassPrivateNetwork.isChecked = state.bypassPrivateNetwork
         switchAllowBypass.isChecked = state.allowBypass
@@ -323,14 +377,30 @@ class SettingsDesign(
             row.isEnabled = state.canChangeVpnSettings
             row.alpha = if (state.canChangeVpnSettings) 1f else 0.38f
         }
+        tunnelSettingRows.forEach { row ->
+            row.isEnabled = state.canChangeTunnelSettings
+            row.alpha = if (state.canChangeTunnelSettings) 1f else 0.38f
+        }
         listOf(
             switchAllowLan,
+            switchRouteSystemTraffic,
             switchBypassPrivateNetwork,
+            switchDnsHijacking,
             switchAllowBypass,
             switchFakeIp,
             switchIpv6,
+            switchSystemProxy,
         ).forEach { switch ->
             switch.isEnabled = state.canChangeVpnSettings
+        }
+        listOf(
+            switchBypassPrivateNetwork,
+            switchDnsHijacking,
+            switchAllowBypass,
+            switchIpv6,
+            switchSystemProxy,
+        ).forEach { switch ->
+            switch.isEnabled = state.canChangeTunnelSettings
         }
         rowShowTraffic.isEnabled = state.canChangeTrafficNotification
         rowShowTraffic.alpha = if (state.canChangeTrafficNotification) 1f else 0.38f

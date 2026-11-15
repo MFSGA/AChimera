@@ -156,6 +156,21 @@ class MetaSettingsActivity : AppCompatActivity() {
                 }
                 design.render(loadState())
             }
+            is SettingsDesign.Request.SetRouteSystemTraffic -> {
+                if (canChangeVpnSettings()) {
+                    saveSettings(SettingsPatch(routeSystemTraffic = request.enabled))
+                }
+            }
+            is SettingsDesign.Request.SetDnsHijacking -> {
+                if (canChangeTunnelSettings()) {
+                    saveSettings(SettingsPatch(dnsHijacking = request.enabled))
+                }
+            }
+            is SettingsDesign.Request.SetSystemProxy -> {
+                if (canChangeTunnelSettings()) {
+                    saveSettings(SettingsPatch(systemProxy = request.enabled))
+                }
+            }
             is SettingsDesign.Request.SetAllowLan -> {
                 if (canChangeVpnSettings()) saveSettings(SettingsPatch(allowLan = request.enabled))
             }
@@ -583,15 +598,21 @@ class MetaSettingsActivity : AppCompatActivity() {
         val settings = backend.settings.value
         val appFilterMode = runCatching { AppFilterMode.valueOf(settings.appFilterMode) }
             .getOrDefault(AppFilterMode.ALL)
-        val vpnPresentation = backend.vpnSystemStatus.value.resolvePresentation()
+        val vpnPresentation = backend.vpnSystemStatus.value.resolvePresentation(
+            configuredRouteSystemTraffic = settings.routeSystemTraffic,
+        )
         return SettingsDesign.State(
             allowLan = settings.allowLan,
+            routeSystemTraffic = settings.routeSystemTraffic,
+            dnsHijacking = settings.dnsHijacking,
+            systemProxy = settings.systemProxy,
             allowBypass = settings.allowBypass,
             bypassPrivateNetwork = settings.bypassPrivateNetwork,
             fakeIp = settings.fakeIp,
             ipv6 = settings.ipv6,
             appFilterMode = appFilterMode,
             canChangeVpnSettings = canChangeVpnSettings(),
+            canChangeTunnelSettings = canChangeTunnelSettings(),
             mixedPort = settings.mixedPort.toInt(),
             httpPort = settings.httpPort?.toInt(),
             socksPort = settings.socksPort?.toInt(),
@@ -615,6 +636,9 @@ class MetaSettingsActivity : AppCompatActivity() {
                 availability.hasRunRequest,
             )
         }
+
+    private fun canChangeTunnelSettings(): Boolean =
+        canChangeVpnSettings() && backend.settings.value.routeSystemTraffic
 
     private companion object {
         const val DEFAULT_DNS_QUERY_NAME = "example.com"

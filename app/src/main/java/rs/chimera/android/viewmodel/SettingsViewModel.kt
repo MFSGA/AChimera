@@ -80,6 +80,17 @@ class SettingsViewModel(
     var allowLan: Boolean by mutableStateOf(backend.settings.value.allowLan)
         private set
 
+    var routeSystemTrafficEnabled: Boolean by mutableStateOf(
+        backend.settings.value.routeSystemTraffic,
+    )
+        private set
+
+    var dnsHijackingEnabled: Boolean by mutableStateOf(backend.settings.value.dnsHijacking)
+        private set
+
+    var systemProxyEnabled: Boolean by mutableStateOf(backend.settings.value.systemProxy)
+        private set
+
     var allowBypassEnabled: Boolean by mutableStateOf(backend.settings.value.allowBypass)
         private set
 
@@ -127,6 +138,9 @@ class SettingsViewModel(
             vpnSettingsAvailability.hasRunRequest,
         )
 
+    val canChangeTunnelSettings: Boolean
+        get() = canChangeVpnSettings && routeSystemTrafficEnabled
+
     init {
         viewModelScope.launch {
             backend.settings.collect { reloadPersistedSettings() }
@@ -142,6 +156,15 @@ class SettingsViewModel(
     }
 
     fun updateAllowLan(enabled: Boolean) = updateRuntimeSetting(SettingsPatch(allowLan = enabled))
+
+    fun updateRouteSystemTraffic(enabled: Boolean) =
+        updateRuntimeSetting(SettingsPatch(routeSystemTraffic = enabled))
+
+    fun updateDnsHijacking(enabled: Boolean) =
+        updateRuntimeSetting(SettingsPatch(dnsHijacking = enabled))
+
+    fun updateSystemProxy(enabled: Boolean) =
+        updateRuntimeSetting(SettingsPatch(systemProxy = enabled))
 
     fun updateAllowBypass(enabled: Boolean) =
         updateRuntimeSetting(SettingsPatch(allowBypass = enabled))
@@ -272,6 +295,9 @@ class SettingsViewModel(
     private fun reloadPersistedSettings() {
         val settings = backend.settings.value
         allowLan = settings.allowLan
+        routeSystemTrafficEnabled = settings.routeSystemTraffic
+        dnsHijackingEnabled = settings.dnsHijacking
+        systemProxyEnabled = settings.systemProxy
         allowBypassEnabled = settings.allowBypass
         bypassPrivateNetworkEnabled = settings.bypassPrivateNetwork
         fakeIpEnabled = settings.fakeIp

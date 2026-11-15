@@ -75,6 +75,12 @@ backend 串行执行设置写入，并只允许 VPN 处于 `STOPPED` 或 `ERROR`
 
 `bypass_private_network` 控制 Android VPN 是否仅接管 CMFA 同版绕过路由表列出的地址。该表排除了 IPv4 的 `0.0.0.0/8`、`10.0.0.0/8`、`127.0.0.0/8`、`169.254.0.0/16`、`172.16.0.0/12`、`192.168.0.0/16`、`224.0.0.0/4`、`255.255.255.255/32`，以及 IPv6 的 `fc00::/7`、`fe80::/10`、`ff00::/8`；它不等同于过滤所有特殊用途地址。默认开启以匹配 CMFA，升级前没有该设置的安装也会采用此默认值。启用时还会为 VPN 虚拟 DNS 保留主机路由；关闭时使用 IPv4/IPv6 默认路由。该选项保存在共享设置中，变更需要重建 TUN，并在两套 UI 中保持一致。
 
+`route_system_traffic` 默认开启并保留 Android `VpnService` 路由模式；关闭时仍启动本地 Rust 代理核心，但不申请 VPN 授权、不建立 TUN 接口或系统路由。此模式仍监听 Android 网络切换，并重置核心 DNS 与连接池；不会调用仅用于 VPN 的 `setUnderlyingNetworks`。`dns_hijacking` 默认开启；开启时 Rust 核心接管任意目标地址的 UDP/TCP 53 端口，关闭时仍接管 Android VPN 分配的虚拟 DNS 地址，以免系统查询发往无人监听的 TUN 地址。该行为与 CMFA 的两种 DNS 范围一致，只在路由模式开启时生效。Android Q 及以上的 `system_proxy` 默认开启，将活动配置的混合代理端口设为 VPN 的 HTTP 系统代理，监听地址跟随配置的 `bind-address`，并沿用 CMFA 的域名及私网排除列表；若混合端口为动态值 `0`，则跳过系统代理设置并继续启动核心。系统代理端点与核心启动在同一配置更新锁内读取，避免远程配置更新让系统代理指向旧端口。三个设置都由共享仓库保存，停止服务后可修改，启动时应用。服务无论是否建立 TUN，都会刷新 Android Always-on 与 Lockdown 状态；`serviceActive` 表示 VpnService 正在运行，`routesSystemTraffic` 单独表示是否接管系统流量。
+
+前述无 TUN 模式以 Android Lockdown 未启用为前提。Android Always-on 启动请求会在有效 Profile 与所需授权可用时启动服务，即使此前保存的运行意图为停止。Android Q 及以上启用 Lockdown 时，服务会强制建立 VPN 路由，即使 `route_system_traffic` 偏好关闭；若服务已在无 TUN 模式运行，重复的系统启动请求会重建运行时并建立 TUN。这样可避免系统封锁 VPN 以外的流量；两套设置页会显示这一覆盖状态。
+
+CMFA 的 `system`、`gvisor`、`mixed`、`mips` TUN 栈选择依赖其 Go 核心。当前锁定的 Rust `clash-lib` 固定使用 `watfaq_netstack`，没有可配置的同类 TUN 栈接口；两套设置页展示当前固定栈信息，不提供无效的模式选择。切换这些核心栈需要上游核心提供并验证对应能力。
+
 `AppPreferences` 还保存共享的“从最近任务隐藏”界面偏好，默认关闭；当前开关位于 MetaCubeX 应用设置页。偏好变更会立即更新应用任务的 Recents 标记，后续 Activity 恢复时也会重新应用，不影响 VPN 运行状态。
 
 ## 初始化与线程

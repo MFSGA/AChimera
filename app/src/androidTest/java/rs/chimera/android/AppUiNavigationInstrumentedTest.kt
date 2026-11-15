@@ -1632,7 +1632,7 @@ class AppUiNavigationInstrumentedTest {
             waitForResumedActivity<MetaOverrideActivity>()
             onView(withText(R.string.meta_override_general)).check(matches(isDisplayed()))
             onView(withText(R.string.settings_category_override_unavailable))
-                .check(matches(isDisplayed()))
+                .check(doesNotExist())
             onView(withText(R.string.meta_override_http_port)).check { view, _ ->
                 var item: View = view
                 while (item.id != R.id.meta_feature_preference_item) {
