@@ -4,6 +4,9 @@ import rs.chimera.android.backend.model.SettingsDefaults
 
 /** Persisted user preferences; the running core applies a snapshot when it starts. */
 data class RuntimeSettings(
+    val routeSystemTraffic: Boolean = SettingsDefaults.ROUTE_SYSTEM_TRAFFIC,
+    val dnsHijacking: Boolean = SettingsDefaults.DNS_HIJACKING,
+    val systemProxy: Boolean = SettingsDefaults.SYSTEM_PROXY,
     val appFilterMode: String = SettingsDefaults.APP_FILTER_MODE,
     val allowedApps: Set<String> = emptySet(),
     val disallowedApps: Set<String> = emptySet(),

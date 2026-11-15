@@ -35,6 +35,9 @@ class SettingsPatchTest {
     @Test
     fun tunnelSettingsRequireTunRebuild() {
         listOf(
+            SettingsPatch(routeSystemTraffic = false),
+            SettingsPatch(dnsHijacking = false),
+            SettingsPatch(systemProxy = false),
             SettingsPatch(ipv6 = true),
             SettingsPatch(allowBypass = false),
             SettingsPatch(bypassPrivateNetwork = false),

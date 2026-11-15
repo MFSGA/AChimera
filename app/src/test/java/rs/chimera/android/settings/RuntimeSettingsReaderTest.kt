@@ -9,6 +9,12 @@ class RuntimeSettingsReaderTest {
     @Test
     fun emptyPreferencesUseSharedDefaults() {
         assertEquals(RuntimeSettings(), RuntimeSettingsReader.read(emptyMap<String, Any>()))
+        assertEquals(
+            SettingsDefaults.ROUTE_SYSTEM_TRAFFIC,
+            RuntimeSettingsReader.read(emptyMap<String, Any>()).routeSystemTraffic,
+        )
+        assertEquals(SettingsDefaults.DNS_HIJACKING, RuntimeSettingsReader.read(emptyMap<String, Any>()).dnsHijacking)
+        assertEquals(SettingsDefaults.SYSTEM_PROXY, RuntimeSettingsReader.read(emptyMap<String, Any>()).systemProxy)
         assertEquals(SettingsDefaults.ALLOW_BYPASS, RuntimeSettingsReader.read(emptyMap<String, Any>()).allowBypass)
         assertEquals(
             SettingsDefaults.BYPASS_PRIVATE_NETWORK,
@@ -20,6 +26,23 @@ class RuntimeSettingsReaderTest {
     fun allowBypassReadsStoredValueAndDefaultsToReferenceBehavior() {
         assertEquals(false, RuntimeSettingsReader.read(mapOf("allow_bypass" to false)).allowBypass)
         assertEquals(SettingsDefaults.ALLOW_BYPASS, RuntimeSettingsReader.read(emptyMap<String, Any>()).allowBypass)
+    }
+
+    @Test
+    fun networkTogglesReadPersistedValuesAndPreserveReferenceDefaults() {
+        val settings = RuntimeSettingsReader.read(
+            mapOf(
+                "route_system_traffic" to false,
+                "dns_hijacking" to false,
+                "system_proxy" to false,
+            ),
+        )
+        assertEquals(false, settings.routeSystemTraffic)
+        assertEquals(false, settings.dnsHijacking)
+        assertEquals(false, settings.systemProxy)
+        assertEquals(SettingsDefaults.ROUTE_SYSTEM_TRAFFIC, RuntimeSettingsReader.read(emptyMap<String, Any>()).routeSystemTraffic)
+        assertEquals(SettingsDefaults.DNS_HIJACKING, RuntimeSettingsReader.read(emptyMap<String, Any>()).dnsHijacking)
+        assertEquals(SettingsDefaults.SYSTEM_PROXY, RuntimeSettingsReader.read(emptyMap<String, Any>()).systemProxy)
     }
 
     @Test

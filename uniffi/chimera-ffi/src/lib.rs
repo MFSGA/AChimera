@@ -25,10 +25,10 @@ static GLOBAL: ::mimalloc::MiMalloc = ::mimalloc::MiMalloc;
 static GLOBAL: std::alloc::System = std::alloc::System;
 
 use clash_lib::Config as ClashConfig;
-#[cfg(test)]
 use clash_lib::config::def::{Config as ConfigDef, Port};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::sync::Once;
 #[cfg(test)]
@@ -52,6 +52,12 @@ pub struct ProfileOverride {
     pub tun_fd: i32,
     pub log_file_path: String,
 
+    #[uniffi(default = true)]
+    pub tun_enabled: bool,
+
+    #[uniffi(default = true)]
+    pub dns_hijacking: bool,
+
     #[uniffi(default = false)]
     pub allow_lan: bool,
 
@@ -72,6 +78,12 @@ pub struct ProfileOverride {
 
     #[uniffi(default = false)]
     pub ipv6: bool,
+}
+
+#[derive(uniffi::Record)]
+pub struct ProfileProxyEndpoint {
+    pub host: String,
+    pub port: u16,
 }
 
 #[derive(uniffi::Record, Default)]
@@ -164,6 +176,31 @@ fn verify_config(config_path: String) -> Result<String, ChimeraError> {
 }
 
 #[uniffi::export]
+fn get_profile_proxy_endpoint(
+    config_path: String,
+    fallback: u16,
+) -> Result<Option<ProfileProxyEndpoint>, ChimeraError> {
+    let path = PathBuf::from(config_path);
+    let config = ConfigDef::try_from(path).map_err(|error| {
+        runtime_error(format!(
+            "failed to parse profile for proxy endpoint: {error}"
+        ))
+    })?;
+    let port = config.mixed_port.map(|Port(port)| port).unwrap_or(fallback);
+    if port == 0 {
+        return Ok(None);
+    }
+
+    let host = match config.bind_address.0 {
+        IpAddr::V4(address) if address.is_unspecified() => Ipv4Addr::LOCALHOST.to_string(),
+        IpAddr::V6(address) if address.is_unspecified() => Ipv6Addr::LOCALHOST.to_string(),
+        address => address.to_string(),
+    };
+
+    Ok(Some(ProfileProxyEndpoint { host, port }))
+}
+
+#[uniffi::export]
 fn read_ui_subtitle_pattern(config_path: String) -> Option<String> {
     profile_ui_metadata::read_ui_subtitle_pattern(Path::new(&config_path))
 }
@@ -183,6 +220,8 @@ mod tests {
         ProfileOverride {
             tun_fd: 1,
             log_file_path: "chimera.log".to_string(),
+            tun_enabled: true,
+            dns_hijacking: true,
             allow_lan: true,
             mixed_port: 7890,
             http_port: Some(7891),
@@ -218,6 +257,51 @@ mod tests {
         let _runtime_config: clash_lib::config::RuntimeConfig = config.try_into().unwrap();
 
         assert_eq!(7890, mixed_port);
+    }
+
+    #[test]
+    fn profile_proxy_endpoint_uses_profile_bind_address_and_fallback_port() {
+        let profile_path = unique_temp_path("mixed-port");
+        fs::write(
+            &profile_path,
+            "mixed-port: 9123\nbind-address: 192.168.1.20\nproxies: []\nproxy-groups: []\nrules: []\n",
+        )
+        .unwrap();
+
+        let endpoint = get_profile_proxy_endpoint(profile_path.to_string_lossy().to_string(), 7890)
+            .unwrap()
+            .unwrap();
+        assert_eq!("192.168.1.20", endpoint.host);
+        assert_eq!(9123, endpoint.port);
+
+        fs::write(
+            &profile_path,
+            "bind-address: \"*\"\nproxies: []\nproxy-groups: []\nrules: []\n",
+        )
+        .unwrap();
+        let endpoint = get_profile_proxy_endpoint(profile_path.to_string_lossy().to_string(), 7890)
+            .unwrap()
+            .unwrap();
+        assert_eq!("127.0.0.1", endpoint.host);
+        assert_eq!(7890, endpoint.port);
+        let _ = fs::remove_file(profile_path);
+    }
+
+    #[test]
+    fn dynamic_mixed_port_skips_system_proxy_endpoint() {
+        let profile_path = unique_temp_path("dynamic-mixed-port");
+        fs::write(
+            &profile_path,
+            "mixed-port: 0\nproxies: []\nproxy-groups: []\nrules: []\n",
+        )
+        .unwrap();
+
+        assert!(
+            get_profile_proxy_endpoint(profile_path.to_string_lossy().to_string(), 7890)
+                .unwrap()
+                .is_none()
+        );
+        let _ = fs::remove_file(profile_path);
     }
 
     #[test]

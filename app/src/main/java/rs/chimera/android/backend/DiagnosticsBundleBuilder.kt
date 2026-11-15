@@ -46,6 +46,7 @@ internal object DiagnosticsBundleBuilder {
         appendLine("[vpn]")
         appendLine("observed=${input.vpnSystemStatus.observed}")
         appendLine("service_active=${input.vpnSystemStatus.serviceActive}")
+        appendLine("routes_system_traffic=${input.vpnSystemStatus.routesSystemTraffic}")
         appendLine("always_on=${input.vpnSystemStatus.alwaysOn}")
         appendLine("lockdown=${input.vpnSystemStatus.lockdown}")
         appendLine("observed_at_epoch_ms=${input.vpnSystemStatus.observedAt}")

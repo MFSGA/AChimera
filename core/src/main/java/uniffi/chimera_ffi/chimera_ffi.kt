@@ -667,6 +667,8 @@ internal object IntegrityCheckingUniffiLib {
         uniffiCheckContractApiVersion(this)
         uniffiCheckApiChecksums(this)
     }
+    external fun uniffi_chimera_ffi_checksum_func_get_profile_proxy_endpoint(
+    ): Short
     external fun uniffi_chimera_ffi_checksum_func_hello(
     ): Short
     external fun uniffi_chimera_ffi_checksum_func_read_ui_subtitle_pattern(
@@ -792,6 +794,8 @@ internal object UniffiLib {
     ): Long
     external fun uniffi_chimera_ffi_fn_init_callback_vtable_downloadprogresscallback(`vtable`: UniffiVTableCallbackInterfaceDownloadProgressCallback,
     ): Unit
+    external fun uniffi_chimera_ffi_fn_func_get_profile_proxy_endpoint(`configPath`: RustBuffer.ByValue,`fallback`: Short,uniffi_out_err: UniffiRustCallStatus,
+    ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_hello(uniffi_out_err: UniffiRustCallStatus,
     ): RustBuffer.ByValue
     external fun uniffi_chimera_ffi_fn_func_read_ui_subtitle_pattern(`configPath`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus,
@@ -925,6 +929,9 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 }
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
+    if (lib.uniffi_chimera_ffi_checksum_func_get_profile_proxy_endpoint() != 4942.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if (lib.uniffi_chimera_ffi_checksum_func_hello() != 60002.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
@@ -2619,6 +2626,10 @@ data class ProfileOverride (
     ,
     var `logFilePath`: kotlin.String
     ,
+    var `tunEnabled`: kotlin.Boolean = true
+    ,
+    var `dnsHijacking`: kotlin.Boolean = true
+    ,
     var `allowLan`: kotlin.Boolean = false
     ,
     var `mixedPort`: kotlin.UShort = 7890u
@@ -2651,6 +2662,8 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
             FfiConverterInt.read(buf),
             FfiConverterString.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
+            FfiConverterBoolean.read(buf),
             FfiConverterUShort.read(buf),
             FfiConverterOptionalUShort.read(buf),
             FfiConverterOptionalUShort.read(buf),
@@ -2663,6 +2676,8 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
     override fun allocationSize(value: ProfileOverride) = (
             FfiConverterInt.allocationSize(value.`tunFd`) +
             FfiConverterString.allocationSize(value.`logFilePath`) +
+            FfiConverterBoolean.allocationSize(value.`tunEnabled`) +
+            FfiConverterBoolean.allocationSize(value.`dnsHijacking`) +
             FfiConverterBoolean.allocationSize(value.`allowLan`) +
             FfiConverterUShort.allocationSize(value.`mixedPort`) +
             FfiConverterOptionalUShort.allocationSize(value.`httpPort`) +
@@ -2675,6 +2690,8 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
     override fun write(value: ProfileOverride, buf: ByteBuffer) {
             FfiConverterInt.write(value.`tunFd`, buf)
             FfiConverterString.write(value.`logFilePath`, buf)
+            FfiConverterBoolean.write(value.`tunEnabled`, buf)
+            FfiConverterBoolean.write(value.`dnsHijacking`, buf)
             FfiConverterBoolean.write(value.`allowLan`, buf)
             FfiConverterUShort.write(value.`mixedPort`, buf)
             FfiConverterOptionalUShort.write(value.`httpPort`, buf)
@@ -2682,6 +2699,44 @@ public object FfiConverterTypeProfileOverride: FfiConverterRustBuffer<ProfileOve
             FfiConverterBoolean.write(value.`fakeIp`, buf)
             FfiConverterString.write(value.`fakeIpRange`, buf)
             FfiConverterBoolean.write(value.`ipv6`, buf)
+    }
+}
+
+
+
+data class ProfileProxyEndpoint (
+    var `host`: kotlin.String
+    ,
+    var `port`: kotlin.UShort
+
+){
+
+
+
+
+
+    companion object
+}
+
+/**
+ * @suppress
+ */
+public object FfiConverterTypeProfileProxyEndpoint: FfiConverterRustBuffer<ProfileProxyEndpoint> {
+    override fun read(buf: ByteBuffer): ProfileProxyEndpoint {
+        return ProfileProxyEndpoint(
+            FfiConverterString.read(buf),
+            FfiConverterUShort.read(buf),
+        )
+    }
+
+    override fun allocationSize(value: ProfileProxyEndpoint) = (
+            FfiConverterString.allocationSize(value.`host`) +
+            FfiConverterUShort.allocationSize(value.`port`)
+    )
+
+    override fun write(value: ProfileProxyEndpoint, buf: ByteBuffer) {
+            FfiConverterString.write(value.`host`, buf)
+            FfiConverterUShort.write(value.`port`, buf)
     }
 }
 
@@ -3253,6 +3308,38 @@ public object FfiConverterOptionalString: FfiConverterRustBuffer<kotlin.String?>
 /**
  * @suppress
  */
+public object FfiConverterOptionalTypeProfileProxyEndpoint: FfiConverterRustBuffer<ProfileProxyEndpoint?> {
+    override fun read(buf: ByteBuffer): ProfileProxyEndpoint? {
+        if (buf.get().toInt() == 0) {
+            return null
+        }
+        return FfiConverterTypeProfileProxyEndpoint.read(buf)
+    }
+
+    override fun allocationSize(value: ProfileProxyEndpoint?): ULong {
+        if (value == null) {
+            return 1UL
+        } else {
+            return 1UL + FfiConverterTypeProfileProxyEndpoint.allocationSize(value)
+        }
+    }
+
+    override fun write(value: ProfileProxyEndpoint?, buf: ByteBuffer) {
+        if (value == null) {
+            buf.put(0)
+        } else {
+            buf.put(1)
+            FfiConverterTypeProfileProxyEndpoint.write(value, buf)
+        }
+    }
+}
+
+
+
+
+/**
+ * @suppress
+ */
 public object FfiConverterOptionalTypeSubscriptionInfo: FfiConverterRustBuffer<SubscriptionInfo?> {
     override fun read(buf: ByteBuffer): SubscriptionInfo? {
         if (buf.get().toInt() == 0) {
@@ -3583,6 +3670,17 @@ public object FfiConverterMapStringString: FfiConverterRustBuffer<Map<kotlin.Str
 
 
 
+
+
+    @Throws(ChimeraException::class) fun `getProfileProxyEndpoint`(`configPath`: kotlin.String, `fallback`: kotlin.UShort): ProfileProxyEndpoint? {
+            return FfiConverterOptionalTypeProfileProxyEndpoint.lift(
+    uniffiRustCallWithError(ChimeraException) { _status ->
+    UniffiLib.uniffi_chimera_ffi_fn_func_get_profile_proxy_endpoint(
+
+        FfiConverterString.lower(`configPath`),FfiConverterUShort.lower(`fallback`),_status)
+}
+    )
+    }
 
  fun `hello`(): kotlin.String {
             return FfiConverterString.lift(

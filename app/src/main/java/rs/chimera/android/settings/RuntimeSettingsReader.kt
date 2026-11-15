@@ -6,6 +6,10 @@ import rs.chimera.android.service.PortPreference
 internal object RuntimeSettingsReader {
     fun read(values: Map<String, *>): RuntimeSettings {
         return RuntimeSettings(
+            routeSystemTraffic = values["route_system_traffic"] as? Boolean
+                ?: SettingsDefaults.ROUTE_SYSTEM_TRAFFIC,
+            dnsHijacking = values["dns_hijacking"] as? Boolean ?: SettingsDefaults.DNS_HIJACKING,
+            systemProxy = values["system_proxy"] as? Boolean ?: SettingsDefaults.SYSTEM_PROXY,
             appFilterMode = (values["app_filter_mode"] as? String)
                 ?.takeIf { it in setOf("ALL", "ALLOWED", "DISALLOWED") }
                 ?: SettingsDefaults.APP_FILTER_MODE,

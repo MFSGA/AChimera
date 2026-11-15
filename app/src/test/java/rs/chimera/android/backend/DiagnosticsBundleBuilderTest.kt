@@ -49,6 +49,8 @@ class DiagnosticsBundleBuilderTest {
         assertTrue(bundle.contains("memory_in_use_bytes=8192"))
         assertTrue(bundle.contains("memory_os_limit_bytes=16384"))
         assertTrue(bundle.contains("proxy_group_count=4"))
+        assertTrue(bundle.contains("service_active=true"))
+        assertTrue(bundle.contains("routes_system_traffic=false"))
         assertFalse(bundle.contains("private-profile-id"))
         assertFalse(bundle.contains("Alice private subscription"))
         assertFalse(bundle.contains("private.yaml"))

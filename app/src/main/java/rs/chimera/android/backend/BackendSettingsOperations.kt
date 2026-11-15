@@ -22,6 +22,9 @@ internal class BackendSettingsOperations(
         withContext(Dispatchers.IO) {
             val applyEffect = patch.requiredApplyEffect()
             val editor = preferences.edit()
+            patch.routeSystemTraffic?.let { editor.putBoolean("route_system_traffic", it) }
+            patch.dnsHijacking?.let { editor.putBoolean("dns_hijacking", it) }
+            patch.systemProxy?.let { editor.putBoolean("system_proxy", it) }
             patch.allowLan?.let { editor.putBoolean("allow_lan", it) }
             patch.allowBypass?.let { editor.putBoolean("allow_bypass", it) }
             patch.bypassPrivateNetwork?.let { editor.putBoolean("bypass_private_network", it) }

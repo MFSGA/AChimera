@@ -33,6 +33,9 @@ internal class PreferenceSettingsRepository(
     @Synchronized
     override fun update(patch: SettingsPatch) {
         prefs.edit {
+            patch.routeSystemTraffic?.let { putBoolean("route_system_traffic", it) }
+            patch.dnsHijacking?.let { putBoolean("dns_hijacking", it) }
+            patch.systemProxy?.let { putBoolean("system_proxy", it) }
             patch.allowLan?.let { putBoolean("allow_lan", it) }
             patch.allowBypass?.let { putBoolean("allow_bypass", it) }
             patch.bypassPrivateNetwork?.let { putBoolean("bypass_private_network", it) }

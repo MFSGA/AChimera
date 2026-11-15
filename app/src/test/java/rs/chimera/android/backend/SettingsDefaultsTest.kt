@@ -11,6 +11,9 @@ class SettingsDefaultsTest {
     fun resetPatch_restoresRuntimeDefaultsAndRebuildsTun() {
         val patch = SettingsDefaults.resetPatch()
 
+        assertEquals(SettingsDefaults.ROUTE_SYSTEM_TRAFFIC, patch.routeSystemTraffic)
+        assertEquals(SettingsDefaults.DNS_HIJACKING, patch.dnsHijacking)
+        assertEquals(SettingsDefaults.SYSTEM_PROXY, patch.systemProxy)
         assertEquals(false, patch.allowLan)
         assertEquals(SettingsDefaults.ALLOW_BYPASS, patch.allowBypass)
         assertEquals(SettingsDefaults.BYPASS_PRIVATE_NETWORK, patch.bypassPrivateNetwork)

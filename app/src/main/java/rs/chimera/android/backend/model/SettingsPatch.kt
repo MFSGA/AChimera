@@ -7,6 +7,9 @@ enum class SettingsApplyEffect {
 }
 
 data class SettingsPatch(
+    val routeSystemTraffic: Boolean? = null,
+    val dnsHijacking: Boolean? = null,
+    val systemProxy: Boolean? = null,
     val allowLan: Boolean? = null,
     val allowBypass: Boolean? = null,
     val bypassPrivateNetwork: Boolean? = null,
@@ -24,6 +27,9 @@ data class SettingsPatch(
     fun requiredApplyEffect(): SettingsApplyEffect =
         when {
             ipv6 != null ||
+                routeSystemTraffic != null ||
+                dnsHijacking != null ||
+                systemProxy != null ||
                 allowBypass != null ||
                 bypassPrivateNetwork != null ||
                 appFilterMode != null ||

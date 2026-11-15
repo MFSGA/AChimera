@@ -8,10 +8,16 @@ use crate::core_state::{
 };
 use crate::runtime_config::load_runtime_config;
 use crate::{FinalProfile, ProfileOverride, log_line};
-use clash_lib::{config::def::DNSMode, shutdown as clash_shutdown, start};
+use clash_lib::{
+    config::{
+        def::DNSMode,
+        internal::config::{DnsHijackAddress, DnsHijackProtocol, DnsHijackRule},
+    },
+    shutdown as clash_shutdown, start,
+};
 use ipnet::{IpNet, Ipv4Net, Ipv6Net};
 use std::fs::{self, File};
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -68,7 +74,7 @@ pub(crate) fn start_core_internal(
     if cache_dir.trim().is_empty() {
         return Err("cache dir is empty".to_string());
     }
-    if tun_fd <= 0 {
+    if over.tun_enabled && tun_fd <= 0 {
         return Err(format!("invalid tun fd: {tun_fd}"));
     }
     if over.log_file_path.trim().is_empty() {
@@ -128,29 +134,7 @@ pub(crate) fn start_core_internal(
 
     let (mut config, mixed_port) = load_runtime_config(&profile_path, &over)?;
 
-    config.tun.enable = true;
-    config.tun.device_id = format!("fd://{tun_fd}");
-    config.tun.route_all = false;
-    config.tun.routes = Vec::new();
-    config.tun.gateway = Ipv4Net::new(Ipv4Addr::new(10, 0, 0, 1), 30)
-        .map_err(|error| format!("failed to build tun gateway: {error}"))?;
-    config.tun.gateway_v6 = if over.ipv6 {
-        Some(
-            Ipv6Net::new(
-                "fdfe:dcba:9876::1"
-                    .parse::<Ipv6Addr>()
-                    .map_err(|error| format!("failed to parse tun IPv6 gateway: {error}"))?,
-                126,
-            )
-            .map_err(|error| format!("failed to build tun IPv6 gateway: {error}"))?,
-        )
-    } else {
-        None
-    };
-    config.tun.mtu = None;
-    config.tun.so_mark = None;
-    config.tun.route_table = 0;
-    config.tun.dns_hijack = true;
+    apply_tun_runtime_settings(&mut config, &over, tun_fd)?;
 
     config.general.ipv6 = over.ipv6;
     config.general.mmdb = Some("Country.mmdb".to_string());
@@ -257,4 +241,161 @@ pub(crate) fn start_core_internal(
     }
     log_line(&log_path, "clash core controller is ready");
     Ok(final_profile)
+}
+
+fn apply_tun_runtime_settings(
+    config: &mut clash_lib::config::RuntimeConfig,
+    over: &ProfileOverride,
+    tun_fd: i32,
+) -> Result<(), String> {
+    config.tun.enable = over.tun_enabled;
+    config.tun.dns_hijack = over.tun_enabled;
+    config.tun.dns_hijack_rules = if !over.tun_enabled {
+        Vec::new()
+    } else if over.dns_hijacking {
+        vec![
+            dns_hijack_rule(DnsHijackProtocol::Udp, DnsHijackAddress::Any),
+            dns_hijack_rule(DnsHijackProtocol::Tcp, DnsHijackAddress::Any),
+        ]
+    } else {
+        let mut rules = vec![
+            dns_hijack_rule(
+                DnsHijackProtocol::Udp,
+                DnsHijackAddress::Ip(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2))),
+            ),
+            dns_hijack_rule(
+                DnsHijackProtocol::Tcp,
+                DnsHijackAddress::Ip(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2))),
+            ),
+        ];
+        if over.ipv6 {
+            let dns_address = "fdfe:dcba:9876::2"
+                .parse::<Ipv6Addr>()
+                .map_err(|error| format!("failed to parse TUN IPv6 DNS address: {error}"))?;
+            rules.extend([
+                dns_hijack_rule(
+                    DnsHijackProtocol::Udp,
+                    DnsHijackAddress::Ip(IpAddr::V6(dns_address)),
+                ),
+                dns_hijack_rule(
+                    DnsHijackProtocol::Tcp,
+                    DnsHijackAddress::Ip(IpAddr::V6(dns_address)),
+                ),
+            ]);
+        }
+        rules
+    };
+    if !over.tun_enabled {
+        config.tun.device_id.clear();
+        config.tun.route_all = false;
+        config.tun.routes.clear();
+        config.tun.gateway_v6 = None;
+        return Ok(());
+    }
+
+    config.tun.device_id = format!("fd://{tun_fd}");
+    config.tun.route_all = false;
+    config.tun.routes = Vec::new();
+    config.tun.gateway = Ipv4Net::new(Ipv4Addr::new(10, 0, 0, 1), 30)
+        .map_err(|error| format!("failed to build tun gateway: {error}"))?;
+    config.tun.gateway_v6 = if over.ipv6 {
+        Some(
+            Ipv6Net::new(
+                "fdfe:dcba:9876::1"
+                    .parse::<Ipv6Addr>()
+                    .map_err(|error| format!("failed to parse tun IPv6 gateway: {error}"))?,
+                126,
+            )
+            .map_err(|error| format!("failed to build tun IPv6 gateway: {error}"))?,
+        )
+    } else {
+        None
+    };
+    config.tun.mtu = None;
+    config.tun.so_mark = None;
+    config.tun.route_table = 0;
+    Ok(())
+}
+
+fn dns_hijack_rule(protocol: DnsHijackProtocol, address: DnsHijackAddress) -> DnsHijackRule {
+    DnsHijackRule {
+        protocol,
+        address,
+        port: 53,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn profile_path() -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        std::env::temp_dir().join(format!("chimera-tun-settings-{nonce}.yaml"))
+    }
+
+    fn profile_override(tun_enabled: bool, dns_hijacking: bool) -> ProfileOverride {
+        ProfileOverride {
+            tun_fd: 1,
+            log_file_path: "chimera.log".to_string(),
+            tun_enabled,
+            dns_hijacking,
+            allow_lan: false,
+            mixed_port: 7890,
+            http_port: None,
+            socks_port: None,
+            fake_ip: false,
+            fake_ip_range: "198.18.0.2/16".to_string(),
+            ipv6: false,
+        }
+    }
+
+    #[test]
+    fn route_system_traffic_and_dns_hijacking_control_core_tun() {
+        let path = profile_path();
+        fs::write(
+            &path,
+            "mixed-port: 7890\nproxies: []\nproxy-groups: []\nrules: []\n",
+        )
+        .unwrap();
+        let (mut config, _) = load_runtime_config(&path, &profile_override(false, true)).unwrap();
+        apply_tun_runtime_settings(&mut config, &profile_override(false, true), 0).unwrap();
+        assert!(!config.tun.enable);
+        assert!(!config.tun.dns_hijack);
+        assert!(config.tun.dns_hijack_rules.is_empty());
+
+        let (mut config, _) = load_runtime_config(&path, &profile_override(true, false)).unwrap();
+        apply_tun_runtime_settings(&mut config, &profile_override(true, false), 43).unwrap();
+        assert!(config.tun.enable);
+        assert_eq!("fd://43", config.tun.device_id);
+        assert!(config.tun.dns_hijack);
+        assert_eq!(2, config.tun.dns_hijack_rules.len());
+        assert!(config.tun.dns_hijack_rules.iter().all(|rule| {
+            rule.address == DnsHijackAddress::Ip(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)))
+        }));
+
+        let (mut config, _) = load_runtime_config(&path, &profile_override(true, true)).unwrap();
+        apply_tun_runtime_settings(&mut config, &profile_override(true, true), 43).unwrap();
+        assert!(config.tun.dns_hijack);
+        assert_eq!(
+            vec![
+                DnsHijackRule {
+                    protocol: DnsHijackProtocol::Udp,
+                    address: DnsHijackAddress::Any,
+                    port: 53,
+                },
+                DnsHijackRule {
+                    protocol: DnsHijackProtocol::Tcp,
+                    address: DnsHijackAddress::Any,
+                    port: 53,
+                },
+            ],
+            config.tun.dns_hijack_rules
+        );
+        let _ = fs::remove_file(path);
+    }
 }
