@@ -548,12 +548,12 @@ class ChimeraBackendImpl(
             }
         } ?: return initializeCore {}
 
-        val attempt = profileUpdateCoordinator.tryWithLockResult(candidate.id) {
+        return profileUpdateCoordinator.withLock(candidate.id) {
             val profile = withContext(Dispatchers.IO) {
                 profileCatalogReader.readProfiles().firstOrNull { current ->
                     current.id == candidate.id && pathsReferToSameFile(current.filePath, profilePath)
                 }
-            } ?: return@tryWithLockResult initializeCore {}
+            } ?: return@withLock initializeCore {}
 
             var initialized = false
             try {
@@ -581,17 +581,6 @@ class ChimeraBackendImpl(
                 throw error
             }.also {
                 if (!initialized) loadedCoreProfileRevision = null
-            }
-        }
-        return when (attempt) {
-            is ProfileUpdateLockAttempt.Acquired -> attempt.value
-            ProfileUpdateLockAttempt.Busy -> {
-                PrivacySafeLog.warningDetail(
-                    TAG,
-                    "Skipped proxy selection restore while profile update is in progress",
-                    "profileId=${candidate.id}",
-                )
-                initializeCore {}
             }
         }
     }

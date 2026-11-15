@@ -12,6 +12,7 @@ import rs.chimera.android.Global
 import rs.chimera.android.backend.BackendRuntimeState
 import rs.chimera.android.backend.model.ServiceState
 import rs.chimera.android.ui.preferences.AppPreferences
+import rs.chimera.android.settings.SettingsProvider
 
 internal object VpnRecoveryBroadcastPolicy {
     fun isSupported(action: String?): Boolean =
@@ -31,7 +32,11 @@ class VpnRecoveryReceiver : BroadcastReceiver() {
             VpnRecoveryPolicy.decide(
                 snapshot = store.snapshot(),
                 profileAvailable = Global.restoreProfilePath().isNotBlank(),
-                permissionGranted = VpnService.prepare(context) == null,
+                permissionGranted =
+                    !VpnPermissionPolicy.isRequired(
+                        SettingsProvider.provide(context).snapshot().routeSystemTraffic,
+                    ) ||
+                        VpnService.prepare(context) == null,
             )
         ) {
             VpnRecoveryDecision.RESTORE -> restore(context, action.orEmpty())

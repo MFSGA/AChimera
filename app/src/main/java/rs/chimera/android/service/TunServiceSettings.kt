@@ -14,13 +14,15 @@ internal object TunServiceSettingsLoader {
         SettingsProvider.provide(context).snapshot()
 
     fun createProfileOverride(
-        currentTunFd: Int,
+        currentTunFd: Int?,
         settings: TunServiceSettings,
         logFilePath: String,
     ): ProfileOverride =
         ProfileOverride(
-            tunFd = currentTunFd,
+            tunFd = currentTunFd ?: 0,
             logFilePath = logFilePath,
+            tunEnabled = settings.routeSystemTraffic,
+            dnsHijacking = settings.dnsHijacking,
             allowLan = settings.allowLan,
             mixedPort = settings.mixedPort,
             httpPort = settings.httpPort,

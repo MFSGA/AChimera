@@ -7,6 +7,7 @@ import android.net.NetworkRequest
 import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.util.runCatchingRecoverable
 import java.util.concurrent.atomic.AtomicLong
+import rs.chimera.android.backend.model.ServiceState
 
 internal enum class UnderlyingNetworkTransport(val priority: Int) {
     ETHERNET(4),
@@ -55,6 +56,12 @@ internal object UnderlyingNetworkPolicy {
     private const val ACTIVE_UNVALIDATED_SCORE = 100
 }
 
+internal object NetworkResetServiceStatePolicy {
+    fun shouldWaitForStartup(state: ServiceState): Boolean = state == ServiceState.STARTING
+
+    fun shouldReset(state: ServiceState): Boolean = state == ServiceState.RUNNING
+}
+
 internal data class UnderlyingNetworkTransition(
     val previousPrimary: Long?,
     val currentPrimary: Long?,
@@ -100,7 +107,8 @@ internal class UnderlyingNetworkChangeTracker {
 
 internal class UnderlyingNetworkCoordinator(
     private val connectivityManager: ConnectivityManager,
-    private val applyNetworks: (Array<Network>?) -> Boolean,
+    // Null keeps observing/resetting the core without asking Android to bind VPN networks.
+    private val applyNetworks: ((Array<Network>?) -> Boolean)?,
     private val onPrimaryNetworkChanged: () -> Unit,
 ) {
     private val capabilitiesByNetwork = LinkedHashMap<Network, NetworkCapabilities>()
@@ -200,11 +208,12 @@ internal class UnderlyingNetworkCoordinator(
         if (handles == lastAppliedHandles) return
 
         val networksToApply = UnderlyingNetworkPolicy.explicitOrDefault(orderedNetworks)?.toTypedArray()
-        val applied =
-            runCatchingRecoverable { applyNetworks(networksToApply) }
+        val applied = applyNetworks?.let { apply ->
+            runCatchingRecoverable { apply(networksToApply) }
                 .onFailure { error ->
                     PrivacySafeLog.warning(TAG, "Failed to apply underlying networks", error, debugDetail = reason)
                 }.getOrDefault(false)
+        } ?: true
         if (!applied) return
 
         lastAppliedHandles = handles

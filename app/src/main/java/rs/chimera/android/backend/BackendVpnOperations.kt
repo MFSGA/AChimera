@@ -13,7 +13,9 @@ import rs.chimera.android.ffi.shutdownClash
 import rs.chimera.android.service.TunService
 import rs.chimera.android.service.VpnDesiredStateReason
 import rs.chimera.android.service.VpnDesiredStateStore
+import rs.chimera.android.service.VpnPermissionPolicy
 import rs.chimera.android.service.VpnRuntimeRegistry
+import rs.chimera.android.settings.SettingsProvider
 import rs.chimera.android.util.toUserVisibleMessage
 
 internal class BackendVpnOperations(
@@ -31,7 +33,15 @@ internal class BackendVpnOperations(
             )
         }
 
-        val intent = VpnService.prepare(context)
+        val intent = if (
+            VpnPermissionPolicy.isRequired(
+                SettingsProvider.provide(context).snapshot().routeSystemTraffic,
+            )
+        ) {
+            VpnService.prepare(context)
+        } else {
+            null
+        }
         return if (intent != null) {
             StartVpnResult.Prepared(intent)
         } else {

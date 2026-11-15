@@ -7,6 +7,12 @@ import org.junit.Test
 
 class VpnRecoveryPolicyTest {
     @Test
+    fun vpnPermissionIsRequiredOnlyForSystemTrafficRouting() {
+        assertTrue(VpnPermissionPolicy.isRequired(routeSystemTraffic = true))
+        assertFalse(VpnPermissionPolicy.isRequired(routeSystemTraffic = false))
+    }
+
+    @Test
     fun recoveryReceiverAcceptsOnlySystemRecoveryActions() {
         assertTrue(VpnRecoveryBroadcastPolicy.isSupported("android.intent.action.BOOT_COMPLETED"))
         assertTrue(VpnRecoveryBroadcastPolicy.isSupported("android.intent.action.MY_PACKAGE_REPLACED"))
@@ -50,6 +56,19 @@ class VpnRecoveryPolicyTest {
                 snapshot = stoppedSnapshot(),
                 profileAvailable = true,
                 permissionGranted = true,
+            ),
+        )
+    }
+
+    @Test
+    fun systemAlwaysOnCanStartEvenWhenPersistedStateWasStopped() {
+        assertEquals(
+            VpnRecoveryDecision.RESTORE,
+            VpnRecoveryPolicy.decide(
+                snapshot = stoppedSnapshot(),
+                profileAvailable = true,
+                permissionGranted = true,
+                systemAlwaysOnEnabled = true,
             ),
         )
     }

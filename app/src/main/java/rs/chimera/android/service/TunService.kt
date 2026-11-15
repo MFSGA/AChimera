@@ -3,6 +3,7 @@ package rs.chimera.android.service
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.net.ConnectivityManager
+import android.net.ProxyInfo
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -29,8 +31,11 @@ import rs.chimera.android.util.PrivacySafeLog
 import rs.chimera.android.util.runCatchingRecoverable
 import rs.chimera.android.util.sanitizeUserVisibleErrorText
 import rs.chimera.android.util.toUserVisibleMessage
+import rs.chimera.android.ffi.ProfileProxyEndpoint
 import rs.chimera.android.ffi.initClash
+import rs.chimera.android.ffi.profileProxyEndpoint
 import rs.chimera.android.ffi.shutdownClash
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TunService : VpnService(), VpnRuntimeControl {
     private var vpnInterface: ParcelFileDescriptor? = null
@@ -43,13 +48,21 @@ class TunService : VpnService(), VpnRuntimeControl {
     private val desiredStateStore by lazy { VpnDesiredStateStore(this) }
     private val networkResetMutex = Mutex()
     private val networkResetGeneration = NetworkResetGeneration()
+    private val lockdownRouteRestartScheduled = AtomicBoolean(false)
+
+    @Volatile
+    private var systemAlwaysOnStartObserved = false
+
     private var networkCoordinator: UnderlyingNetworkCoordinator? = null
     private val cleanupCoordinator by lazy {
         VpnRuntimeCleanupCoordinator(
             lifecycleGate = lifecycleGate,
             runtimeControl = this,
             releaseRuntime = ::releaseRuntime,
-            publishVpnInactive = { publishVpnSystemStatus(serviceActive = false) },
+            publishVpnInactive = {
+                systemAlwaysOnStartObserved = false
+                publishVpnSystemStatus(serviceActive = false, routesSystemTraffic = false)
+            },
             formatReleaseFailure = { failure ->
                 failure.toUserVisibleMessage(
                     this,
@@ -65,7 +78,16 @@ class TunService : VpnService(), VpnRuntimeControl {
         flags: Int,
         startId: Int,
     ): Int {
-        restoreRuntimeRequestIfEligible()
+        val systemAlwaysOnStart = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+            intent?.action == VpnService.SERVICE_INTERFACE
+        systemAlwaysOnStartObserved =
+            systemAlwaysOnStart ||
+                (
+                    BackendRuntimeState.serviceState.value == ServiceState.STARTING &&
+                        systemAlwaysOnStartObserved
+                )
+        val systemModes = readVpnSystemModes(systemAlwaysOnStartObserved)
+        restoreRuntimeRequestIfEligible(systemModes.alwaysOn)
         if (!VpnRuntimeRegistry.shouldRun) {
             Log.i(TAG, "Discarding cancelled VPN start request")
             appendRuntimeLog("discarded cancelled vpn start request")
@@ -74,10 +96,41 @@ class TunService : VpnService(), VpnRuntimeControl {
             return START_NOT_STICKY
         }
 
+        val effectiveSettings = effectiveTunSettings(
+            settings = TunServiceSettingsLoader.load(this),
+            systemLockdownEnabled = systemModes.lockdown,
+        )
         val shouldStart = lifecycleGate.requestStart()
         if (!shouldStart) {
-            Log.i(TAG, "Ignoring duplicate VPN start request")
-            appendRuntimeLog("ignored duplicate vpn start request")
+            val currentServiceState = BackendRuntimeState.serviceState.value
+            val serviceActive = currentServiceState == ServiceState.STARTING ||
+                currentServiceState == ServiceState.RUNNING
+            publishVpnSystemStatus(
+                serviceActive = serviceActive,
+                routesSystemTraffic = effectiveSettings.routeSystemTraffic,
+            )
+            val shouldRestoreTunnel = VpnSystemStatusPolicy.shouldRestartForSystemTrafficRouting(
+                serviceActive = serviceActive,
+                tunnelActive = vpnInterface != null,
+                shouldRouteSystemTraffic = effectiveSettings.routeSystemTraffic,
+            )
+            if (shouldRestoreTunnel && lockdownRouteRestartScheduled.compareAndSet(false, true)) {
+                appendRuntimeLog("Android Lockdown requires restoring the VPN traffic route")
+                serviceScope.launch {
+                    try {
+                        restartVpnForSystemRouting()
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        appendRuntimeLog("failed to restore vpn route for Android Lockdown", error)
+                    } finally {
+                        lockdownRouteRestartScheduled.set(false)
+                    }
+                }
+            } else {
+                Log.i(TAG, "Ignoring duplicate VPN start request")
+                appendRuntimeLog("ignored duplicate vpn start request")
+            }
             return START_STICKY
         }
 
@@ -89,7 +142,10 @@ class TunService : VpnService(), VpnRuntimeControl {
             requestLifecycleCleanup(stopService = true)
             return START_NOT_STICKY
         }
-        publishVpnSystemStatus(serviceActive = true)
+        publishVpnSystemStatus(
+            serviceActive = true,
+            routesSystemTraffic = effectiveSettings.routeSystemTraffic,
+        )
         BackendRuntimeState.updateServiceState(ServiceState.STARTING)
 
         val job = serviceScope.launch(start = CoroutineStart.LAZY) {
@@ -141,19 +197,31 @@ class TunService : VpnService(), VpnRuntimeControl {
         super.onDestroy()
     }
 
-    private fun restoreRuntimeRequestIfEligible() {
+    private fun restoreRuntimeRequestIfEligible(systemAlwaysOnEnabled: Boolean) {
         if (VpnRuntimeRegistry.shouldRun) return
+
+        val settings = effectiveTunSettings(TunServiceSettingsLoader.load(this))
+        val desiredState = desiredStateStore.snapshot()
 
         when (
             VpnRecoveryPolicy.decide(
-                snapshot = desiredStateStore.snapshot(),
+                snapshot = desiredState,
                 profileAvailable = Global.restoreProfilePath().isNotBlank(),
-                permissionGranted = VpnService.prepare(this) == null,
+                permissionGranted =
+                    !VpnPermissionPolicy.isRequired(settings.routeSystemTraffic) ||
+                        VpnService.prepare(this) == null,
+                systemAlwaysOnEnabled = systemAlwaysOnEnabled,
             )
         ) {
             VpnRecoveryDecision.RESTORE -> {
                 VpnRuntimeRegistry.requestStart()
-                appendRuntimeLog("restored persisted vpn run request")
+                appendRuntimeLog(
+                    if (desiredState.shouldRun) {
+                        "restored persisted vpn run request"
+                    } else {
+                        "accepted Android Always-on vpn start request"
+                    },
+                )
             }
 
             VpnRecoveryDecision.BLOCK_MISSING_PROFILE -> {
@@ -183,27 +251,15 @@ class TunService : VpnService(), VpnRuntimeControl {
         backend.awaitReady()
         currentCoroutineContext().ensureActive()
         val profilePath = TunRuntimeFiles.resolveProfilePath(this)
-        val settings = TunServiceSettingsLoader.load(this)
+        val configuredSettings = TunServiceSettingsLoader.load(this)
+        val settings = effectiveTunSettings(configuredSettings)
+        if (!configuredSettings.routeSystemTraffic && settings.routeSystemTraffic) {
+            appendRuntimeLog("Android Lockdown requires routing system traffic through the VPN")
+        }
         currentCoroutineContext().ensureActive()
         appendRuntimeLog(
             "service preparing vpn for profile: ${RuntimeLogSanitizer.profileLabel(profilePath)}",
         )
-        val interfaceFd = buildTunnel(settings)
-        if (interfaceFd == null) {
-            error("Failed to establish VPN interface")
-        }
-        vpnInterface = interfaceFd
-        startUnderlyingNetworkTracking()
-        currentCoroutineContext().ensureActive()
-        val currentTunFd = duplicateTunFdForRust(interfaceFd)
-        tunFd = currentTunFd
-        if (currentTunFd <= 0) {
-            closeDetachedTunFd(currentTunFd)
-            tunFd = null
-            error("Invalid tun fd: $currentTunFd")
-        }
-
-        currentCoroutineContext().ensureActive()
         val workDirectory = ProfileRuntimeDirectoryPolicy.directory(
             cacheDirectory = Global.application.cacheDir,
             profilePath = profilePath,
@@ -218,12 +274,43 @@ class TunService : VpnService(), VpnRuntimeControl {
         )
         currentCoroutineContext().ensureActive()
 
+        var currentTunFd: Int? = null
         val startResult = backend.withCoreProfileLoad(profilePath) { restoreSelections ->
+            val systemProxyRequested =
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q &&
+                settings.routeSystemTraffic &&
+                settings.systemProxy
+            val systemProxyEndpoint = if (systemProxyRequested) {
+                profileProxyEndpoint(profilePath, settings.mixedPort).getOrThrow()
+            } else {
+                null
+            }
+            if (systemProxyRequested && systemProxyEndpoint == null) {
+                appendRuntimeLog("system proxy skipped: profile mixed-port is dynamic")
+            }
+            val interfaceFd = if (settings.routeSystemTraffic) {
+                buildTunnel(settings, systemProxyEndpoint)
+                    ?: error("Failed to establish VPN interface")
+            } else {
+                null
+            }
+            vpnInterface = interfaceFd
+            startUnderlyingNetworkTracking(applyNetworksToVpn = interfaceFd != null)
+            currentCoroutineContext().ensureActive()
+            val resolvedTunFd = interfaceFd?.let(::duplicateTunFdForRust)
+            currentTunFd = resolvedTunFd
+            tunFd = resolvedTunFd
+            if (resolvedTunFd != null && resolvedTunFd <= 0) {
+                closeDetachedTunFd(resolvedTunFd)
+                tunFd = null
+                error("Invalid tun fd: $resolvedTunFd")
+            }
+
             initClash(
                 configPath = profilePath,
                 workDir = workDirectory.absolutePath,
                 over = TunServiceSettingsLoader.createProfileOverride(
-                    currentTunFd = currentTunFd,
+                    currentTunFd = resolvedTunFd,
                     settings = settings,
                     logFilePath = "${Global.application.cacheDir}/chimera-rs.log",
                 ),
@@ -233,7 +320,7 @@ class TunService : VpnService(), VpnRuntimeControl {
         }
         currentCoroutineContext().ensureActive()
         if (startResult.isFailure) {
-            closeDetachedTunFd(currentTunFd)
+            currentTunFd?.let(::closeDetachedTunFd)
             tunFd = null
             throw startResult.exceptionOrNull()
                 ?: IllegalStateException("Failed to initialize Rust core")
@@ -247,10 +334,17 @@ class TunService : VpnService(), VpnRuntimeControl {
         appendRuntimeLog("service rust core started on mixed-port=${finalProfile.mixedPort}")
         NotificationHelper.notifyRunning(this)
         BackendRuntimeState.updateServiceState(ServiceState.RUNNING)
+        publishVpnSystemStatus(
+            serviceActive = true,
+            routesSystemTraffic = settings.routeSystemTraffic,
+        )
         trafficNotificationJob = TrafficNotificationUpdater(this, backend).start(serviceScope)
     }
 
-    private fun buildTunnel(settings: TunServiceSettings): ParcelFileDescriptor? {
+    private fun buildTunnel(
+        settings: TunServiceSettings,
+        systemProxyEndpoint: ProfileProxyEndpoint?,
+    ): ParcelFileDescriptor? {
         val builder = Builder()
         builder.setSession("ClashRS VPNService")
         builder.addAddress(TUN_GATEWAY_V4, TUN_PREFIX_V4)
@@ -274,16 +368,31 @@ class TunService : VpnService(), VpnRuntimeControl {
         if (settings.allowBypass) {
             builder.allowBypass()
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && settings.systemProxy) {
+            systemProxyEndpoint?.let { endpoint ->
+                builder.setHttpProxy(
+                    ProxyInfo.buildDirectProxy(
+                        endpoint.host,
+                        endpoint.port.toInt(),
+                        systemProxyExclusions(settings.bypassPrivateNetwork),
+                    ),
+                )
+            }
+        }
         return builder.establish()
     }
 
-    private fun startUnderlyingNetworkTracking() {
+    private fun systemProxyExclusions(bypassPrivateNetwork: Boolean): List<String> =
+        SYSTEM_PROXY_DOMAIN_EXCLUSIONS +
+            if (bypassPrivateNetwork) SYSTEM_PROXY_LOCAL_EXCLUSIONS else emptyList()
+
+    private fun startUnderlyingNetworkTracking(applyNetworksToVpn: Boolean) {
         networkResetGeneration.invalidate()
         networkCoordinator?.stop()
         networkCoordinator =
             UnderlyingNetworkCoordinator(
                 connectivityManager = getSystemService(ConnectivityManager::class.java),
-                applyNetworks = ::setUnderlyingNetworks,
+                applyNetworks = if (applyNetworksToVpn) ::setUnderlyingNetworks else null,
                 onPrimaryNetworkChanged = ::handleUnderlyingNetworkChange,
             ).also(UnderlyingNetworkCoordinator::start)
     }
@@ -292,9 +401,16 @@ class TunService : VpnService(), VpnRuntimeControl {
         val generation = networkResetGeneration.next()
         appendRuntimeLog("underlying network changed")
         serviceScope.launch {
-            if (BackendRuntimeState.serviceState.value != ServiceState.RUNNING) return@launch
+            val serviceState = BackendRuntimeState.serviceState.first {
+                !NetworkResetServiceStatePolicy.shouldWaitForStartup(it)
+            }
+            if (!NetworkResetServiceStatePolicy.shouldReset(serviceState)) return@launch
             networkResetMutex.withLock {
-                if (BackendRuntimeState.serviceState.value != ServiceState.RUNNING) return@withLock
+                if (
+                    !NetworkResetServiceStatePolicy.shouldReset(
+                        BackendRuntimeState.serviceState.value,
+                    )
+                ) return@withLock
                 if (!networkResetGeneration.isLatest(generation)) return@withLock
                 try {
                     backend.resetNetwork()
@@ -327,26 +443,60 @@ class TunService : VpnService(), VpnRuntimeControl {
             }
     }
 
-    private fun publishVpnSystemStatus(serviceActive: Boolean) {
-        val previous = BackendRuntimeState.vpnSystemStatus.value
-        val status = if (serviceActive) {
-            VpnSystemStatusPolicy.observed(
-                apiLevel = Build.VERSION.SDK_INT,
-                serviceActive = true,
-                alwaysOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAlwaysOn,
-                lockdown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isLockdownEnabled,
-                observedAt = System.currentTimeMillis(),
-            )
-        } else {
-            VpnSystemStatusPolicy.inactive(previous)
-        }
+    private fun publishVpnSystemStatus(
+        serviceActive: Boolean,
+        routesSystemTraffic: Boolean,
+    ) {
+        val systemModes = readVpnSystemModes()
+        val status = VpnSystemStatusPolicy.observed(
+            apiLevel = Build.VERSION.SDK_INT,
+            serviceActive = serviceActive,
+            routesSystemTraffic = routesSystemTraffic,
+            alwaysOn = systemModes.alwaysOn,
+            lockdown = systemModes.lockdown,
+            observedAt = System.currentTimeMillis(),
+        )
         BackendRuntimeState.updateVpnSystemStatus(status)
-        if (serviceActive) {
-            appendRuntimeLog(
-                "vpn system status observed: always_on=${status.alwaysOn} lockdown=${status.lockdown}",
-            )
+        appendRuntimeLog(
+            "vpn system status observed: active=${status.serviceActive} " +
+                "routes_system_traffic=${status.routesSystemTraffic} " +
+                "always_on=${status.alwaysOn} lockdown=${status.lockdown}",
+        )
+    }
+
+    private fun effectiveTunSettings(settings: TunServiceSettings): TunServiceSettings {
+        return effectiveTunSettings(
+            settings = settings,
+            systemLockdownEnabled = readVpnSystemModes(
+                systemAlwaysOnStart = systemAlwaysOnStartObserved,
+            ).lockdown,
+        )
+    }
+
+    private fun effectiveTunSettings(
+        settings: TunServiceSettings,
+        systemLockdownEnabled: Boolean,
+    ): TunServiceSettings {
+        val routeSystemTraffic = VpnSystemStatusPolicy.shouldRouteSystemTraffic(
+            apiLevel = Build.VERSION.SDK_INT,
+            configured = settings.routeSystemTraffic,
+            lockdown = systemLockdownEnabled,
+        )
+        return if (routeSystemTraffic == settings.routeSystemTraffic) {
+            settings
+        } else {
+            settings.copy(routeSystemTraffic = routeSystemTraffic)
         }
     }
+
+    private fun readVpnSystemModes(
+        systemAlwaysOnStart: Boolean = systemAlwaysOnStartObserved,
+    ): VpnSystemModes = VpnSystemModeReader.read(
+        context = this,
+        frameworkAlwaysOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAlwaysOn,
+        frameworkLockdown = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isLockdownEnabled,
+        systemAlwaysOnStart = systemAlwaysOnStart,
+    )
 
     private fun ensureForegroundService() {
         NotificationHelper.ensureChannel(this)
@@ -429,12 +579,36 @@ class TunService : VpnService(), VpnRuntimeControl {
     }
 
     override suspend fun restartVpn() {
+        restartVpn(restartOnlyIfSystemRoutingIsMissing = false)
+    }
+
+    private suspend fun restartVpnForSystemRouting() {
+        restartVpn(restartOnlyIfSystemRoutingIsMissing = true)
+    }
+
+    private suspend fun restartVpn(restartOnlyIfSystemRoutingIsMissing: Boolean) {
         check(lifecycleGate.canRunRuntime()) { "VPN service is stopping" }
 
         var coreShutdownFailed = false
         try {
             runtimeMutex.withLock {
                 check(lifecycleGate.canRunRuntime()) { "VPN service is stopping" }
+                if (restartOnlyIfSystemRoutingIsMissing) {
+                    val routeSystemTraffic = effectiveTunSettings(
+                        TunServiceSettingsLoader.load(this),
+                    ).routeSystemTraffic
+                    val shouldRestoreRoute =
+                        VpnSystemStatusPolicy.shouldRestartForSystemTrafficRoutingAfterStartup(
+                            serviceRunning =
+                                BackendRuntimeState.serviceState.value == ServiceState.RUNNING,
+                            tunnelActive = vpnInterface != null,
+                            shouldRouteSystemTraffic = routeSystemTraffic,
+                        )
+                    if (!shouldRestoreRoute) {
+                        appendRuntimeLog("skipped Lockdown route restart; current tunnel is sufficient")
+                        return@withLock
+                    }
+                }
                 BackendRuntimeState.updateServiceState(ServiceState.STOPPING)
                 appendRuntimeLog("service runtime reload requested")
                 ensureForegroundService()
@@ -520,9 +694,30 @@ class TunService : VpnService(), VpnRuntimeControl {
         }
     }
 
-    override fun protectSocket(fd: Int): Boolean = protect(fd)
+    override fun protectSocket(fd: Int): Boolean = vpnInterface == null || protect(fd)
 
     private companion object {
         const val TAG = "ChimeraTunService"
+        val SYSTEM_PROXY_DOMAIN_EXCLUSIONS = listOf(
+            "*zhihu.com",
+            "*zhimg.com",
+            "*jd.com",
+            "100ime-iat-api.xfyun.cn",
+            "*360buyimg.com",
+        )
+        val SYSTEM_PROXY_LOCAL_EXCLUSIONS = listOf(
+            "localhost",
+            "*.local",
+            "127.*",
+            "10.*",
+            "172.16.*",
+            "172.17.*",
+            "172.18.*",
+            "172.19.*",
+            "172.2*",
+            "172.30.*",
+            "172.31.*",
+            "192.168.*",
+        )
     }
 }

@@ -5,6 +5,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import rs.chimera.android.backend.model.ServiceState
 
 class UnderlyingNetworkCoordinatorTest {
     @Test
@@ -91,6 +92,15 @@ class UnderlyingNetworkCoordinatorTest {
         generation.invalidate()
 
         assertFalse(generation.isLatest(request))
+    }
+
+    @Test
+    fun networkResetWaitsUntilStartupFinishesAndRunsOnlyForARunningService() {
+        assertTrue(NetworkResetServiceStatePolicy.shouldWaitForStartup(ServiceState.STARTING))
+        assertFalse(NetworkResetServiceStatePolicy.shouldReset(ServiceState.STARTING))
+        assertFalse(NetworkResetServiceStatePolicy.shouldWaitForStartup(ServiceState.RUNNING))
+        assertTrue(NetworkResetServiceStatePolicy.shouldReset(ServiceState.RUNNING))
+        assertFalse(NetworkResetServiceStatePolicy.shouldReset(ServiceState.STOPPED))
     }
 
     @Test
